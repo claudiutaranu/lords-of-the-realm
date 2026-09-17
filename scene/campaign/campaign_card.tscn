@@ -1,0 +1,136 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/UI/CampaignCard.cs" id="1_script"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_card"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_infopanel"]
+content_margin_left = 18.0
+content_margin_top = 9.0
+content_margin_right = 18.0
+content_margin_bottom = 11.0
+bg_color = Color(0.031, 0.027, 0.035, 0.85)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
+[sub_resource type="Gradient" id="Gradient_dust"]
+colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 0)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_dust"]
+gradient = SubResource("Gradient_dust")
+width = 10
+height = 26
+fill = 1
+fill_from = Vector2(0.5, 0.5)
+fill_to = Vector2(0.5, 1)
+
+[sub_resource type="Gradient" id="Gradient_dustFade"]
+offsets = PackedFloat32Array(0, 0.6, 1)
+colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 0.85, 1, 1, 1, 0)
+
+[node name="CampaignCard" type="PanelContainer"]
+custom_minimum_size = Vector2(320, 0)
+mouse_filter = 1
+focus_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxEmpty_card")
+script = ExtResource("1_script")
+
+[node name="Glow" type="Node2D" parent="."]
+unique_name_in_owner = true
+position = Vector2(160, 250)
+modulate = Color(1, 1, 1, 0)
+
+[node name="Far" type="CPUParticles2D" parent="Glow"]
+unique_name_in_owner = true
+emitting = false
+amount = 170
+lifetime = 2.0
+randomness = 0.6
+speed_scale = 1.0
+emission_shape = 3
+emission_rect_extents = Vector2(150, 230)
+direction = Vector2(0, -1)
+spread = 28.0
+angle_min = -12.0
+angle_max = 12.0
+gravity = Vector2(0, -25)
+initial_velocity_min = 35.0
+initial_velocity_max = 80.0
+scale_amount_min = 0.9
+scale_amount_max = 1.7
+hue_variation_min = -0.02
+hue_variation_max = 0.04
+color_ramp = SubResource("Gradient_dustFade")
+texture = SubResource("GradientTexture2D_dust")
+
+[node name="Near" type="CPUParticles2D" parent="Glow"]
+unique_name_in_owner = true
+emitting = false
+amount = 230
+lifetime = 1.1
+randomness = 0.5
+speed_scale = 1.0
+emission_shape = 3
+emission_rect_extents = Vector2(145, 230)
+direction = Vector2(0, -1)
+spread = 18.0
+angle_min = -8.0
+angle_max = 8.0
+gravity = Vector2(0, -40)
+initial_velocity_min = 90.0
+initial_velocity_max = 190.0
+scale_amount_min = 0.5
+scale_amount_max = 1.1
+hue_variation_min = -0.03
+hue_variation_max = 0.05
+color_ramp = SubResource("Gradient_dustFade")
+texture = SubResource("GradientTexture2D_dust")
+
+[node name="Content" type="VBoxContainer" parent="."]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 0
+
+[node name="Portrait" type="TextureRect" parent="Content"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 480)
+layout_mode = 2
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="TitleOverlay" type="Label" parent="Content/Portrait"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.0
+anchor_top = 0.51
+anchor_right = 1.0
+anchor_bottom = 0.59
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.929, 0.898, 0.839, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 7
+theme_override_font_sizes/font_size = 20
+text = "Campaign Title"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+
+[node name="InfoPanel" type="PanelContainer" parent="Content"]
+layout_mode = 2
+size_flags_horizontal = 4
+custom_minimum_size = Vector2(280, 0)
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_infopanel")
+
+[node name="Lords" type="Label" parent="Content/InfoPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.78, 0.729, 0.6, 1)
+theme_override_font_sizes/font_size = 16
+text = "Lords: 0"
+horizontal_alignment = 1

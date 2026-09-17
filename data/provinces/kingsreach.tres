@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="ProvinceDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/Economy/ProvinceDefinition.cs" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+ProvinceName = "Kingsreach"
+InitialPopulation = 900
+GrainWorkerCapacity = 90
+CattleWorkerCapacity = 40
+WoodWorkerCapacity = 50
+StoneWorkerCapacity = 50
+IronWorkerCapacity = 30
+GrainModifier = 1.1
+CattleModifier = 1.0
+WoodModifier = 1.0
+StoneModifier = 1.1
+IronModifier = 0.9
+InitialGold = 800
+InitialGrain = 400
+InitialCattle = 60
+InitialWood = 250
+InitialStone = 220
+InitialIron = 90

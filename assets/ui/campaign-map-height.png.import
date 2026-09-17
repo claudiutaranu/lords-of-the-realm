@@ -1,0 +1,14 @@
+[remap]
+
+importer="image"
+type="Image"
+uid="uid://5rag4rfo35ei"
+path="res://.godot/imported/campaign-map-height.png-6315fd12265356665f5dc7ea398db498.image"
+
+[deps]
+
+source_file="res://assets/ui/campaign-map-height.png"
+dest_files=["res://.godot/imported/campaign-map-height.png-6315fd12265356665f5dc7ea398db498.image"]
+
+[params]
+

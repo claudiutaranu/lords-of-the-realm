@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="ProvinceDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/Economy/ProvinceDefinition.cs" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+ProvinceName = "Farrowmere"
+InitialPopulation = 780
+GrainWorkerCapacity = 100
+CattleWorkerCapacity = 55
+WoodWorkerCapacity = 35
+StoneWorkerCapacity = 25
+IronWorkerCapacity = 15
+GrainModifier = 1.3
+CattleModifier = 1.25
+WoodModifier = 0.9
+StoneModifier = 0.7
+IronModifier = 0.5
+InitialGold = 420
+InitialGrain = 460
+InitialCattle = 80
+InitialWood = 190
+InitialStone = 110
+InitialIron = 40

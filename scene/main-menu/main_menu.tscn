@@ -1,0 +1,134 @@
+[gd_scene load_steps=6 format=3 uid="uid://crobhea020v3x"]
+
+[ext_resource type="Script" uid="uid://b7d5xdma2m0ye" path="res://scripts/UI/MainMenu.cs" id="1_fvxcm"]
+[ext_resource type="VideoStream" path="res://assets/video/menu-background.ogv" id="2_bg"]
+[ext_resource type="Theme" path="res://theme/main-menu.tres" id="3_theme"]
+[ext_resource type="Texture2D" path="res://assets/ui/logo.png" id="4_logo"]
+[ext_resource type="StyleBoxTexture" path="res://theme/ornate-frame.tres" id="5_frame"]
+[ext_resource type="Texture2D" path="res://assets/ui/menu-background-still.png" id="6_bg_still"]
+
+[node name="MainMenu" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("3_theme")
+script = ExtResource("1_fvxcm")
+
+[node name="BackgroundStill" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("6_bg_still")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="Background" type="VideoStreamPlayer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+stream = ExtResource("2_bg")
+expand = true
+bus = "SFX"
+
+[node name="BannerSlot" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = -1
+anchor_bottom = 1.0
+offset_left = 64.0
+offset_top = 22.0
+offset_right = 474.0
+offset_bottom = -22.0
+grow_vertical = 2
+
+[node name="Banner" type="PanelContainer" parent="BannerSlot"]
+custom_minimum_size = Vector2(410, 0)
+layout_mode = 2
+theme_override_styles/panel = ExtResource("5_frame")
+
+[node name="Margin" type="MarginContainer" parent="BannerSlot/Banner"]
+layout_mode = 2
+theme_override_constants/margin_left = 21
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 21
+theme_override_constants/margin_bottom = 24
+
+[node name="Content" type="VBoxContainer" parent="BannerSlot/Banner/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 15
+
+[node name="Logo" type="TextureRect" parent="BannerSlot/Banner/Margin/Content"]
+custom_minimum_size = Vector2(0, 178)
+layout_mode = 2
+texture = ExtResource("4_logo")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Buttons" type="VBoxContainer" parent="BannerSlot/Banner/Margin/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="CampaignButton" type="Button" parent="BannerSlot/Banner/Margin/Content/Buttons"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Campaign"
+
+[node name="LoadGameButton" type="Button" parent="BannerSlot/Banner/Margin/Content/Buttons"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Load Game"
+
+[node name="OptionsButton" type="Button" parent="BannerSlot/Banner/Margin/Content/Buttons"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Options"
+
+[node name="AboutButton" type="Button" parent="BannerSlot/Banner/Margin/Content/Buttons"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "About"
+
+[node name="QuitButton" type="Button" parent="BannerSlot/Banner/Margin/Content/Buttons"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Quit"
+
+[node name="Rule" type="HSeparator" parent="BannerSlot/Banner/Margin/Content"]
+layout_mode = 2
+
+[node name="Tagline" type="Label" parent="BannerSlot/Banner/Margin/Content"]
+layout_mode = 2
+theme_type_variation = &"Subtitle"
+theme_override_colors/font_color = Color(0.651, 0.6, 0.522, 1)
+theme_override_font_sizes/font_size = 20
+text = "Realms are shaped
+by those who dare."
+horizontal_alignment = 1
+
+[node name="BuildVersion" type="Label" parent="BannerSlot/Banner/Margin/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.42, 0.39, 0.35, 1)
+theme_override_font_sizes/font_size = 10
+text = "v0.1.0"
+horizontal_alignment = 1
+
+[node name="FadeOverlay" type="ColorRect" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 0)

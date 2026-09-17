@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="ProvinceDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/Economy/ProvinceDefinition.cs" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+ProvinceName = "Thornwatch"
+InitialPopulation = 620
+GrainWorkerCapacity = 55
+CattleWorkerCapacity = 45
+WoodWorkerCapacity = 45
+StoneWorkerCapacity = 55
+IronWorkerCapacity = 30
+GrainModifier = 0.9
+CattleModifier = 1.1
+WoodModifier = 1.0
+StoneModifier = 1.15
+IronModifier = 0.85
+InitialGold = 380
+InitialGrain = 210
+InitialCattle = 55
+InitialWood = 170
+InitialStone = 240
+InitialIron = 90

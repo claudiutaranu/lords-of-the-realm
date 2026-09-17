@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="GameBalance" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/Economy/GameBalance.cs" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+WorkerRatio = 0.25
+GrainYieldPerWorker = 2.0
+WoodYieldPerWorker = 1.5
+StoneYieldPerWorker = 1.2
+IronYieldPerWorker = 1.0
+CattleBaseGrowthRate = 0.05
+CattleYieldPerWorker = 0.2
+PeoplePerGrain = 10.0
+BasePopulationGrowthRate = 0.01
+GoldPerPopulation = 0.15
+StarvationPopulationLossPerDeficit = 0.075
+StarvationLoyaltyLossPerDeficit = 25.0
+GrainSeasonMultiplier = PackedFloat32Array(0.9, 1.2, 1.4, 0.2)
+CattleSeasonMultiplier = PackedFloat32Array(1.0, 1.1, 1.1, 0.8)
+WoodSeasonMultiplier = PackedFloat32Array(1.0, 1.0, 1.0, 0.8)
+StoneSeasonMultiplier = PackedFloat32Array(1.0, 1.0, 1.0, 0.7)
+IronSeasonMultiplier = PackedFloat32Array(1.0, 1.0, 1.0, 0.8)
+TaxIncomeMultiplier = PackedFloat32Array(0.0, 0.5, 1.0, 1.5, 2.0)
+TaxLoyaltyDelta = PackedFloat32Array(4.0, 2.0, 0.0, -4.0, -10.0)
+RationFoodMultiplier = PackedFloat32Array(0.7, 1.0, 1.3)
+RationGrowthMultiplier = PackedFloat32Array(0.5, 1.0, 1.5)
+RationLoyaltyDelta = PackedFloat32Array(-5.0, 0.0, 3.0)

@@ -1,0 +1,172 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/UI/NavRail.cs" id="1_script"]
+[ext_resource type="Theme" path="res://theme/main-menu.tres" id="2_theme"]
+[ext_resource type="Script" path="res://scripts/UI/NavRailIcon.cs" id="3_icon"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_icon_normal"]
+bg_color = Color(0.129, 0.125, 0.129, 0.92)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.549, 0.447, 0.271, 0.8)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_icon_hover"]
+bg_color = Color(0.42, 0.09, 0.09, 0.95)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.8, 0.651, 0.376, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="Theme" id="Theme_icon_buttons"]
+Button/styles/focus = SubResource("StyleBoxFlat_icon_hover")
+Button/styles/hover = SubResource("StyleBoxFlat_icon_hover")
+Button/styles/normal = SubResource("StyleBoxFlat_icon_normal")
+Button/styles/pressed = SubResource("StyleBoxFlat_icon_hover")
+
+[node name="NavRail" type="PanelContainer"]
+size_flags_vertical = 4
+theme = ExtResource("2_theme")
+script = ExtResource("1_script")
+
+[node name="Margin" type="MarginContainer" parent="."]
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 8
+
+[node name="Buttons" type="VBoxContainer" parent="Margin"]
+layout_mode = 2
+theme = SubResource("Theme_icon_buttons")
+theme_override_constants/separation = 8
+
+[node name="ChronicleButton" type="Button" parent="Margin/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(52, 52)
+layout_mode = 2
+tooltip_text = "Chronicle"
+
+[node name="Icon" type="Control" parent="Margin/Buttons/ChronicleButton"]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -16.0
+offset_top = -16.0
+offset_right = 16.0
+offset_bottom = 16.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("3_icon")
+Kind = 0
+
+[node name="MilitaryButton" type="Button" parent="Margin/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(52, 52)
+layout_mode = 2
+tooltip_text = "Military"
+
+[node name="Icon" type="Control" parent="Margin/Buttons/MilitaryButton"]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -16.0
+offset_top = -16.0
+offset_right = 16.0
+offset_bottom = 16.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("3_icon")
+Kind = 1
+
+[node name="BuildingsButton" type="Button" parent="Margin/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(52, 52)
+layout_mode = 2
+tooltip_text = "Buildings"
+
+[node name="Icon" type="Control" parent="Margin/Buttons/BuildingsButton"]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -16.0
+offset_top = -16.0
+offset_right = 16.0
+offset_bottom = 16.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("3_icon")
+Kind = 2
+
+[node name="CourtButton" type="Button" parent="Margin/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(52, 52)
+layout_mode = 2
+tooltip_text = "Court"
+
+[node name="Icon" type="Control" parent="Margin/Buttons/CourtButton"]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -16.0
+offset_top = -16.0
+offset_right = 16.0
+offset_bottom = 16.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("3_icon")
+Kind = 3
+
+[node name="BattlesButton" type="Button" parent="Margin/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(52, 52)
+layout_mode = 2
+tooltip_text = "Battles"
+
+[node name="Icon" type="Control" parent="Margin/Buttons/BattlesButton"]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -16.0
+offset_top = -16.0
+offset_right = 16.0
+offset_bottom = 16.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("3_icon")
+Kind = 4

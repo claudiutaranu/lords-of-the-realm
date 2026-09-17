@@ -1,0 +1,19 @@
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2012
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Realm Prototype", "Realm Prototype.csproj", "{01AC6189-238E-434E-8954-E523A9B5DF54}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+	Debug|Any CPU = Debug|Any CPU
+	ExportDebug|Any CPU = ExportDebug|Any CPU
+	ExportRelease|Any CPU = ExportRelease|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{01AC6189-238E-434E-8954-E523A9B5DF54}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{01AC6189-238E-434E-8954-E523A9B5DF54}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{01AC6189-238E-434E-8954-E523A9B5DF54}.ExportDebug|Any CPU.ActiveCfg = ExportDebug|Any CPU
+		{01AC6189-238E-434E-8954-E523A9B5DF54}.ExportDebug|Any CPU.Build.0 = ExportDebug|Any CPU
+		{01AC6189-238E-434E-8954-E523A9B5DF54}.ExportRelease|Any CPU.ActiveCfg = ExportRelease|Any CPU
+		{01AC6189-238E-434E-8954-E523A9B5DF54}.ExportRelease|Any CPU.Build.0 = ExportRelease|Any CPU
+	EndGlobalSection
+EndGlobal

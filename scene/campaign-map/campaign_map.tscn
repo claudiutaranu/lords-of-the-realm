@@ -1,0 +1,1010 @@
+[gd_scene load_steps=18 format=3]
+
+[ext_resource type="Script" path="res://scripts/UI/CampaignMapPage.cs" id="1_script"]
+[ext_resource type="Theme" path="res://theme/main-menu.tres" id="2_theme"]
+[ext_resource type="Texture2D" path="res://assets/ui/campaign-map-drawn.png" id="3_map"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/gold.png" id="4_gold"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/food.png" id="5_food"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/wood.png" id="6_wood"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/stone.png" id="7_stone"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/iron.png" id="8_iron"]
+[ext_resource type="Script" path="res://scripts/UI/SeasonIcon.cs" id="9_season"]
+[ext_resource type="PackedScene" path="res://scene/campaign-map/nav_rail.tscn" id="10_rail"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/shield-royal-crown.png" id="12_shield"]
+[ext_resource type="Script" path="res://scripts/UI/ShieldMenuButton.cs" id="13_shield_script"]
+[ext_resource type="Script" path="res://scripts/UI/NavRailIcon.cs" id="14_navicon"]
+[ext_resource type="Script" path="res://scripts/UI/CampaignMap3D.cs" id="19_map3d"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/livestock.png" id="15_livestock"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/spear.png" id="16_spear"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/bow.png" id="17_bow"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/horse.png" id="18_horse"]
+[ext_resource type="Texture2D" path="res://assets/ui/top-bar-frame.png" id="19_barframe"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_buildingcell"]
+bg_color = Color(0.078, 0.075, 0.078, 0.9)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.549, 0.447, 0.271, 0.8)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_topbargroup"]
+content_margin_left = 22.0
+content_margin_top = 5.0
+content_margin_right = 22.0
+content_margin_bottom = 5.0
+bg_color = Color(0.051, 0.063, 0.075, 0.82)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.549, 0.447, 0.271, 0.55)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_crest"]
+atlas = ExtResource("12_shield")
+region = Rect2(174, 94, 908, 1070)
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_topbar"]
+texture = ExtResource("19_barframe")
+texture_margin_left = 11.0
+texture_margin_top = 10.0
+texture_margin_right = 25.0
+texture_margin_bottom = 80.0
+content_margin_left = 130.0
+content_margin_top = 12.0
+content_margin_right = 39.0
+content_margin_bottom = 91.0
+
+[node name="CampaignMapPage" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_theme")
+script = ExtResource("1_script")
+
+[node name="Map" type="SubViewportContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+stretch = true
+
+[node name="MapViewport" type="SubViewport" parent="Map"]
+own_world_3d = true
+handle_input_locally = false
+msaa_3d = 1
+render_target_update_mode = 4
+
+[node name="World" type="Node3D" parent="Map/MapViewport"]
+unique_name_in_owner = true
+script = ExtResource("19_map3d")
+
+[node name="Markers" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="TopBar" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = -1
+anchor_right = 1.0
+offset_right = -340.0
+offset_bottom = 150.0
+grow_horizontal = 2
+theme_override_styles/panel = SubResource("StyleBoxTexture_topbar")
+
+[node name="TopBarRow" type="HBoxContainer" parent="TopBar"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 14
+
+[node name="ResourceGroup" type="PanelContainer" parent="TopBar/TopBarRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+theme_override_styles/panel = SubResource("StyleBoxFlat_topbargroup")
+
+[node name="Cells" type="HBoxContainer" parent="TopBar/TopBarRow/ResourceGroup"]
+layout_mode = 2
+theme_override_constants/separation = 0
+
+[node name="GoldCell" type="HBoxContainer" parent="TopBar/TopBarRow/ResourceGroup/Cells"]
+layout_mode = 2
+size_flags_horizontal = 3
+alignment = 1
+theme_override_constants/separation = 10
+
+[node name="Icon" type="TextureRect" parent="TopBar/TopBarRow/ResourceGroup/Cells/GoldCell"]
+custom_minimum_size = Vector2(28, 28)
+layout_mode = 2
+size_flags_vertical = 4
+texture = ExtResource("4_gold")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="GoldValue" type="Label" parent="TopBar/TopBarRow/ResourceGroup/Cells/GoldCell"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_colors/font_color = Color(0.937, 0.925, 0.878, 1)
+theme_override_font_sizes/font_size = 24
+text = "1,000"
+
+[node name="GrainCell" type="HBoxContainer" parent="TopBar/TopBarRow/ResourceGroup/Cells"]
+layout_mode = 2
+size_flags_horizontal = 3
+alignment = 1
+theme_override_constants/separation = 10
+
+[node name="Icon" type="TextureRect" parent="TopBar/TopBarRow/ResourceGroup/Cells/GrainCell"]
+custom_minimum_size = Vector2(28, 28)
+layout_mode = 2
+size_flags_vertical = 4
+texture = ExtResource("5_food")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="GrainValue" type="Label" parent="TopBar/TopBarRow/ResourceGroup/Cells/GrainCell"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_colors/font_color = Color(0.937, 0.925, 0.878, 1)
+theme_override_font_sizes/font_size = 24
+text = "300"
+
+[node name="WoodCell" type="HBoxContainer" parent="TopBar/TopBarRow/ResourceGroup/Cells"]
+layout_mode = 2
+size_flags_horizontal = 3
+alignment = 1
+theme_override_constants/separation = 10
+
+[node name="Icon" type="TextureRect" parent="TopBar/TopBarRow/ResourceGroup/Cells/WoodCell"]
+custom_minimum_size = Vector2(28, 28)
+layout_mode = 2
+size_flags_vertical = 4
+texture = ExtResource("6_wood")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="WoodValue" type="Label" parent="TopBar/TopBarRow/ResourceGroup/Cells/WoodCell"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_colors/font_color = Color(0.937, 0.925, 0.878, 1)
+theme_override_font_sizes/font_size = 24
+text = "120"
+
+[node name="StoneCell" type="HBoxContainer" parent="TopBar/TopBarRow/ResourceGroup/Cells"]
+layout_mode = 2
+size_flags_horizontal = 3
+alignment = 1
+theme_override_constants/separation = 10
+
+[node name="Icon" type="TextureRect" parent="TopBar/TopBarRow/ResourceGroup/Cells/StoneCell"]
+custom_minimum_size = Vector2(28, 28)
+layout_mode = 2
+size_flags_vertical = 4
+texture = ExtResource("7_stone")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="StoneValue" type="Label" parent="TopBar/TopBarRow/ResourceGroup/Cells/StoneCell"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_colors/font_color = Color(0.937, 0.925, 0.878, 1)
+theme_override_font_sizes/font_size = 24
+text = "80"
+
+[node name="IronCell" type="HBoxContainer" parent="TopBar/TopBarRow/ResourceGroup/Cells"]
+layout_mode = 2
+size_flags_horizontal = 3
+alignment = 1
+theme_override_constants/separation = 10
+
+[node name="Icon" type="TextureRect" parent="TopBar/TopBarRow/ResourceGroup/Cells/IronCell"]
+custom_minimum_size = Vector2(28, 28)
+layout_mode = 2
+size_flags_vertical = 4
+texture = ExtResource("8_iron")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="IronValue" type="Label" parent="TopBar/TopBarRow/ResourceGroup/Cells/IronCell"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_colors/font_color = Color(0.937, 0.925, 0.878, 1)
+theme_override_font_sizes/font_size = 24
+text = "25"
+
+[node name="PeopleGroup" type="PanelContainer" parent="TopBar/TopBarRow"]
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_styles/panel = SubResource("StyleBoxFlat_topbargroup")
+
+[node name="Cells" type="HBoxContainer" parent="TopBar/TopBarRow/PeopleGroup"]
+layout_mode = 2
+theme_override_constants/separation = 26
+
+[node name="PopulationCell" type="HBoxContainer" parent="TopBar/TopBarRow/PeopleGroup/Cells"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Icon" type="Control" parent="TopBar/TopBarRow/PeopleGroup/Cells/PopulationCell"]
+custom_minimum_size = Vector2(28, 28)
+layout_mode = 2
+size_flags_vertical = 4
+script = ExtResource("14_navicon")
+Kind = 3
+
+[node name="PopulationValue" type="Label" parent="TopBar/TopBarRow/PeopleGroup/Cells/PopulationCell"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_colors/font_color = Color(0.937, 0.925, 0.878, 1)
+theme_override_font_sizes/font_size = 24
+text = "0"
+
+[node name="ArmyCell" type="HBoxContainer" parent="TopBar/TopBarRow/PeopleGroup/Cells"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Icon" type="Control" parent="TopBar/TopBarRow/PeopleGroup/Cells/ArmyCell"]
+custom_minimum_size = Vector2(28, 28)
+layout_mode = 2
+size_flags_vertical = 4
+script = ExtResource("14_navicon")
+Kind = 1
+
+[node name="ArmyValue" type="Label" parent="TopBar/TopBarRow/PeopleGroup/Cells/ArmyCell"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_colors/font_color = Color(0.937, 0.925, 0.878, 1)
+theme_override_font_sizes/font_size = 24
+text = "0"
+
+[node name="TimeGroup" type="PanelContainer" parent="TopBar/TopBarRow"]
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_styles/panel = SubResource("StyleBoxFlat_topbargroup")
+
+[node name="Cells" type="HBoxContainer" parent="TopBar/TopBarRow/TimeGroup"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Icon" type="Control" parent="TopBar/TopBarRow/TimeGroup/Cells"]
+custom_minimum_size = Vector2(26, 26)
+layout_mode = 2
+size_flags_vertical = 4
+script = ExtResource("9_season")
+
+[node name="TurnValue" type="Label" parent="TopBar/TopBarRow/TimeGroup/Cells"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_font_sizes/font_size = 24
+text = "1268"
+
+[node name="SeasonValue" type="Label" parent="TopBar/TopBarRow/TimeGroup/Cells"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_font_sizes/font_size = 24
+text = "Spring"
+
+[node name="Crest" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = -1
+offset_left = 14.0
+offset_top = 4.0
+offset_right = 110.0
+offset_bottom = 117.0
+mouse_filter = 2
+texture = SubResource("AtlasTexture_crest")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="ShieldGlowOverlay" type="TextureRect" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = -1
+offset_left = 14.0
+offset_top = 4.0
+offset_right = 110.0
+offset_bottom = 117.0
+mouse_filter = 2
+modulate = Color(1.3, 1.15, 0.7, 0)
+texture = SubResource("AtlasTexture_crest")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="MenuShieldButton" type="Button" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = -1
+offset_left = 14.0
+offset_top = 4.0
+offset_right = 110.0
+offset_bottom = 117.0
+flat = true
+script = ExtResource("13_shield_script")
+
+[node name="Sidebar" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -340.0
+grow_horizontal = 0
+grow_vertical = 2
+
+[node name="SidebarMargin" type="MarginContainer" parent="Sidebar"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="SidebarContent" type="VBoxContainer" parent="Sidebar/SidebarMargin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="MinimapPanel" type="PanelContainer" parent="Sidebar/SidebarMargin/SidebarContent"]
+custom_minimum_size = Vector2(0, 140)
+layout_mode = 2
+
+[node name="MinimapTexture" type="TextureRect" parent="Sidebar/SidebarMargin/SidebarContent/MinimapPanel"]
+layout_mode = 2
+mouse_filter = 2
+texture = ExtResource("3_map")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="NavRail" parent="Sidebar/SidebarMargin/SidebarContent" instance=ExtResource("10_rail")]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 4
+
+[node name="InfoCard" type="PanelContainer" parent="Sidebar/SidebarMargin/SidebarContent"]
+layout_mode = 2
+
+[node name="InfoCardMargin" type="MarginContainer" parent="Sidebar/SidebarMargin/SidebarContent/InfoCard"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="InfoCardContent" type="VBoxContainer" parent="Sidebar/SidebarMargin/SidebarContent/InfoCard/InfoCardMargin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="SidebarBanner" type="ColorRect" parent="Sidebar/SidebarMargin/SidebarContent/InfoCard/InfoCardMargin/InfoCardContent"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 8)
+layout_mode = 2
+color = Color(0.702, 0.227, 0.227, 1)
+
+[node name="SidebarProvinceName" type="Label" parent="Sidebar/SidebarMargin/SidebarContent/InfoCard/InfoCardMargin/InfoCardContent"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"GildedTitle"
+theme_override_font_sizes/font_size = 20
+text = "Select a stronghold"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="StatsRow" type="HBoxContainer" parent="Sidebar/SidebarMargin/SidebarContent/InfoCard/InfoCardMargin/InfoCardContent"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 16
+
+[node name="PeopleStat" type="HBoxContainer" parent="Sidebar/SidebarMargin/SidebarContent/InfoCard/InfoCardMargin/InfoCardContent/StatsRow"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="Icon" type="Control" parent="Sidebar/SidebarMargin/SidebarContent/InfoCard/InfoCardMargin/InfoCardContent/StatsRow/PeopleStat"]
+custom_minimum_size = Vector2(20, 20)
+layout_mode = 2
+size_flags_vertical = 4
+script = ExtResource("14_navicon")
+Kind = 3
+
+[node name="SidebarPopulationValue" type="Label" parent="Sidebar/SidebarMargin/SidebarContent/InfoCard/InfoCardMargin/InfoCardContent/StatsRow/PeopleStat"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 4
+text = "-"
+
+[node name="ArmyStat" type="HBoxContainer" parent="Sidebar/SidebarMargin/SidebarContent/InfoCard/InfoCardMargin/InfoCardContent/StatsRow"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="Icon" type="Control" parent="Sidebar/SidebarMargin/SidebarContent/InfoCard/InfoCardMargin/InfoCardContent/StatsRow/ArmyStat"]
+custom_minimum_size = Vector2(20, 20)
+layout_mode = 2
+size_flags_vertical = 4
+script = ExtResource("14_navicon")
+Kind = 1
+
+[node name="Value" type="Label" parent="Sidebar/SidebarMargin/SidebarContent/InfoCard/InfoCardMargin/InfoCardContent/StatsRow/ArmyStat"]
+layout_mode = 2
+size_flags_vertical = 4
+text = "0"
+
+[node name="HeartStat" type="HBoxContainer" parent="Sidebar/SidebarMargin/SidebarContent/InfoCard/InfoCardMargin/InfoCardContent/StatsRow"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="Icon" type="Control" parent="Sidebar/SidebarMargin/SidebarContent/InfoCard/InfoCardMargin/InfoCardContent/StatsRow/HeartStat"]
+custom_minimum_size = Vector2(20, 20)
+layout_mode = 2
+size_flags_vertical = 4
+script = ExtResource("14_navicon")
+Kind = 7
+
+[node name="SidebarLoyaltyValue" type="Label" parent="Sidebar/SidebarMargin/SidebarContent/InfoCard/InfoCardMargin/InfoCardContent/StatsRow/HeartStat"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 4
+text = "-"
+
+[node name="TaxRationRow" type="HBoxContainer" parent="Sidebar/SidebarMargin/SidebarContent/InfoCard/InfoCardMargin/InfoCardContent"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 16
+
+[node name="SidebarTaxValue" type="Label" parent="Sidebar/SidebarMargin/SidebarContent/InfoCard/InfoCardMargin/InfoCardContent/TaxRationRow"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Subtitle"
+theme_override_font_sizes/font_size = 14
+text = "Tax -"
+
+[node name="SidebarRationValue" type="Label" parent="Sidebar/SidebarMargin/SidebarContent/InfoCard/InfoCardMargin/InfoCardContent/TaxRationRow"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Subtitle"
+theme_override_font_sizes/font_size = 14
+text = "Ration -"
+
+[node name="BuildingsGrid" type="GridContainer" parent="Sidebar/SidebarMargin/SidebarContent"]
+layout_mode = 2
+theme_override_constants/h_separation = 6
+theme_override_constants/v_separation = 6
+columns = 3
+
+[node name="HousesCell" type="PanelContainer" parent="Sidebar/SidebarMargin/SidebarContent/BuildingsGrid"]
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_buildingcell")
+
+[node name="Label" type="Label" parent="Sidebar/SidebarMargin/SidebarContent/BuildingsGrid/HousesCell"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "Houses"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+
+[node name="GranaryCell" type="PanelContainer" parent="Sidebar/SidebarMargin/SidebarContent/BuildingsGrid"]
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_buildingcell")
+
+[node name="Label" type="Label" parent="Sidebar/SidebarMargin/SidebarContent/BuildingsGrid/GranaryCell"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "Granary"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+
+[node name="MillCell" type="PanelContainer" parent="Sidebar/SidebarMargin/SidebarContent/BuildingsGrid"]
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_buildingcell")
+
+[node name="Label" type="Label" parent="Sidebar/SidebarMargin/SidebarContent/BuildingsGrid/MillCell"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "Mill"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+
+[node name="MarketCell" type="PanelContainer" parent="Sidebar/SidebarMargin/SidebarContent/BuildingsGrid"]
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_buildingcell")
+
+[node name="Label" type="Label" parent="Sidebar/SidebarMargin/SidebarContent/BuildingsGrid/MarketCell"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "Market"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+
+[node name="ChurchCell" type="PanelContainer" parent="Sidebar/SidebarMargin/SidebarContent/BuildingsGrid"]
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_buildingcell")
+
+[node name="Label" type="Label" parent="Sidebar/SidebarMargin/SidebarContent/BuildingsGrid/ChurchCell"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "Church"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+
+[node name="BlacksmithCell" type="PanelContainer" parent="Sidebar/SidebarMargin/SidebarContent/BuildingsGrid"]
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_buildingcell")
+
+[node name="Label" type="Label" parent="Sidebar/SidebarMargin/SidebarContent/BuildingsGrid/BlacksmithCell"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "Blacksmith"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+
+[node name="BarracksCell" type="PanelContainer" parent="Sidebar/SidebarMargin/SidebarContent/BuildingsGrid"]
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_buildingcell")
+
+[node name="Label" type="Label" parent="Sidebar/SidebarMargin/SidebarContent/BuildingsGrid/BarracksCell"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+text = "Barracks"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+
+[node name="CattleCell" type="PanelContainer" parent="Sidebar/SidebarMargin/SidebarContent/BuildingsGrid"]
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_buildingcell")
+
+[node name="Icon" type="TextureRect" parent="Sidebar/SidebarMargin/SidebarContent/BuildingsGrid/CattleCell"]
+layout_mode = 2
+texture = ExtResource("15_livestock")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="LumberCell" type="PanelContainer" parent="Sidebar/SidebarMargin/SidebarContent/BuildingsGrid"]
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_buildingcell")
+
+[node name="Icon" type="TextureRect" parent="Sidebar/SidebarMargin/SidebarContent/BuildingsGrid/LumberCell"]
+layout_mode = 2
+texture = ExtResource("6_wood")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="UnitsRow" type="HBoxContainer" parent="Sidebar/SidebarMargin/SidebarContent"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="SpearmanCell" type="PanelContainer" parent="Sidebar/SidebarMargin/SidebarContent/UnitsRow"]
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_buildingcell")
+
+[node name="Icon" type="TextureRect" parent="Sidebar/SidebarMargin/SidebarContent/UnitsRow/SpearmanCell"]
+layout_mode = 2
+texture = ExtResource("16_spear")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="ArcherCell" type="PanelContainer" parent="Sidebar/SidebarMargin/SidebarContent/UnitsRow"]
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_buildingcell")
+
+[node name="Icon" type="TextureRect" parent="Sidebar/SidebarMargin/SidebarContent/UnitsRow/ArcherCell"]
+layout_mode = 2
+texture = ExtResource("17_bow")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="CavalryCell" type="PanelContainer" parent="Sidebar/SidebarMargin/SidebarContent/UnitsRow"]
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_buildingcell")
+
+[node name="Icon" type="TextureRect" parent="Sidebar/SidebarMargin/SidebarContent/UnitsRow/CavalryCell"]
+layout_mode = 2
+texture = ExtResource("18_horse")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="AddUnitCell" type="PanelContainer" parent="Sidebar/SidebarMargin/SidebarContent/UnitsRow"]
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_buildingcell")
+
+[node name="Label" type="Label" parent="Sidebar/SidebarMargin/SidebarContent/UnitsRow/AddUnitCell"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "+"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="SectionPanel" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = -1
+anchor_right = 1.0
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_left = -724.0
+offset_top = -120.0
+offset_right = -364.0
+offset_bottom = 120.0
+grow_horizontal = 0
+grow_vertical = 2
+
+[node name="SectionMargin" type="MarginContainer" parent="SectionPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 16
+
+[node name="SectionContent" type="VBoxContainer" parent="SectionPanel/SectionMargin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="SectionTitle" type="Label" parent="SectionPanel/SectionMargin/SectionContent"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"GildedTitle"
+theme_override_font_sizes/font_size = 28
+text = "Chronicle"
+
+[node name="SectionBody" type="Label" parent="SectionPanel/SectionMargin/SectionContent"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+theme_type_variation = &"Subtitle"
+theme_override_font_sizes/font_size = 16
+autowrap_mode = 3
+
+[node name="SectionClose" type="Button" parent="SectionPanel/SectionMargin/SectionContent"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 4
+text = "Close"
+
+[node name="InfoPanel" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = -140.0
+offset_right = 320.0
+offset_bottom = -24.0
+grow_vertical = 0
+custom_minimum_size = Vector2(296, 0)
+
+[node name="InfoContent" type="VBoxContainer" parent="InfoPanel"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="InfoName" type="Label" parent="InfoPanel/InfoContent"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"GildedTitle"
+theme_override_font_sizes/font_size = 24
+text = "Select a stronghold"
+autowrap_mode = 2
+
+[node name="InfoMeta" type="Label" parent="InfoPanel/InfoContent"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Subtitle"
+theme_override_font_sizes/font_size = 16
+text = "Click a marker on the map to see it here."
+autowrap_mode = 3
+
+[node name="BottomBar" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -644.0
+offset_top = -92.0
+offset_right = -388.0
+offset_bottom = -24.0
+grow_horizontal = 0
+grow_vertical = 0
+theme_override_constants/separation = 16
+alignment = 2
+
+[node name="EndTurnButton" type="Button" parent="BottomBar"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 4
+text = "End Turn"
+
+[node name="GameMenu" type="Control" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Dimmer" type="ColorRect" parent="GameMenu"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.6)
+
+[node name="Center" type="CenterContainer" parent="GameMenu"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Panel" type="PanelContainer" parent="GameMenu/Center"]
+custom_minimum_size = Vector2(380, 0)
+layout_mode = 2
+
+[node name="Margin" type="MarginContainer" parent="GameMenu/Center/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 28
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 28
+theme_override_constants/margin_bottom = 24
+
+[node name="Content" type="VBoxContainer" parent="GameMenu/Center/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Title" type="Label" parent="GameMenu/Center/Panel/Margin/Content"]
+layout_mode = 2
+theme_type_variation = &"GildedTitle"
+theme_override_font_sizes/font_size = 28
+text = "Game Menu"
+horizontal_alignment = 1
+
+[node name="SaveButton" type="Button" parent="GameMenu/Center/Panel/Margin/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Save Game"
+
+[node name="LoadButton" type="Button" parent="GameMenu/Center/Panel/Margin/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Load Game"
+
+[node name="OptionsButton" type="Button" parent="GameMenu/Center/Panel/Margin/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Options"
+
+[node name="QuitButton" type="Button" parent="GameMenu/Center/Panel/Margin/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Quit to Main Menu"
+
+[node name="ResumeButton" type="Button" parent="GameMenu/Center/Panel/Margin/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Resume"
+
+[node name="SaveToast" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+modulate = Color(1, 1, 1, 0)
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -200.0
+offset_top = -240.0
+offset_right = 200.0
+offset_bottom = -160.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+
+[node name="SaveToastMargin" type="MarginContainer" parent="SaveToast"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 16
+
+[node name="SaveToastLabel" type="Label" parent="SaveToast/SaveToastMargin"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_type_variation = &"GildedTitle"
+theme_override_font_sizes/font_size = 30
+text = "Game Saved"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="LeaveConfirm" type="Control" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Dimmer" type="ColorRect" parent="LeaveConfirm"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.6)
+
+[node name="Center" type="CenterContainer" parent="LeaveConfirm"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Panel" type="PanelContainer" parent="LeaveConfirm/Center"]
+custom_minimum_size = Vector2(520, 0)
+layout_mode = 2
+
+[node name="Margin" type="MarginContainer" parent="LeaveConfirm/Center/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 28
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 28
+theme_override_constants/margin_bottom = 24
+
+[node name="Content" type="VBoxContainer" parent="LeaveConfirm/Center/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Title" type="Label" parent="LeaveConfirm/Center/Panel/Margin/Content"]
+layout_mode = 2
+theme_type_variation = &"GildedTitle"
+theme_override_font_sizes/font_size = 28
+text = "Leave this campaign?"
+horizontal_alignment = 1
+
+[node name="Body" type="Label" parent="LeaveConfirm/Center/Panel/Margin/Content"]
+layout_mode = 2
+theme_type_variation = &"Subtitle"
+theme_override_font_sizes/font_size = 17
+text = "Everything since your last save will be lost."
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="Buttons" type="HBoxContainer" parent="LeaveConfirm/Center/Panel/Margin/Content"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="LeaveCancelButton" type="Button" parent="LeaveConfirm/Center/Panel/Margin/Content/Buttons"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Stay"
+
+[node name="LeaveConfirmButton" type="Button" parent="LeaveConfirm/Center/Panel/Margin/Content/Buttons"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Leave"
+
+[node name="TurnTransition" type="Control" parent="."]
+unique_name_in_owner = true
+visible = false
+modulate = Color(1, 1, 1, 0)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Curtain" type="ColorRect" parent="TurnTransition"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.031, 0.027, 0.024, 1)
+
+[node name="Center" type="CenterContainer" parent="TurnTransition"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Content" type="VBoxContainer" parent="TurnTransition/Center"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="TransitionSeason" type="Label" parent="TurnTransition/Center/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"GildedTitle"
+theme_override_font_sizes/font_size = 72
+text = "Summer"
+horizontal_alignment = 1
+
+[node name="TransitionTurn" type="Label" parent="TurnTransition/Center/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Subtitle"
+theme_override_font_sizes/font_size = 24
+text = "Turn 2"
+horizontal_alignment = 1
+
+[node name="TransitionFlavor" type="Label" parent="TurnTransition/Center/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Subtitle"
+theme_override_font_sizes/font_size = 18
+horizontal_alignment = 1

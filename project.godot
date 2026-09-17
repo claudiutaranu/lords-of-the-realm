@@ -1,0 +1,46 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="Realm Prototype"
+config/version="0.1.0"
+run/main_scene="res://scene/main-menu/main_menu.tscn"
+config/features=PackedStringArray("4.7", "C#", "Forward Plus")
+config/icon="res://icon.svg"
+
+[audio]
+
+driver/output_latency=60
+
+[autoload]
+
+Settings="*res://scripts/Settings.cs"
+Music="*res://scripts/MusicPlayer.cs"
+
+[display]
+
+window/size/viewport_width=1920
+window/size/viewport_height=1080
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+
+[dotnet]
+
+project/assembly_name="Realm Prototype"
+
+[physics]
+
+3d/physics_engine="Jolt Physics"
+
+[rendering]
+
+rendering_device/driver.windows="d3d12"
+environment/defaults/default_clear_color=Color(0, 0, 0, 1)

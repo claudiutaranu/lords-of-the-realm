@@ -1,0 +1,96 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/UI/AboutPage.cs" id="1_about"]
+[ext_resource type="Texture2D" path="res://assets/ui/main-menu-bg.png" id="2_bg"]
+[ext_resource type="Theme" path="res://theme/main-menu.tres" id="3_theme"]
+[ext_resource type="StyleBoxTexture" path="res://theme/ornate-frame.tres" id="4_frame"]
+
+[node name="AboutPage" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("3_theme")
+script = ExtResource("1_about")
+
+[node name="Background" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("2_bg")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="Center" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Panel" type="PanelContainer" parent="Center"]
+custom_minimum_size = Vector2(680, 0)
+layout_mode = 2
+theme_override_styles/panel = ExtResource("4_frame")
+
+[node name="Margin" type="MarginContainer" parent="Center/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 36
+theme_override_constants/margin_top = 135
+theme_override_constants/margin_right = 36
+theme_override_constants/margin_bottom = 28
+
+[node name="Content" type="VBoxContainer" parent="Center/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 24
+
+[node name="ScrollArea" type="ScrollContainer" parent="Center/Panel/Margin/Content"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 460)
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="ScrollContent" type="VBoxContainer" parent="Center/Panel/Margin/Content/ScrollArea"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 24
+
+[node name="Title" type="Label" parent="Center/Panel/Margin/Content/ScrollArea/ScrollContent"]
+layout_mode = 2
+theme_type_variation = &"GildedTitle"
+theme_override_font_sizes/font_size = 56
+text = "About"
+horizontal_alignment = 1
+
+[node name="Rule" type="HSeparator" parent="Center/Panel/Margin/Content/ScrollArea/ScrollContent"]
+layout_mode = 2
+
+[node name="Body" type="Label" parent="Center/Panel/Margin/Content/ScrollArea/ScrollContent"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.839, 0.812, 0.761, 1)
+theme_override_constants/line_spacing = 10
+theme_override_font_sizes/font_size = 24
+text = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+
+Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
+Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo.
+
+Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt.
+
+Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem."
+autowrap_mode = 3
+
+[node name="BackButton" type="Button" parent="Center/Panel/Margin/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 4
+text = "Back"

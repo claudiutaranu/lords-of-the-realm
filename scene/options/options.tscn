@@ -1,0 +1,209 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/UI/OptionsPage.cs" id="1_options"]
+[ext_resource type="Texture2D" path="res://assets/ui/main-menu-bg.png" id="2_bg"]
+[ext_resource type="Theme" path="res://theme/main-menu.tres" id="3_theme"]
+
+[node name="OptionsPage" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("3_theme")
+script = ExtResource("1_options")
+
+[node name="Background" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("2_bg")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="Center" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Panel" type="PanelContainer" parent="Center"]
+custom_minimum_size = Vector2(1200, 0)
+layout_mode = 2
+
+[node name="Margin" type="MarginContainer" parent="Center/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 56
+theme_override_constants/margin_top = 44
+theme_override_constants/margin_right = 56
+theme_override_constants/margin_bottom = 44
+
+[node name="Content" type="VBoxContainer" parent="Center/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 24
+
+[node name="Title" type="Label" parent="Center/Panel/Margin/Content"]
+layout_mode = 2
+theme_type_variation = &"GildedTitle"
+theme_override_font_sizes/font_size = 56
+text = "Options"
+horizontal_alignment = 1
+
+[node name="TitleRule" type="HSeparator" parent="Center/Panel/Margin/Content"]
+layout_mode = 2
+
+[node name="Grid" type="GridContainer" parent="Center/Panel/Margin/Content"]
+layout_mode = 2
+theme_override_constants/h_separation = 40
+theme_override_constants/v_separation = 18
+columns = 2
+
+[node name="WindowModeLabel" type="Label" parent="Center/Panel/Margin/Content/Grid"]
+custom_minimum_size = Vector2(320, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.839, 0.812, 0.761, 1)
+theme_override_font_sizes/font_size = 26
+text = "Window Mode"
+vertical_alignment = 1
+
+[node name="WindowModeOption" type="OptionButton" parent="Center/Panel/Margin/Content/Grid"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 26
+alignment = 1
+
+[node name="ResolutionLabel" type="Label" parent="Center/Panel/Margin/Content/Grid"]
+custom_minimum_size = Vector2(320, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.839, 0.812, 0.761, 1)
+theme_override_font_sizes/font_size = 26
+text = "Resolution"
+vertical_alignment = 1
+
+[node name="ResolutionOption" type="OptionButton" parent="Center/Panel/Margin/Content/Grid"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 26
+alignment = 1
+
+[node name="VsyncLabel" type="Label" parent="Center/Panel/Margin/Content/Grid"]
+custom_minimum_size = Vector2(320, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.839, 0.812, 0.761, 1)
+theme_override_font_sizes/font_size = 26
+text = "V-Sync"
+vertical_alignment = 1
+
+[node name="VsyncButton" type="Button" parent="Center/Panel/Margin/Content/Grid"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 26
+toggle_mode = true
+
+[node name="MasterLabel" type="Label" parent="Center/Panel/Margin/Content/Grid"]
+custom_minimum_size = Vector2(320, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.839, 0.812, 0.761, 1)
+theme_override_font_sizes/font_size = 26
+text = "Master Volume"
+vertical_alignment = 1
+
+[node name="MasterRow" type="HBoxContainer" parent="Center/Panel/Margin/Content/Grid"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 20
+
+[node name="MasterSlider" type="HSlider" parent="Center/Panel/Margin/Content/Grid/MasterRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+max_value = 1.0
+step = 0.01
+
+[node name="MasterValue" type="Label" parent="Center/Panel/Margin/Content/Grid/MasterRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(90, 0)
+layout_mode = 2
+theme_type_variation = &"GildedTitle"
+theme_override_font_sizes/font_size = 26
+horizontal_alignment = 2
+vertical_alignment = 1
+
+[node name="MusicLabel" type="Label" parent="Center/Panel/Margin/Content/Grid"]
+custom_minimum_size = Vector2(320, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.839, 0.812, 0.761, 1)
+theme_override_font_sizes/font_size = 26
+text = "Music"
+vertical_alignment = 1
+
+[node name="MusicRow" type="HBoxContainer" parent="Center/Panel/Margin/Content/Grid"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 20
+
+[node name="MusicSlider" type="HSlider" parent="Center/Panel/Margin/Content/Grid/MusicRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+max_value = 1.0
+step = 0.01
+
+[node name="MusicValue" type="Label" parent="Center/Panel/Margin/Content/Grid/MusicRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(90, 0)
+layout_mode = 2
+theme_type_variation = &"GildedTitle"
+theme_override_font_sizes/font_size = 26
+horizontal_alignment = 2
+vertical_alignment = 1
+
+[node name="SfxLabel" type="Label" parent="Center/Panel/Margin/Content/Grid"]
+custom_minimum_size = Vector2(320, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.839, 0.812, 0.761, 1)
+theme_override_font_sizes/font_size = 26
+text = "Sound Effects"
+vertical_alignment = 1
+
+[node name="SfxRow" type="HBoxContainer" parent="Center/Panel/Margin/Content/Grid"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 20
+
+[node name="SfxSlider" type="HSlider" parent="Center/Panel/Margin/Content/Grid/SfxRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+max_value = 1.0
+step = 0.01
+
+[node name="SfxValue" type="Label" parent="Center/Panel/Margin/Content/Grid/SfxRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(90, 0)
+layout_mode = 2
+theme_type_variation = &"GildedTitle"
+theme_override_font_sizes/font_size = 26
+horizontal_alignment = 2
+vertical_alignment = 1
+
+[node name="BottomRule" type="HSeparator" parent="Center/Panel/Margin/Content"]
+layout_mode = 2
+
+[node name="BackButton" type="Button" parent="Center/Panel/Margin/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 4
+text = "Back"

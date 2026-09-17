@@ -1,0 +1,9 @@
+# Godot 4+ specific ignores
+.godot/
+/android/
+
+# .NET build output
+bin/
+obj/
+
+.DS_Store

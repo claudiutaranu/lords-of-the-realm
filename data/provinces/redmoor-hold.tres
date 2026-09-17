@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="ProvinceDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/Economy/ProvinceDefinition.cs" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+ProvinceName = "Redmoor Hold"
+InitialPopulation = 650
+GrainWorkerCapacity = 50
+CattleWorkerCapacity = 30
+WoodWorkerCapacity = 40
+StoneWorkerCapacity = 70
+IronWorkerCapacity = 60
+GrainModifier = 0.8
+CattleModifier = 0.9
+WoodModifier = 1.0
+StoneModifier = 1.3
+IronModifier = 1.4
+InitialGold = 400
+InitialGrain = 220
+InitialCattle = 35
+InitialWood = 150
+InitialStone = 260
+InitialIron = 180

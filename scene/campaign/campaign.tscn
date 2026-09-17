@@ -1,0 +1,115 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/UI/CampaignPage.cs" id="1_script"]
+[ext_resource type="VideoStream" path="res://assets/video/campaign-background.ogv" id="2_bg"]
+[ext_resource type="Theme" path="res://theme/main-menu.tres" id="3_theme"]
+[ext_resource type="Texture2D" path="res://assets/ui/logo.png" id="4_logo"]
+[ext_resource type="AudioStream" path="res://assets/audio/campaign-intro-narration.mp3" id="5_narration"]
+
+[node name="CampaignPage" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("3_theme")
+script = ExtResource("1_script")
+
+[node name="IntroNarration" type="AudioStreamPlayer" parent="."]
+unique_name_in_owner = true
+stream = ExtResource("5_narration")
+bus = &"SFX"
+
+[node name="Background" type="VideoStreamPlayer" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+stream = ExtResource("2_bg")
+expand = true
+autoplay = true
+
+[node name="Logo" type="TextureRect" parent="."]
+layout_mode = 1
+offset_left = 24.0
+offset_top = 16.0
+offset_right = 344.0
+offset_bottom = 208.0
+texture = ExtResource("4_logo")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="TitleBlock" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_top = 56.0
+offset_bottom = 230.0
+grow_horizontal = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="TitleBlock"]
+layout_mode = 2
+theme_type_variation = &"GildedTitle"
+theme_override_font_sizes/font_size = 64
+text = "Campaign Selection"
+horizontal_alignment = 1
+
+[node name="Subtitle" type="Label" parent="TitleBlock"]
+layout_mode = 2
+theme_type_variation = &"Subtitle"
+theme_override_font_sizes/font_size = 24
+text = "Five realms. Five destinies. Which lord will you be?"
+horizontal_alignment = 1
+
+[node name="CardArea" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = 90.0
+offset_bottom = -60.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="CardRow" type="HBoxContainer" parent="CardArea"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="BackButton" type="Button" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = -1
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 109.0
+offset_top = -76.0
+offset_right = 259.0
+offset_bottom = -32.0
+grow_vertical = 0
+text = "Back"
+
+[node name="Tagline" type="Label" parent="."]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -420.0
+offset_top = -68.0
+offset_right = -32.0
+offset_bottom = -28.0
+grow_horizontal = 0
+grow_vertical = 0
+theme_type_variation = &"Subtitle"
+theme_override_colors/font_color = Color(0.651, 0.6, 0.522, 1)
+theme_override_font_sizes/font_size = 17
+text = "Realms are shaped
+by those who dare."
+horizontal_alignment = 2
