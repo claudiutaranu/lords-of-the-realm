@@ -38,6 +38,11 @@ public partial class CampaignMap3D : Node3D
 	private const float MinDistance = 54.0f;
 	private const float MaxDistance = 204.0f;
 	private const float ZoomStep = 9.5f;
+	// Trackpad gestures carry continuous deltas, not the wheel's discrete clicks, so they need their
+	// own scale: how many world units one unit of two-finger scroll, and one of pinch, are worth.
+	// Tune by feel — these are not comparable to ZoomStep.
+	private const float PanGestureZoomStep = 18.0f;
+	private const float MagnifyZoomStep = 120.0f;
 	private const float PanSpeed = 0.13f;
 	private const float KeyPanSpeed = 74.0f; // world units per second, at full zoom-out
 
@@ -141,8 +146,8 @@ public partial class CampaignMap3D : Node3D
 
 	private static bool IsHeld(Key key) => Input.IsPhysicalKeyPressed(key);
 
-	/// <summary>Pan with a right/middle drag, zoom on the wheel. Left clicks are the page's,
-	/// for selecting provinces.</summary>
+	/// <summary>Pan with a right/middle drag, zoom on the wheel, a two-finger scroll or a pinch.
+	/// Left clicks are the page's, for selecting provinces.</summary>
 	public void HandleInput(InputEvent @event)
 	{
 		if (@event is InputEventMouseButton button && button.Pressed)
@@ -155,6 +160,18 @@ public partial class CampaignMap3D : Node3D
 			{
 				Zoom(ZoomStep);
 			}
+		}
+		// A trackpad sends no wheel buttons at all: macOS gives anything with a gesture phase to
+		// Godot as a pan or magnify event instead, which is why the wheel branch above never fires
+		// on a laptop. Both are already the inverse of the finger movement, so scrolling up zooms in
+		// exactly as the wheel does.
+		else if (@event is InputEventPanGesture pan)
+		{
+			Zoom(pan.Delta.Y * PanGestureZoomStep);
+		}
+		else if (@event is InputEventMagnifyGesture magnify)
+		{
+			Zoom((1.0f - magnify.Factor) * MagnifyZoomStep);
 		}
 		else if (@event is InputEventMouseMotion motion &&
 			(motion.ButtonMask & (MouseButtonMask.Right | MouseButtonMask.Middle)) != 0)
