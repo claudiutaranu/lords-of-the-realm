@@ -20,6 +20,7 @@ public partial class CampaignMapPage : Control
 	private const string LoadGameScenePath = "res://scene/load-game/load_game.tscn";
 	private const string OptionsScenePath = "res://scene/options/options.tscn";
 	private const string SelfScenePath = "res://scene/campaign-map/campaign_map.tscn";
+	private const string LeaveFarewellPath = "res://assets/audio/quit-farewell.mp3";
 	// The only campaign with a map; a save records it so the load list can name what it opens.
 	private const string CampaignName = "The Royal Crown";
 	private const float TurnFadeInSeconds = 0.4f;
@@ -85,6 +86,7 @@ public partial class CampaignMapPage : Control
 	private Label _sidebarTax;
 	private Label _sidebarRation;
 	private Control _leaveConfirm;
+	private AudioStreamPlayer _leaveFarewell;
 	private string _leaveTarget;
 	private Control _turnTransition;
 
@@ -172,7 +174,17 @@ public partial class CampaignMapPage : Control
 		GetNode<Button>("%ResumeButton").Pressed += () => gameMenu.Visible = false;
 		GetNode<Button>("%LoadButton").Pressed += () => ConfirmLeave(LoadGameScenePath);
 		_leaveConfirm = GetNode<Control>("%LeaveConfirm");
-		GetNode<Button>("%LeaveCancelButton").Pressed += () => _leaveConfirm.Visible = false;
+		_leaveFarewell = new AudioStreamPlayer
+		{
+			Stream = GD.Load<AudioStreamMP3>(LeaveFarewellPath),
+			Bus = Settings.SfxBus,
+		};
+		AddChild(_leaveFarewell);
+		GetNode<Button>("%LeaveCancelButton").Pressed += () =>
+		{
+			_leaveConfirm.Visible = false;
+			_leaveFarewell.Stop(); // staying: he doesn't get to finish the farewell
+		};
 		GetNode<Button>("%LeaveConfirmButton").Pressed += () => SceneRouter.GoTo(this, _leaveTarget);
 		GetNode<Button>("%OptionsButton").Pressed += () =>
 		{
@@ -202,6 +214,9 @@ public partial class CampaignMapPage : Control
 	{
 		_leaveTarget = scenePath;
 		_leaveConfirm.Visible = true;
+		// The old man asks it out loud while the panel asks it in writing. He speaks over the
+		// campaign he is being left, so the line starts with the panel rather than after it.
+		_leaveFarewell.Play();
 	}
 
 	/// <summary>A turn passes behind a curtain: the screen fades out, the season turns over while
