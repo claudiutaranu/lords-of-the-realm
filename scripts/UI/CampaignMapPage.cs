@@ -407,7 +407,7 @@ public partial class CampaignMapPage : Control
 			NavRail.Section.Military => "Military",
 			NavRail.Section.Buildings => "Buildings",
 			NavRail.Section.Court => "Court",
-			_ => "Battles",
+			_ => "Trade",
 		};
 		_sectionBody.Text = section switch
 		{
@@ -415,7 +415,7 @@ public partial class CampaignMapPage : Control
 			NavRail.Section.Military => "Every army you command, where it stands and what it costs. Not built yet.",
 			NavRail.Section.Buildings => "What each province has raised, and what it can raise next. Not built yet.",
 			NavRail.Section.Court => "Your lords, advisors and heirs. Not built yet.",
-			_ => "Sieges and field battles, past and pending. Not built yet.",
+			_ => "What the realm buys, sells and ships, and at what price. Not built yet.",
 		};
 		_sectionPanel.Visible = true;
 	}
