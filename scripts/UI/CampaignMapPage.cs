@@ -221,11 +221,18 @@ public partial class CampaignMapPage : Control
 	/// all exactly where they were when it closes.</summary>
 	private void OpenBuilding(string building)
 	{
-		ProvinceEconomy economy = _selected != null
-			? _turnManager.GetProvince(_provinces[_markers.IndexOf(_selected)].Name)
-			: null;
-		if (building != "Blacksmith" || economy == null || _blacksmith != null)
+		if (building != "Blacksmith" || _blacksmith != null)
 		{
+			return;
+		}
+
+		ProvinceData province = _provinces[_selected != null ? _markers.IndexOf(_selected) : 0];
+		ProvinceEconomy economy = _turnManager.GetProvince(province.Name);
+		if (economy == null)
+		{
+			// A province you do not hold has no smithy of yours in it. Say so rather than letting the
+			// press do nothing at all.
+			ShowSaveToast($"{province.Name} is not yours to forge in");
 			return;
 		}
 
@@ -433,6 +440,13 @@ public partial class CampaignMapPage : Control
 	// naming what belongs there. Replace a case with a real panel as that system gets built.
 	private void ShowSection(NavRail.Section section)
 	{
+		// Buildings is the one that opens onto somewhere real: the smithy of the province in hand.
+		if (section == NavRail.Section.Buildings)
+		{
+			OpenBuilding("Blacksmith");
+			return;
+		}
+
 		_sectionTitle.Text = section switch
 		{
 			NavRail.Section.Chronicle => "Chronicle",
