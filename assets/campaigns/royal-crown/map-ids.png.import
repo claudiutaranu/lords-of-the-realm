@@ -1,0 +1,14 @@
+[remap]
+
+importer="image"
+type="Image"
+uid="uid://dyselnyhnocfx"
+path="res://.godot/imported/map-ids.png-6eff4b26de9f6e8134008fdeb7827f89.image"
+
+[deps]
+
+source_file="res://assets/campaigns/royal-crown/map-ids.png"
+dest_files=["res://.godot/imported/map-ids.png-6eff4b26de9f6e8134008fdeb7827f89.image"]
+
+[params]
+

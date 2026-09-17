@@ -9,7 +9,9 @@ public partial class LoadGamePage : Control
 	private const string CampaignMapScenePath = "res://scene/campaign-map/campaign_map.tscn";
 	private const string LoadingScenePath = "res://scene/loading/loading.tscn";
 	// Every save is a Royal Crown campaign for now — the only one with a map behind it.
-	private const string PreviewPath = "res://assets/ui/campaign-card-royal.png";
+	// ponytail: pinned to one campaign's art. When a second campaign gets a map, a save has to
+	// record which folder it belongs to, and both this and Campaign.Folder should follow it.
+	private static readonly string PreviewPath = Campaign.AssetOf("royal-crown", "card.png");
 
 	private TextureRect _preview;
 	private Label _detailName;

@@ -1,111 +1,59 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=15 format=3]
 
 [ext_resource type="Script" path="res://scripts/UI/NavRail.cs" id="1_script"]
 [ext_resource type="Theme" path="res://theme/main-menu.tres" id="2_theme"]
 [ext_resource type="Script" path="res://scripts/UI/NavRailIcon.cs" id="3_icon"]
+[ext_resource type="Texture2D" path="res://assets/ui/button-square.png" id="4_plate"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/hammer.png" id="5_hammer"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/scroll.png" id="6_scroll"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/shield.png" id="7_shield"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/laurel.png" id="8_laurel"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/scales.png" id="9_scales"]
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_icon_normal"]
-bg_color = Color(0.129, 0.125, 0.129, 0.92)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(0.549, 0.447, 0.271, 0.8)
-corner_radius_top_left = 4
-corner_radius_top_right = 4
-corner_radius_bottom_right = 4
-corner_radius_bottom_left = 4
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_bar"]
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_icon_hover"]
-bg_color = Color(0.42, 0.09, 0.09, 0.95)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(0.8, 0.651, 0.376, 1)
-corner_radius_top_left = 4
-corner_radius_top_right = 4
-corner_radius_bottom_right = 4
-corner_radius_bottom_left = 4
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_plate"]
+texture = ExtResource("4_plate")
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_plate_hover"]
+texture = ExtResource("4_plate")
+modulate_color = Color(1.3, 1.2, 1.05, 1)
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_plate_pressed"]
+texture = ExtResource("4_plate")
+modulate_color = Color(0.78, 0.76, 0.72, 1)
 
 [sub_resource type="Theme" id="Theme_icon_buttons"]
-Button/styles/focus = SubResource("StyleBoxFlat_icon_hover")
-Button/styles/hover = SubResource("StyleBoxFlat_icon_hover")
-Button/styles/normal = SubResource("StyleBoxFlat_icon_normal")
-Button/styles/pressed = SubResource("StyleBoxFlat_icon_hover")
+Button/styles/focus = SubResource("StyleBoxTexture_plate_hover")
+Button/styles/hover = SubResource("StyleBoxTexture_plate_hover")
+Button/styles/normal = SubResource("StyleBoxTexture_plate")
+Button/styles/pressed = SubResource("StyleBoxTexture_plate_pressed")
 
 [node name="NavRail" type="PanelContainer"]
-size_flags_vertical = 4
 theme = ExtResource("2_theme")
+theme_override_styles/panel = SubResource("StyleBoxEmpty_bar")
 script = ExtResource("1_script")
 
 [node name="Margin" type="MarginContainer" parent="."]
 layout_mode = 2
-theme_override_constants/margin_left = 8
-theme_override_constants/margin_top = 8
-theme_override_constants/margin_right = 8
-theme_override_constants/margin_bottom = 8
+theme_override_constants/margin_left = 0
+theme_override_constants/margin_top = 0
+theme_override_constants/margin_right = 0
+theme_override_constants/margin_bottom = 0
 
-[node name="Buttons" type="VBoxContainer" parent="Margin"]
+[node name="Buttons" type="HBoxContainer" parent="Margin"]
 layout_mode = 2
 theme = SubResource("Theme_icon_buttons")
-theme_override_constants/separation = 8
-
-[node name="ChronicleButton" type="Button" parent="Margin/Buttons"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(52, 52)
-layout_mode = 2
-tooltip_text = "Chronicle"
-
-[node name="Icon" type="Control" parent="Margin/Buttons/ChronicleButton"]
-custom_minimum_size = Vector2(32, 32)
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -16.0
-offset_top = -16.0
-offset_right = 16.0
-offset_bottom = 16.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-script = ExtResource("3_icon")
-Kind = 0
-
-[node name="MilitaryButton" type="Button" parent="Margin/Buttons"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(52, 52)
-layout_mode = 2
-tooltip_text = "Military"
-
-[node name="Icon" type="Control" parent="Margin/Buttons/MilitaryButton"]
-custom_minimum_size = Vector2(32, 32)
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -16.0
-offset_top = -16.0
-offset_right = 16.0
-offset_bottom = 16.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-script = ExtResource("3_icon")
-Kind = 1
+theme_override_constants/separation = 0
+alignment = 1
 
 [node name="BuildingsButton" type="Button" parent="Margin/Buttons"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(52, 52)
+custom_minimum_size = Vector2(56, 56)
 layout_mode = 2
 tooltip_text = "Buildings"
 
-[node name="Icon" type="Control" parent="Margin/Buttons/BuildingsButton"]
+[node name="Icon" type="TextureRect" parent="Margin/Buttons/BuildingsButton"]
 custom_minimum_size = Vector2(32, 32)
 layout_mode = 1
 anchors_preset = 8
@@ -113,23 +61,98 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -16.0
-offset_top = -16.0
-offset_right = 16.0
-offset_bottom = 16.0
+offset_left = -15.0
+offset_top = -15.0
+offset_right = 15.0
+offset_bottom = 15.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-script = ExtResource("3_icon")
-Kind = 2
+texture = ExtResource("5_hammer")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="ChronicleButton" type="Button" parent="Margin/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(56, 56)
+layout_mode = 2
+tooltip_text = "Chronicle"
+
+[node name="Icon" type="TextureRect" parent="Margin/Buttons/ChronicleButton"]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -15.0
+offset_top = -15.0
+offset_right = 15.0
+offset_bottom = 15.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("6_scroll")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="TradeButton" type="Button" parent="Margin/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(56, 56)
+layout_mode = 2
+tooltip_text = "Trade"
+
+[node name="Icon" type="TextureRect" parent="Margin/Buttons/TradeButton"]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -15.0
+offset_top = -15.0
+offset_right = 15.0
+offset_bottom = 15.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("9_scales")
+expand_mode = 1
+stretch_mode = 5
+[node name="MilitaryButton" type="Button" parent="Margin/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(56, 56)
+layout_mode = 2
+tooltip_text = "Military"
+
+[node name="Icon" type="TextureRect" parent="Margin/Buttons/MilitaryButton"]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -15.0
+offset_top = -15.0
+offset_right = 15.0
+offset_bottom = 15.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("7_shield")
+expand_mode = 1
+stretch_mode = 5
 
 [node name="CourtButton" type="Button" parent="Margin/Buttons"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(52, 52)
+custom_minimum_size = Vector2(56, 56)
 layout_mode = 2
 tooltip_text = "Court"
 
-[node name="Icon" type="Control" parent="Margin/Buttons/CourtButton"]
+[node name="Icon" type="TextureRect" parent="Margin/Buttons/CourtButton"]
 custom_minimum_size = Vector2(32, 32)
 layout_mode = 1
 anchors_preset = 8
@@ -137,36 +160,14 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -16.0
-offset_top = -16.0
-offset_right = 16.0
-offset_bottom = 16.0
+offset_left = -15.0
+offset_top = -15.0
+offset_right = 15.0
+offset_bottom = 15.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-script = ExtResource("3_icon")
-Kind = 3
+texture = ExtResource("8_laurel")
+expand_mode = 1
+stretch_mode = 5
 
-[node name="BattlesButton" type="Button" parent="Margin/Buttons"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(52, 52)
-layout_mode = 2
-tooltip_text = "Battles"
-
-[node name="Icon" type="Control" parent="Margin/Buttons/BattlesButton"]
-custom_minimum_size = Vector2(32, 32)
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -16.0
-offset_top = -16.0
-offset_right = 16.0
-offset_bottom = 16.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-script = ExtResource("3_icon")
-Kind = 4

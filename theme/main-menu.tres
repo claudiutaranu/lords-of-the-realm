@@ -76,22 +76,6 @@ corner_radius_top_right = 6
 corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_popup"]
-content_margin_left = 12.0
-content_margin_top = 10.0
-content_margin_right = 12.0
-content_margin_bottom = 10.0
-bg_color = Color(0.078, 0.075, 0.078, 0.96)
-border_width_left = 3
-border_width_top = 3
-border_width_right = 3
-border_width_bottom = 3
-border_color = Color(0.722, 0.58, 0.329, 1)
-corner_radius_top_left = 6
-corner_radius_top_right = 6
-corner_radius_bottom_right = 6
-corner_radius_bottom_left = 6
-
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hover"]
 content_margin_left = 28.0
 content_margin_top = 14.0
@@ -108,6 +92,22 @@ corner_radius_top_right = 4
 corner_radius_bottom_right = 4
 corner_radius_bottom_left = 4
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_popup"]
+content_margin_left = 12.0
+content_margin_top = 10.0
+content_margin_right = 12.0
+content_margin_bottom = 10.0
+bg_color = Color(0.078, 0.075, 0.078, 0.96)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.722, 0.58, 0.329, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
 [resource]
 default_font = ExtResource("3_cinzel")
 default_font_size = 22
@@ -119,6 +119,14 @@ Button/styles/focus = SubResource("StyleBoxTexture_hover")
 Button/styles/hover = SubResource("StyleBoxTexture_hover")
 Button/styles/normal = SubResource("StyleBoxTexture_normal")
 Button/styles/pressed = SubResource("StyleBoxTexture_hover")
+GildedTitle/base_type = &"Label"
+GildedTitle/colors/font_color = Color(0.976, 0.831, 0.353, 1)
+GildedTitle/colors/font_outline_color = Color(0.157, 0.075, 0.031, 1)
+GildedTitle/colors/font_shadow_color = Color(0, 0, 0, 0.55)
+GildedTitle/constants/outline_size = 3
+GildedTitle/constants/shadow_offset_x = 2
+GildedTitle/constants/shadow_offset_y = 3
+GildedTitle/fonts/font = ExtResource("4_title_font")
 HSeparator/styles/separator = SubResource("StyleBoxLine_rule")
 HSlider/styles/grabber_area = SubResource("StyleBoxFlat_grabber")
 HSlider/styles/grabber_area_highlight = SubResource("StyleBoxFlat_grabber_hl")
@@ -128,17 +136,9 @@ PopupMenu/colors/font_color = Color(0.929, 0.898, 0.839, 1)
 PopupMenu/colors/font_hover_color = Color(1, 0.961, 0.882, 1)
 PopupMenu/styles/hover = SubResource("StyleBoxFlat_hover")
 PopupMenu/styles/panel = SubResource("StyleBoxFlat_popup")
-GildedTitle/base_type = &"Label"
-GildedTitle/fonts/font = ExtResource("4_title_font")
-GildedTitle/colors/font_color = Color(0.976, 0.831, 0.353, 1)
-GildedTitle/colors/font_outline_color = Color(0.157, 0.075, 0.031, 1)
-GildedTitle/constants/outline_size = 3
-GildedTitle/colors/font_shadow_color = Color(0, 0, 0, 0.55)
-GildedTitle/constants/shadow_offset_x = 2
-GildedTitle/constants/shadow_offset_y = 3
 Subtitle/base_type = &"Label"
-Subtitle/fonts/font = ExtResource("5_subtitle_font")
 Subtitle/colors/font_color = Color(0.847, 0.776, 0.643, 1)
 Subtitle/colors/font_shadow_color = Color(0, 0, 0, 0.7)
 Subtitle/constants/shadow_offset_x = 1
 Subtitle/constants/shadow_offset_y = 2
+Subtitle/fonts/font = ExtResource("5_subtitle_font")

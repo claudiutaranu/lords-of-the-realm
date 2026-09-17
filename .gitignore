@@ -7,3 +7,9 @@ bin/
 obj/
 
 .DS_Store
+
+# Python venv for tools/generate_campaign_map.py
+tools/.venv/
+
+# Claude Code scratch worktrees
+.claude/worktrees/

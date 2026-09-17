@@ -3,9 +3,9 @@
 [ext_resource type="Script" path="res://scripts/UI/CampaignBriefingPage.cs" id="1_script"]
 [ext_resource type="VideoStream" path="res://assets/video/campaign-background.ogv" id="2_bg"]
 [ext_resource type="Theme" path="res://theme/main-menu.tres" id="3_theme"]
-[ext_resource type="Texture2D" path="res://assets/ui/campaign-card-royal.png" id="4_royal"]
-[ext_resource type="Texture2D" path="res://assets/ui/campaign-card-northern-watch.png" id="5_northern"]
-[ext_resource type="Texture2D" path="res://assets/ui/map-royal-crown-vs-northern-watch.png" id="6_map"]
+[ext_resource type="Texture2D" path="res://assets/campaigns/royal-crown/card.png" id="4_royal"]
+[ext_resource type="Texture2D" path="res://assets/campaigns/northern-watch/card.png" id="5_northern"]
+[ext_resource type="Texture2D" path="res://assets/campaigns/royal-crown/briefing-map.png" id="6_map"]
 [ext_resource type="Texture2D" path="res://assets/ui/icons/sword.png" id="7_icon_sword"]
 [ext_resource type="Texture2D" path="res://assets/ui/icons/gold.png" id="8_icon_gold"]
 

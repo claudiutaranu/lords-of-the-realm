@@ -1,51 +1,96 @@
 using Godot;
 
-/// <summary>The campaign map as real geometry: a plane displaced by campaign-map-height.png,
+/// <summary>The campaign map as real geometry: a plane displaced by the campaign's map-height.png,
 /// lit and shadowed, viewed through a fixed-pitch camera the player pans and zooms. It owns
 /// the space entirely — the page above it only asks it questions in map-pixel or screen terms.
 ///
 /// Three images describe the same 1536x1024 map and must stay in step (all regenerated together
-/// by tools/generate_campaign_map.py): height drives the mesh AND the click raycast, albedo is
+/// by tools/generate_campaign_map.py, into the played campaign's own asset folder): height drives
+/// the mesh AND the click raycast, albedo is
 /// what you see, and the ID map says which province a point belongs to. Height and ID are
 /// imported as Image, not Texture2D, so the CPU can read their pixels in an exported build;
 /// the GPU copies are built from them here.</summary>
 public partial class CampaignMap3D : Node3D
 {
-	private const string HeightPath = "res://assets/ui/campaign-map-height.png";
-	private const string AlbedoPath = "res://assets/ui/campaign-map-albedo.png";
-	private const string IdPath = "res://assets/ui/campaign-map-ids.png";
+	// The three images are the played campaign's own (Campaign.Asset); the shader and the ground
+	// textures below are the engine's, shared by every campaign.
+	private const string HeightFile = "map-height.png";
+	private const string AlbedoFile = "map-albedo.png";
+	private const string IdFile = "map-ids.png";
 	private const string TerrainShaderPath = "res://assets/shaders/terrain.gdshader";
+	private const string TerrainTextureDirectory = "res://assets/terrain";
 
 	// The map image's pixels laid out in world units, and how tall a full-white height pixel is.
-	private const float MapWidth = 153.6f;
-	private const float MapDepth = 102.4f;
-	private const float HeightScale = 20.0f;
-	private const float SeaLevel = 0.55f;
+	// Grown 20% over the original 153.6x102.4: props keep their real size, so the realm reads as
+	// bigger ground rather than the same map zoomed. Height goes with it or the relief flattens.
+	private const float MapWidth = 184.3f;
+	private const float MapDepth = 122.9f;
+	private const float HeightScale = 24.0f;
+	// The height map stores the seabed too: this byte value is the waterline, and everything below
+	// it is under water (tools/generate_campaign_map.py: SEA_FLOOR_BYTE).
+	private const float SeaFloorByte = 46.0f;
+	private const float SeaLevel = HeightScale * SeaFloorByte / 255.0f;
 
 	// Fixed pitch: the map reads like the painted original from one angle, and markers stay
 	// where the player expects. Free orbit can come later if armies ever need to be seen behind
 	// a mountain.
 	private const float CameraPitchDegrees = -52.0f;
-	private const float MinDistance = 45.0f;
-	private const float MaxDistance = 170.0f;
-	private const float ZoomStep = 8.0f;
+	private const float MinDistance = 54.0f;
+	private const float MaxDistance = 152.0f;
+	private const float ZoomStep = 9.5f;
+	// Trackpad gestures carry continuous deltas, not the wheel's discrete clicks, so they need their
+	// own scale: how many world units one unit of two-finger scroll, and one of pinch, are worth.
+	// Tune by feel — these are not comparable to ZoomStep.
+	private const float PanGestureZoomStep = 18.0f;
+	private const float MagnifyZoomStep = 120.0f;
 	private const float PanSpeed = 0.13f;
+	private const float KeyPanSpeed = 74.0f; // world units per second, at full zoom-out
+
+	/// <summary>What a season does to the light over the map: the sun's colour and strength, the sky
+	/// it comes out of, and the haze on the horizon. The ground and the sea are seasoned by their own
+	/// shaders; this is the weather over them.</summary>
+	private record SeasonLight(Color Sun, float Energy, Color SkyTop, Color SkyHorizon, Color Fog, float FogDensity);
+
+	// Season enum order: spring, summer, autumn, winter.
+	private static readonly SeasonLight[] LightBySeason =
+	{
+		new(new("ffeccf"), 1.30f, new("31558a"), new("9db5c4"), new("aec2d2"), 0.00022f),
+		new(new("fff2d8"), 1.35f, new("2b4a74"), new("8aa0b4"), new("9fb4c8"), 0.00018f),
+		new(new("ffdba8"), 1.18f, new("3a5470"), new("c2a681"), new("bfae95"), 0.00030f),
+		new(new("dfeaff"), 0.92f, new("4c5d74"), new("c3ccd4"), new("cbd6df"), 0.00048f),
+	};
 
 	private Camera3D _camera;
 	private ShaderMaterial _terrainMaterial;
 	private Image _heightImage;
 	private Image _idImage;
+	private MapDecoration _decoration;
+	private MapClouds _clouds;
+	private MapWater _water;
+	private DirectionalLight3D _sun;
+	private ProceduralSkyMaterial _sky;
+	private Godot.Environment _environment;
 	private Vector3 _focus = Vector3.Zero;
-	private float _distance = 120.0f;
+	private float _distance = 132.0f;
 
 	public override void _Ready()
 	{
-		_heightImage = GD.Load<Image>(HeightPath);
-		_idImage = GD.Load<Image>(IdPath);
+		_heightImage = GD.Load<Image>(Campaign.Asset(HeightFile));
+		_idImage = GD.Load<Image>(Campaign.Asset(IdFile));
 
 		BuildEnvironment();
 		BuildTerrain();
 		BuildWater();
+
+		_decoration = new MapDecoration();
+		AddChild(_decoration);
+		_decoration.Build(this);
+
+		_clouds = new MapClouds();
+		AddChild(_clouds);
+		// HeightScale is what a fully white height pixel stands for, so it is the tallest ground
+		// this map can have — the sky is placed against that.
+		_clouds.Build(new Vector2(MapWidth, MapDepth), HeightScale);
 
 		_camera = new Camera3D { Fov = 48.0f, Far = 800.0f, Current = true };
 		AddChild(_camera);
@@ -77,16 +122,45 @@ public partial class CampaignMap3D : Node3D
 		return true;
 	}
 
+	/// <summary>Raised whenever the chosen province changes. The minimap listens to this rather than
+	/// being wired up by the page, so it keeps working however that page is rearranged.</summary>
+	public static event System.Action<int> ProvinceHighlighted;
+
 	public void SetHighlight(int selectedIndex, int hoveredIndex)
 	{
+		ProvinceHighlighted?.Invoke(selectedIndex);
+
 		// The shader compares against the ID map's raw red channel, which is index + 1 so that
 		// 0 can mean water.
 		_terrainMaterial.SetShaderParameter("selected_index", selectedIndex + 1);
 		_terrainMaterial.SetShaderParameter("hovered_index", hoveredIndex + 1);
 	}
 
-	/// <summary>Pan with a right/middle drag, zoom on the wheel. Left clicks are the page's,
-	/// for selecting provinces.</summary>
+	// Physical key positions, not letters, so WASD stays under the same fingers on a non-QWERTY
+	// layout. Polled rather than handled as events: holding a key has to pan every frame, and the
+	// UI over the map would otherwise eat the repeats.
+	public override void _Process(double delta)
+	{
+		var move = new Vector3(
+			(IsHeld(Key.D) || IsHeld(Key.Right) ? 1 : 0) - (IsHeld(Key.A) || IsHeld(Key.Left) ? 1 : 0),
+			0,
+			(IsHeld(Key.S) || IsHeld(Key.Down) ? 1 : 0) - (IsHeld(Key.W) || IsHeld(Key.Up) ? 1 : 0));
+		if (move == Vector3.Zero)
+		{
+			return;
+		}
+
+		// Close in, the same key press should cover less ground, or the map bolts away from you.
+		float speed = KeyPanSpeed * Mathf.Max(_distance / MaxDistance, 0.35f);
+		_focus += move.Normalized() * speed * (float)delta;
+		ClampFocus();
+		UpdateCamera();
+	}
+
+	private static bool IsHeld(Key key) => Input.IsPhysicalKeyPressed(key);
+
+	/// <summary>Pan with a right/middle drag, zoom on the wheel, a two-finger scroll or a pinch.
+	/// Left clicks are the page's, for selecting provinces.</summary>
 	public void HandleInput(InputEvent @event)
 	{
 		if (@event is InputEventMouseButton button && button.Pressed)
@@ -100,6 +174,18 @@ public partial class CampaignMap3D : Node3D
 				Zoom(ZoomStep);
 			}
 		}
+		// A trackpad sends no wheel buttons at all: macOS gives anything with a gesture phase to
+		// Godot as a pan or magnify event instead, which is why the wheel branch above never fires
+		// on a laptop. Both are already the inverse of the finger movement, so scrolling up zooms in
+		// exactly as the wheel does.
+		else if (@event is InputEventPanGesture pan)
+		{
+			Zoom(pan.Delta.Y * PanGestureZoomStep);
+		}
+		else if (@event is InputEventMagnifyGesture magnify)
+		{
+			Zoom((1.0f - magnify.Factor) * MagnifyZoomStep);
+		}
 		else if (@event is InputEventMouseMotion motion &&
 			(motion.ButtonMask & (MouseButtonMask.Right | MouseButtonMask.Middle)) != 0)
 		{
@@ -111,63 +197,117 @@ public partial class CampaignMap3D : Node3D
 		}
 	}
 
+	/// <summary>Turns the whole map over to a season: the ground, the sea, what grows on it and the
+	/// light it all stands in. Called on every turn change, from behind the turn curtain, so the
+	/// change is never seen happening.</summary>
+	public void SetSeason(Season season)
+	{
+		_terrainMaterial.SetShaderParameter("season", (float)(int)season);
+		_water.SetSeason(season);
+		_decoration.SetSeason(season);
+		_clouds.SetSeason(season);
+
+		SeasonLight light = LightBySeason[(int)season];
+		_sun.LightColor = light.Sun;
+		_sun.LightEnergy = light.Energy;
+		_sky.SkyTopColor = light.SkyTop;
+		_sky.SkyHorizonColor = light.SkyHorizon;
+		_environment.FogLightColor = light.Fog;
+		_environment.FogDensity = light.FogDensity;
+	}
+
+	/// <summary>Map pixels to a world unit — anything that has to measure a width on the ground
+	/// needs this to convert before sampling.</summary>
+	public float PixelsPerUnit => _heightImage.GetWidth() / MapWidth;
+
+	/// <summary>World position of a map pixel, sitting on the terrain surface.</summary>
+	public Vector3 WorldAt(Vector2 mapPixel) => MapToWorld(mapPixel);
+
+	/// <summary>Puts a working site (quarry, pasture, lumber camp) on a province's ground.</summary>
+	public void AddSite(Vector2 seatPixel, MapDecoration.SiteKind kind, float weight) =>
+		_decoration.AddSite(seatPixel, kind, weight);
+
 	/// <summary>Terrain height in world units at a map pixel — where a marker or a future army
 	/// has to stand so it isn't buried in a hillside.</summary>
 	public float HeightAt(Vector2 mapPixel) => SampleHeight(MapToWorld(mapPixel));
+
+	/// <summary>The waterline in world units — anything below it is sea.</summary>
+	public float WaterLine => SeaLevel;
 
 	// --- world building ------------------------------------------------------------------
 
 	private void BuildEnvironment()
 	{
-		var sky = new ProceduralSkyMaterial
+		_sky = new ProceduralSkyMaterial
 		{
 			SkyTopColor = new Color("2b4a74"),
 			SkyHorizonColor = new Color("8aa0b4"),
 			GroundHorizonColor = new Color("6b7280"),
 			SunAngleMax = 24.0f,
 		};
-		var environment = new Godot.Environment
+		_environment = new Godot.Environment
 		{
 			BackgroundMode = Godot.Environment.BGMode.Sky,
-			Sky = new Sky { SkyMaterial = sky },
+			Sky = new Sky { SkyMaterial = _sky },
 			AmbientLightSource = Godot.Environment.AmbientSource.Sky,
-			AmbientLightEnergy = 0.65f,
+			AmbientLightEnergy = 0.45f,
 			TonemapMode = Godot.Environment.ToneMapper.Filmic,
 			FogEnabled = true,
 			FogLightColor = new Color("9fb4c8"),
-			FogDensity = 0.0022f,
+			FogDensity = 0.00018f,
+			FogSkyAffect = 0.1f,
+			FogAerialPerspective = 0.18f,
+			SsaoEnabled = true,
+			SsaoRadius = 1.8f,
+			SsaoIntensity = 1.2f,
 		};
-		AddChild(new WorldEnvironment { Environment = environment });
+		AddChild(new WorldEnvironment { Environment = _environment });
 
 		// Low sun: long shadows off the ridge are what make the relief read as relief.
-		var light = new DirectionalLight3D
+		_sun = new DirectionalLight3D
 		{
-			LightEnergy = 1.35f,
-			LightColor = new Color("fff2d8"),
+			LightEnergy = 1.55f,
+			LightColor = new Color("fff0cf"),
 			ShadowEnabled = true,
-			DirectionalShadowMaxDistance = 320.0f,
+			DirectionalShadowMode = DirectionalLight3D.ShadowMode.Parallel2Splits,
+			DirectionalShadowMaxDistance = 190.0f,
+			ShadowBlur = 1.4f,
 		};
-		light.RotationDegrees = new Vector3(-42, -38, 0);
-		AddChild(light);
+		_sun.RotationDegrees = new Vector3(-42, -38, 0);
+		AddChild(_sun);
 	}
 
 	private void BuildTerrain()
 	{
 		_terrainMaterial = new ShaderMaterial { Shader = GD.Load<Shader>(TerrainShaderPath) };
 		_terrainMaterial.SetShaderParameter("height_map", ImageTexture.CreateFromImage(_heightImage));
-		_terrainMaterial.SetShaderParameter("albedo_map", GD.Load<Texture2D>(AlbedoPath));
+		_terrainMaterial.SetShaderParameter("albedo_map", GD.Load<Texture2D>(Campaign.Asset(AlbedoFile)));
 		_terrainMaterial.SetShaderParameter("id_map", ImageTexture.CreateFromImage(_idImage));
 		_terrainMaterial.SetShaderParameter("height_scale", HeightScale);
+		_terrainMaterial.SetShaderParameter("sea_level_normalized", SeaFloorByte / 255.0f);
+		_terrainMaterial.SetShaderParameter("map_size_x", MapWidth);
+		// Ground texture density stays fixed to world units, so growing the map does not stretch it.
+		_terrainMaterial.SetShaderParameter("detail_tiling", MapWidth * 0.586f);
 		_terrainMaterial.SetShaderParameter("world_texel",
 			new Vector2(MapWidth / _heightImage.GetWidth(), MapDepth / _heightImage.GetHeight()));
 
-		// One vertex per 4 height pixels: finer than that and the mesh resolves noise the
-		// heightmap doesn't actually carry.
+		// CC0 ground textures (assets/terrain/LICENSE.txt), tiled far tighter than the map so the
+		// surface has grain of its own instead of reading as painted clay.
+		foreach (string surface in new[] { "grass", "rock", "snow", "sand" })
+		{
+			_terrainMaterial.SetShaderParameter($"{surface}_texture",
+				GD.Load<Texture2D>($"{TerrainTextureDirectory}/{surface}-diffuse.jpg"));
+			_terrainMaterial.SetShaderParameter($"{surface}_normal",
+				GD.Load<Texture2D>($"{TerrainTextureDirectory}/{surface}-normal.jpg"));
+		}
+
 		var mesh = new PlaneMesh
 		{
 			Size = new Vector2(MapWidth, MapDepth),
-			SubdivideWidth = _heightImage.GetWidth() / 4,
-			SubdivideDepth = _heightImage.GetHeight() / 4,
+			// One vertex per 3 height pixels: enough that an islet is a shape rather than a few flat
+			// facets, without the 790k triangles that one vertex per 2 pixels cost.
+			SubdivideWidth = _heightImage.GetWidth() / 3,
+			SubdivideDepth = _heightImage.GetHeight() / 3,
 			Material = _terrainMaterial,
 		};
 		AddChild(new MeshInstance3D
@@ -183,19 +323,9 @@ public partial class CampaignMap3D : Node3D
 
 	private void BuildWater()
 	{
-		var material = new StandardMaterial3D
-		{
-			AlbedoColor = new Color("14304f"),
-			Metallic = 0.35f,
-			Roughness = 0.09f,
-		};
-		AddChild(new MeshInstance3D
-		{
-			// Wider than the land so the sea runs past the coast to the horizon.
-			Mesh = new PlaneMesh { Size = new Vector2(MapWidth * 3.5f, MapDepth * 3.5f), Material = material },
-			Position = new Vector3(0, SeaLevel, 0),
-			CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
-		});
+		_water = new MapWater();
+		AddChild(_water);
+		_water.Build(_heightImage, new Vector2(MapWidth, MapDepth), HeightScale, SeaLevel);
 	}
 
 	// --- camera ---------------------------------------------------------------------------
@@ -217,6 +347,7 @@ public partial class CampaignMap3D : Node3D
 		float pitch = Mathf.DegToRad(CameraPitchDegrees);
 		_camera.Position = _focus + new Vector3(0, -Mathf.Sin(pitch) * _distance, Mathf.Cos(pitch) * _distance);
 		_camera.RotationDegrees = new Vector3(CameraPitchDegrees, 0, 0);
+		_clouds?.SetFocus(_focus);
 	}
 
 	// --- sampling the same images the shader draws from --------------------------------------

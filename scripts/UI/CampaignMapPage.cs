@@ -1,18 +1,22 @@
+using System;
 using System.Collections.Generic;
 using Godot;
 
 /// <summary>
-/// Phase 1 of the campaign: a clickable map of the Royal Crown vs. Northern Watch frontier,
-/// an End Turn counter, and a TurnManager-driven economy for the player's 5 provinces.
-/// Northern Watch's 3 provinces sit inert until there's AI to run them (Phase 4). No
-/// armies or combat yet.
+/// Phase 1 of the campaign: a clickable map of two realms' frontier, an End Turn counter, and a
+/// TurnManager-driven economy for the provinces the player holds. The other realm's provinces sit
+/// inert until there's AI to run them (Phase 4). No armies or combat yet.
+///
+/// Nothing here is about one particular campaign: which realms, which provinces, where their seats
+/// sit and which of them the player runs all come from the played campaign's own provinces.json
+/// (see Campaign), so a second campaign is a second folder rather than a second copy of this page.
 ///
 /// The map itself is 3D (CampaignMap3D): a displaced terrain mesh the player pans and zooms.
 /// This page owns the UI over it and the 2D province markers, which are re-projected from the
-/// camera every frame. Province identity still comes from campaign-map-ids.png, an unseen image
-/// of the same layout where each pixel's red channel is its province index + 1 (0 = water) — the
-/// standard technique this genre uses (Paradox's province bitmaps work the same way), here read
-/// at whatever point the click raycast lands on.
+/// camera every frame. Province identity still comes from the campaign's map-ids.png, an unseen
+/// image of the same layout where each pixel's red channel is its province index + 1 (0 = water)
+/// — the standard technique this genre uses (Paradox's province bitmaps work the same way), here
+/// read at whatever point the click raycast lands on.
 /// </summary>
 public partial class CampaignMapPage : Control
 {
@@ -20,8 +24,10 @@ public partial class CampaignMapPage : Control
 	private const string LoadGameScenePath = "res://scene/load-game/load_game.tscn";
 	private const string OptionsScenePath = "res://scene/options/options.tscn";
 	private const string SelfScenePath = "res://scene/campaign-map/campaign_map.tscn";
-	// The only campaign with a map; a save records it so the load list can name what it opens.
-	private const string CampaignName = "The Royal Crown";
+	private const string LeaveFarewellPath = "res://assets/audio/quit-farewell.mp3";
+	private const string SquareButtonPath = "res://assets/ui/button-square.png";
+	private const string ProvincesDataFile = "provinces.json";
+	private const string BlacksmithScenePath = "res://scene/campaign-map/blacksmith.tscn";
 	private const float TurnFadeInSeconds = 0.4f;
 	private const float TurnHoldSeconds = 1.1f;
 	private const float TurnFadeOutSeconds = 0.5f;
@@ -29,38 +35,25 @@ public partial class CampaignMapPage : Control
 	private const float ToastHoldSeconds = 1.6f;
 	private const float ToastFadeOutSeconds = 0.6f;
 
-	private enum Realm { RoyalCrown, NorthernWatch }
+	/// <summary>A realm as the campaign describes it: what it is called, and the colour everything
+	/// belonging to it is drawn in.</summary>
+	private record RealmData(string Name, Color Accent);
 
-	private record ProvinceData(string Name, Vector2 MapPosition, Realm Owner, bool IsCapital, string[] Neighbors);
+	/// <summary>One province of the played campaign. <paramref name="Realm"/> is who holds it when
+	/// the campaign opens, which for most of them is nobody. <paramref name="EconomyFile"/> names the
+	/// ProvinceDefinition describing its land, and is empty where none is authored yet.</summary>
+	private record ProvinceData(string Name, Vector2 MapPosition, string Realm, bool IsCapital, string EconomyFile);
 
-	private static readonly Color RoyalCrownColor = new("b23a3a");
-	private static readonly Color NorthernWatchColor = new("5f8fc9");
-
-	// Royal Crown's 5 provinces get simulated economies; Northern Watch's 3 sit inert until
-	// there's AI to run them (Phase 4) — file names double as ProvinceDefinition.ProvinceName lookups.
-	private static readonly string[] PlayerProvinceDataFiles =
-		{ "kingsreach", "redmoor-hold", "ashenvale", "thornwatch", "farrowmere" };
-
-	// Pixel coordinates on the map (same 1536x1024 canvas as the ID map), and the adjacency the
-	// generator computed from which provinces actually touch — order matters, it's also the ID map's
-	// index+1 encoding.
-	private static readonly ProvinceData[] Provinces =
-	{
-		new("Kingsreach", new Vector2(365, 485), Realm.RoyalCrown, true, new[] { "Redmoor Hold", "Ashenvale", "Thornwatch" }),
-		new("Redmoor Hold", new Vector2(295, 175), Realm.RoyalCrown, false, new[] { "Kingsreach", "Ashenvale" }),
-		new("Ashenvale", new Vector2(565, 385), Realm.RoyalCrown, false, new[] { "Kingsreach", "Redmoor Hold", "Thornwatch", "Valmere", "Icemere Reach" }),
-		new("Thornwatch", new Vector2(625, 655), Realm.RoyalCrown, false, new[] { "Kingsreach", "Ashenvale", "Farrowmere", "Icemere Reach" }),
-		new("Farrowmere", new Vector2(900, 885), Realm.RoyalCrown, false, new[] { "Thornwatch", "Icemere Reach" }),
-		new("Valmere", new Vector2(1095, 105), Realm.NorthernWatch, true, new[] { "Ashenvale", "Frostgate", "Icemere Reach" }),
-		new("Frostgate", new Vector2(1260, 290), Realm.NorthernWatch, false, new[] { "Valmere", "Icemere Reach" }),
-		new("Icemere Reach", new Vector2(1200, 485), Realm.NorthernWatch, false, new[] { "Ashenvale", "Thornwatch", "Farrowmere", "Valmere", "Frostgate" }),
-	};
+	private readonly Dictionary<string, RealmData> _realms = new();
+	// Which realm is yours. The others' provinces, and the unclaimed ones, run on nobody's orders yet.
+	private string _playerRealm = "";
+	// Authored order is load-bearing: it is the ID map's index + 1 encoding, so a province's place
+	// in provinces.json is what ties it to its pixels on the map.
+	private readonly List<ProvinceData> _provinces = new();
 
 	private SubViewportContainer _map;
 	private CampaignMap3D _world;
 	private int _hovered = -1;
-	private Label _infoName;
-	private Label _infoMeta;
 	private Label _turnLabel;
 	private Label _seasonLabel;
 	private Control _sectionPanel;
@@ -71,20 +64,16 @@ public partial class CampaignMapPage : Control
 	private TurnManager _turnManager;
 	private GameBalance _balance;
 	private readonly Dictionary<string, ProvinceDefinition> _definitionsByName = new();
-	private ProvinceEconomyPanel _economyPanel;
 	private Label _goldLabel;
 	private Label _grainLabel;
 	private Label _woodLabel;
 	private Label _stoneLabel;
 	private Label _ironLabel;
 	private Label _populationLabel;
-	private ColorRect _sidebarBanner;
-	private Label _sidebarName;
-	private Label _sidebarPopulation;
-	private Label _sidebarLoyalty;
-	private Label _sidebarTax;
-	private Label _sidebarRation;
+	private ProvinceSidebar _sidebar;
+	private BlacksmithPage _blacksmith;
 	private Control _leaveConfirm;
+	private AudioStreamPlayer _leaveFarewell;
 	private string _leaveTarget;
 	private Control _turnTransition;
 
@@ -92,8 +81,6 @@ public partial class CampaignMapPage : Control
 	{
 		_map = GetNode<SubViewportContainer>("%Map");
 		_world = GetNode<CampaignMap3D>("%World");
-		_infoName = GetNode<Label>("%InfoName");
-		_infoMeta = GetNode<Label>("%InfoMeta");
 		_turnLabel = GetNode<Label>("%TurnValue");
 		_seasonLabel = GetNode<Label>("%SeasonValue");
 		_goldLabel = GetNode<Label>("%GoldValue");
@@ -102,13 +89,7 @@ public partial class CampaignMapPage : Control
 		_stoneLabel = GetNode<Label>("%StoneValue");
 		_ironLabel = GetNode<Label>("%IronValue");
 		_populationLabel = GetNode<Label>("%PopulationValue");
-		_sidebarBanner = GetNode<ColorRect>("%SidebarBanner");
-		_sidebarName = GetNode<Label>("%SidebarProvinceName");
-		_sidebarPopulation = GetNode<Label>("%SidebarPopulationValue");
-		_sidebarLoyalty = GetNode<Label>("%SidebarLoyaltyValue");
-		_sidebarTax = GetNode<Label>("%SidebarTaxValue");
-		_sidebarRation = GetNode<Label>("%SidebarRationValue");
-		GoldTitle.Apply(_infoName);
+		_sidebar = GetNode<ProvinceSidebar>("%ProvinceSidebar");
 		// Only the date reads gilded; the stockpile numbers stay cream so they carry at a glance
 		// against the dark bar.
 		foreach (string valueName in new[] { "SeasonValue", "TurnValue" })
@@ -116,15 +97,31 @@ public partial class CampaignMapPage : Control
 			GoldTitle.Apply(GetNode<Label>($"%{valueName}"));
 		}
 
+		LoadCampaignProvinces();
+
+		// Balance is the engine's, not the campaign's: every campaign is simulated by the same rules.
 		_balance = GD.Load<GameBalance>("res://data/game-balance.tres");
-		var definitions = new List<ProvinceDefinition>();
-		foreach (string fileName in PlayerProvinceDataFiles)
+		// A campaign opens with one seat each and everything else unclaimed, so a province having a
+		// definition and a province being yours are two different things: the land is described
+		// either way — that is what puts its industries on the map — but only what your own realm
+		// holds is simulated. Taking an unclaimed province is what will hand its definition over.
+		var playerDefinitions = new List<ProvinceDefinition>();
+		foreach (ProvinceData province in _provinces)
 		{
-			var definition = GD.Load<ProvinceDefinition>($"res://data/provinces/{fileName}.tres");
-			definitions.Add(definition);
+			if (province.EconomyFile.Length == 0)
+			{
+				continue; // no economy authored for it yet
+			}
+
+			var definition = GD.Load<ProvinceDefinition>(Campaign.Data($"provinces/{province.EconomyFile}.tres"));
 			_definitionsByName[definition.ProvinceName] = definition;
+			if (province.Realm == _playerRealm)
+			{
+				playerDefinitions.Add(definition);
+			}
 		}
-		_turnManager = new TurnManager(_balance, definitions);
+
+		_turnManager = new TurnManager(_balance, playerDefinitions);
 		if (SaveGame.Pending != null)
 		{
 			_turnManager.Restore(SaveGame.Pending.Turn, SaveGame.Pending.Provinces);
@@ -133,19 +130,15 @@ public partial class CampaignMapPage : Control
 
 		UpdateTurnDisplay();
 
-		var infoPanel = GetNode<Control>("InfoPanel");
-		infoPanel.OffsetTop = -320f;
-		_economyPanel = new ProvinceEconomyPanel { Visible = false };
-		GetNode<VBoxContainer>("InfoPanel/InfoContent").AddChild(_economyPanel);
 
 		_map.GuiInput += OnMapGuiInput;
 
 		Control markers = GetNode<Control>("%Markers");
-		foreach (ProvinceData province in Provinces)
+		foreach (ProvinceData province in _provinces)
 		{
 			var marker = new ProvinceMarker();
 			markers.AddChild(marker);
-			marker.Configure(province.Owner == Realm.RoyalCrown ? RoyalCrownColor : NorthernWatchColor, province.IsCapital);
+			marker.Configure(_realms[province.Realm].Accent, province.IsCapital);
 			_markers.Add(marker);
 		}
 
@@ -156,34 +149,187 @@ public partial class CampaignMapPage : Control
 		_sectionTitle = GetNode<Label>("%SectionTitle");
 		_sectionBody = GetNode<Label>("%SectionBody");
 		GoldTitle.Apply(_sectionTitle);
-		GetNode<NavRail>("%NavRail").SectionChosen += ShowSection;
+		var navRail = GetNode<NavRail>("%NavRail");
+		navRail.SectionChosen += ShowSection;
 		GetNode<Button>("%SectionClose").Pressed += () => _sectionPanel.Visible = false;
 
 		// The crest is the pause menu: save, load, or leave the campaign.
 		var gameMenu = GetNode<Control>("%GameMenu");
 		GetNode<Button>("%MenuShieldButton").Pressed += () => gameMenu.Visible = !gameMenu.Visible;
+		BuildMinimapButtons(gameMenu);
 		GetNode<Button>("%SaveButton").Pressed += () =>
 		{
-			SaveGame.Write(CampaignName, _turnManager.Turn, _turnManager.Provinces);
+			SaveGame.Write(Campaign.Name, _turnManager.Turn, _turnManager.Provinces);
 			gameMenu.Visible = false; // out of the way, so the confirmation lands on the map itself
 			ShowSaveToast($"Saved · Turn {_turnManager.Turn}");
 		};
 		GetNode<Button>("%ResumeButton").Pressed += () => gameMenu.Visible = false;
 		GetNode<Button>("%LoadButton").Pressed += () => ConfirmLeave(LoadGameScenePath);
 		_leaveConfirm = GetNode<Control>("%LeaveConfirm");
-		GetNode<Button>("%LeaveCancelButton").Pressed += () => _leaveConfirm.Visible = false;
+		_leaveFarewell = new AudioStreamPlayer
+		{
+			Stream = GD.Load<AudioStreamMP3>(LeaveFarewellPath),
+			Bus = Settings.SfxBus,
+		};
+		AddChild(_leaveFarewell);
+		GetNode<Button>("%LeaveCancelButton").Pressed += () =>
+		{
+			_leaveConfirm.Visible = false;
+			_leaveFarewell.Stop(); // staying: he doesn't get to finish the farewell
+		};
 		GetNode<Button>("%LeaveConfirmButton").Pressed += () => SceneRouter.GoTo(this, _leaveTarget);
 		GetNode<Button>("%OptionsButton").Pressed += () =>
 		{
 			// Options is its own scene, so the running campaign rides along in memory rather
 			// than through a file, and comes back when Back returns here.
-			SaveGame.Pending = SaveGame.Snapshot(CampaignName, _turnManager.Turn, _turnManager.Provinces);
+			SaveGame.Pending = SaveGame.Snapshot(Campaign.Name, _turnManager.Turn, _turnManager.Provinces);
 			OptionsPage.ReturnScenePath = SelfScenePath;
 			SceneRouter.GoTo(this, OptionsScenePath);
 		};
 		GetNode<Button>("%QuitButton").Pressed += () => ConfirmLeave(MainMenuScenePath);
 
+		// Every described province, not only yours: an unclaimed quarry is still a quarry.
+		foreach (ProvinceDefinition definition in _definitionsByName.Values)
+		{
+			ShowProvinceTrade(definition);
+		}
+
+		// After the sites are placed, so a loaded save's crops open in their own season rather than
+		// being sown green and repainted a frame later.
+		_world.SetSeason(_turnManager.CurrentSeason);
+
 		SelectProvince(0); // Kingsreach, the capital — shows something real before any click.
+	}
+
+	/// <summary>Opens the screen behind a building tile, for the province currently selected. Only the
+	/// smithy has one so far; the rest are named but empty, and pressing them does nothing on purpose
+	/// rather than opening a room with nothing in it.
+	///
+	/// It opens over this page instead of replacing it, so the turn, the camera and the selection are
+	/// all exactly where they were when it closes.</summary>
+	private void OpenBuilding(string building)
+	{
+		if (building != "Blacksmith" || _blacksmith != null)
+		{
+			return;
+		}
+
+		ProvinceData province = _provinces[_selected != null ? _markers.IndexOf(_selected) : 0];
+		ProvinceEconomy economy = _turnManager.GetProvince(province.Name);
+		if (economy == null)
+		{
+			// A province you do not hold has no smithy of yours in it. Say so rather than letting the
+			// press do nothing at all.
+			ShowSaveToast($"{province.Name} is not yours to forge in");
+			return;
+		}
+
+		_blacksmith = GD.Load<PackedScene>(BlacksmithScenePath).Instantiate<BlacksmithPage>();
+		AddChild(_blacksmith);
+		_blacksmith.Open(economy);
+		_blacksmith.Closed += () =>
+		{
+			_blacksmith.QueueFree();
+			_blacksmith = null;
+			// An order spends the province's stores, so the sidebar's numbers are stale by now.
+			_sidebar.Refresh();
+			UpdateResourceBar(economy);
+		};
+	}
+
+	/// <summary>The column of buttons beside the minimap: the places a lord returns to most, and the
+	/// crest menu. Each wears the square button plate, with the glyph inset inside its frame.</summary>
+	private void BuildMinimapButtons(Control gameMenu)
+	{
+		var column = GetNode<VBoxContainer>("%MinimapButtons");
+
+		// Art where there is art, the drawn glyph where there is not yet: an icon file name here is
+		// all it takes to replace one.
+		(NavRailIcon.Glyph Glyph, string Art, string Tip, Action Open)[] entries =
+		{
+			(NavRailIcon.Glyph.Crown, null, "Court", () => ShowSection(NavRail.Section.Court)),
+			(NavRailIcon.Glyph.Book, "scroll", "Chronicle", () => ShowSection(NavRail.Section.Chronicle)),
+			(NavRailIcon.Glyph.Helmet, "shield", "Military", () => ShowSection(NavRail.Section.Military)),
+			(NavRailIcon.Glyph.Gear, null, "Menu", () => gameMenu.Visible = !gameMenu.Visible),
+		};
+
+		foreach ((NavRailIcon.Glyph glyph, string art, string tip, Action open) in entries)
+		{
+			// Square, touching, and sized so four of them stand exactly as tall as the 228 square
+			// map beside them.
+			var button = new Button
+			{
+				CustomMinimumSize = new Vector2(57, 57),
+				SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
+				SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd, // against the frame's right edge
+				TooltipText = tip,
+			};
+			button.AddThemeStyleboxOverride("normal", SquareButtonPlate(Colors.White));
+			button.AddThemeStyleboxOverride("hover", SquareButtonPlate(new Color(1.3f, 1.2f, 1.05f)));
+			button.AddThemeStyleboxOverride("focus", SquareButtonPlate(new Color(1.3f, 1.2f, 1.05f)));
+			button.AddThemeStyleboxOverride("pressed", SquareButtonPlate(new Color(0.78f, 0.76f, 0.72f)));
+
+			button.Pressed += () => open();
+			column.AddChild(button);
+
+			Control icon = art == null
+				? new NavRailIcon { Kind = glyph, MouseFilter = Control.MouseFilterEnum.Ignore }
+				: new TextureRect
+				{
+					Texture = GD.Load<Texture2D>($"res://assets/ui/icons/{art}.png"),
+					ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+					StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+					MouseFilter = Control.MouseFilterEnum.Ignore,
+				};
+			button.AddChild(icon);
+			// An even inset all round, so the glyph sits centred in the button with room to breathe.
+			icon.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+			icon.OffsetLeft = 13;
+			icon.OffsetTop = 13;
+			icon.OffsetRight = -13;
+			icon.OffsetBottom = -13;
+		}
+	}
+
+	/// <summary>The square button plate. The art is square and so is the button, so it simply
+	/// stretches — no nine-slice, nothing to keep in step with the button's size. The tint is what
+	/// separates resting from hovered and pressed.</summary>
+	private static StyleBoxTexture SquareButtonPlate(Color tint) => new()
+	{
+		Texture = GD.Load<Texture2D>(SquareButtonPath),
+		ModulateColor = tint,
+	};
+
+	/// <summary>Reads the played campaign's realms, which of them is yours, and its provinces. Who
+	/// holds what and where each seat sits are the campaign's own file; this page only draws it.</summary>
+	private void LoadCampaignProvinces()
+	{
+		var file = GD.Load<Json>(Campaign.Data(ProvincesDataFile));
+		if (file?.Data.VariantType != Variant.Type.Dictionary)
+		{
+			GD.PushError($"Campaign '{Campaign.Folder}' has no readable {ProvincesDataFile}");
+			return;
+		}
+
+		Godot.Collections.Dictionary data = file.Data.AsGodotDictionary();
+		_playerRealm = data["player"].AsString();
+		foreach (System.Collections.Generic.KeyValuePair<Variant, Variant> realm in data["realms"].AsGodotDictionary())
+		{
+			Godot.Collections.Dictionary fields = realm.Value.AsGodotDictionary();
+			_realms[realm.Key.AsString()] =
+				new RealmData(fields["name"].AsString(), new Color(fields["accent"].AsString()));
+		}
+
+		foreach (Variant entry in data["provinces"].AsGodotArray())
+		{
+			Godot.Collections.Dictionary fields = entry.AsGodotDictionary();
+			_provinces.Add(new ProvinceData(
+				fields["name"].AsString(),
+				new Vector2(fields["x"].AsSingle(), fields["y"].AsSingle()),
+				fields["realm"].AsString(),
+				fields.ContainsKey("capital") && fields["capital"].AsBool(),
+				fields.TryGetValue("economy", out Variant economyFile) ? economyFile.AsString() : ""));
+		}
 	}
 
 	// Both ways out of a campaign drop everything since the last save, so neither goes through
@@ -192,6 +338,9 @@ public partial class CampaignMapPage : Control
 	{
 		_leaveTarget = scenePath;
 		_leaveConfirm.Visible = true;
+		// The old man asks it out loud while the panel asks it in writing. He speaks over the
+		// campaign he is being left, so the line starts with the panel rather than after it.
+		_leaveFarewell.Play();
 	}
 
 	/// <summary>A turn passes behind a curtain: the screen fades out, the season turns over while
@@ -215,6 +364,7 @@ public partial class CampaignMapPage : Control
 			SelectProvince(_selected != null ? _markers.IndexOf(_selected) : 0);
 
 			Season season = _turnManager.CurrentSeason;
+			_world.SetSeason(season); // the map turns over here too, while nothing of it is visible
 			GetNode<Label>("%TransitionSeason").Text = season.ToString();
 			GetNode<Label>("%TransitionTurn").Text = $"Turn {_turnManager.Turn}";
 			GetNode<Label>("%TransitionFlavor").Text = season switch
@@ -228,6 +378,36 @@ public partial class CampaignMapPage : Control
 		tween.TweenInterval(TurnHoldSeconds);
 		tween.TweenProperty(_turnTransition, "modulate:a", 0.0, TurnFadeOutSeconds);
 		tween.TweenCallback(Callable.From(() => _turnTransition.Visible = false));
+	}
+
+	/// <summary>Draws what a province lives on: its two strongest industries become visible sites
+	/// on its ground. Capacity times modifier is the same product the economy pays out on, so a
+	/// quarry on the map means quarry income in the ledger, not decoration.</summary>
+	private void ShowProvinceTrade(ProvinceDefinition definition)
+	{
+		Vector2 seat = Vector2.Zero;
+		foreach (ProvinceData province in _provinces)
+		{
+			if (province.Name == definition.ProvinceName)
+			{
+				seat = province.MapPosition;
+			}
+		}
+
+		var industries = new (MapDecoration.SiteKind Kind, float Weight)[]
+		{
+			(MapDecoration.SiteKind.Grain, definition.GrainWorkerCapacity * definition.GrainModifier),
+			(MapDecoration.SiteKind.Cattle, definition.CattleWorkerCapacity * definition.CattleModifier),
+			(MapDecoration.SiteKind.Wood, definition.WoodWorkerCapacity * definition.WoodModifier),
+			(MapDecoration.SiteKind.Stone, definition.StoneWorkerCapacity * definition.StoneModifier),
+			(MapDecoration.SiteKind.Iron, definition.IronWorkerCapacity * definition.IronModifier),
+		};
+
+		System.Array.Sort(industries, (left, right) => right.Weight.CompareTo(left.Weight));
+		for (int i = 0; i < 2; i++)
+		{
+			_world.AddSite(seat, industries[i].Kind, industries[i].Weight);
+		}
 	}
 
 	// A save is instant and silent otherwise: the toast holds long enough to be read, then
@@ -248,13 +428,20 @@ public partial class CampaignMapPage : Control
 	// naming what belongs there. Replace a case with a real panel as that system gets built.
 	private void ShowSection(NavRail.Section section)
 	{
+		// Buildings is the one that opens onto somewhere real: the smithy of the province in hand.
+		if (section == NavRail.Section.Buildings)
+		{
+			OpenBuilding("Blacksmith");
+			return;
+		}
+
 		_sectionTitle.Text = section switch
 		{
 			NavRail.Section.Chronicle => "Chronicle",
 			NavRail.Section.Military => "Military",
 			NavRail.Section.Buildings => "Buildings",
 			NavRail.Section.Court => "Court",
-			_ => "Battles",
+			_ => "Trade",
 		};
 		_sectionBody.Text = section switch
 		{
@@ -262,7 +449,7 @@ public partial class CampaignMapPage : Control
 			NavRail.Section.Military => "Every army you command, where it stands and what it costs. Not built yet.",
 			NavRail.Section.Buildings => "What each province has raised, and what it can raise next. Not built yet.",
 			NavRail.Section.Court => "Your lords, advisors and heirs. Not built yet.",
-			_ => "Sieges and field battles, past and pending. Not built yet.",
+			_ => "What the realm buys, sells and ships, and at what price. Not built yet.",
 		};
 		_sectionPanel.Visible = true;
 	}
@@ -304,7 +491,7 @@ public partial class CampaignMapPage : Control
 		if (@event is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: false } click)
 		{
 			int index = _world.ProvinceAt(click.Position);
-			if (index >= 0 && index < Provinces.Length)
+			if (index >= 0 && index < _provinces.Count)
 			{
 				SelectProvince(index);
 			}
@@ -320,36 +507,29 @@ public partial class CampaignMapPage : Control
 
 		_world.SetHighlight(index, _hovered);
 
-		ProvinceData province = Provinces[index];
-		_infoName.Text = province.Name;
-		string realmName = province.Owner == Realm.RoyalCrown ? "The Royal Crown" : "The Northern Watch";
-		string ownerLine = province.IsCapital ? $"{realmName} · Capital" : realmName;
+		ProvinceData province = _provinces[index];
+		string realmName = _realms[province.Realm].Name;
 
 		ProvinceEconomy economy = _turnManager.GetProvince(province.Name);
-		_infoMeta.Text = economy != null ? $"{ownerLine} · Population {economy.Population:N0}" : ownerLine;
-
-		_economyPanel.Visible = economy != null;
 		if (economy != null)
 		{
-			_economyPanel.Configure(economy, _definitionsByName[province.Name], _balance, _turnManager.CurrentSeason);
 			UpdateResourceBar(economy);
 		}
 
-		_sidebarBanner.Color = province.Owner == Realm.RoyalCrown ? RoyalCrownColor : NorthernWatchColor;
-		_sidebarName.Text = province.Name;
-		_sidebarPopulation.Text = economy != null ? economy.Population.ToString("N0") : "-";
-		_sidebarLoyalty.Text = economy != null ? Mathf.RoundToInt(economy.Loyalty).ToString() : "-";
-		_sidebarTax.Text = economy != null ? $"Tax {economy.Tax}" : "Tax -";
-		_sidebarRation.Text = economy != null ? $"Ration {economy.Ration}" : "Ration -";
+		// The sidebar takes the province whether or not anyone runs it: an unclaimed one still has a
+		// name, a crest and the land under it, it just has no numbers of its own to show.
+		_sidebar.ShowHeader(province.Name, realmName, province.Realm, _realms[province.Realm].Accent);
+		_sidebar.ShowEconomy(economy, _definitionsByName.GetValueOrDefault(province.Name),
+			_balance, _turnManager.CurrentSeason);
 	}
 
 	// Markers are 2D art pinned to 3D ground, so every frame the camera moves they have to be
 	// re-projected; one unproject per province is cheaper than tracking whether it moved.
 	public override void _Process(double delta)
 	{
-		for (int i = 0; i < Provinces.Length; i++)
+		for (int i = 0; i < _provinces.Count; i++)
 		{
-			bool onScreen = _world.TryScreenPosition(Provinces[i].MapPosition, out Vector2 screenPosition);
+			bool onScreen = _world.TryScreenPosition(_provinces[i].MapPosition, out Vector2 screenPosition);
 			_markers[i].Visible = onScreen;
 			if (onScreen)
 			{

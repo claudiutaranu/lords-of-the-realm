@@ -6,24 +6,25 @@ using Godot;
 /// screen mounts it and of how that screen chooses to navigate.</summary>
 public partial class NavRail : PanelContainer
 {
+	// In the order they stand along the bar.
 	public enum Section
 	{
-		Chronicle,
-		Military,
 		Buildings,
+		Chronicle,
+		Trade,
+		Military,
 		Court,
-		Battles,
 	}
 
 	public event Action<Section> SectionChosen;
 
 	public override void _Ready()
 	{
-		Wire("%ChronicleButton", Section.Chronicle);
-		Wire("%MilitaryButton", Section.Military);
 		Wire("%BuildingsButton", Section.Buildings);
+		Wire("%ChronicleButton", Section.Chronicle);
+		Wire("%TradeButton", Section.Trade);
+		Wire("%MilitaryButton", Section.Military);
 		Wire("%CourtButton", Section.Court);
-		Wire("%BattlesButton", Section.Battles);
 	}
 
 	private void Wire(string buttonPath, Section section)
