@@ -33,6 +33,19 @@ public partial class BlacksmithPage : Control
 		("iron", "iron"),
 	};
 
+	/// <summary>Where each sign hangs, in the video frame's own proportions — over the rack it names.
+	/// The player is choosing off the wall of the forge itself, not off a list beside it, so these
+	/// are read from the film rather than laid out by a container.</summary>
+	private static readonly Dictionary<string, Vector2> SignSpots = new()
+	{
+		["bow"] = new Vector2(0.205f, 0.115f),
+		["crossbow"] = new Vector2(0.255f, 0.445f),
+		["sword"] = new Vector2(0.445f, 0.215f),
+		["spear"] = new Vector2(0.585f, 0.135f),
+		["horse"] = new Vector2(0.720f, 0.300f),
+		["mace"] = new Vector2(0.845f, 0.285f),
+	};
+
 	private record Weapon(string Key, string Name, string Blurb, int Attack, int Range, int Defence,
 		int Speed, int Turns, int Batch, Dictionary<string, int> Cost);
 
@@ -44,6 +57,7 @@ public partial class BlacksmithPage : Control
 	private ProvinceEconomy _province;
 	private Weapon _chosen;
 
+	private readonly Dictionary<string, Button> _signs = new();
 	private Label _provinceLabel;
 	private HBoxContainer _purseRow;
 	private VBoxContainer _detail;
@@ -128,9 +142,9 @@ public partial class BlacksmithPage : Control
 
 	private void BuildChrome()
 	{
-		// The video underneath is a room, not a backdrop; a wash over it is what keeps text legible
-		// without hiding the forge.
-		var wash = new ColorRect { Color = new Color(0.04f, 0.035f, 0.03f, 0.35f) };
+		// The video underneath is a room, not a backdrop: the wash is only enough to stop the title
+		// dissolving into the firelight. The panels carry their own dark, so this stays light.
+		var wash = new ColorRect { Color = new Color(0.04f, 0.035f, 0.03f, 0.14f) };
 		wash.SetAnchorsPreset(LayoutPreset.FullRect);
 		wash.MouseFilter = MouseFilterEnum.Ignore;
 		AddChild(wash);
@@ -156,8 +170,8 @@ public partial class BlacksmithPage : Control
 		body.Alignment = BoxContainer.AlignmentMode.End;
 		page.AddChild(body);
 
-		body.AddChild(BuildChoices());
 		body.AddChild(BuildDetailPanel());
+		HangSigns();
 	}
 
 	private Control BuildTopRow()
@@ -201,69 +215,58 @@ public partial class BlacksmithPage : Control
 		return titles;
 	}
 
-	// The six things a smithy can be set to, each showing the man it arms.
-	private Control BuildChoices()
+	/// <summary>Hangs a sign over each rack in the forge, the way a smith labels his own wall. They
+	/// are children of the page rather than of a container, anchored by the fractions in SignSpots,
+	/// so each one stays over its weapons however the window is shaped.</summary>
+	private void HangSigns()
 	{
-		var row = new HBoxContainer { SizeFlagsVertical = SizeFlags.ShrinkEnd };
-		row.AddThemeConstantOverride("separation", 8);
-
 		foreach (Weapon weapon in _weapons)
 		{
-			var card = new Button
+			if (!SignSpots.TryGetValue(weapon.Key, out Vector2 spot))
 			{
-				CustomMinimumSize = new Vector2(124, 190),
-				TooltipText = weapon.Blurb,
-			};
-			card.AddThemeStyleboxOverride("normal", CardStyle(new Color(0.06f, 0.055f, 0.05f, 0.82f)));
-			card.AddThemeStyleboxOverride("hover", CardStyle(new Color(0.16f, 0.13f, 0.08f, 0.9f)));
-			card.AddThemeStyleboxOverride("pressed", CardStyle(new Color(0.16f, 0.13f, 0.08f, 0.9f)));
-			card.AddThemeStyleboxOverride("focus", CardStyle(new Color(0.16f, 0.13f, 0.08f, 0.9f)));
+				continue; // no place on the wall picked for it yet
+			}
 
+			var sign = new Button { TooltipText = weapon.Blurb };
 			Weapon chosen = weapon;
-			card.Pressed += () => Choose(chosen);
-			row.AddChild(card);
+			sign.Pressed += () => Choose(chosen);
+			AddChild(sign);
 
-			// The ground this one is drilled on, behind him.
-			var ground = new TextureRect
-			{
-				Texture = GD.Load<Texture2D>(UnitArt.Backdrop(weapon.Key)),
-				ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
-				StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered,
-				Modulate = new Color(1, 1, 1, 0.6f),
-				MouseFilter = MouseFilterEnum.Ignore,
-			};
-			card.AddChild(ground);
-			ground.SetAnchorsPreset(LayoutPreset.FullRect);
-			ground.OffsetLeft = 6;
-			ground.OffsetTop = 6;
-			ground.OffsetRight = -6;
-			ground.OffsetBottom = -6;
+			sign.AnchorLeft = sign.AnchorRight = spot.X;
+			sign.AnchorTop = sign.AnchorBottom = spot.Y;
+			sign.OffsetLeft = -82;
+			sign.OffsetRight = 82;
+			sign.OffsetTop = -21;
+			sign.OffsetBottom = 21;
 
-			var stack = new VBoxContainer();
-			stack.AddThemeConstantOverride("separation", 0);
-			stack.SetAnchorsPreset(LayoutPreset.FullRect);
-			stack.OffsetLeft = 6;
-			stack.OffsetTop = 6;
-			stack.OffsetRight = -6;
-			stack.OffsetBottom = -6;
-			stack.MouseFilter = MouseFilterEnum.Ignore;
-			card.AddChild(stack);
+			var plate = new HBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
+			plate.AddThemeConstantOverride("separation", 8);
+			plate.Alignment = BoxContainer.AlignmentMode.Center;
+			sign.AddChild(plate);
+			plate.SetAnchorsPreset(LayoutPreset.FullRect);
 
-			stack.AddChild(new TextureRect
-			{
-				Texture = GD.Load<Texture2D>(UnitArt.Portrait(weapon.Key)),
-				ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
-				StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered,
-				SizeFlagsVertical = SizeFlags.ExpandFill,
-				MouseFilter = MouseFilterEnum.Ignore,
-			});
-
+			plate.AddChild(Icon(weapon.Key, 22));
 			Label name = Line(weapon.Name, 15, Cream);
-			name.HorizontalAlignment = HorizontalAlignment.Center;
-			stack.AddChild(name);
-		}
+			name.VerticalAlignment = VerticalAlignment.Center;
+			plate.AddChild(name);
 
-		return row;
+			_signs[weapon.Key] = sign;
+			DressSign(weapon.Key, lit: false);
+		}
+	}
+
+	/// <summary>A sign is either hanging on the wall or lit up as the one the smith is working to.</summary>
+	private void DressSign(string key, bool lit)
+	{
+		StyleBoxFlat style = CardStyle(lit
+			? new Color(0.20f, 0.15f, 0.06f, 0.94f)
+			: new Color(0.05f, 0.045f, 0.04f, 0.86f));
+		style.BorderColor = lit ? new Color(1f, 0.84f, 0.45f, 1f) : new Color(0.549f, 0.447f, 0.271f, 0.85f);
+
+		foreach (string state in new[] { "normal", "hover", "pressed", "focus" })
+		{
+			_signs[key].AddThemeStyleboxOverride(state, style);
+		}
 	}
 
 	private Control BuildDetailPanel()
@@ -287,7 +290,17 @@ public partial class BlacksmithPage : Control
 
 	private void Choose(Weapon weapon)
 	{
+		if (_chosen != null && _signs.ContainsKey(_chosen.Key))
+		{
+			DressSign(_chosen.Key, lit: false);
+		}
+
 		_chosen = weapon;
+		if (weapon != null && _signs.ContainsKey(weapon.Key))
+		{
+			DressSign(weapon.Key, lit: true);
+		}
+
 		ShowDetail();
 	}
 
@@ -318,14 +331,24 @@ public partial class BlacksmithPage : Control
 		heading.AddChild(title);
 		_detail.AddChild(heading);
 
+		// The weapon itself down the left, the reading of it down the right.
+		var body = new HBoxContainer();
+		body.AddThemeConstantOverride("separation", 14);
+		_detail.AddChild(body);
+		body.AddChild(Icon(_chosen.Key, 96));
+
+		var reading = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+		reading.AddThemeConstantOverride("separation", 8);
+		body.AddChild(reading);
+
 		Label blurb = Line(_chosen.Blurb, 14, Dim);
 		blurb.AutowrapMode = TextServer.AutowrapMode.Word;
-		_detail.AddChild(blurb);
+		reading.AddChild(blurb);
 
-		_detail.AddChild(Bar("Attack", _chosen.Attack));
-		_detail.AddChild(Bar("Range", _chosen.Range));
-		_detail.AddChild(Bar("Defence", _chosen.Defence));
-		_detail.AddChild(Bar("Speed", _chosen.Speed));
+		reading.AddChild(Bar("Attack", _chosen.Attack));
+		reading.AddChild(Bar("Range", _chosen.Range));
+		reading.AddChild(Bar("Defence", _chosen.Defence));
+		reading.AddChild(Bar("Speed", _chosen.Speed));
 
 		var terms = new HBoxContainer();
 		terms.AddThemeConstantOverride("separation", 14);
