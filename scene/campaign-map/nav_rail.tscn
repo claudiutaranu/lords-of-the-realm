@@ -54,6 +54,7 @@ theme_override_constants/separation = 8
 unique_name_in_owner = true
 custom_minimum_size = Vector2(52, 52)
 layout_mode = 2
+size_flags_horizontal = 3
 tooltip_text = "Chronicle"
 
 [node name="Icon" type="Control" parent="Margin/Buttons/ChronicleButton"]
@@ -78,6 +79,7 @@ Kind = 0
 unique_name_in_owner = true
 custom_minimum_size = Vector2(52, 52)
 layout_mode = 2
+size_flags_horizontal = 3
 tooltip_text = "Military"
 
 [node name="Icon" type="Control" parent="Margin/Buttons/MilitaryButton"]
@@ -102,6 +104,7 @@ Kind = 1
 unique_name_in_owner = true
 custom_minimum_size = Vector2(52, 52)
 layout_mode = 2
+size_flags_horizontal = 3
 tooltip_text = "Buildings"
 
 [node name="Icon" type="Control" parent="Margin/Buttons/BuildingsButton"]
@@ -126,6 +129,7 @@ Kind = 2
 unique_name_in_owner = true
 custom_minimum_size = Vector2(52, 52)
 layout_mode = 2
+size_flags_horizontal = 3
 tooltip_text = "Court"
 
 [node name="Icon" type="Control" parent="Margin/Buttons/CourtButton"]
@@ -150,6 +154,7 @@ Kind = 3
 unique_name_in_owner = true
 custom_minimum_size = Vector2(52, 52)
 layout_mode = 2
+size_flags_horizontal = 3
 tooltip_text = "Battles"
 
 [node name="Icon" type="Control" parent="Margin/Buttons/BattlesButton"]

@@ -227,7 +227,14 @@ public partial class CampaignMapPage : Control
 
 		foreach ((NavRailIcon.Glyph glyph, string tip, Action open) in entries)
 		{
-			var button = new Button { CustomMinimumSize = new Vector2(44, 44), TooltipText = tip };
+			// The four share the panel's height between them, so the column sits inside the frame
+			// rather than spilling past it.
+			var button = new Button
+			{
+				CustomMinimumSize = new Vector2(44, 0),
+				SizeFlagsVertical = Control.SizeFlags.ExpandFill,
+				TooltipText = tip,
+			};
 			foreach (string state in new[] { "normal", "hover", "pressed", "focus" })
 			{
 				button.AddThemeStyleboxOverride(state, template.GetThemeStylebox(state));

@@ -147,14 +147,20 @@ public partial class ProvinceSidebar : VBoxContainer
 		};
 		content.AddChild(_crest);
 
-		var titles = new VBoxContainer { SizeFlagsVertical = SizeFlags.ShrinkCenter };
+		// Expanding, or the name gets the narrowest box the text will fit in and "Icemere Reach"
+		// comes out broken across two lines mid-word.
+		var titles = new VBoxContainer
+		{
+			SizeFlagsVertical = SizeFlags.ShrinkCenter,
+			SizeFlagsHorizontal = SizeFlags.ExpandFill,
+		};
 		titles.AddThemeConstantOverride("separation", 2);
 		content.AddChild(titles);
 
 		_name = new Label
 		{
 			Text = "Select a stronghold",
-			AutowrapMode = TextServer.AutowrapMode.WordSmart,
+			AutowrapMode = TextServer.AutowrapMode.Word,
 			ThemeTypeVariation = "GildedTitle", // the title font and its outline; the gradient is below
 		};
 		_name.AddThemeFontSizeOverride("font_size", 20);

@@ -349,6 +349,7 @@ layout_mode = 2
 theme_override_constants/separation = 10
 
 [node name="MinimapPanel" type="PanelContainer" parent="Sidebar/SidebarMargin/SidebarContent"]
+custom_minimum_size = Vector2(0, 190)
 layout_mode = 2
 
 [node name="MinimapRow" type="HBoxContainer" parent="Sidebar/SidebarMargin/SidebarContent/MinimapPanel"]
@@ -359,17 +360,17 @@ theme_override_constants/separation = 6
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-size_flags_vertical = 4
+size_flags_vertical = 3
 mouse_filter = 2
 texture = ExtResource("3_map")
-expand_mode = 3
+expand_mode = 1
 stretch_mode = 5
 
 [node name="MinimapButtons" type="VBoxContainer" parent="Sidebar/SidebarMargin/SidebarContent/MinimapPanel/MinimapRow"]
 unique_name_in_owner = true
 layout_mode = 2
-size_flags_vertical = 4
-theme_override_constants/separation = 6
+size_flags_vertical = 3
+theme_override_constants/separation = 4
 
 [node name="ProvinceSidebar" type="VBoxContainer" parent="Sidebar/SidebarMargin/SidebarContent" unique_id=211143184]
 unique_name_in_owner = true
