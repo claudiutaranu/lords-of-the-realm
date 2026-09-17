@@ -48,12 +48,18 @@ public partial class ProvinceSidebar : VBoxContainer
 
 	// Keyed by the weapon each one carries, which names both its portrait in assets/units and its
 	// glyph in assets/ui/icons. Those portraits belong to no campaign: every realm musters spearmen.
+	//
+	// A card appears once its portrait exists, so the peasant — who needs no weapon, only people
+	// willing to be led — joins the grid the moment assets/units/peasant.png is dropped in.
 	private static readonly (string Name, string Unit)[] Muster =
 	{
+		("Peasants", "peasant"),
 		("Spearmen", "spear"),
 		("Archers", "bow"),
-		("Horse", "horse"),
+		("Crossbowmen", "crossbow"),
 		("Swordsmen", "sword"),
+		("Macemen", "mace"),
+		("Horse", "horse"),
 	};
 
 	private ColorRect _accent;
@@ -317,12 +323,18 @@ public partial class ProvinceSidebar : VBoxContainer
 
 	private void BuildMuster()
 	{
-		var row = new HBoxContainer();
-		row.AddThemeConstantOverride("separation", 5);
-		AddChild(Framed(row, 6));
+		var grid = new GridContainer { Columns = 4 };
+		grid.AddThemeConstantOverride("h_separation", 5);
+		grid.AddThemeConstantOverride("v_separation", 5);
+		AddChild(Framed(grid, 6));
 
 		foreach ((string name, string unit) in Muster)
 		{
+			if (!ResourceLoader.Exists(UnitArt.Portrait(unit)))
+			{
+				continue; // nobody has drawn him yet
+			}
+
 			// Taller than the building tiles: these hold a standing man, not a glyph.
 			var tile = new PanelContainer
 			{
@@ -333,30 +345,35 @@ public partial class ProvinceSidebar : VBoxContainer
 			tile.AddThemeStyleboxOverride("panel", TileStyle());
 
 			// The ground he stands on, behind him. A PanelContainer lays every child over the same
-			// rect, so this is simply the first one in.
+			// rect, so this is simply the first one in. Held well back: it is a setting, not a scene.
 			tile.AddChild(new TextureRect
 			{
 				Texture = GD.Load<Texture2D>(UnitArt.Backdrop(unit)),
 				ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
 				StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered,
-				Modulate = new Color(1, 1, 1, 0.55f), // held back, so the man reads in front of it
+				Modulate = new Color(0.62f, 0.62f, 0.66f, 0.5f),
 			});
 
 			var stack = new VBoxContainer();
 			stack.AddThemeConstantOverride("separation", 0);
 			tile.AddChild(stack);
 
-			// Covered rather than fitted: the portrait fills its card, cropped at the edges, instead
-			// of sitting small in the middle of it.
-			var portrait = new TextureRect
+			// Room around him: fitted rather than covered, with a margin, so he stands inside his
+			// card instead of being cropped by its edges.
+			var inset = new MarginContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
+			foreach (string side in new[] { "left", "top", "right" })
+			{
+				inset.AddThemeConstantOverride($"margin_{side}", 7);
+			}
+
+			stack.AddChild(inset);
+
+			inset.AddChild(new TextureRect
 			{
 				Texture = GD.Load<Texture2D>(UnitArt.Portrait(unit)),
 				ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
-				StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered,
-				SizeFlagsVertical = SizeFlags.ExpandFill,
-				Modulate = new Color(1, 1, 1, 0.8f), // dimmed: nothing musters them yet
-			};
-			stack.AddChild(portrait);
+				StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+			});
 
 			Label count = Small("—", Waiting);
 			count.AddThemeFontSizeOverride("font_size", 14);
@@ -364,7 +381,7 @@ public partial class ProvinceSidebar : VBoxContainer
 			stack.AddChild(count);
 			_muster[unit] = count;
 
-			row.AddChild(tile);
+			grid.AddChild(tile);
 		}
 	}
 
