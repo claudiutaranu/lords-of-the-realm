@@ -174,7 +174,7 @@ public partial class ProvinceSidebar : VBoxContainer
 			AutowrapMode = TextServer.AutowrapMode.Word,
 			ThemeTypeVariation = "GildedTitle", // the title font and its outline; the gradient is below
 		};
-		_name.AddThemeFontSizeOverride("font_size", 20);
+		_name.AddThemeFontSizeOverride("font_size", 23);
 		GoldTitle.Apply(_name);
 		titles.AddChild(_name);
 
@@ -189,13 +189,13 @@ public partial class ProvinceSidebar : VBoxContainer
 		row.AddThemeConstantOverride("separation", 4);
 		AddChild(Framed(row, 8));
 
-		_population = StatCell(row, Icon("population", 24));
+		_population = StatCell(row, Icon("population", 22));
 		row.AddChild(Divider());
-		_loyalty = StatCell(row, Icon("heart", 24));
+		_loyalty = StatCell(row, Icon("heart", 22));
 		row.AddChild(Divider());
-		_tax = StatCell(row, Icon("gold", 24));
+		_tax = StatCell(row, Icon("gold", 22));
 		row.AddChild(Divider());
-		_ration = StatCell(row, Icon("food", 24));
+		_ration = StatCell(row, Icon("food", 22));
 	}
 
 	private Label StatCell(HBoxContainer row, Control icon)
@@ -205,7 +205,7 @@ public partial class ProvinceSidebar : VBoxContainer
 		cell.AddChild(icon);
 
 		var value = new Label { VerticalAlignment = VerticalAlignment.Center };
-		value.AddThemeFontSizeOverride("font_size", 14);
+		value.AddThemeFontSizeOverride("font_size", 16);
 		value.AddThemeColorOverride("font_color", Cream);
 		cell.AddChild(value);
 
@@ -235,7 +235,7 @@ public partial class ProvinceSidebar : VBoxContainer
 			cell.AddChild(Centered(Icon(icon, 34)));
 
 			var stock = new Label { HorizontalAlignment = HorizontalAlignment.Center };
-			stock.AddThemeFontSizeOverride("font_size", 20);
+			stock.AddThemeFontSizeOverride("font_size", 24);
 			stock.AddThemeColorOverride("font_color", Cream);
 			cell.AddChild(stock);
 
@@ -281,7 +281,7 @@ public partial class ProvinceSidebar : VBoxContainer
 				// No wrapping: at this width "Blacksmith" would break across two lines mid-word.
 				Label name = Small(building, Waiting);
 				name.HorizontalAlignment = HorizontalAlignment.Center;
-				name.AddThemeFontSizeOverride("font_size", 11);
+				name.AddThemeFontSizeOverride("font_size", 12);
 				name.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
 				stack.AddChild(name);
 			}
@@ -393,7 +393,7 @@ public partial class ProvinceSidebar : VBoxContainer
 	private static Label Small(string text, Color color)
 	{
 		var label = new Label { Text = text };
-		label.AddThemeFontSizeOverride("font_size", 12);
+		label.AddThemeFontSizeOverride("font_size", 14);
 		label.AddThemeColorOverride("font_color", color);
 		return label;
 	}
