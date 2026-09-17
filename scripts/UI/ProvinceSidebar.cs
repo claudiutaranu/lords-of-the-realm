@@ -189,10 +189,13 @@ public partial class ProvinceSidebar : VBoxContainer
 		row.AddThemeConstantOverride("separation", 4);
 		AddChild(Framed(row, 8));
 
-		_population = StatCell(row, Icon("population", 20));
-		_loyalty = StatCell(row, Icon("heart", 20));
-		_tax = StatCell(row, Icon("gold", 20));
-		_ration = StatCell(row, Icon("food", 20));
+		_population = StatCell(row, Icon("population", 24));
+		row.AddChild(Divider());
+		_loyalty = StatCell(row, Icon("heart", 24));
+		row.AddChild(Divider());
+		_tax = StatCell(row, Icon("gold", 24));
+		row.AddChild(Divider());
+		_ration = StatCell(row, Icon("food", 24));
 	}
 
 	private Label StatCell(HBoxContainer row, Control icon)
@@ -217,14 +220,22 @@ public partial class ProvinceSidebar : VBoxContainer
 		row.AddThemeConstantOverride("separation", 2);
 		AddChild(Framed(row, 8));
 
+		bool first = true;
 		foreach ((ResourceType type, string icon) in Resources)
 		{
+			if (!first)
+			{
+				row.AddChild(Divider());
+			}
+
+			first = false;
+
 			var cell = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
 			cell.AddThemeConstantOverride("separation", 2);
-			cell.AddChild(Centered(Icon(icon, 26)));
+			cell.AddChild(Centered(Icon(icon, 34)));
 
 			var stock = new Label { HorizontalAlignment = HorizontalAlignment.Center };
-			stock.AddThemeFontSizeOverride("font_size", 18);
+			stock.AddThemeFontSizeOverride("font_size", 20);
 			stock.AddThemeColorOverride("font_color", Cream);
 			cell.AddChild(stock);
 
@@ -356,6 +367,20 @@ public partial class ProvinceSidebar : VBoxContainer
 		CornerRadiusBottomRight = 3,
 		CornerRadiusBottomLeft = 3,
 	};
+
+	/// <summary>The hairline between two cells of a row, so a strip of numbers reads as separate
+	/// readings rather than one run of digits.</summary>
+	private static VSeparator Divider()
+	{
+		var line = new VSeparator();
+		line.AddThemeStyleboxOverride("separator", new StyleBoxLine
+		{
+			Color = new Color(0.549f, 0.447f, 0.271f, 0.35f),
+			Vertical = true,
+			Thickness = 1,
+		});
+		return line;
+	}
 
 	private static TextureRect Icon(string name, int side) => new()
 	{
