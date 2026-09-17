@@ -37,8 +37,8 @@ uniform float sea_level_normalized = 0.18; // where the waterline sits in the he
 
 // Season of the current turn: 0 spring, 1 summer, 2 autumn, 3 winter, set by
 // CampaignMap3D.SetSeason each time the turn advances (behind the turn curtain, so the change is
-// never seen happening). Only the snow line reacts to it so far — grass colour, autumn tints and
-// frozen shallows are the rest of that job.
+// never seen happening). It moves the snow line, tints the grass and drains the colour out of
+// winter; the trees, the sea and the light are seasoned by their own code.
 uniform float season = 1.0;
 
 varying vec2 map_uv;
@@ -74,14 +74,31 @@ void fragment() {
 
 	float steepness = clamp(1.0 - normal.y, 0.0, 1.0);
 	float terrain_height = textureLod(height_map, map_uv, 0.0).r;
+	// Exactly one of these is 1.0 while season holds a whole number; they cross-fade if it is ever
+	// tweened between two.
+	float spring = clamp(1.0 - abs(season), 0.0, 1.0);
+	float summer = clamp(1.0 - abs(season - 1.0), 0.0, 1.0);
+	float autumn = clamp(1.0 - abs(season - 2.0), 0.0, 1.0);
 	float winter = clamp(1.0 - abs(season - 3.0), 0.0, 1.0);
 	float snow_start = mix(0.52, 0.24, winter); // in winter the snow comes a long way down the slopes
 	float rock_mix = smoothstep(0.18, 0.42, steepness);
 	float snow_mix = smoothstep(snow_start, snow_start + 0.16, terrain_height) * (1.0 - rock_mix * 0.7);
 	// Beach is a band just above the waterline, wherever that is, not a fixed height.
 	float sand_mix = smoothstep(sea_level_normalized + 0.05, sea_level_normalized + 0.002, terrain_height);
+	// Winter takes the lowland too, not only the peaks: everywhere but the cliffs, which are too
+	// steep to hold it, and the beach, which the surf keeps clear.
+	float lowland_snow = winter * 0.8 * (1.0 - rock_mix * 0.55) * (1.0 - sand_mix)
+		* smoothstep(sea_level_normalized + 0.01, sea_level_normalized + 0.07, terrain_height);
+	snow_mix = clamp(max(snow_mix, lowland_snow), 0.0, 1.0);
 
-	vec3 detail = mix(texture(grass_texture, detail_uv).rgb, texture(grass_texture, detail_uv2).rgb, 0.5);
+	// New growth, deep summer, turned leaf, dead ground: the season lives on the grass, so it stops
+	// at the rock and snow mixed in below instead of washing the whole map one colour.
+	vec3 season_grass = spring * vec3(0.98, 1.14, 0.78)
+		+ summer * vec3(1.0, 1.0, 1.0)
+		+ autumn * vec3(1.22, 0.94, 0.58)
+		+ winter * vec3(0.88, 0.84, 0.80);
+
+	vec3 detail = mix(texture(grass_texture, detail_uv).rgb, texture(grass_texture, detail_uv2).rgb, 0.5) * season_grass;
 	vec3 detail_n = mix(texture(grass_normal, detail_uv).rgb, texture(grass_normal, detail_uv2).rgb, 0.5);
 	// Cliffs are sampled from the side, not from above: a flat-projected texture on a vertical face
 	// smears into vertical streaks, which is exactly what sea stacks and coastal cliffs showed.
@@ -110,6 +127,9 @@ void fragment() {
 	vec3 macro = texture(albedo_map, map_uv).rgb;
 	vec3 tint = macro / max(dot(macro, vec3(0.3333)), 0.001);
 	vec3 albedo = detail * mix(vec3(1.0), tint, 0.7);
+	// The macro albedo is painted for a green map, so winter has to be taken out of it here as well
+	// — otherwise summer's biome colour bleeds back through the snow.
+	albedo = mix(albedo, vec3(dot(albedo, vec3(0.3333))), winter * 0.3);
 
 	// Borders are drawn here rather than baked into the albedo, so they stay a crisp line at any
 	// zoom instead of turning into a blurred smear when the camera comes down.

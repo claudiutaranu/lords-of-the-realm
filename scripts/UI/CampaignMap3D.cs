@@ -36,11 +36,29 @@ public partial class CampaignMap3D : Node3D
 	private const float PanSpeed = 0.13f;
 	private const float KeyPanSpeed = 62.0f; // world units per second, at full zoom-out
 
+	/// <summary>What a season does to the light over the map: the sun's colour and strength, the sky
+	/// it comes out of, and the haze on the horizon. The ground and the sea are seasoned by their own
+	/// shaders; this is the weather over them.</summary>
+	private record SeasonLight(Color Sun, float Energy, Color SkyTop, Color SkyHorizon, Color Fog, float FogDensity);
+
+	// Season enum order: spring, summer, autumn, winter.
+	private static readonly SeasonLight[] LightBySeason =
+	{
+		new(new("ffeccf"), 1.30f, new("31558a"), new("9db5c4"), new("aec2d2"), 0.00055f),
+		new(new("fff2d8"), 1.35f, new("2b4a74"), new("8aa0b4"), new("9fb4c8"), 0.00050f),
+		new(new("ffdba8"), 1.18f, new("3a5470"), new("c2a681"), new("bfae95"), 0.00075f),
+		new(new("dfeaff"), 0.92f, new("4c5d74"), new("c3ccd4"), new("cbd6df"), 0.00110f),
+	};
+
 	private Camera3D _camera;
 	private ShaderMaterial _terrainMaterial;
 	private Image _heightImage;
 	private Image _idImage;
 	private MapDecoration _decoration;
+	private MapWater _water;
+	private DirectionalLight3D _sun;
+	private ProceduralSkyMaterial _sky;
+	private Godot.Environment _environment;
 	private Vector3 _focus = Vector3.Zero;
 	private float _distance = 120.0f;
 
@@ -144,9 +162,23 @@ public partial class CampaignMap3D : Node3D
 		}
 	}
 
-	/// <summary>Hands the current season to the terrain, which is where the map's response to it
-	/// lives. Called on every turn change, from behind the turn curtain.</summary>
-	public void SetSeason(Season season) => _terrainMaterial.SetShaderParameter("season", (float)(int)season);
+	/// <summary>Turns the whole map over to a season: the ground, the sea, what grows on it and the
+	/// light it all stands in. Called on every turn change, from behind the turn curtain, so the
+	/// change is never seen happening.</summary>
+	public void SetSeason(Season season)
+	{
+		_terrainMaterial.SetShaderParameter("season", (float)(int)season);
+		_water.SetSeason(season);
+		_decoration.SetSeason(season);
+
+		SeasonLight light = LightBySeason[(int)season];
+		_sun.LightColor = light.Sun;
+		_sun.LightEnergy = light.Energy;
+		_sky.SkyTopColor = light.SkyTop;
+		_sky.SkyHorizonColor = light.SkyHorizon;
+		_environment.FogLightColor = light.Fog;
+		_environment.FogDensity = light.FogDensity;
+	}
 
 	/// <summary>World position of a map pixel, sitting on the terrain surface.</summary>
 	public Vector3 WorldAt(Vector2 mapPixel) => MapToWorld(mapPixel);
@@ -166,17 +198,17 @@ public partial class CampaignMap3D : Node3D
 
 	private void BuildEnvironment()
 	{
-		var sky = new ProceduralSkyMaterial
+		_sky = new ProceduralSkyMaterial
 		{
 			SkyTopColor = new Color("2b4a74"),
 			SkyHorizonColor = new Color("8aa0b4"),
 			GroundHorizonColor = new Color("6b7280"),
 			SunAngleMax = 24.0f,
 		};
-		var environment = new Godot.Environment
+		_environment = new Godot.Environment
 		{
 			BackgroundMode = Godot.Environment.BGMode.Sky,
-			Sky = new Sky { SkyMaterial = sky },
+			Sky = new Sky { SkyMaterial = _sky },
 			AmbientLightSource = Godot.Environment.AmbientSource.Sky,
 			AmbientLightEnergy = 0.65f,
 			TonemapMode = Godot.Environment.ToneMapper.Filmic,
@@ -189,10 +221,10 @@ public partial class CampaignMap3D : Node3D
 			SsaoRadius = 3.0f,
 			SsaoIntensity = 1.4f,
 		};
-		AddChild(new WorldEnvironment { Environment = environment });
+		AddChild(new WorldEnvironment { Environment = _environment });
 
 		// Low sun: long shadows off the ridge are what make the relief read as relief.
-		var light = new DirectionalLight3D
+		_sun = new DirectionalLight3D
 		{
 			LightEnergy = 1.35f,
 			LightColor = new Color("fff2d8"),
@@ -200,8 +232,8 @@ public partial class CampaignMap3D : Node3D
 			DirectionalShadowMaxDistance = 320.0f,
 			ShadowBlur = 1.4f,
 		};
-		light.RotationDegrees = new Vector3(-42, -38, 0);
-		AddChild(light);
+		_sun.RotationDegrees = new Vector3(-42, -38, 0);
+		AddChild(_sun);
 	}
 
 	private void BuildTerrain()
@@ -248,9 +280,9 @@ public partial class CampaignMap3D : Node3D
 
 	private void BuildWater()
 	{
-		var water = new MapWater();
-		AddChild(water);
-		water.Build(_heightImage, new Vector2(MapWidth, MapDepth), HeightScale, SeaLevel);
+		_water = new MapWater();
+		AddChild(_water);
+		_water.Build(_heightImage, new Vector2(MapWidth, MapDepth), HeightScale, SeaLevel);
 	}
 
 	// --- camera ---------------------------------------------------------------------------

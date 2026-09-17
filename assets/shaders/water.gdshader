@@ -21,7 +21,15 @@ uniform float wave_frequency = 4.5;  // bands per world unit of depth
 uniform float wave_speed = 1.5;
 uniform float swell_height = 0.07;
 
+// 0 spring, 1 summer, 2 autumn, 3 winter — MapWater.SetSeason, from the same turn change the
+// terrain hears. Only winter shows on the sea: a cold, flat, slate-grey version of it.
+uniform float season = 1.0;
+
 varying vec3 world_position;
+
+float winter_weight() {
+	return clamp(1.0 - abs(season - 3.0), 0.0, 1.0);
+}
 
 // Water depth in world units: positive at sea, negative over land, large out past the map.
 float shore_depth(vec3 position) {
@@ -37,7 +45,7 @@ void vertex() {
 	world_position = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	// Open water swells; near the beach it flattens, or the sea would saw through the sand.
 	float depth = shore_depth(world_position);
-	float open = clamp(depth / 2.5, 0.0, 1.0);
+	float open = clamp(depth / 2.5, 0.0, 1.0) * mix(1.0, 0.45, winter_weight());
 	VERTEX.y += sin(world_position.x * 0.22 + TIME * 0.8) * swell_height * open
 		+ sin(world_position.z * 0.31 - TIME * 0.6) * swell_height * open;
 }
@@ -57,8 +65,14 @@ void fragment() {
 
 	float foam = clamp(max(rolling, breaking), 0.0, 1.0) * step(0.0, depth);
 
-	vec3 water = mix(shallow_color, deep_color, clamp(depth / 3.0, 0.0, 1.0));
-	ALBEDO = mix(water, foam_color, foam);
+	// Winter: the shallows go over to grey ice, the deep water to slate, and the surf loses the
+	// summer glare that comes off it.
+	float winter = winter_weight();
+	vec3 water = mix(
+		mix(shallow_color, vec3(0.50, 0.57, 0.60), winter),
+		mix(deep_color, vec3(0.06, 0.10, 0.15), winter),
+		clamp(depth / 3.0, 0.0, 1.0));
+	ALBEDO = mix(water, mix(foam_color, vec3(0.80, 0.85, 0.88), winter), foam);
 
 	// Fine chop, so the surface catches the sun instead of lying flat as glass.
 	vec2 ripple = world_position.xz;

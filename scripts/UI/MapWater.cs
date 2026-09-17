@@ -8,13 +8,15 @@ public partial class MapWater : Node3D
 {
 	private const string WaterShaderPath = "res://assets/shaders/water.gdshader";
 
+	private ShaderMaterial _material;
+
 	public void Build(Image heightImage, Vector2 mapSize, float heightScale, float seaLevel)
 	{
-		var material = new ShaderMaterial { Shader = GD.Load<Shader>(WaterShaderPath) };
-		material.SetShaderParameter("height_map", ImageTexture.CreateFromImage(heightImage));
-		material.SetShaderParameter("height_scale", heightScale);
-		material.SetShaderParameter("sea_level", seaLevel);
-		material.SetShaderParameter("map_size", mapSize);
+		_material = new ShaderMaterial { Shader = GD.Load<Shader>(WaterShaderPath) };
+		_material.SetShaderParameter("height_map", ImageTexture.CreateFromImage(heightImage));
+		_material.SetShaderParameter("height_scale", heightScale);
+		_material.SetShaderParameter("sea_level", seaLevel);
+		_material.SetShaderParameter("map_size", mapSize);
 
 		AddChild(new MeshInstance3D
 		{
@@ -25,10 +27,14 @@ public partial class MapWater : Node3D
 				Size = mapSize * 14f,
 				SubdivideWidth = 220,
 				SubdivideDepth = 160,
-				Material = material,
+				Material = _material,
 			},
 			Position = new Vector3(0, seaLevel, 0),
 			CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
 		});
 	}
+
+	/// <summary>Only winter shows on the sea, and the shader decides what that looks like — this
+	/// just hands the season over.</summary>
+	public void SetSeason(Season season) => _material.SetShaderParameter("season", (float)(int)season);
 }

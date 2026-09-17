@@ -189,6 +189,10 @@ public partial class CampaignMapPage : Control
 			ShowProvinceTrade(definition);
 		}
 
+		// After the sites are placed, so a loaded save's crops open in their own season rather than
+		// being sown green and repainted a frame later.
+		_world.SetSeason(_turnManager.CurrentSeason);
+
 		SelectProvince(0); // Kingsreach, the capital — shows something real before any click.
 	}
 
@@ -221,6 +225,7 @@ public partial class CampaignMapPage : Control
 			SelectProvince(_selected != null ? _markers.IndexOf(_selected) : 0);
 
 			Season season = _turnManager.CurrentSeason;
+			_world.SetSeason(season); // the map turns over here too, while nothing of it is visible
 			GetNode<Label>("%TransitionSeason").Text = season.ToString();
 			GetNode<Label>("%TransitionTurn").Text = $"Turn {_turnManager.Turn}";
 			GetNode<Label>("%TransitionFlavor").Text = season switch

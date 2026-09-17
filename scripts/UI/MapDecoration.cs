@@ -31,9 +31,18 @@ public partial class MapDecoration : Node3D
 	/// ProvinceDefinition gives capacities for.</summary>
 	public enum SiteKind { Grain, Cattle, Wood, Stone, Iron }
 
+	// Broadleaf woods and standing crops are the two things on the ground that a season changes;
+	// conifers are evergreen, and stone doesn't care. Each entry is one material and its colour in
+	// Spring/Summer/Autumn/Winter order — the Season enum's own order, so it indexes straight in.
+	private static readonly Color[] BroadleafBySeason =
+		{ new("6d8f3c"), new("4a6b34"), new("a86a28"), new("5a4a37") };
+	private static readonly Color[] GrainBySeason =
+		{ new("6f8a3f"), new("d4b264"), new("9c8552"), new("8f8b84") };
+
 	private CampaignMap3D _map;
 	private Image _props;
 	private RandomNumberGenerator _rng;
+	private readonly List<(StandardMaterial3D Material, Color[] BySeason)> _seasonal = new();
 
 	public void Build(CampaignMap3D map)
 	{
@@ -78,7 +87,8 @@ public partial class MapDecoration : Node3D
 		AddScatter(UpperConeMesh(), new Color("36543a"), conifers, liftY: 2.1f, colorJitter: 0.16f);
 
 		AddScatter(TrunkMesh(), new Color("53402c"), broadleaves, liftY: 0.4f);
-		AddScatter(BroadleafCrownMesh(), new Color("4a6b34"), broadleaves, liftY: 1.35f, colorJitter: 0.2f);
+		AddScatter(BroadleafCrownMesh(), BroadleafBySeason[(int)Season.Summer], broadleaves,
+			liftY: 1.35f, colorJitter: 0.2f, seasonColors: BroadleafBySeason);
 
 		AddScatter(BoulderMesh(), new Color("77736e"), boulders, colorJitter: 0.12f);
 
@@ -122,13 +132,24 @@ public partial class MapDecoration : Node3D
 
 		(Mesh mesh, Color color) = kind switch
 		{
-			SiteKind.Grain => (FieldMesh(), new Color("c9a15a")),
+			SiteKind.Grain => (FieldMesh(), GrainBySeason[(int)Season.Summer]),
 			SiteKind.Cattle => (CattleMesh(), new Color("d8d2c6")),
 			SiteKind.Wood => (LogPileMesh(), new Color("6b4c2f")),
 			SiteKind.Stone => (QuarryMesh(), new Color("9d9891")),
 			_ => (MineMesh(), new Color("4a4440")),
 		};
-		AddScatter(mesh, color, transforms, colorJitter: 0.1f);
+		AddScatter(mesh, color, transforms, colorJitter: 0.1f,
+			seasonColors: kind == SiteKind.Grain ? GrainBySeason : null);
+	}
+
+	/// <summary>Repaints everything that turns with the year — sown, standing, harvested, bare.
+	/// The props themselves never move: a wood is the same wood in December as in June.</summary>
+	public void SetSeason(Season season)
+	{
+		foreach ((StandardMaterial3D material, Color[] bySeason) in _seasonal)
+		{
+			material.AlbedoColor = bySeason[(int)season];
+		}
 	}
 
 	// --- placement ---------------------------------------------------------------------------
@@ -151,8 +172,12 @@ public partial class MapDecoration : Node3D
 
 	/// <summary>One instanced draw per piece. <paramref name="liftY"/> raises the piece in the
 	/// prop's own space (primitive meshes are centred on their origin, so without it half of every
-	/// tree sits underground), and the jitter gives each instance its own shade.</summary>
-	private void AddScatter(Mesh mesh, Color color, List<Transform3D> transforms, float liftY = 0f, float colorJitter = 0f)
+	/// tree sits underground), and the jitter gives each instance its own shade — a plain
+	/// brightness the shader multiplies the material's colour by, which is what lets
+	/// <see cref="SetSeason"/> repaint a whole scatter by setting that one colour.
+	/// <paramref name="seasonColors"/>, when given, is the four seasons' colours for this piece.</summary>
+	private void AddScatter(Mesh mesh, Color color, List<Transform3D> transforms, float liftY = 0f,
+		float colorJitter = 0f, Color[] seasonColors = null)
 	{
 		if (transforms.Count == 0)
 		{
@@ -172,19 +197,25 @@ public partial class MapDecoration : Node3D
 			if (colorJitter > 0f)
 			{
 				float shade = _rng.RandfRange(1f - colorJitter, 1f + colorJitter);
-				multiMesh.SetInstanceColor(i, new Color(color.R * shade, color.G * shade, color.B * shade));
+				multiMesh.SetInstanceColor(i, new Color(shade, shade, shade));
 			}
+		}
+
+		var material = new StandardMaterial3D
+		{
+			AlbedoColor = color,
+			Roughness = 0.95f,
+			VertexColorUseAsAlbedo = colorJitter > 0f,
+		};
+		if (seasonColors != null)
+		{
+			_seasonal.Add((material, seasonColors));
 		}
 
 		AddChild(new MultiMeshInstance3D
 		{
 			Multimesh = multiMesh,
-			MaterialOverride = new StandardMaterial3D
-			{
-				AlbedoColor = color,
-				Roughness = 0.95f,
-				VertexColorUseAsAlbedo = colorJitter > 0f,
-			},
+			MaterialOverride = material,
 			CastShadow = GeometryInstance3D.ShadowCastingSetting.On,
 		});
 	}
