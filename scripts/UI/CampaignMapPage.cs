@@ -130,7 +130,6 @@ public partial class CampaignMapPage : Control
 
 		UpdateTurnDisplay();
 
-		_sidebar.BuildingChosen += OpenBuilding;
 
 		_map.GuiInput += OnMapGuiInput;
 

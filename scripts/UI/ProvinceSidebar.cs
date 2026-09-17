@@ -5,13 +5,12 @@ using Godot;
 /// what it holds and what next turn will bring in, then what it has built and what it musters.
 ///
 /// Built in code rather than in the scene because nearly all of it is one cell repeated — five
-/// resources, eight buildings, four kinds of soldier — and a loop stays even where seventeen
-/// hand-placed panels drift apart.
+/// resources and seven kinds of soldier — and a loop stays even where hand-placed panels drift
+/// apart.
 ///
 /// The yields are the same projection the worker panel previews, so moving a worker changes both
-/// at once; the page refreshes this when that panel is touched. Buildings and muster have no
-/// systems behind them yet (Phase 2, Phase 3): their tiles are drawn dim and read "—" rather than
-/// showing a number nothing produces.</summary>
+/// at once; the page refreshes this when that panel is touched. The muster cards read "—" until
+/// the smithy has finished something, rather than showing a number nothing produced.</summary>
 public partial class ProvinceSidebar : VBoxContainer
 {
 	private const string IconDirectory = "res://assets/ui/icons";
@@ -30,20 +29,6 @@ public partial class ProvinceSidebar : VBoxContainer
 		(ResourceType.Wood, "wood"),
 		(ResourceType.Stone, "stone"),
 		(ResourceType.Iron, "iron"),
-	};
-
-	// A tile shows its art where there is art and its name where there is not yet, so they can be
-	// drawn one at a time without the row falling apart in between.
-	private static readonly (string Name, string Art)[] Buildings =
-	{
-		("Houses", null),
-		("Granary", null),
-		("Mill", null),
-		("Market", "scales"),
-		("Church", null),
-		("Blacksmith", null),
-		("Barracks", null),
-		("Keep", null),
 	};
 
 	// Keyed by the weapon each one carries, which names both its portrait in assets/units and its
@@ -74,10 +59,6 @@ public partial class ProvinceSidebar : VBoxContainer
 	private readonly Dictionary<ResourceType, Label> _yield = new();
 	private readonly Dictionary<string, Label> _muster = new();
 
-	/// <summary>Raised with a building's name when its tile is pressed. The page knows which of them
-	/// opens onto something.</summary>
-	public event System.Action<string> BuildingChosen;
-
 	private ProvinceEconomy _economy;
 	private ProvinceDefinition _definition;
 	private GameBalance _balance;
@@ -89,7 +70,6 @@ public partial class ProvinceSidebar : VBoxContainer
 		BuildHeader();
 		BuildStats();
 		BuildResources();
-		BuildBuildings();
 		BuildMuster();
 	}
 
@@ -266,61 +246,6 @@ public partial class ProvinceSidebar : VBoxContainer
 		}
 	}
 
-	private void BuildBuildings()
-	{
-		var grid = new GridContainer { Columns = 4 };
-		grid.AddThemeConstantOverride("h_separation", 5);
-		grid.AddThemeConstantOverride("v_separation", 5);
-		AddChild(Framed(grid, 6));
-
-		foreach ((string building, string art) in Buildings)
-		{
-			// A button, not a panel: a building is somewhere you go. The page decides which of them
-			// has a screen behind it yet.
-			var tile = new Button
-			{
-				CustomMinimumSize = new Vector2(0, 52),
-				SizeFlagsHorizontal = SizeFlags.ExpandFill,
-				TooltipText = building,
-			};
-			tile.AddThemeStyleboxOverride("normal", TileStyle());
-			tile.AddThemeStyleboxOverride("hover", HoverTileStyle());
-			tile.AddThemeStyleboxOverride("pressed", HoverTileStyle());
-			tile.AddThemeStyleboxOverride("focus", HoverTileStyle());
-
-			string chosen = building;
-			tile.Pressed += () => BuildingChosen?.Invoke(chosen);
-
-			var stack = new VBoxContainer { SizeFlagsVertical = SizeFlags.ShrinkCenter, MouseFilter = MouseFilterEnum.Ignore };
-			stack.AddThemeConstantOverride("separation", 1);
-			stack.SetAnchorsPreset(LayoutPreset.FullRect);
-			tile.AddChild(stack);
-
-			if (art != null)
-			{
-				TextureRect drawn = Icon(art, 32);
-				drawn.Modulate = new Color(1, 1, 1, 0.8f); // dim: none of these are built yet
-				drawn.TooltipText = building;
-				stack.AddChild(Centered(drawn));
-			}
-			else
-			{
-				// No wrapping: at this width "Blacksmith" would break across two lines mid-word.
-				Label name = Small(building, Waiting);
-				name.HorizontalAlignment = HorizontalAlignment.Center;
-				name.AddThemeFontSizeOverride("font_size", 12);
-				name.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
-				stack.AddChild(name);
-			}
-
-			Label state = Small("—", Waiting);
-			state.HorizontalAlignment = HorizontalAlignment.Center;
-			stack.AddChild(state);
-
-			grid.AddChild(tile);
-		}
-	}
-
 	private void BuildMuster()
 	{
 		var grid = new GridContainer { Columns = 4 };
@@ -432,14 +357,6 @@ public partial class ProvinceSidebar : VBoxContainer
 		ContentMarginRight = 0,
 		ContentMarginBottom = 0,
 	};
-
-	private static StyleBoxFlat HoverTileStyle()
-	{
-		StyleBoxFlat style = TileStyle();
-		style.BgColor = new Color(0.16f, 0.13f, 0.08f, 0.95f);
-		style.BorderColor = new Color(0.8f, 0.651f, 0.376f, 1f);
-		return style;
-	}
 
 	private static StyleBoxFlat TileStyle() => new()
 	{
