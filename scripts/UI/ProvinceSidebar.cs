@@ -32,8 +32,19 @@ public partial class ProvinceSidebar : VBoxContainer
 		(ResourceType.Iron, "iron"),
 	};
 
-	private static readonly string[] Buildings =
-		{ "Houses", "Granary", "Mill", "Market", "Church", "Blacksmith", "Barracks", "Keep" };
+	// A tile shows its art where there is art and its name where there is not yet, so they can be
+	// drawn one at a time without the row falling apart in between.
+	private static readonly (string Name, string Art)[] Buildings =
+	{
+		("Houses", null),
+		("Granary", null),
+		("Mill", null),
+		("Market", "scales"),
+		("Church", null),
+		("Blacksmith", null),
+		("Barracks", null),
+		("Keep", null),
+	};
 
 	private static readonly (string Name, string Icon)[] Muster =
 	{
@@ -234,7 +245,7 @@ public partial class ProvinceSidebar : VBoxContainer
 		grid.AddThemeConstantOverride("v_separation", 5);
 		AddChild(Framed(grid, 6));
 
-		foreach (string building in Buildings)
+		foreach ((string building, string art) in Buildings)
 		{
 			var tile = new PanelContainer
 			{
@@ -247,12 +258,22 @@ public partial class ProvinceSidebar : VBoxContainer
 			stack.AddThemeConstantOverride("separation", 1);
 			tile.AddChild(stack);
 
-			// No wrapping: at this width "Blacksmith" would break across two lines mid-word.
-			Label name = Small(building, Waiting);
-			name.HorizontalAlignment = HorizontalAlignment.Center;
-			name.AddThemeFontSizeOverride("font_size", 11);
-			name.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
-			stack.AddChild(name);
+			if (art != null)
+			{
+				TextureRect drawn = Icon(art, 32);
+				drawn.Modulate = new Color(1, 1, 1, 0.8f); // dim: none of these are built yet
+				drawn.TooltipText = building;
+				stack.AddChild(Centered(drawn));
+			}
+			else
+			{
+				// No wrapping: at this width "Blacksmith" would break across two lines mid-word.
+				Label name = Small(building, Waiting);
+				name.HorizontalAlignment = HorizontalAlignment.Center;
+				name.AddThemeFontSizeOverride("font_size", 11);
+				name.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
+				stack.AddChild(name);
+			}
 
 			Label state = Small("—", Waiting);
 			state.HorizontalAlignment = HorizontalAlignment.Center;
