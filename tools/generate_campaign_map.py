@@ -90,7 +90,7 @@ def province_color(index):
 
 
 # --- 3D terrain -------------------------------------------------------------------------
-# The campaign map is a displaced mesh, not a picture: campaign-map-height.png drives vertex
+# The campaign map is a displaced mesh, not a picture: map-height.png drives vertex
 # height in the terrain shader AND the collision heightfield the click raycast hits, so both
 # read the same bytes. 255 here equals TERRAIN_HEIGHT world units in CampaignMap3D.cs - change
 # one and change the other, or clicks stop landing where the mountains are drawn.
