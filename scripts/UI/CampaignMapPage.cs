@@ -36,12 +36,14 @@ public partial class CampaignMapPage : Control
 	/// belonging to it is drawn in.</summary>
 	private record RealmData(string Name, Color Accent);
 
-	/// <summary>One province of the played campaign. <paramref name="EconomyFile"/> names the
-	/// ProvinceDefinition the player's own provinces are simulated from, and is empty for the ones
-	/// the other realm holds — those have no economy until there's AI to run it (Phase 4).</summary>
+	/// <summary>One province of the played campaign. <paramref name="Realm"/> is who holds it when
+	/// the campaign opens, which for most of them is nobody. <paramref name="EconomyFile"/> names the
+	/// ProvinceDefinition describing its land, and is empty where none is authored yet.</summary>
 	private record ProvinceData(string Name, Vector2 MapPosition, string Realm, bool IsCapital, string EconomyFile);
 
 	private readonly Dictionary<string, RealmData> _realms = new();
+	// Which realm is yours. The others' provinces, and the unclaimed ones, run on nobody's orders yet.
+	private string _playerRealm = "";
 	// Authored order is load-bearing: it is the ID map's index + 1 encoding, so a province's place
 	// in provinces.json is what ties it to its pixels on the map.
 	private readonly List<ProvinceData> _provinces = new();
@@ -111,20 +113,27 @@ public partial class CampaignMapPage : Control
 
 		// Balance is the engine's, not the campaign's: every campaign is simulated by the same rules.
 		_balance = GD.Load<GameBalance>("res://data/game-balance.tres");
-		var definitions = new List<ProvinceDefinition>();
+		// A campaign opens with one seat each and everything else unclaimed, so a province having a
+		// definition and a province being yours are two different things: the land is described
+		// either way — that is what puts its industries on the map — but only what your own realm
+		// holds is simulated. Taking an unclaimed province is what will hand its definition over.
+		var playerDefinitions = new List<ProvinceDefinition>();
 		foreach (ProvinceData province in _provinces)
 		{
 			if (province.EconomyFile.Length == 0)
 			{
-				continue; // the rival's: no economy of its own until there's AI to run it
+				continue; // no economy authored for it yet
 			}
 
 			var definition = GD.Load<ProvinceDefinition>(Campaign.Data($"provinces/{province.EconomyFile}.tres"));
-			definitions.Add(definition);
 			_definitionsByName[definition.ProvinceName] = definition;
+			if (province.Realm == _playerRealm)
+			{
+				playerDefinitions.Add(definition);
+			}
 		}
 
-		_turnManager = new TurnManager(_balance, definitions);
+		_turnManager = new TurnManager(_balance, playerDefinitions);
 		if (SaveGame.Pending != null)
 		{
 			_turnManager.Restore(SaveGame.Pending.Turn, SaveGame.Pending.Provinces);
@@ -193,7 +202,8 @@ public partial class CampaignMapPage : Control
 		};
 		GetNode<Button>("%QuitButton").Pressed += () => ConfirmLeave(MainMenuScenePath);
 
-		foreach (ProvinceDefinition definition in definitions)
+		// Every described province, not only yours: an unclaimed quarry is still a quarry.
+		foreach (ProvinceDefinition definition in _definitionsByName.Values)
 		{
 			ShowProvinceTrade(definition);
 		}
@@ -205,9 +215,8 @@ public partial class CampaignMapPage : Control
 		SelectProvince(0); // Kingsreach, the capital — shows something real before any click.
 	}
 
-	/// <summary>Reads the played campaign's realms and its provinces. Who holds what, where its seat
-	/// sits and which ones the player runs are all the campaign's own file; this page only draws it.
-	/// A province without an "economy" entry belongs to the rival and is simulated by nobody yet.</summary>
+	/// <summary>Reads the played campaign's realms, which of them is yours, and its provinces. Who
+	/// holds what and where each seat sits are the campaign's own file; this page only draws it.</summary>
 	private void LoadCampaignProvinces()
 	{
 		var file = GD.Load<Json>(Campaign.Data(ProvincesDataFile));
@@ -218,6 +227,7 @@ public partial class CampaignMapPage : Control
 		}
 
 		Godot.Collections.Dictionary data = file.Data.AsGodotDictionary();
+		_playerRealm = data["player"].AsString();
 		foreach (System.Collections.Generic.KeyValuePair<Variant, Variant> realm in data["realms"].AsGodotDictionary())
 		{
 			Godot.Collections.Dictionary fields = realm.Value.AsGodotDictionary();

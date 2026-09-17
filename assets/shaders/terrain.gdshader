@@ -18,6 +18,7 @@ uniform vec3 selected_tint : source_color = vec3(1.0, 0.86, 0.45);
 // belongs to the selection highlight, which has to beat these for attention.
 uniform vec3 realm_one_color : source_color = vec3(0.46, 0.20, 0.17);  // The Royal Crown
 uniform vec3 realm_two_color : source_color = vec3(0.22, 0.30, 0.45);  // The Northern Watch
+uniform vec3 neutral_claim_color : source_color = vec3(0.30, 0.28, 0.24); // unclaimed ground
 uniform vec3 border_color : source_color = vec3(0.16, 0.14, 0.11);
 
 // Ground detail. The generated albedo carries the large-scale colour of the realm; these carry the
@@ -81,8 +82,8 @@ void fragment() {
 	float autumn = clamp(1.0 - abs(season - 2.0), 0.0, 1.0);
 	float winter = clamp(1.0 - abs(season - 3.0), 0.0, 1.0);
 	float snow_start = mix(0.52, 0.24, winter); // in winter the snow comes a long way down the slopes
-	float rock_mix = smoothstep(0.18, 0.42, steepness);
-	float snow_mix = smoothstep(snow_start, snow_start + 0.16, terrain_height) * (1.0 - rock_mix * 0.7);
+	float rock_mix = smoothstep(0.34, 0.66, steepness);
+	float snow_mix = smoothstep(snow_start, snow_start + 0.14, terrain_height) * (1.0 - rock_mix * 0.35);
 	// Beach is a band just above the waterline, wherever that is, not a fixed height.
 	float sand_mix = smoothstep(sea_level_normalized + 0.05, sea_level_normalized + 0.002, terrain_height);
 	// Winter takes the lowland too, not only the peaks: everywhere but the cliffs, which are too
@@ -107,8 +108,13 @@ void fragment() {
 		? world_vertex.zy * world_tiling
 		: world_vertex.xy * world_tiling;
 	float from_side = smoothstep(0.25, 0.6, steepness);
-	vec3 rock_color = mix(texture(rock_texture, detail_uv).rgb, texture(rock_texture, side_uv).rgb, from_side);
-	vec3 rock_bump = mix(texture(rock_normal, detail_uv).rgb, texture(rock_normal, side_uv).rgb, from_side);
+	vec2 rock_uv = detail_uv * 0.45;
+	vec2 rock_side_uv = side_uv * 0.45;
+	// Two scales averaged, so a cliff face does not show the same crack every few metres.
+	vec3 rock_color = mix(
+		mix(texture(rock_texture, rock_uv).rgb, texture(rock_texture, rock_uv * 0.31 + vec2(0.17, 0.43)).rgb, 0.45),
+		texture(rock_texture, rock_side_uv).rgb, from_side);
+	vec3 rock_bump = mix(texture(rock_normal, rock_uv).rgb, texture(rock_normal, rock_side_uv).rgb, from_side);
 	detail = mix(detail, rock_color, rock_mix);
 	detail_n = mix(detail_n, rock_bump, rock_mix);
 	detail = mix(detail, texture(snow_texture, detail_uv).rgb, snow_mix);
@@ -126,7 +132,9 @@ void fragment() {
 	// covering the other.
 	vec3 macro = texture(albedo_map, map_uv).rgb;
 	vec3 tint = macro / max(dot(macro, vec3(0.3333)), 0.001);
-	vec3 albedo = detail * mix(vec3(1.0), tint, 0.7);
+	vec3 albedo = detail * mix(vec3(1.0), tint, 0.45);
+	// A touch of desaturation: saturated albedo is the single loudest tell of a painted surface.
+	albedo = mix(albedo, vec3(dot(albedo, vec3(0.299, 0.587, 0.114))), 0.12);
 	// The macro albedo is painted for a green map, so winter has to be taken out of it here as well
 	// — otherwise summer's biome colour bleeds back through the snow.
 	albedo = mix(albedo, vec3(dot(albedo, vec3(0.3333))), winter * 0.3);
@@ -163,7 +171,8 @@ void fragment() {
 
 	// Each side of a contested border is painted in its own realm's colour, so the frontier reads
 	// as two claims meeting rather than one neutral line.
-	vec3 claim = here.g * 255.0 < 1.5 ? realm_one_color : realm_two_color;
+	float owner = here.g * 255.0;
+	vec3 claim = owner < 1.5 ? realm_one_color : (owner < 2.5 ? realm_two_color : neutral_claim_color);
 	// A wider, fainter band inside the line, sampled further out: it is what keeps the frontier
 	// legible over snow and forest when the camera pulls back.
 	vec2 glow_step = 6.0 / vec2(textureSize(id_map, 0));
