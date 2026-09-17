@@ -15,6 +15,8 @@ using Godot;
 public partial class ProvinceSidebar : VBoxContainer
 {
 	private const string IconDirectory = "res://assets/ui/icons";
+	// Soldiers belong to the engine, not to a campaign: every realm musters the same six.
+	private const string UnitDirectory = "res://assets/units";
 	// The crest art carries wide empty margins, and this is the crop the top bar's shield uses too.
 	// A realm whose shield is drawn to different margins needs its own crop, not this one.
 	private static readonly Rect2 CrestRegion = new(174, 94, 908, 1070);
@@ -46,12 +48,14 @@ public partial class ProvinceSidebar : VBoxContainer
 		("Keep", null),
 	};
 
-	private static readonly (string Name, string Icon)[] Muster =
+	// Keyed by the weapon each one carries, which names both its portrait in assets/units and its
+	// glyph in assets/ui/icons. Those portraits belong to no campaign: every realm musters spearmen.
+	private static readonly (string Name, string Unit)[] Muster =
 	{
 		("Spearmen", "spear"),
 		("Archers", "bow"),
 		("Horse", "horse"),
-		("Men-at-arms", "sword"),
+		("Swordsmen", "sword"),
 	};
 
 	private ColorRect _accent;
@@ -296,25 +300,35 @@ public partial class ProvinceSidebar : VBoxContainer
 		row.AddThemeConstantOverride("separation", 5);
 		AddChild(Framed(row, 6));
 
-		foreach ((string name, string icon) in Muster)
+		foreach ((string name, string unit) in Muster)
 		{
+			// Taller than the building tiles: these hold a standing man, not a glyph.
 			var tile = new PanelContainer
 			{
-				CustomMinimumSize = new Vector2(0, 68),
+				CustomMinimumSize = new Vector2(0, 112),
 				SizeFlagsHorizontal = SizeFlags.ExpandFill,
 				TooltipText = name,
 			};
 			tile.AddThemeStyleboxOverride("panel", TileStyle());
 
-			var stack = new VBoxContainer { SizeFlagsVertical = SizeFlags.ShrinkCenter };
-			stack.AddThemeConstantOverride("separation", 2);
+			var stack = new VBoxContainer();
+			stack.AddThemeConstantOverride("separation", 0);
 			tile.AddChild(stack);
 
-			TextureRect glyph = Icon(icon, 34);
-			glyph.Modulate = new Color(1, 1, 1, 0.75f); // dimmed: nothing musters them yet
-			stack.AddChild(Centered(glyph));
+			// Covered rather than fitted: the portrait fills its card, cropped at the edges, instead
+			// of sitting small in the middle of it.
+			var portrait = new TextureRect
+			{
+				Texture = GD.Load<Texture2D>($"{UnitDirectory}/{unit}.png"),
+				ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+				StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered,
+				SizeFlagsVertical = SizeFlags.ExpandFill,
+				Modulate = new Color(1, 1, 1, 0.8f), // dimmed: nothing musters them yet
+			};
+			stack.AddChild(portrait);
 
 			Label count = Small("—", Waiting);
+			count.AddThemeFontSizeOverride("font_size", 14);
 			count.HorizontalAlignment = HorizontalAlignment.Center;
 			stack.AddChild(count);
 
