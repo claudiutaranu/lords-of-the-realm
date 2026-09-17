@@ -25,6 +25,7 @@ public partial class CampaignMapPage : Control
 	private const string OptionsScenePath = "res://scene/options/options.tscn";
 	private const string SelfScenePath = "res://scene/campaign-map/campaign_map.tscn";
 	private const string LeaveFarewellPath = "res://assets/audio/quit-farewell.mp3";
+	private const string SquareButtonPath = "res://assets/ui/button-square.png";
 	private const string ProvincesDataFile = "provinces.json";
 	private const float TurnFadeInSeconds = 0.4f;
 	private const float TurnHoldSeconds = 1.1f;
@@ -164,7 +165,7 @@ public partial class CampaignMapPage : Control
 		// The crest is the pause menu: save, load, or leave the campaign.
 		var gameMenu = GetNode<Control>("%GameMenu");
 		GetNode<Button>("%MenuShieldButton").Pressed += () => gameMenu.Visible = !gameMenu.Visible;
-		BuildMinimapButtons(navRail, gameMenu);
+		BuildMinimapButtons(gameMenu);
 		GetNode<Button>("%SaveButton").Pressed += () =>
 		{
 			SaveGame.Write(Campaign.Name, _turnManager.Turn, _turnManager.Provinces);
@@ -210,12 +211,10 @@ public partial class CampaignMapPage : Control
 	}
 
 	/// <summary>The column of buttons beside the minimap: the places a lord returns to most, and the
-	/// crest menu. They borrow the bottom bar's own button styles rather than restating them, so the
-	/// two sets of buttons cannot drift apart.</summary>
-	private void BuildMinimapButtons(NavRail navRail, Control gameMenu)
+	/// crest menu. Each wears the square button plate, with the glyph inset inside its frame.</summary>
+	private void BuildMinimapButtons(Control gameMenu)
 	{
 		var column = GetNode<VBoxContainer>("%MinimapButtons");
-		Button template = navRail.GetNode<Button>("%ChronicleButton");
 
 		(NavRailIcon.Glyph Glyph, string Tip, Action Open)[] entries =
 		{
@@ -233,12 +232,13 @@ public partial class CampaignMapPage : Control
 			{
 				CustomMinimumSize = new Vector2(53, 53),
 				SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
+				SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd, // against the frame's right edge
 				TooltipText = tip,
 			};
-			foreach (string state in new[] { "normal", "hover", "pressed", "focus" })
-			{
-				button.AddThemeStyleboxOverride(state, template.GetThemeStylebox(state));
-			}
+			button.AddThemeStyleboxOverride("normal", SquareButtonPlate(Colors.White));
+			button.AddThemeStyleboxOverride("hover", SquareButtonPlate(new Color(1.3f, 1.2f, 1.05f)));
+			button.AddThemeStyleboxOverride("focus", SquareButtonPlate(new Color(1.3f, 1.2f, 1.05f)));
+			button.AddThemeStyleboxOverride("pressed", SquareButtonPlate(new Color(0.78f, 0.76f, 0.72f)));
 
 			button.Pressed += () => open();
 			column.AddChild(button);
@@ -253,6 +253,15 @@ public partial class CampaignMapPage : Control
 			icon.OffsetBottom = -12;
 		}
 	}
+
+	/// <summary>The square button plate. The art is square and so is the button, so it simply
+	/// stretches — no nine-slice, nothing to keep in step with the button's size. The tint is what
+	/// separates resting from hovered and pressed.</summary>
+	private static StyleBoxTexture SquareButtonPlate(Color tint) => new()
+	{
+		Texture = GD.Load<Texture2D>(SquareButtonPath),
+		ModulateColor = tint,
+	};
 
 	/// <summary>Reads the played campaign's realms, which of them is yours, and its provinces. Who
 	/// holds what and where each seat sits are the campaign's own file; this page only draws it.</summary>

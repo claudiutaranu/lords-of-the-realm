@@ -376,6 +376,7 @@ stretch_mode = 6
 [node name="MinimapButtons" type="VBoxContainer" parent="Sidebar/SidebarMargin/SidebarContent/MinimapPanel/MinimapMargin/MinimapRow"]
 unique_name_in_owner = true
 layout_mode = 2
+size_flags_horizontal = 3
 size_flags_vertical = 4
 theme_override_constants/separation = 6
 
