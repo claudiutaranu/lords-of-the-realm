@@ -88,18 +88,13 @@ public partial class ProvinceSidebar : VBoxContainer
 		_realm.Text = realmName;
 		_accent.Color = accent;
 
-		// A realm has a crest when someone has drawn one; the accent stripe carries the rest.
+		// A realm has a crest when someone has drawn one; the accent stripe carries the rest. The slot
+		// keeps its place either way — hiding it would shorten the header, and the whole sidebar
+		// would shift every time the selection moved between a realm's province and an unclaimed one.
 		string crestPath = $"{IconDirectory}/shield-{realmKey}.png";
-		bool hasCrest = ResourceLoader.Exists(crestPath);
-		_crest.Visible = hasCrest;
-		if (hasCrest)
-		{
-			_crest.Texture = new AtlasTexture
-			{
-				Atlas = GD.Load<Texture2D>(crestPath),
-				Region = CrestRegion,
-			};
-		}
+		_crest.Texture = ResourceLoader.Exists(crestPath)
+			? new AtlasTexture { Atlas = GD.Load<Texture2D>(crestPath), Region = CrestRegion }
+			: null;
 	}
 
 	/// <summary>The province's own numbers, or nothing at all for one no realm is running yet.</summary>
@@ -158,8 +153,7 @@ public partial class ProvinceSidebar : VBoxContainer
 		};
 		content.AddChild(_crest);
 
-		// Expanding, or the name gets the narrowest box the text will fit in and "Icemere Reach"
-		// comes out broken across two lines mid-word.
+		// Expanding, or the name gets the narrowest box the text will fit in.
 		var titles = new VBoxContainer
 		{
 			SizeFlagsVertical = SizeFlags.ShrinkCenter,
@@ -168,10 +162,12 @@ public partial class ProvinceSidebar : VBoxContainer
 		titles.AddThemeConstantOverride("separation", 2);
 		content.AddChild(titles);
 
+		// One line, always: a name long enough to wrap would make the header taller and push
+		// everything under it down the moment the selection changed.
 		_name = new Label
 		{
 			Text = "Select a stronghold",
-			AutowrapMode = TextServer.AutowrapMode.Word,
+			TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis,
 			ThemeTypeVariation = "GildedTitle", // the title font and its outline; the gradient is below
 		};
 		_name.AddThemeFontSizeOverride("font_size", 23);
