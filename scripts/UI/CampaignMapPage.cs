@@ -255,11 +255,11 @@ public partial class CampaignMapPage : Control
 
 		foreach ((NavRailIcon.Glyph glyph, string art, string tip, Action open) in entries)
 		{
-			// Square, touching, and sized so four of them stand exactly as tall as the 244 square
+			// Square, touching, and sized so four of them stand exactly as tall as the 228 square
 			// map beside them.
 			var button = new Button
 			{
-				CustomMinimumSize = new Vector2(61, 61),
+				CustomMinimumSize = new Vector2(57, 57),
 				SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
 				SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd, // against the frame's right edge
 				TooltipText = tip,
@@ -284,10 +284,10 @@ public partial class CampaignMapPage : Control
 			button.AddChild(icon);
 			// An even inset all round, so the glyph sits centred in the button with room to breathe.
 			icon.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-			icon.OffsetLeft = 14;
-			icon.OffsetTop = 14;
-			icon.OffsetRight = -14;
-			icon.OffsetBottom = -14;
+			icon.OffsetLeft = 13;
+			icon.OffsetTop = 13;
+			icon.OffsetRight = -13;
+			icon.OffsetBottom = -13;
 		}
 	}
 
