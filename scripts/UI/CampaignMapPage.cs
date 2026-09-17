@@ -222,7 +222,7 @@ public partial class CampaignMapPage : Control
 		{
 			(NavRailIcon.Glyph.Crown, null, "Court", () => ShowSection(NavRail.Section.Court)),
 			(NavRailIcon.Glyph.Book, "scroll", "Chronicle", () => ShowSection(NavRail.Section.Chronicle)),
-			(NavRailIcon.Glyph.Helmet, null, "Military", () => ShowSection(NavRail.Section.Military)),
+			(NavRailIcon.Glyph.Helmet, "shield", "Military", () => ShowSection(NavRail.Section.Military)),
 			(NavRailIcon.Glyph.Gear, null, "Menu", () => gameMenu.Visible = !gameMenu.Visible),
 		};
 
