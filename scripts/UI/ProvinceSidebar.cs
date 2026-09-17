@@ -123,8 +123,8 @@ public partial class ProvinceSidebar : VBoxContainer
 			int projected = EconomySimulation.ProjectedYield(
 				type, WorkersOn(type), type == ResourceType.Cattle ? _economy.Cattle : 0,
 				_definition, _balance, _season);
-			_yield[type].Text = projected == 0 ? "—" : $"+{projected}";
-			_yield[type].AddThemeColorOverride("font_color", projected > 0 ? Gain : Waiting);
+			// Nothing at all rather than a dash: a column of dashes is noise under the numbers.
+			_yield[type].Text = projected > 0 ? $"+{projected}" : "";
 		}
 	}
 
@@ -207,7 +207,7 @@ public partial class ProvinceSidebar : VBoxContainer
 			cell.AddChild(Centered(Icon(icon, 26)));
 
 			var stock = new Label { HorizontalAlignment = HorizontalAlignment.Center };
-			stock.AddThemeFontSizeOverride("font_size", 15);
+			stock.AddThemeFontSizeOverride("font_size", 18);
 			stock.AddThemeColorOverride("font_color", Cream);
 			cell.AddChild(stock);
 
@@ -224,9 +224,9 @@ public partial class ProvinceSidebar : VBoxContainer
 	private void BuildBuildings()
 	{
 		var grid = new GridContainer { Columns = 4 };
-		grid.AddThemeConstantOverride("h_separation", 6);
-		grid.AddThemeConstantOverride("v_separation", 6);
-		AddChild(grid);
+		grid.AddThemeConstantOverride("h_separation", 5);
+		grid.AddThemeConstantOverride("v_separation", 5);
+		AddChild(Framed(grid, 6));
 
 		foreach (string building in Buildings)
 		{
@@ -241,9 +241,11 @@ public partial class ProvinceSidebar : VBoxContainer
 			stack.AddThemeConstantOverride("separation", 1);
 			tile.AddChild(stack);
 
+			// No wrapping: at this width "Blacksmith" would break across two lines mid-word.
 			Label name = Small(building, Waiting);
 			name.HorizontalAlignment = HorizontalAlignment.Center;
-			name.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+			name.AddThemeFontSizeOverride("font_size", 11);
+			name.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
 			stack.AddChild(name);
 
 			Label state = Small("—", Waiting);
@@ -257,8 +259,8 @@ public partial class ProvinceSidebar : VBoxContainer
 	private void BuildMuster()
 	{
 		var row = new HBoxContainer();
-		row.AddThemeConstantOverride("separation", 6);
-		AddChild(row);
+		row.AddThemeConstantOverride("separation", 5);
+		AddChild(Framed(row, 6));
 
 		foreach ((string name, string icon) in Muster)
 		{
@@ -274,8 +276,8 @@ public partial class ProvinceSidebar : VBoxContainer
 			stack.AddThemeConstantOverride("separation", 2);
 			tile.AddChild(stack);
 
-			TextureRect glyph = Icon(icon, 30);
-			glyph.Modulate = new Color(1, 1, 1, 0.45f); // nothing musters them yet
+			TextureRect glyph = Icon(icon, 34);
+			glyph.Modulate = new Color(1, 1, 1, 0.75f); // dimmed: nothing musters them yet
 			stack.AddChild(Centered(glyph));
 
 			Label count = Small("—", Waiting);
@@ -288,10 +290,12 @@ public partial class ProvinceSidebar : VBoxContainer
 
 	// --- small parts -------------------------------------------------------------------------
 
-	/// <summary>Wraps a row in the sidebar's panel look with an even margin around it.</summary>
+	/// <summary>Wraps a row in a gilded frame with an even margin around it — the sidebar reads as a
+	/// stack of framed panels, the way the rest of the campaign's chrome does.</summary>
 	private static PanelContainer Framed(Control content, int margin)
 	{
 		var panel = new PanelContainer();
+		panel.AddThemeStyleboxOverride("panel", GroupStyle());
 		var inset = new MarginContainer();
 		foreach (string side in new[] { "left", "top", "right", "bottom" })
 		{
@@ -301,6 +305,15 @@ public partial class ProvinceSidebar : VBoxContainer
 		panel.AddChild(inset);
 		inset.AddChild(content);
 		return panel;
+	}
+
+	/// <summary>The gilded frame a whole group sits in, and the darker cell one tile sits in: the
+	/// same border, so a row of tiles reads as belonging inside its panel.</summary>
+	private static StyleBoxFlat GroupStyle()
+	{
+		StyleBoxFlat style = TileStyle();
+		style.BgColor = new Color(0.098f, 0.094f, 0.090f, 0.94f);
+		return style;
 	}
 
 	private static StyleBoxFlat TileStyle() => new()

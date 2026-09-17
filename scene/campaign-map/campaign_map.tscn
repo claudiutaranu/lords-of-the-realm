@@ -12,10 +12,10 @@
 [ext_resource type="PackedScene" path="res://scene/campaign-map/nav_rail.tscn" id="10_rail"]
 [ext_resource type="Texture2D" uid="uid://c8lilxprfpr2o" path="res://assets/ui/icons/shield-royal-crown.png" id="12_shield"]
 [ext_resource type="Script" uid="uid://dblsc5tul8tn7" path="res://scripts/UI/ShieldMenuButton.cs" id="13_shield_script"]
-[ext_resource type="Script" path="res://scripts/UI/ProvinceSidebar.cs" id="20_sidebar"]
 [ext_resource type="Script" uid="uid://dklap3fwva5s5" path="res://scripts/UI/NavRailIcon.cs" id="14_navicon"]
 [ext_resource type="Texture2D" uid="uid://dlmqj6lrsvg4c" path="res://assets/ui/top-bar-frame.png" id="19_barframe"]
 [ext_resource type="Script" uid="uid://cwfi4jvlfkdf" path="res://scripts/UI/CampaignMap3D.cs" id="19_map3d"]
+[ext_resource type="Script" uid="uid://dvgobmo1ktvu" path="res://scripts/UI/ProvinceSidebar.cs" id="20_sidebar"]
 
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_topbar"]
 content_margin_left = 130.0
@@ -348,19 +348,30 @@ theme_override_constants/margin_bottom = 12
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="MinimapPanel" type="PanelContainer" parent="Sidebar/SidebarMargin/SidebarContent" unique_id=115906297]
-custom_minimum_size = Vector2(0, 316)
+[node name="MinimapPanel" type="PanelContainer" parent="Sidebar/SidebarMargin/SidebarContent"]
 layout_mode = 2
 
-[node name="MinimapTexture" type="TextureRect" parent="Sidebar/SidebarMargin/SidebarContent/MinimapPanel" unique_id=945334580]
+[node name="MinimapRow" type="HBoxContainer" parent="Sidebar/SidebarMargin/SidebarContent/MinimapPanel"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="MinimapTexture" type="TextureRect" parent="Sidebar/SidebarMargin/SidebarContent/MinimapPanel/MinimapRow"]
 unique_name_in_owner = true
 layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
 mouse_filter = 2
 texture = ExtResource("3_map")
-expand_mode = 1
+expand_mode = 3
 stretch_mode = 5
 
-[node name="ProvinceSidebar" type="VBoxContainer" parent="Sidebar/SidebarMargin/SidebarContent"]
+[node name="MinimapButtons" type="VBoxContainer" parent="Sidebar/SidebarMargin/SidebarContent/MinimapPanel/MinimapRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_constants/separation = 6
+
+[node name="ProvinceSidebar" type="VBoxContainer" parent="Sidebar/SidebarMargin/SidebarContent" unique_id=211143184]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
@@ -369,7 +380,7 @@ script = ExtResource("20_sidebar")
 [node name="NavRail" parent="Sidebar/SidebarMargin/SidebarContent" unique_id=1212103693 instance=ExtResource("10_rail")]
 unique_name_in_owner = true
 layout_mode = 2
-size_flags_horizontal = 4
+size_flags_horizontal = 3
 
 [node name="SectionPanel" type="PanelContainer" parent="." unique_id=1557423501]
 unique_name_in_owner = true

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Godot;
 
@@ -156,12 +157,14 @@ public partial class CampaignMapPage : Control
 		_sectionTitle = GetNode<Label>("%SectionTitle");
 		_sectionBody = GetNode<Label>("%SectionBody");
 		GoldTitle.Apply(_sectionTitle);
-		GetNode<NavRail>("%NavRail").SectionChosen += ShowSection;
+		var navRail = GetNode<NavRail>("%NavRail");
+		navRail.SectionChosen += ShowSection;
 		GetNode<Button>("%SectionClose").Pressed += () => _sectionPanel.Visible = false;
 
 		// The crest is the pause menu: save, load, or leave the campaign.
 		var gameMenu = GetNode<Control>("%GameMenu");
 		GetNode<Button>("%MenuShieldButton").Pressed += () => gameMenu.Visible = !gameMenu.Visible;
+		BuildMinimapButtons(navRail, gameMenu);
 		GetNode<Button>("%SaveButton").Pressed += () =>
 		{
 			SaveGame.Write(Campaign.Name, _turnManager.Turn, _turnManager.Provinces);
@@ -204,6 +207,43 @@ public partial class CampaignMapPage : Control
 		_world.SetSeason(_turnManager.CurrentSeason);
 
 		SelectProvince(0); // Kingsreach, the capital — shows something real before any click.
+	}
+
+	/// <summary>The column of buttons beside the minimap: the places a lord returns to most, and the
+	/// crest menu. They borrow the bottom bar's own button styles rather than restating them, so the
+	/// two sets of buttons cannot drift apart.</summary>
+	private void BuildMinimapButtons(NavRail navRail, Control gameMenu)
+	{
+		var column = GetNode<VBoxContainer>("%MinimapButtons");
+		Button template = navRail.GetNode<Button>("%ChronicleButton");
+
+		(NavRailIcon.Glyph Glyph, string Tip, Action Open)[] entries =
+		{
+			(NavRailIcon.Glyph.Crown, "Court", () => ShowSection(NavRail.Section.Court)),
+			(NavRailIcon.Glyph.Book, "Chronicle", () => ShowSection(NavRail.Section.Chronicle)),
+			(NavRailIcon.Glyph.Helmet, "Military", () => ShowSection(NavRail.Section.Military)),
+			(NavRailIcon.Glyph.Gear, "Menu", () => gameMenu.Visible = !gameMenu.Visible),
+		};
+
+		foreach ((NavRailIcon.Glyph glyph, string tip, Action open) in entries)
+		{
+			var button = new Button { CustomMinimumSize = new Vector2(44, 44), TooltipText = tip };
+			foreach (string state in new[] { "normal", "hover", "pressed", "focus" })
+			{
+				button.AddThemeStyleboxOverride(state, template.GetThemeStylebox(state));
+			}
+
+			button.Pressed += () => open();
+			column.AddChild(button);
+
+			var icon = new NavRailIcon { Kind = glyph, MouseFilter = Control.MouseFilterEnum.Ignore };
+			button.AddChild(icon);
+			icon.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+			icon.OffsetLeft = 10;
+			icon.OffsetTop = 10;
+			icon.OffsetRight = -10;
+			icon.OffsetBottom = -10;
+		}
 	}
 
 	/// <summary>Reads the played campaign's realms, which of them is yours, and its provinces. Who

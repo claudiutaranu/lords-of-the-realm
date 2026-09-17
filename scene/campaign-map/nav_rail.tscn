@@ -35,7 +35,6 @@ Button/styles/normal = SubResource("StyleBoxFlat_icon_normal")
 Button/styles/pressed = SubResource("StyleBoxFlat_icon_hover")
 
 [node name="NavRail" type="PanelContainer"]
-size_flags_vertical = 4
 theme = ExtResource("2_theme")
 script = ExtResource("1_script")
 
@@ -46,7 +45,7 @@ theme_override_constants/margin_top = 8
 theme_override_constants/margin_right = 8
 theme_override_constants/margin_bottom = 8
 
-[node name="Buttons" type="VBoxContainer" parent="Margin"]
+[node name="Buttons" type="HBoxContainer" parent="Margin"]
 layout_mode = 2
 theme = SubResource("Theme_icon_buttons")
 theme_override_constants/separation = 8
