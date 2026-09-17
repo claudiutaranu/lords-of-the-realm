@@ -1,9 +1,10 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://scripts/UI/NavRail.cs" id="1_script"]
 [ext_resource type="Theme" path="res://theme/main-menu.tres" id="2_theme"]
 [ext_resource type="Script" path="res://scripts/UI/NavRailIcon.cs" id="3_icon"]
 [ext_resource type="Texture2D" path="res://assets/ui/button-square.png" id="4_plate"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/hammer.png" id="5_hammer"]
 
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_plate"]
 texture = ExtResource("4_plate")
@@ -93,7 +94,7 @@ custom_minimum_size = Vector2(57, 57)
 layout_mode = 2
 tooltip_text = "Buildings"
 
-[node name="Icon" type="Control" parent="Margin/Buttons/BuildingsButton"]
+[node name="Icon" type="TextureRect" parent="Margin/Buttons/BuildingsButton"]
 custom_minimum_size = Vector2(32, 32)
 layout_mode = 1
 anchors_preset = 8
@@ -108,8 +109,9 @@ offset_bottom = 16.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-script = ExtResource("3_icon")
-Kind = 2
+texture = ExtResource("5_hammer")
+expand_mode = 1
+stretch_mode = 5
 
 [node name="CourtButton" type="Button" parent="Margin/Buttons"]
 unique_name_in_owner = true
