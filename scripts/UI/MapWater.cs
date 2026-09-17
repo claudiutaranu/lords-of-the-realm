@@ -25,8 +25,8 @@ public partial class MapWater : Node3D
 			Mesh = new PlaneMesh
 			{
 				Size = mapSize * 14f,
-				SubdivideWidth = 220,
-				SubdivideDepth = 160,
+				SubdivideWidth = 110,
+				SubdivideDepth = 80,
 				Material = _material,
 			},
 			Position = new Vector3(0, seaLevel, 0),

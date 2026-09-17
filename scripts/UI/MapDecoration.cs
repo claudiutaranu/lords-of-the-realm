@@ -25,8 +25,17 @@ public partial class MapDecoration : Node3D
 	private const float BoulderChance = 0.22f;
 	// Above this height conifers take over from broadleaf, the way a real treeline works.
 	private const float ConiferHeight = 9.0f;
-	private const float RoadWidth = 0.95f;
-	private const float RoadLift = 0.22f;   // clear of the terrain without floating visibly
+	// The trunk road between the two capitals is paved; everything else is a dirt track.
+	private const string PavedTexturePath = "res://assets/terrain/road-diffuse.jpg";
+	private const string PavedNormalPath = "res://assets/terrain/road-normal.jpg";
+	// Gravel rather than the woodland mud it used to be: a track worn to the stone reads on grass
+	// and on snow alike, where red-brown mud looked painted on above the treeline.
+	private const string TrackTexturePath = "res://assets/terrain/sand-diffuse.jpg";
+	private const string TrackNormalPath = "res://assets/terrain/sand-normal.jpg";
+	private const float PavedWidth = 0.8f;
+	private const float DirtWidth = 0.5f;
+	private const float RoadTileLength = 3.2f; // world units per repeat of the cobbles
+	private const float RoadLift = 0.3f;    // clear of the terrain without floating visibly
 
 	/// <summary>What a province works, drawn on its ground. Mirrors the resources
 	/// ProvinceDefinition gives capacities for.</summary>
@@ -65,7 +74,7 @@ public partial class MapDecoration : Node3D
 				Transform3D tree = PropTransform(pixel, _rng.RandfRange(0.7f, 1.4f), tiltDegrees: 4f);
 				bool isHigh = _map.HeightAt(pixel) > ConiferHeight;
 				// Mixed woods, weighted by altitude, rather than one species per region.
-				if (isHigh ? _rng.Randf() < 0.85f : _rng.Randf() < 0.35f)
+				if (isHigh ? _rng.Randf() < 0.92f : _rng.Randf() < 0.55f)
 				{
 					conifers.Add(tree);
 				}
@@ -83,15 +92,16 @@ public partial class MapDecoration : Node3D
 		// A tree is several instanced meshes over one transform list: each piece carries its own
 		// local offset so the trunk stands ON the ground instead of being centred in it, and its
 		// own colour, which one merged mesh could not have.
-		AddScatter(TrunkMesh(), new Color("4a3524"), conifers, liftY: 0.35f);
+		AddScatter(TrunkMesh(), new Color("4a3524"), conifers, liftY: 0.35f, castsShadow: false);
 		AddScatter(LowerConeMesh(), new Color("293b2a"), conifers, liftY: 1.25f, colorJitter: 0.24f);
-		AddScatter(UpperConeMesh(), new Color("314a33"), conifers, liftY: 2.1f, colorJitter: 0.24f);
+		AddScatter(UpperConeMesh(), new Color("314a33"), conifers, liftY: 2.1f, colorJitter: 0.24f,
+			castsShadow: false);
 
-		AddScatter(TrunkMesh(), new Color("53402c"), broadleaves, liftY: 0.4f);
+		AddScatter(TrunkMesh(), new Color("53402c"), broadleaves, liftY: 0.4f, castsShadow: false);
 		AddScatter(BroadleafCrownMesh(), BroadleafBySeason[(int)Season.Summer], broadleaves,
 			liftY: 1.35f, colorJitter: 0.2f, seasonColors: BroadleafBySeason);
 
-		AddScatter(BoulderMesh(), new Color("77736e"), boulders, colorJitter: 0.12f);
+		AddScatter(BoulderMesh(), new Color("77736e"), boulders, colorJitter: 0.12f, castsShadow: false);
 
 		BuildRoads();
 	}
@@ -178,7 +188,7 @@ public partial class MapDecoration : Node3D
 	/// <see cref="SetSeason"/> repaint a whole scatter by setting that one colour.
 	/// <paramref name="seasonColors"/>, when given, is the four seasons' colours for this piece.</summary>
 	private void AddScatter(Mesh mesh, Color color, List<Transform3D> transforms, float liftY = 0f,
-		float colorJitter = 0f, Color[] seasonColors = null)
+		float colorJitter = 0f, Color[] seasonColors = null, bool castsShadow = true)
 	{
 		if (transforms.Count == 0)
 		{
@@ -217,7 +227,9 @@ public partial class MapDecoration : Node3D
 		{
 			Multimesh = multiMesh,
 			MaterialOverride = material,
-			CastShadow = GeometryInstance3D.ShadowCastingSetting.On,
+			CastShadow = castsShadow
+				? GeometryInstance3D.ShadowCastingSetting.On
+				: GeometryInstance3D.ShadowCastingSetting.Off,
 		});
 	}
 
@@ -232,7 +244,21 @@ public partial class MapDecoration : Node3D
 			return;
 		}
 
-		var material = new StandardMaterial3D { AlbedoColor = new Color("6f5b3e"), Roughness = 1.0f };
+		var dirt = new StandardMaterial3D
+		{
+			AlbedoTexture = GD.Load<Texture2D>(TrackTexturePath),
+			NormalEnabled = true,
+			NormalTexture = GD.Load<Texture2D>(TrackNormalPath),
+			AlbedoColor = new Color("9d968a"), // dusty grey-tan, a shade under whatever it crosses
+			Roughness = 1.0f,
+		};
+		var paved = new StandardMaterial3D
+		{
+			AlbedoTexture = GD.Load<Texture2D>(PavedTexturePath),
+			NormalEnabled = true,
+			NormalTexture = GD.Load<Texture2D>(PavedNormalPath),
+			Roughness = 0.85f,
+		};
 		foreach (Variant entry in file.Data.AsGodotArray())
 		{
 			Godot.Collections.Array points = entry.AsGodotDictionary()["points"].AsGodotArray();
@@ -243,7 +269,8 @@ public partial class MapDecoration : Node3D
 				line.Add(new Vector2((float)pair[0], (float)pair[1]));
 			}
 
-			MeshInstance3D road = BuildRoadRibbon(line, material);
+			bool isPaved = entry.AsGodotDictionary()["kind"].AsString() == "paved";
+			MeshInstance3D road = BuildRoadRibbon(line, isPaved ? paved : dirt, isPaved ? PavedWidth : DirtWidth);
 			if (road != null)
 			{
 				AddChild(road);
@@ -254,7 +281,7 @@ public partial class MapDecoration : Node3D
 	/// <summary>Turns a road's centre line into a ribbon that follows the ground. Each point is
 	/// re-sampled against the heightmap, because a road drawn between two sampled ends would sink
 	/// into every valley it crosses.</summary>
-	private MeshInstance3D BuildRoadRibbon(List<Vector2> line, Material material)
+	private MeshInstance3D BuildRoadRibbon(List<Vector2> line, Material material, float width)
 	{
 		if (line.Count < 2)
 		{
@@ -273,20 +300,49 @@ public partial class MapDecoration : Node3D
 
 		dense.Add(line[^1]);
 
+		// Half the road's width, in map pixels: the edges are draped separately, so the offset has to
+		// be taken in the map's own coordinates before the ground is sampled.
+		float halfWidthPixels = width * 0.5f * _map.PixelsPerUnit;
+
+		// One pair of edge points per station, shared by the quads on both sides of it. Building each
+		// segment its own four corners left a seam wherever the road turned, which is what broke the
+		// ribbon into patches.
+		var left = new Vector3[dense.Count];
+		var right = new Vector3[dense.Count];
+		for (int i = 0; i < dense.Count; i++)
+		{
+			// The tangent comes from both neighbours, so the width stays square to the road through
+			// a bend instead of pivoting at each station.
+			Vector2 ahead = dense[Mathf.Min(i + 1, dense.Count - 1)];
+			Vector2 behind = dense[Mathf.Max(i - 1, 0)];
+			Vector2 tangent = ahead - behind;
+			Vector2 side = (tangent.LengthSquared() < 0.0001f ? Vector2.Right : tangent.Normalized().Orthogonal()) * halfWidthPixels;
+			left[i] = _map.WorldAt(dense[i] - side);
+			right[i] = _map.WorldAt(dense[i] + side);
+		}
+
+		// A road is graded: it cuts the small humps rather than riding over every one of them.
+		// Smoothing the draped heights is what keeps the surface from sinking into each wrinkle.
+		SmoothHeights(left);
+		SmoothHeights(right);
+
 		var surface = new SurfaceTool();
 		surface.Begin(Mesh.PrimitiveType.Triangles);
+		float travelled = 0f;
 		for (int i = 0; i < dense.Count - 1; i++)
 		{
-			Vector3 a = _map.WorldAt(dense[i]) + Vector3.Up * RoadLift;
-			Vector3 b = _map.WorldAt(dense[i + 1]) + Vector3.Up * RoadLift;
-			Vector3 side = (b - a) with { Y = 0 };
-			if (side.LengthSquared() < 0.0001f)
-			{
-				continue;
-			}
+			Vector3 leftA = left[i] + Vector3.Up * RoadLift;
+			Vector3 rightA = right[i] + Vector3.Up * RoadLift;
+			Vector3 leftB = left[i + 1] + Vector3.Up * RoadLift;
+			Vector3 rightB = right[i + 1] + Vector3.Up * RoadLift;
 
-			side = side.Normalized().Cross(Vector3.Up) * RoadWidth;
-			AddQuad(surface, a - side, a + side, b + side, b - side);
+			// UVs run along the road, so the paving repeats down its length instead of the whole
+			// texture being stretched over one ribbon.
+			float nextTravelled = travelled + leftA.DistanceTo(leftB) / RoadTileLength;
+			AddQuad(surface,
+				(leftA, new Vector2(0f, travelled)), (rightA, new Vector2(1f, travelled)),
+				(rightB, new Vector2(1f, nextTravelled)), (leftB, new Vector2(0f, nextTravelled)));
+			travelled = nextTravelled;
 		}
 
 		surface.GenerateNormals();
@@ -298,14 +354,42 @@ public partial class MapDecoration : Node3D
 		};
 	}
 
-	private static void AddQuad(SurfaceTool surface, Vector3 a, Vector3 b, Vector3 c, Vector3 d)
+	/// <summary>Runs a short moving average over a draped edge's heights, so the road reads as a made
+	/// thing crossing the ground rather than a sheet shrink-wrapped onto it.</summary>
+	private static void SmoothHeights(Vector3[] points)
 	{
-		surface.AddVertex(a);
-		surface.AddVertex(b);
-		surface.AddVertex(c);
-		surface.AddVertex(a);
-		surface.AddVertex(c);
-		surface.AddVertex(d);
+		var heights = new float[points.Length];
+		for (int pass = 0; pass < 2; pass++)
+		{
+			for (int i = 0; i < points.Length; i++)
+			{
+				int from = Mathf.Max(i - 2, 0);
+				int to = Mathf.Min(i + 2, points.Length - 1);
+				float total = 0f;
+				for (int j = from; j <= to; j++)
+				{
+					total += points[j].Y;
+				}
+
+				heights[i] = total / (to - from + 1);
+			}
+
+			for (int i = 0; i < points.Length; i++)
+			{
+				points[i].Y = heights[i];
+			}
+		}
+	}
+
+	private static void AddQuad(SurfaceTool surface,
+		(Vector3 Position, Vector2 Uv) a, (Vector3 Position, Vector2 Uv) b,
+		(Vector3 Position, Vector2 Uv) c, (Vector3 Position, Vector2 Uv) d)
+	{
+		foreach ((Vector3 position, Vector2 uv) in new[] { a, b, c, a, c, d })
+		{
+			surface.SetUV(uv);
+			surface.AddVertex(position);
+		}
 	}
 
 	// --- placeholder meshes -------------------------------------------------------------------
@@ -321,7 +405,7 @@ public partial class MapDecoration : Node3D
 		new CylinderMesh { TopRadius = 0.0f, BottomRadius = 0.34f, Height = 1.2f, RadialSegments = 7, Rings = 1 };
 
 	private static Mesh BroadleafCrownMesh() =>
-		new SphereMesh { Radius = 0.62f, Height = 1.15f, RadialSegments = 8, Rings = 5 };
+		new SphereMesh { Radius = 0.66f, Height = 0.78f, RadialSegments = 7, Rings = 3 };
 
 	private static Mesh BoulderMesh() =>
 		new SphereMesh { Radius = 0.4f, Height = 0.55f, RadialSegments = 6, Rings = 3 };

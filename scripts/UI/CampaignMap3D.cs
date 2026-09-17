@@ -36,7 +36,7 @@ public partial class CampaignMap3D : Node3D
 	// a mountain.
 	private const float CameraPitchDegrees = -52.0f;
 	private const float MinDistance = 54.0f;
-	private const float MaxDistance = 204.0f;
+	private const float MaxDistance = 152.0f;
 	private const float ZoomStep = 9.5f;
 	// Trackpad gestures carry continuous deltas, not the wheel's discrete clicks, so they need their
 	// own scale: how many world units one unit of two-finger scroll, and one of pinch, are worth.
@@ -54,10 +54,10 @@ public partial class CampaignMap3D : Node3D
 	// Season enum order: spring, summer, autumn, winter.
 	private static readonly SeasonLight[] LightBySeason =
 	{
-		new(new("ffeccf"), 1.30f, new("31558a"), new("9db5c4"), new("aec2d2"), 0.00055f),
-		new(new("fff2d8"), 1.35f, new("2b4a74"), new("8aa0b4"), new("9fb4c8"), 0.00050f),
-		new(new("ffdba8"), 1.18f, new("3a5470"), new("c2a681"), new("bfae95"), 0.00075f),
-		new(new("dfeaff"), 0.92f, new("4c5d74"), new("c3ccd4"), new("cbd6df"), 0.00110f),
+		new(new("ffeccf"), 1.30f, new("31558a"), new("9db5c4"), new("aec2d2"), 0.00022f),
+		new(new("fff2d8"), 1.35f, new("2b4a74"), new("8aa0b4"), new("9fb4c8"), 0.00018f),
+		new(new("ffdba8"), 1.18f, new("3a5470"), new("c2a681"), new("bfae95"), 0.00030f),
+		new(new("dfeaff"), 0.92f, new("4c5d74"), new("c3ccd4"), new("cbd6df"), 0.00048f),
 	};
 
 	private Camera3D _camera;
@@ -65,12 +65,13 @@ public partial class CampaignMap3D : Node3D
 	private Image _heightImage;
 	private Image _idImage;
 	private MapDecoration _decoration;
+	private MapClouds _clouds;
 	private MapWater _water;
 	private DirectionalLight3D _sun;
 	private ProceduralSkyMaterial _sky;
 	private Godot.Environment _environment;
 	private Vector3 _focus = Vector3.Zero;
-	private float _distance = 144.0f;
+	private float _distance = 132.0f;
 
 	public override void _Ready()
 	{
@@ -84,6 +85,12 @@ public partial class CampaignMap3D : Node3D
 		_decoration = new MapDecoration();
 		AddChild(_decoration);
 		_decoration.Build(this);
+
+		_clouds = new MapClouds();
+		AddChild(_clouds);
+		// HeightScale is what a fully white height pixel stands for, so it is the tallest ground
+		// this map can have — the sky is placed against that.
+		_clouds.Build(new Vector2(MapWidth, MapDepth), HeightScale);
 
 		_camera = new Camera3D { Fov = 48.0f, Far = 800.0f, Current = true };
 		AddChild(_camera);
@@ -115,8 +122,14 @@ public partial class CampaignMap3D : Node3D
 		return true;
 	}
 
+	/// <summary>Raised whenever the chosen province changes. The minimap listens to this rather than
+	/// being wired up by the page, so it keeps working however that page is rearranged.</summary>
+	public static event System.Action<int> ProvinceHighlighted;
+
 	public void SetHighlight(int selectedIndex, int hoveredIndex)
 	{
+		ProvinceHighlighted?.Invoke(selectedIndex);
+
 		// The shader compares against the ID map's raw red channel, which is index + 1 so that
 		// 0 can mean water.
 		_terrainMaterial.SetShaderParameter("selected_index", selectedIndex + 1);
@@ -192,6 +205,7 @@ public partial class CampaignMap3D : Node3D
 		_terrainMaterial.SetShaderParameter("season", (float)(int)season);
 		_water.SetSeason(season);
 		_decoration.SetSeason(season);
+		_clouds.SetSeason(season);
 
 		SeasonLight light = LightBySeason[(int)season];
 		_sun.LightColor = light.Sun;
@@ -201,6 +215,10 @@ public partial class CampaignMap3D : Node3D
 		_environment.FogLightColor = light.Fog;
 		_environment.FogDensity = light.FogDensity;
 	}
+
+	/// <summary>Map pixels to a world unit — anything that has to measure a width on the ground
+	/// needs this to convert before sampling.</summary>
+	public float PixelsPerUnit => _heightImage.GetWidth() / MapWidth;
 
 	/// <summary>World position of a map pixel, sitting on the terrain surface.</summary>
 	public Vector3 WorldAt(Vector2 mapPixel) => MapToWorld(mapPixel);
@@ -236,12 +254,12 @@ public partial class CampaignMap3D : Node3D
 			TonemapMode = Godot.Environment.ToneMapper.Filmic,
 			FogEnabled = true,
 			FogLightColor = new Color("9fb4c8"),
-			FogDensity = 0.0005f,
-			FogSkyAffect = 0.15f,
-			FogAerialPerspective = 0.25f,
+			FogDensity = 0.00018f,
+			FogSkyAffect = 0.1f,
+			FogAerialPerspective = 0.18f,
 			SsaoEnabled = true,
-			SsaoRadius = 3.0f,
-			SsaoIntensity = 1.4f,
+			SsaoRadius = 1.8f,
+			SsaoIntensity = 1.2f,
 		};
 		AddChild(new WorldEnvironment { Environment = _environment });
 
@@ -251,7 +269,8 @@ public partial class CampaignMap3D : Node3D
 			LightEnergy = 1.55f,
 			LightColor = new Color("fff0cf"),
 			ShadowEnabled = true,
-			DirectionalShadowMaxDistance = 320.0f,
+			DirectionalShadowMode = DirectionalLight3D.ShadowMode.Parallel2Splits,
+			DirectionalShadowMaxDistance = 190.0f,
 			ShadowBlur = 1.4f,
 		};
 		_sun.RotationDegrees = new Vector3(-42, -38, 0);
@@ -282,13 +301,13 @@ public partial class CampaignMap3D : Node3D
 				GD.Load<Texture2D>($"{TerrainTextureDirectory}/{surface}-normal.jpg"));
 		}
 
-		// One vertex per 4 height pixels: finer than that and the mesh resolves noise the
-		// heightmap doesn't actually carry.
 		var mesh = new PlaneMesh
 		{
 			Size = new Vector2(MapWidth, MapDepth),
-			SubdivideWidth = _heightImage.GetWidth() / 4,
-			SubdivideDepth = _heightImage.GetHeight() / 4,
+			// One vertex per 3 height pixels: enough that an islet is a shape rather than a few flat
+			// facets, without the 790k triangles that one vertex per 2 pixels cost.
+			SubdivideWidth = _heightImage.GetWidth() / 3,
+			SubdivideDepth = _heightImage.GetHeight() / 3,
 			Material = _terrainMaterial,
 		};
 		AddChild(new MeshInstance3D
@@ -328,6 +347,7 @@ public partial class CampaignMap3D : Node3D
 		float pitch = Mathf.DegToRad(CameraPitchDegrees);
 		_camera.Position = _focus + new Vector3(0, -Mathf.Sin(pitch) * _distance, Mathf.Cos(pitch) * _distance);
 		_camera.RotationDegrees = new Vector3(CameraPitchDegrees, 0, 0);
+		_clouds?.SetFocus(_focus);
 	}
 
 	// --- sampling the same images the shader draws from --------------------------------------

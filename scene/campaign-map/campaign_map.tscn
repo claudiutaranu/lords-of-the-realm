@@ -16,6 +16,7 @@
 [ext_resource type="Texture2D" uid="uid://dlmqj6lrsvg4c" path="res://assets/ui/top-bar-frame.png" id="19_barframe"]
 [ext_resource type="Script" uid="uid://cwfi4jvlfkdf" path="res://scripts/UI/CampaignMap3D.cs" id="19_map3d"]
 [ext_resource type="Script" uid="uid://dvgobmo1ktvu" path="res://scripts/UI/ProvinceSidebar.cs" id="20_sidebar"]
+[ext_resource type="Script" uid="uid://drv72fudtspr0" path="res://scripts/UI/MapMinimap.cs" id="20_minimap"]
 
 [sub_resource type="StyleBoxTexture" id="StyleBoxTexture_topbar"]
 content_margin_left = 130.0
@@ -364,6 +365,7 @@ theme_override_constants/separation = 7
 
 [node name="MinimapTexture" type="TextureRect" parent="Sidebar/SidebarMargin/SidebarContent/MinimapPanel/MinimapMargin/MinimapRow"]
 unique_name_in_owner = true
+script = ExtResource("20_minimap")
 custom_minimum_size = Vector2(244, 244)
 layout_mode = 2
 size_flags_horizontal = 4
