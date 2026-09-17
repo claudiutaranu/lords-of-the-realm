@@ -189,10 +189,10 @@ public partial class ProvinceSidebar : VBoxContainer
 		row.AddThemeConstantOverride("separation", 4);
 		AddChild(Framed(row, 8));
 
-		_population = StatCell(row, Icon("population", 18));
-		_loyalty = StatCell(row, new NavRailIcon { Kind = NavRailIcon.Glyph.Heart, CustomMinimumSize = new Vector2(18, 18) });
-		_tax = StatCell(row, Icon("gold", 18));
-		_ration = StatCell(row, Icon("food", 18));
+		_population = StatCell(row, Icon("population", 20));
+		_loyalty = StatCell(row, Icon("heart", 20));
+		_tax = StatCell(row, Icon("gold", 20));
+		_ration = StatCell(row, Icon("food", 20));
 	}
 
 	private Label StatCell(HBoxContainer row, Control icon)
