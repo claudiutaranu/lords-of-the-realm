@@ -54,8 +54,6 @@ public partial class CampaignMapPage : Control
 	private SubViewportContainer _map;
 	private CampaignMap3D _world;
 	private int _hovered = -1;
-	private Label _infoName;
-	private Label _infoMeta;
 	private Label _turnLabel;
 	private Label _seasonLabel;
 	private Control _sectionPanel;
@@ -66,7 +64,6 @@ public partial class CampaignMapPage : Control
 	private TurnManager _turnManager;
 	private GameBalance _balance;
 	private readonly Dictionary<string, ProvinceDefinition> _definitionsByName = new();
-	private ProvinceEconomyPanel _economyPanel;
 	private Label _goldLabel;
 	private Label _grainLabel;
 	private Label _woodLabel;
@@ -84,8 +81,6 @@ public partial class CampaignMapPage : Control
 	{
 		_map = GetNode<SubViewportContainer>("%Map");
 		_world = GetNode<CampaignMap3D>("%World");
-		_infoName = GetNode<Label>("%InfoName");
-		_infoMeta = GetNode<Label>("%InfoMeta");
 		_turnLabel = GetNode<Label>("%TurnValue");
 		_seasonLabel = GetNode<Label>("%SeasonValue");
 		_goldLabel = GetNode<Label>("%GoldValue");
@@ -95,7 +90,6 @@ public partial class CampaignMapPage : Control
 		_ironLabel = GetNode<Label>("%IronValue");
 		_populationLabel = GetNode<Label>("%PopulationValue");
 		_sidebar = GetNode<ProvinceSidebar>("%ProvinceSidebar");
-		GoldTitle.Apply(_infoName);
 		// Only the date reads gilded; the stockpile numbers stay cream so they carry at a glance
 		// against the dark bar.
 		foreach (string valueName in new[] { "SeasonValue", "TurnValue" })
@@ -136,12 +130,7 @@ public partial class CampaignMapPage : Control
 
 		UpdateTurnDisplay();
 
-		var infoPanel = GetNode<Control>("InfoPanel");
-		infoPanel.OffsetTop = -320f;
-		_economyPanel = new ProvinceEconomyPanel { Visible = false };
-		_economyPanel.WorkersMoved += _sidebar.Refresh;
 		_sidebar.BuildingChosen += OpenBuilding;
-		GetNode<VBoxContainer>("InfoPanel/InfoContent").AddChild(_economyPanel);
 
 		_map.GuiInput += OnMapGuiInput;
 
@@ -520,17 +509,11 @@ public partial class CampaignMapPage : Control
 		_world.SetHighlight(index, _hovered);
 
 		ProvinceData province = _provinces[index];
-		_infoName.Text = province.Name;
 		string realmName = _realms[province.Realm].Name;
-		string ownerLine = province.IsCapital ? $"{realmName} · Capital" : realmName;
 
 		ProvinceEconomy economy = _turnManager.GetProvince(province.Name);
-		_infoMeta.Text = economy != null ? $"{ownerLine} · Population {economy.Population:N0}" : ownerLine;
-
-		_economyPanel.Visible = economy != null;
 		if (economy != null)
 		{
-			_economyPanel.Configure(economy, _definitionsByName[province.Name], _balance, _turnManager.CurrentSeason);
 			UpdateResourceBar(economy);
 		}
 

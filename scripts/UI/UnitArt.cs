@@ -16,8 +16,8 @@ public static class UnitArt
 
 	private static string Ground(string unit) => unit switch
 	{
-		"bow" or "crossbow" => "training-ground", // the butts they shoot at
-		"horse" => "meadow",                      // open country, the only place a charge means anything
-		_ => "courtyard",                         // foot soldiers muster inside the walls
+		"bow" or "crossbow" => "training-ground",  // the butts they shoot at
+		"horse" or "peasant" => "meadow",          // the field: one charges over it, one works it
+		_ => "courtyard",                          // foot soldiers muster inside the walls
 	};
 }

@@ -57,7 +57,7 @@ public partial class ProvinceSidebar : VBoxContainer
 		("Spearmen", "spear"),
 		("Archers", "bow"),
 		("Crossbows", "crossbow"),
-		("Swordsmen", "sword"),
+		("Swords", "sword"),
 		("Maces", "mace"),
 		("Horse", "horse"),
 	};
@@ -356,12 +356,8 @@ public partial class ProvinceSidebar : VBoxContainer
 			stack.AddThemeConstantOverride("separation", 4);
 			pad.AddChild(stack);
 
-			Label title = Small(name.ToUpper(), Cream);
-			title.AddThemeFontSizeOverride("font_size", 11);
-			title.HorizontalAlignment = HorizontalAlignment.Center;
-			title.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
-			stack.AddChild(title);
-
+			// No name across the top: the picture says which of them he is better than a word trimmed
+			// to "CROSSBO..." does, and the tile's tooltip still names him.
 			// The picture has a frame of its own inside the card's. A PanelContainer lays every child
 			// over the same rect, so the ground goes in first and the man stands on it.
 			var picture = new PanelContainer { SizeFlagsVertical = SizeFlags.ExpandFill, ClipContents = true };
@@ -381,15 +377,12 @@ public partial class ProvinceSidebar : VBoxContainer
 				StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered,
 			});
 
-			var footer = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center };
-			footer.AddThemeConstantOverride("separation", 5);
-			stack.AddChild(footer);
-			footer.AddChild(Icon(unit, 16));
-
+			// Only the number: how many of him stand in the garrison. Nothing else belongs under a
+			// card that already says who he is and shows him.
 			Label count = Small("—", Waiting);
-			count.AddThemeFontSizeOverride("font_size", 15);
-			count.VerticalAlignment = VerticalAlignment.Center;
-			footer.AddChild(count);
+			count.AddThemeFontSizeOverride("font_size", 16);
+			count.HorizontalAlignment = HorizontalAlignment.Center;
+			stack.AddChild(count);
 			_muster[unit] = count;
 
 			grid.AddChild(tile);
