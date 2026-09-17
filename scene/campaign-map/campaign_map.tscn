@@ -391,6 +391,13 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 
+[node name="EndTurnButton" type="Button" parent="Sidebar/SidebarMargin/SidebarContent"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 58)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "End Turn"
+
 [node name="SectionPanel" type="PanelContainer" parent="." unique_id=1557423501]
 unique_name_in_owner = true
 visible = false
@@ -469,28 +476,6 @@ theme_type_variation = &"Subtitle"
 theme_override_font_sizes/font_size = 16
 text = "Click a marker on the map to see it here."
 autowrap_mode = 3
-
-[node name="BottomBar" type="HBoxContainer" parent="." unique_id=321045681]
-layout_mode = 1
-anchors_preset = 3
-anchor_left = 1.0
-anchor_top = 1.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -644.0
-offset_top = -92.0
-offset_right = -388.0
-offset_bottom = -24.0
-grow_horizontal = 0
-grow_vertical = 0
-theme_override_constants/separation = 16
-alignment = 2
-
-[node name="EndTurnButton" type="Button" parent="BottomBar" unique_id=1482036398]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_vertical = 4
-text = "End Turn"
 
 [node name="GameMenu" type="Control" parent="." unique_id=424184073]
 unique_name_in_owner = true
