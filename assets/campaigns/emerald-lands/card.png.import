@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dgg7hygx5u0cj"
-path="res://.godot/imported/campaign-card-sunlit-isles.png-71cc6b6644c2ddd0f1b6783ae19c46e4.ctex"
+uid="uid://cxhragpo8htpm"
+path="res://.godot/imported/card.png-13ba3234b10e83b5ef95ebc65dc9f623.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/ui/campaign-card-sunlit-isles.png"
-dest_files=["res://.godot/imported/campaign-card-sunlit-isles.png-71cc6b6644c2ddd0f1b6783ae19c46e4.ctex"]
+source_file="res://assets/campaigns/emerald-lands/card.png"
+dest_files=["res://.godot/imported/card.png-13ba3234b10e83b5ef95ebc65dc9f623.ctex"]
 
 [params]
 

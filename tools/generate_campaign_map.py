@@ -6,22 +6,26 @@ then color every land pixel by whichever seed is nearest ("raster Voronoi" - sim
 computing actual Voronoi polygons, and gives pixel-perfect province shapes for free). That
 same per-pixel province assignment produces two images:
 
-  - campaign-map-drawn.png: the visible art (shaded + textured so it doesn't look like flat
+  - map-drawn.png: the visible art (shaded + textured so it doesn't look like flat
     vector fill), with a thin border between same-realm provinces and a thicker gold line on
     the frontier between realms.
-  - campaign-map-ids.png: an unseen, lossless twin of the same layout where each province is
+  - map-ids.png: an unseen, lossless twin of the same layout where each province is
     a flat color encoding its index (R channel = index + 1, 0 = water). The game samples this
     pixel-for-pixel on click to know what was hit - the same technique Paradox's province
     bitmaps use, so hit-testing stays exact no matter how the visible art evolves.
 
 Also prints the adjacency between provinces (which ones actually touch), computed as a side
-effect of the same pixel scan - hand this to CampaignMapPage.cs's Provinces array by hand,
-there's no auto-sync between this script and the C# data.
+effect of the same pixel scan.
+
+Everything written here belongs to one campaign and goes into that campaign's own folders:
+assets/campaigns/<CAMPAIGN>/ for the images, data/campaigns/<CAMPAIGN>/ for map-roads.json. Set
+CAMPAIGN below when generating a map for another one. PROVINCES here and the game's provinces.json
+in the same data folder describe the same provinces in the same order, and are kept in step by
+hand - there is no auto-sync between this script and what the game reads.
 
 Run: pip install pillow numpy; python tools/generate_campaign_map.py
-Outputs into assets/ui/ next to the project's other art.
 
-One import setting matters: campaign-map-ids.png must stay on Godot's "image" importer
+One import setting matters: map-ids.png must stay on Godot's "image" importer
 (type=Image), not the default texture importer. Loading it as a texture and reading pixels off
 it works in the editor but breaks in an exported build, because only the compressed texture
 ships. Re-running this script keeps the existing .import file, so the setting survives; just
@@ -36,8 +40,10 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 
 W, H = 1536, 1024
-OUT_DIR = Path(__file__).resolve().parent.parent / "assets" / "ui"
-DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+CAMPAIGN = "royal-crown"
+PROJECT_DIR = Path(__file__).resolve().parent.parent
+OUT_DIR = PROJECT_DIR / "assets" / "campaigns" / CAMPAIGN
+DATA_DIR = PROJECT_DIR / "data" / "campaigns" / CAMPAIGN
 
 # Simplified landmass silhouette traced from the original reference painted map (clockwise),
 # smoothed to a clean shape since this is now stylized graphics, not a photo trace.
@@ -48,16 +54,22 @@ LANDMASS = [
     (450, 820), (320, 700), (200, 600), (80, 480), (30, 350), (60, 200),
 ]
 
-# name, x, y, realm (0=Royal Crown, 1=Northern Watch), is_capital
+# name, x, y, region (0=southern lowlands, 1=northern highlands), is_capital, owner
+#
+# Region is geography and never changes: it decides climate, snow, and which side of the mountains a
+# province lies on. Owner is who holds it when the campaign opens, and that is meant to change: the
+# war starts with one seat each and everything else unclaimed.
+OWNER_ROYAL_CROWN, OWNER_NORTHERN_WATCH, OWNER_NEUTRAL = 0, 1, 2
+
 PROVINCES = [
-    ("Kingsreach",     365,  485, 0, True),
-    ("Redmoor Hold",   295,  175, 0, False),
-    ("Ashenvale",      565,  385, 0, False),
-    ("Thornwatch",     625,  655, 0, False),
-    ("Farrowmere",     900,  885, 0, False),
-    ("Valmere",       1095,  105, 1, True),
-    ("Frostgate",     1260,  290, 1, False),
-    ("Icemere Reach", 1200,  485, 1, False),
+    ("Kingsreach",     365,  485, 0, True,  OWNER_ROYAL_CROWN),
+    ("Redmoor Hold",   295,  175, 0, False, OWNER_NEUTRAL),
+    ("Ashenvale",      565,  385, 0, False, OWNER_NEUTRAL),
+    ("Thornwatch",     625,  655, 0, False, OWNER_NEUTRAL),
+    ("Farrowmere",     900,  885, 0, False, OWNER_NEUTRAL),
+    ("Valmere",       1095,  105, 1, True,  OWNER_NORTHERN_WATCH),
+    ("Frostgate",     1260,  290, 1, False, OWNER_NEUTRAL),
+    ("Icemere Reach", 1200,  485, 1, False, OWNER_NEUTRAL),
 ]
 
 WATER_COLOR = np.array([18, 33, 54])
@@ -70,7 +82,7 @@ NW_BASE = np.array([170, 186, 198])  # pale icy blue-white
 
 
 def province_color(index):
-    _, _, _, realm, _ = PROVINCES[index]
+    _, _, _, realm, _, _ = PROVINCES[index]
     base = RC_BASE if realm == 0 else NW_BASE
     # deterministic per-province lightness variation so neighbors read distinctly
     factor = 0.82 + 0.09 * (index % 4)
@@ -95,8 +107,8 @@ NOISE_HEIGHT = 26.0
 RIDGE_DETAIL = 96.0       # sharp crests and spurs riding on the main range
 
 SAND_COLOR = np.array([206, 186, 140])
-GRASS_COLOR = np.array([74, 108, 44])    # saturated meadow, not olive drab
-FOREST_COLOR = np.array([36, 62, 34])
+GRASS_COLOR = np.array([92, 104, 62])    # sage meadow; the grass texture supplies the green
+FOREST_COLOR = np.array([44, 60, 40])
 ROCK_COLOR = np.array([96, 100, 110])    # cold blue-grey stone
 TUNDRA_COLOR = np.array([138, 152, 168])
 SNOW_COLOR = np.array([246, 249, 252])
@@ -116,10 +128,12 @@ def smooth_noise(rng, cells, height=H, width=W):
     return np.array(upscaled).astype(np.float32) / 127.5 - 1.0
 
 
-# Islets are rock, so they stand proud of the water — but a 25px rock carrying a 9-unit spire
-# reads as a needle, not an island. These are bytes of height map: ~3.5 and ~5 world units.
-ISLET_HEIGHT = 48.0
-STACK_HEIGHT = 64.0
+# Height in height-map bytes. Keep these low against the radii below: the terrain mesh carries one
+# vertex per 4 map pixels, so anything narrower than ~40px and taller than it is wide comes out as a
+# shard rather than a rock.
+ISLET_HEIGHT = 30.0
+STACK_HEIGHT = 34.0
+EMERGENT_SHAPE = 0.35  # below this the disc is the island's underwater base, not land
 
 
 def build_islets(rng, land):
@@ -129,7 +143,7 @@ def build_islets(rng, land):
     keep going into open water, and drop the islet where there is room for it. That way they follow
     whatever shape the coastline generator produced instead of drifting inland when it changes."""
     owned, stacks = [], []
-    for index, (_, seat_x, seat_y, _, _) in enumerate(PROVINCES):
+    for index, (_, seat_x, seat_y, _, _, _) in enumerate(PROVINCES):
         wanted = 2 if index % 2 == 0 else 1
         for attempt in range(60):
             if wanted == 0:
@@ -146,8 +160,8 @@ def build_islets(rng, land):
                 continue
 
             # ...then a stretch of open sea, so the islet reads as separate from the mainland.
-            point += direction * rng.uniform(34, 92)
-            radius = rng.uniform(13, 26)
+            point += direction * rng.uniform(40, 96)
+            radius = rng.uniform(30, 58)
             if _has_clearance(land, point, radius + 10):
                 owned.append((point[0], point[1], radius, index))
                 wanted -= 1
@@ -156,11 +170,18 @@ def build_islets(rng, land):
         if len(stacks) >= 26:
             break
         point = np.array([rng.uniform(0, W), rng.uniform(0, H)])
-        radius = rng.uniform(3.5, 8.0)
+        radius = rng.uniform(12, 22)
         if _has_clearance(land, point, radius + 26) and _near_coast(land, point, 140):
             stacks.append((point[0], point[1], radius))
 
     return owned, stacks
+
+
+def seabed_base(shape):
+    """The underwater cone an islet stands on: seabed out at the disc's rim, rising to just under
+    the waterline where the island itself starts. Clamping a height field instead left a flat mesa
+    a hand's breadth under the surface — the grey slab that showed through the water."""
+    return np.clip(shape / EMERGENT_SHAPE, 0, 1) ** 1.3 * (SEA_FLOOR_BYTE - 1.0)
 
 
 def _inside(point):
@@ -199,15 +220,15 @@ def ridged_noise(rng, cells, octaves=4):
     return total / weight
 
 
-def build_terrain(rng, land, province_id, dist_to_seed, islet_field):
+def build_terrain(rng, land, province_id, dist_to_seed, islet_field, islet_base):
     """Height field in world units, and the biome albedo painted from it."""
     # Distance from the coast, cheaply: a heavy blur of the land mask is ~0 at the shoreline
     # and ~1 deep inland, already smooth, no distance transform needed.
     inland = np.clip(blurred(land, 130.0) * 1.15, 0, 1) ** 0.85
 
     north = np.zeros_like(land, dtype=np.float32)
-    for i, (_, _, _, realm, _) in enumerate(PROVINCES):
-        if realm == 1:
+    for i, (_, _, _, region, _, _) in enumerate(PROVINCES):
+        if region == 1:
             north[province_id == i] = 1.0
 
     # 0.5 sits exactly on the realm frontier, so folding the field at 0.5 gives a ridge that
@@ -216,7 +237,7 @@ def build_terrain(rng, land, province_id, dist_to_seed, islet_field):
     ridge = np.clip(1.0 - np.abs(north_field * 2.0 - 1.0), 0, 1) ** 1.7
 
     seats = np.zeros_like(land, dtype=np.float32)
-    for _, sx, sy, _, _ in PROVINCES:
+    for _, sx, sy, _, _, _ in PROVINCES:
         seats = np.maximum(seats, np.exp(-(((np.arange(W)[None, :] - sx) ** 2 +
                                             (np.arange(H)[:, None] - sy) ** 2) / (2 * 70.0 ** 2))))
 
@@ -243,7 +264,11 @@ def build_terrain(rng, land, province_id, dist_to_seed, islet_field):
     # The shelf only climbs to the waterline in the last stretch before the beach; further out it
     # stays deep, which is what gives the surf a band to roll across instead of a flat pan.
     shelf = (SEA_FLOOR_BYTE - 1.0) * np.clip(blurred(land, 32.0) * 1.9, 0, 1) ** 1.6
-    height = np.where(land, SEA_FLOOR_BYTE + np.clip(height, 0.0, 255.0 - SEA_FLOOR_BYTE) * 0.82, shelf)
+    # Under water, an islet still has a base: the seabed rises toward it, which gives the shallow
+    # ring of lighter water around every island instead of a wall dropping out of nowhere.
+    height = np.where(land,
+                      SEA_FLOOR_BYTE + np.clip(height, 0.0, 255.0 - SEA_FLOOR_BYTE) * 0.82,
+                      np.maximum(shelf, islet_base))
     # Soften the quantisation steps and the seams the blurs leave behind.
     height = np.array(Image.fromarray(height.astype(np.uint8), "L").filter(ImageFilter.GaussianBlur(1.1))).astype(np.float32)
 
@@ -271,9 +296,14 @@ def build_terrain(rng, land, province_id, dist_to_seed, islet_field):
 
     beach = np.clip(1.0 - inland * 26.0, 0, 1)
     albedo = albedo * (1 - beach[:, :, None]) + SAND_COLOR * beach[:, :, None]
-    albedo *= 1.0 + 0.07 * noise[:, :, None]
+    # Stronger regional variation: real ground is never one flat tone across a whole province.
+    albedo *= 1.0 + 0.16 * noise[:, :, None]
 
-    albedo = np.where(land[:, :, None], np.clip(albedo, 0, 255), WATER_COLOR[None, None, :])
+    # The water itself is the water shader's job; what the terrain paints under it is seabed, so
+    # shallows read as sand through the surface and the deeps as dark silt.
+    seabed_depth = np.clip((SEA_FLOOR_BYTE - height) / SEA_FLOOR_BYTE, 0, 1)[:, :, None]
+    seabed = SAND_COLOR * (1.0 - seabed_depth) + np.array([44, 54, 60]) * seabed_depth
+    albedo = np.where(land[:, :, None], np.clip(albedo, 0, 255), seabed)
     return height, albedo.astype(np.uint8)
 
 
@@ -399,25 +429,28 @@ def main():
 
     islets, stacks = build_islets(rng, land)
     islet_field = np.zeros((H, W), dtype=np.float32)
+    islet_base = np.zeros((H, W), dtype=np.float32)
     islet_owner = np.full((H, W), -1, dtype=np.int32)
     ys, xs = np.mgrid[0:H, 0:W]
     for x, y, radius, owner in islets:
         distance = np.sqrt((xs - x) ** 2 + (ys - y) ** 2)
         shape = np.clip(1.0 - distance / radius, 0, 1)
-        land |= shape > 0
-        islet_field = np.maximum(islet_field, shape ** 0.6 * (ISLET_HEIGHT / 255.0))
-        islet_owner = np.where(shape > 0, owner, islet_owner)
+        land |= shape > EMERGENT_SHAPE
+        islet_field = np.maximum(islet_field, shape ** 1.5 * (ISLET_HEIGHT / 255.0))
+        islet_base = np.maximum(islet_base, seabed_base(shape))
+        islet_owner = np.where(shape > EMERGENT_SHAPE, owner, islet_owner)
     for x, y, radius in stacks:
         distance = np.sqrt((xs - x) ** 2 + (ys - y) ** 2)
         shape = np.clip(1.0 - distance / radius, 0, 1)
-        land |= shape > 0
-        islet_field = np.maximum(islet_field, shape ** 0.45 * (STACK_HEIGHT / 255.0))
+        land |= shape > EMERGENT_SHAPE
+        islet_field = np.maximum(islet_field, shape ** 1.3 * (STACK_HEIGHT / 255.0))
+        islet_base = np.maximum(islet_base, seabed_base(shape))
 
     print(f"Islets: {len(islets)} owned, {len(stacks)} bare stacks")
 
     best_dist = np.full((H, W), np.inf)
     province_id = np.full((H, W), -1, dtype=np.int32)
-    for i, (_, sx, sy, _, _) in enumerate(PROVINCES):
+    for i, (_, sx, sy, _, _, _) in enumerate(PROVINCES):
         d = (xs - sx) ** 2 + (ys - sy) ** 2
         closer = d < best_dist
         best_dist = np.where(closer, d, best_dist)
@@ -448,7 +481,7 @@ def main():
     for i in range(len(PROVINCES)):
         # R = index + 1 (0, untouched, decodes as "no province" in C#); G = realm + 1, which is
         # what the terrain shader compares to draw a gold frontier instead of a hairline border.
-        fill_id[province_id == i] = (i + 1, PROVINCES[i][3] + 1, 0)
+        fill_id[province_id == i] = (i + 1, PROVINCES[i][5] + 1, 0)
 
     drawn = fill.copy()
     adjacency = set()
@@ -470,7 +503,7 @@ def main():
                 if not pair_mask.any():
                     continue
                 adjacency.add(tuple(sorted((i, j))))
-                if PROVINCES[i][3] == PROVINCES[j][3]:
+                if PROVINCES[i][5] == PROVINCES[j][5]:
                     same_realm |= pair_mask
                 else:
                     diff_realm |= pair_mask
@@ -487,29 +520,29 @@ def main():
         inner_seam |= same_realm
         frontier_seam |= frontier_thick
 
-    height, albedo = build_terrain(rng, land, province_id, dist_to_seed, islet_field)
+    height, albedo = build_terrain(rng, land, province_id, dist_to_seed, islet_field, islet_base)
 
     # No borders baked into the terrain colour: the shader draws them from the ID map, which keeps
     # them a clean line however close the camera gets (seams stay in the flat drawn map, which the
     # sidebar minimap still uses).
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    Image.fromarray(drawn, "RGB").save(OUT_DIR / "campaign-map-drawn.png")
-    Image.fromarray(fill_id, "RGB").save(OUT_DIR / "campaign-map-ids.png")
-    Image.fromarray(height.astype(np.uint8), "L").save(OUT_DIR / "campaign-map-height.png")
-    Image.fromarray(albedo, "RGB").save(OUT_DIR / "campaign-map-albedo.png")
+    Image.fromarray(drawn, "RGB").save(OUT_DIR / "map-drawn.png")
+    Image.fromarray(fill_id, "RGB").save(OUT_DIR / "map-ids.png")
+    Image.fromarray(height.astype(np.uint8), "L").save(OUT_DIR / "map-height.png")
+    Image.fromarray(albedo, "RGB").save(OUT_DIR / "map-albedo.png")
 
     gradient_y, gradient_x = np.gradient(height)
     slope = np.clip(np.sqrt(gradient_x ** 2 + gradient_y ** 2) / 6.0, 0, 1)
     inland = np.clip(blurred(land, 130.0) * 1.15, 0, 1) ** 0.85
     north = np.zeros_like(land, dtype=np.float32)
-    for i, (_, _, _, realm, _) in enumerate(PROVINCES):
-        if realm == 1:
+    for i, (_, _, _, region, _, _) in enumerate(PROVINCES):
+        if region == 1:
             north[province_id == i] = 1.0
     north_field = blurred(north, 115.0)
 
     props = build_props(rng, land, height, slope, north_field, inland, province_id, islet_field)
-    Image.fromarray(props, "RGB").save(OUT_DIR / "campaign-map-props.png")
+    Image.fromarray(props, "RGB").save(OUT_DIR / "map-props.png")
 
     roads = build_roads(height, land, province_id, adjacency)
     DATA_DIR.mkdir(parents=True, exist_ok=True)

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://s7138s6piklp"
-path="res://.godot/imported/map-royal-crown-vs-northern-watch.png-86703bdddbf0844720f20b3aa119b43c.ctex"
+uid="uid://d1l5w1ec16u82"
+path="res://.godot/imported/card.png-43baedbdc0f38c68805c01b40486dc5b.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/ui/map-royal-crown-vs-northern-watch.png"
-dest_files=["res://.godot/imported/map-royal-crown-vs-northern-watch.png-86703bdddbf0844720f20b3aa119b43c.ctex"]
+source_file="res://assets/campaigns/sands-of-power/card.png"
+dest_files=["res://.godot/imported/card.png-43baedbdc0f38c68805c01b40486dc5b.ctex"]
 
 [params]
 

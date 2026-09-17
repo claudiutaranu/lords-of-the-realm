@@ -1,26 +1,31 @@
 using Godot;
 
-/// <summary>The campaign map as real geometry: a plane displaced by campaign-map-height.png,
+/// <summary>The campaign map as real geometry: a plane displaced by the campaign's map-height.png,
 /// lit and shadowed, viewed through a fixed-pitch camera the player pans and zooms. It owns
 /// the space entirely — the page above it only asks it questions in map-pixel or screen terms.
 ///
 /// Three images describe the same 1536x1024 map and must stay in step (all regenerated together
-/// by tools/generate_campaign_map.py): height drives the mesh AND the click raycast, albedo is
+/// by tools/generate_campaign_map.py, into the played campaign's own asset folder): height drives
+/// the mesh AND the click raycast, albedo is
 /// what you see, and the ID map says which province a point belongs to. Height and ID are
 /// imported as Image, not Texture2D, so the CPU can read their pixels in an exported build;
 /// the GPU copies are built from them here.</summary>
 public partial class CampaignMap3D : Node3D
 {
-	private const string HeightPath = "res://assets/ui/campaign-map-height.png";
-	private const string AlbedoPath = "res://assets/ui/campaign-map-albedo.png";
-	private const string IdPath = "res://assets/ui/campaign-map-ids.png";
+	// The three images are the played campaign's own (Campaign.Asset); the shader and the ground
+	// textures below are the engine's, shared by every campaign.
+	private const string HeightFile = "map-height.png";
+	private const string AlbedoFile = "map-albedo.png";
+	private const string IdFile = "map-ids.png";
 	private const string TerrainShaderPath = "res://assets/shaders/terrain.gdshader";
 	private const string TerrainTextureDirectory = "res://assets/terrain";
 
 	// The map image's pixels laid out in world units, and how tall a full-white height pixel is.
-	private const float MapWidth = 153.6f;
-	private const float MapDepth = 102.4f;
-	private const float HeightScale = 20.0f;
+	// Grown 20% over the original 153.6x102.4: props keep their real size, so the realm reads as
+	// bigger ground rather than the same map zoomed. Height goes with it or the relief flattens.
+	private const float MapWidth = 184.3f;
+	private const float MapDepth = 122.9f;
+	private const float HeightScale = 24.0f;
 	// The height map stores the seabed too: this byte value is the waterline, and everything below
 	// it is under water (tools/generate_campaign_map.py: SEA_FLOOR_BYTE).
 	private const float SeaFloorByte = 46.0f;
@@ -30,11 +35,11 @@ public partial class CampaignMap3D : Node3D
 	// where the player expects. Free orbit can come later if armies ever need to be seen behind
 	// a mountain.
 	private const float CameraPitchDegrees = -52.0f;
-	private const float MinDistance = 45.0f;
-	private const float MaxDistance = 170.0f;
-	private const float ZoomStep = 8.0f;
+	private const float MinDistance = 54.0f;
+	private const float MaxDistance = 204.0f;
+	private const float ZoomStep = 9.5f;
 	private const float PanSpeed = 0.13f;
-	private const float KeyPanSpeed = 62.0f; // world units per second, at full zoom-out
+	private const float KeyPanSpeed = 74.0f; // world units per second, at full zoom-out
 
 	/// <summary>What a season does to the light over the map: the sun's colour and strength, the sky
 	/// it comes out of, and the haze on the horizon. The ground and the sea are seasoned by their own
@@ -60,12 +65,12 @@ public partial class CampaignMap3D : Node3D
 	private ProceduralSkyMaterial _sky;
 	private Godot.Environment _environment;
 	private Vector3 _focus = Vector3.Zero;
-	private float _distance = 120.0f;
+	private float _distance = 144.0f;
 
 	public override void _Ready()
 	{
-		_heightImage = GD.Load<Image>(HeightPath);
-		_idImage = GD.Load<Image>(IdPath);
+		_heightImage = GD.Load<Image>(Campaign.Asset(HeightFile));
+		_idImage = GD.Load<Image>(Campaign.Asset(IdFile));
 
 		BuildEnvironment();
 		BuildTerrain();
@@ -210,7 +215,7 @@ public partial class CampaignMap3D : Node3D
 			BackgroundMode = Godot.Environment.BGMode.Sky,
 			Sky = new Sky { SkyMaterial = _sky },
 			AmbientLightSource = Godot.Environment.AmbientSource.Sky,
-			AmbientLightEnergy = 0.65f,
+			AmbientLightEnergy = 0.45f,
 			TonemapMode = Godot.Environment.ToneMapper.Filmic,
 			FogEnabled = true,
 			FogLightColor = new Color("9fb4c8"),
@@ -226,8 +231,8 @@ public partial class CampaignMap3D : Node3D
 		// Low sun: long shadows off the ridge are what make the relief read as relief.
 		_sun = new DirectionalLight3D
 		{
-			LightEnergy = 1.35f,
-			LightColor = new Color("fff2d8"),
+			LightEnergy = 1.55f,
+			LightColor = new Color("fff0cf"),
 			ShadowEnabled = true,
 			DirectionalShadowMaxDistance = 320.0f,
 			ShadowBlur = 1.4f,
@@ -240,11 +245,13 @@ public partial class CampaignMap3D : Node3D
 	{
 		_terrainMaterial = new ShaderMaterial { Shader = GD.Load<Shader>(TerrainShaderPath) };
 		_terrainMaterial.SetShaderParameter("height_map", ImageTexture.CreateFromImage(_heightImage));
-		_terrainMaterial.SetShaderParameter("albedo_map", GD.Load<Texture2D>(AlbedoPath));
+		_terrainMaterial.SetShaderParameter("albedo_map", GD.Load<Texture2D>(Campaign.Asset(AlbedoFile)));
 		_terrainMaterial.SetShaderParameter("id_map", ImageTexture.CreateFromImage(_idImage));
 		_terrainMaterial.SetShaderParameter("height_scale", HeightScale);
 		_terrainMaterial.SetShaderParameter("sea_level_normalized", SeaFloorByte / 255.0f);
 		_terrainMaterial.SetShaderParameter("map_size_x", MapWidth);
+		// Ground texture density stays fixed to world units, so growing the map does not stretch it.
+		_terrainMaterial.SetShaderParameter("detail_tiling", MapWidth * 0.586f);
 		_terrainMaterial.SetShaderParameter("world_texel",
 			new Vector2(MapWidth / _heightImage.GetWidth(), MapDepth / _heightImage.GetHeight()));
 

@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" path="res://scripts/UI/CampaignMapPage.cs" id="1_script"]
 [ext_resource type="Theme" path="res://theme/main-menu.tres" id="2_theme"]
-[ext_resource type="Texture2D" path="res://assets/ui/campaign-map-drawn.png" id="3_map"]
+[ext_resource type="Texture2D" path="res://assets/campaigns/royal-crown/map-drawn.png" id="3_map"]
 [ext_resource type="Texture2D" path="res://assets/ui/icons/gold.png" id="4_gold"]
 [ext_resource type="Texture2D" path="res://assets/ui/icons/food.png" id="5_food"]
 [ext_resource type="Texture2D" path="res://assets/ui/icons/wood.png" id="6_wood"]
@@ -372,10 +372,11 @@ layout_mode = 2
 theme_override_constants/separation = 10
 
 [node name="MinimapPanel" type="PanelContainer" parent="Sidebar/SidebarMargin/SidebarContent"]
-custom_minimum_size = Vector2(0, 140)
+custom_minimum_size = Vector2(0, 316)
 layout_mode = 2
 
 [node name="MinimapTexture" type="TextureRect" parent="Sidebar/SidebarMargin/SidebarContent/MinimapPanel"]
+unique_name_in_owner = true
 layout_mode = 2
 mouse_filter = 2
 texture = ExtResource("3_map")

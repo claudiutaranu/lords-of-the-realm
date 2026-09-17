@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dabhfvui1st06"
-path="res://.godot/imported/campaign-map-albedo.png-fb62cb3b19d10ab5f43a4a828687f447.ctex"
+uid="uid://cvnjs0akha154"
+path="res://.godot/imported/card.png-855554f88c30e21af8da38284456cc88.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/ui/campaign-map-albedo.png"
-dest_files=["res://.godot/imported/campaign-map-albedo.png-fb62cb3b19d10ab5f43a4a828687f447.ctex"]
+source_file="res://assets/campaigns/northern-watch/card.png"
+dest_files=["res://.godot/imported/card.png-855554f88c30e21af8da38284456cc88.ctex"]
 
 [params]
 
@@ -23,7 +23,7 @@ compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=true
+mipmaps/generate=false
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""

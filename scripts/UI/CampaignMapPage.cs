@@ -2,17 +2,20 @@ using System.Collections.Generic;
 using Godot;
 
 /// <summary>
-/// Phase 1 of the campaign: a clickable map of the Royal Crown vs. Northern Watch frontier,
-/// an End Turn counter, and a TurnManager-driven economy for the player's 5 provinces.
-/// Northern Watch's 3 provinces sit inert until there's AI to run them (Phase 4). No
-/// armies or combat yet.
+/// Phase 1 of the campaign: a clickable map of two realms' frontier, an End Turn counter, and a
+/// TurnManager-driven economy for the provinces the player holds. The other realm's provinces sit
+/// inert until there's AI to run them (Phase 4). No armies or combat yet.
+///
+/// Nothing here is about one particular campaign: which realms, which provinces, where their seats
+/// sit and which of them the player runs all come from the played campaign's own provinces.json
+/// (see Campaign), so a second campaign is a second folder rather than a second copy of this page.
 ///
 /// The map itself is 3D (CampaignMap3D): a displaced terrain mesh the player pans and zooms.
 /// This page owns the UI over it and the 2D province markers, which are re-projected from the
-/// camera every frame. Province identity still comes from campaign-map-ids.png, an unseen image
-/// of the same layout where each pixel's red channel is its province index + 1 (0 = water) — the
-/// standard technique this genre uses (Paradox's province bitmaps work the same way), here read
-/// at whatever point the click raycast lands on.
+/// camera every frame. Province identity still comes from the campaign's map-ids.png, an unseen
+/// image of the same layout where each pixel's red channel is its province index + 1 (0 = water)
+/// — the standard technique this genre uses (Paradox's province bitmaps work the same way), here
+/// read at whatever point the click raycast lands on.
 /// </summary>
 public partial class CampaignMapPage : Control
 {
@@ -21,8 +24,7 @@ public partial class CampaignMapPage : Control
 	private const string OptionsScenePath = "res://scene/options/options.tscn";
 	private const string SelfScenePath = "res://scene/campaign-map/campaign_map.tscn";
 	private const string LeaveFarewellPath = "res://assets/audio/quit-farewell.mp3";
-	// The only campaign with a map; a save records it so the load list can name what it opens.
-	private const string CampaignName = "The Royal Crown";
+	private const string ProvincesDataFile = "provinces.json";
 	private const float TurnFadeInSeconds = 0.4f;
 	private const float TurnHoldSeconds = 1.1f;
 	private const float TurnFadeOutSeconds = 0.5f;
@@ -30,32 +32,19 @@ public partial class CampaignMapPage : Control
 	private const float ToastHoldSeconds = 1.6f;
 	private const float ToastFadeOutSeconds = 0.6f;
 
-	private enum Realm { RoyalCrown, NorthernWatch }
+	/// <summary>A realm as the campaign describes it: what it is called, and the colour everything
+	/// belonging to it is drawn in.</summary>
+	private record RealmData(string Name, Color Accent);
 
-	private record ProvinceData(string Name, Vector2 MapPosition, Realm Owner, bool IsCapital, string[] Neighbors);
+	/// <summary>One province of the played campaign. <paramref name="EconomyFile"/> names the
+	/// ProvinceDefinition the player's own provinces are simulated from, and is empty for the ones
+	/// the other realm holds — those have no economy until there's AI to run it (Phase 4).</summary>
+	private record ProvinceData(string Name, Vector2 MapPosition, string Realm, bool IsCapital, string EconomyFile);
 
-	private static readonly Color RoyalCrownColor = new("b23a3a");
-	private static readonly Color NorthernWatchColor = new("5f8fc9");
-
-	// Royal Crown's 5 provinces get simulated economies; Northern Watch's 3 sit inert until
-	// there's AI to run them (Phase 4) — file names double as ProvinceDefinition.ProvinceName lookups.
-	private static readonly string[] PlayerProvinceDataFiles =
-		{ "kingsreach", "redmoor-hold", "ashenvale", "thornwatch", "farrowmere" };
-
-	// Pixel coordinates on the map (same 1536x1024 canvas as the ID map), and the adjacency the
-	// generator computed from which provinces actually touch — order matters, it's also the ID map's
-	// index+1 encoding.
-	private static readonly ProvinceData[] Provinces =
-	{
-		new("Kingsreach", new Vector2(365, 485), Realm.RoyalCrown, true, new[] { "Redmoor Hold", "Ashenvale", "Thornwatch" }),
-		new("Redmoor Hold", new Vector2(295, 175), Realm.RoyalCrown, false, new[] { "Kingsreach", "Ashenvale" }),
-		new("Ashenvale", new Vector2(565, 385), Realm.RoyalCrown, false, new[] { "Kingsreach", "Redmoor Hold", "Thornwatch", "Valmere", "Icemere Reach" }),
-		new("Thornwatch", new Vector2(625, 655), Realm.RoyalCrown, false, new[] { "Kingsreach", "Ashenvale", "Farrowmere", "Icemere Reach" }),
-		new("Farrowmere", new Vector2(900, 885), Realm.RoyalCrown, false, new[] { "Thornwatch", "Icemere Reach" }),
-		new("Valmere", new Vector2(1095, 105), Realm.NorthernWatch, true, new[] { "Ashenvale", "Frostgate", "Icemere Reach" }),
-		new("Frostgate", new Vector2(1260, 290), Realm.NorthernWatch, false, new[] { "Valmere", "Icemere Reach" }),
-		new("Icemere Reach", new Vector2(1200, 485), Realm.NorthernWatch, false, new[] { "Ashenvale", "Thornwatch", "Farrowmere", "Valmere", "Frostgate" }),
-	};
+	private readonly Dictionary<string, RealmData> _realms = new();
+	// Authored order is load-bearing: it is the ID map's index + 1 encoding, so a province's place
+	// in provinces.json is what ties it to its pixels on the map.
+	private readonly List<ProvinceData> _provinces = new();
 
 	private SubViewportContainer _map;
 	private CampaignMap3D _world;
@@ -118,11 +107,19 @@ public partial class CampaignMapPage : Control
 			GoldTitle.Apply(GetNode<Label>($"%{valueName}"));
 		}
 
+		LoadCampaignProvinces();
+
+		// Balance is the engine's, not the campaign's: every campaign is simulated by the same rules.
 		_balance = GD.Load<GameBalance>("res://data/game-balance.tres");
 		var definitions = new List<ProvinceDefinition>();
-		foreach (string fileName in PlayerProvinceDataFiles)
+		foreach (ProvinceData province in _provinces)
 		{
-			var definition = GD.Load<ProvinceDefinition>($"res://data/provinces/{fileName}.tres");
+			if (province.EconomyFile.Length == 0)
+			{
+				continue; // the rival's: no economy of its own until there's AI to run it
+			}
+
+			var definition = GD.Load<ProvinceDefinition>(Campaign.Data($"provinces/{province.EconomyFile}.tres"));
 			definitions.Add(definition);
 			_definitionsByName[definition.ProvinceName] = definition;
 		}
@@ -144,11 +141,11 @@ public partial class CampaignMapPage : Control
 		_map.GuiInput += OnMapGuiInput;
 
 		Control markers = GetNode<Control>("%Markers");
-		foreach (ProvinceData province in Provinces)
+		foreach (ProvinceData province in _provinces)
 		{
 			var marker = new ProvinceMarker();
 			markers.AddChild(marker);
-			marker.Configure(province.Owner == Realm.RoyalCrown ? RoyalCrownColor : NorthernWatchColor, province.IsCapital);
+			marker.Configure(_realms[province.Realm].Accent, province.IsCapital);
 			_markers.Add(marker);
 		}
 
@@ -167,7 +164,7 @@ public partial class CampaignMapPage : Control
 		GetNode<Button>("%MenuShieldButton").Pressed += () => gameMenu.Visible = !gameMenu.Visible;
 		GetNode<Button>("%SaveButton").Pressed += () =>
 		{
-			SaveGame.Write(CampaignName, _turnManager.Turn, _turnManager.Provinces);
+			SaveGame.Write(Campaign.Name, _turnManager.Turn, _turnManager.Provinces);
 			gameMenu.Visible = false; // out of the way, so the confirmation lands on the map itself
 			ShowSaveToast($"Saved · Turn {_turnManager.Turn}");
 		};
@@ -190,7 +187,7 @@ public partial class CampaignMapPage : Control
 		{
 			// Options is its own scene, so the running campaign rides along in memory rather
 			// than through a file, and comes back when Back returns here.
-			SaveGame.Pending = SaveGame.Snapshot(CampaignName, _turnManager.Turn, _turnManager.Provinces);
+			SaveGame.Pending = SaveGame.Snapshot(Campaign.Name, _turnManager.Turn, _turnManager.Provinces);
 			OptionsPage.ReturnScenePath = SelfScenePath;
 			SceneRouter.GoTo(this, OptionsScenePath);
 		};
@@ -206,6 +203,38 @@ public partial class CampaignMapPage : Control
 		_world.SetSeason(_turnManager.CurrentSeason);
 
 		SelectProvince(0); // Kingsreach, the capital — shows something real before any click.
+	}
+
+	/// <summary>Reads the played campaign's realms and its provinces. Who holds what, where its seat
+	/// sits and which ones the player runs are all the campaign's own file; this page only draws it.
+	/// A province without an "economy" entry belongs to the rival and is simulated by nobody yet.</summary>
+	private void LoadCampaignProvinces()
+	{
+		var file = GD.Load<Json>(Campaign.Data(ProvincesDataFile));
+		if (file?.Data.VariantType != Variant.Type.Dictionary)
+		{
+			GD.PushError($"Campaign '{Campaign.Folder}' has no readable {ProvincesDataFile}");
+			return;
+		}
+
+		Godot.Collections.Dictionary data = file.Data.AsGodotDictionary();
+		foreach (System.Collections.Generic.KeyValuePair<Variant, Variant> realm in data["realms"].AsGodotDictionary())
+		{
+			Godot.Collections.Dictionary fields = realm.Value.AsGodotDictionary();
+			_realms[realm.Key.AsString()] =
+				new RealmData(fields["name"].AsString(), new Color(fields["accent"].AsString()));
+		}
+
+		foreach (Variant entry in data["provinces"].AsGodotArray())
+		{
+			Godot.Collections.Dictionary fields = entry.AsGodotDictionary();
+			_provinces.Add(new ProvinceData(
+				fields["name"].AsString(),
+				new Vector2(fields["x"].AsSingle(), fields["y"].AsSingle()),
+				fields["realm"].AsString(),
+				fields.ContainsKey("capital") && fields["capital"].AsBool(),
+				fields.TryGetValue("economy", out Variant economyFile) ? economyFile.AsString() : ""));
+		}
 	}
 
 	// Both ways out of a campaign drop everything since the last save, so neither goes through
@@ -262,7 +291,7 @@ public partial class CampaignMapPage : Control
 	private void ShowProvinceTrade(ProvinceDefinition definition)
 	{
 		Vector2 seat = Vector2.Zero;
-		foreach (ProvinceData province in Provinces)
+		foreach (ProvinceData province in _provinces)
 		{
 			if (province.Name == definition.ProvinceName)
 			{
@@ -360,7 +389,7 @@ public partial class CampaignMapPage : Control
 		if (@event is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: false } click)
 		{
 			int index = _world.ProvinceAt(click.Position);
-			if (index >= 0 && index < Provinces.Length)
+			if (index >= 0 && index < _provinces.Count)
 			{
 				SelectProvince(index);
 			}
@@ -376,9 +405,9 @@ public partial class CampaignMapPage : Control
 
 		_world.SetHighlight(index, _hovered);
 
-		ProvinceData province = Provinces[index];
+		ProvinceData province = _provinces[index];
 		_infoName.Text = province.Name;
-		string realmName = province.Owner == Realm.RoyalCrown ? "The Royal Crown" : "The Northern Watch";
+		string realmName = _realms[province.Realm].Name;
 		string ownerLine = province.IsCapital ? $"{realmName} · Capital" : realmName;
 
 		ProvinceEconomy economy = _turnManager.GetProvince(province.Name);
@@ -391,7 +420,7 @@ public partial class CampaignMapPage : Control
 			UpdateResourceBar(economy);
 		}
 
-		_sidebarBanner.Color = province.Owner == Realm.RoyalCrown ? RoyalCrownColor : NorthernWatchColor;
+		_sidebarBanner.Color = _realms[province.Realm].Accent;
 		_sidebarName.Text = province.Name;
 		_sidebarPopulation.Text = economy != null ? economy.Population.ToString("N0") : "-";
 		_sidebarLoyalty.Text = economy != null ? Mathf.RoundToInt(economy.Loyalty).ToString() : "-";
@@ -403,9 +432,9 @@ public partial class CampaignMapPage : Control
 	// re-projected; one unproject per province is cheaper than tracking whether it moved.
 	public override void _Process(double delta)
 	{
-		for (int i = 0; i < Provinces.Length; i++)
+		for (int i = 0; i < _provinces.Count; i++)
 		{
-			bool onScreen = _world.TryScreenPosition(Provinces[i].MapPosition, out Vector2 screenPosition);
+			bool onScreen = _world.TryScreenPosition(_provinces[i].MapPosition, out Vector2 screenPosition);
 			_markers[i].Visible = onScreen;
 			if (onScreen)
 			{

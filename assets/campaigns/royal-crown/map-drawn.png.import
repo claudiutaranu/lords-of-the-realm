@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cxhragpo8htpm"
-path="res://.godot/imported/campaign-card-emerald-lands.png-81e67c79ff60c650617ff9bda3d56863.ctex"
+uid="uid://b5h6bi2p7sc1c"
+path="res://.godot/imported/map-drawn.png-2c928d139fae51f86d61be0ecc1282d6.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/ui/campaign-card-emerald-lands.png"
-dest_files=["res://.godot/imported/campaign-card-emerald-lands.png-81e67c79ff60c650617ff9bda3d56863.ctex"]
+source_file="res://assets/campaigns/royal-crown/map-drawn.png"
+dest_files=["res://.godot/imported/map-drawn.png-2c928d139fae51f86d61be0ecc1282d6.ctex"]
 
 [params]
 

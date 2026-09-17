@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cvnjs0akha154"
-path="res://.godot/imported/campaign-card-northern-watch.png-a2fd2ee676819ffe1a28c81677002039.ctex"
+uid="uid://s7138s6piklp"
+path="res://.godot/imported/briefing-map.png-dfd88bdbf082c4d38ce8e2ef242cc4da.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/ui/campaign-card-northern-watch.png"
-dest_files=["res://.godot/imported/campaign-card-northern-watch.png-a2fd2ee676819ffe1a28c81677002039.ctex"]
+source_file="res://assets/campaigns/royal-crown/briefing-map.png"
+dest_files=["res://.godot/imported/briefing-map.png-dfd88bdbf082c4d38ce8e2ef242cc4da.ctex"]
 
 [params]
 

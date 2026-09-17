@@ -5,7 +5,7 @@ using Godot;
 /// between neighbouring seats, and the working sites that show what a province actually produces.
 ///
 /// Scattered props are drawn as MultiMesh instances — thousands of trees cost a handful of draw
-/// calls — and placed from campaign-map-props.png (R woodland, G boulders, B open farmland),
+/// calls — and placed from the campaign's map-props.png (R woodland, G boulders, B open farmland),
 /// generated alongside the terrain so vegetation lands where the ground supports it: not on cliffs,
 /// not on the beach, thicker along province borders. The seed is fixed, so the same realm grows
 /// the same forest every run.
@@ -14,18 +14,19 @@ using Godot;
 /// builder returns; nothing else knows or cares what shape a tree is.</summary>
 public partial class MapDecoration : Node3D
 {
-	private const string PropsPath = "res://assets/ui/campaign-map-props.png";
-	private const string RoadsPath = "res://data/map-roads.json";
+	// Both belong to the played campaign, generated alongside its map images.
+	private const string PropsFile = "map-props.png";
+	private const string RoadsFile = "map-roads.json";
 
 	// Attempts, not instances: each one rolls against the density at a random pixel, so the count
 	// that lands is whatever the mask supports (~8,700 trees, ~2,500 boulders on this map).
-	private const int ScatterAttempts = 240000;
+	private const int ScatterAttempts = 345000;
 	private const float TreeChance = 0.55f;
 	private const float BoulderChance = 0.22f;
 	// Above this height conifers take over from broadleaf, the way a real treeline works.
 	private const float ConiferHeight = 9.0f;
-	private const float RoadWidth = 0.55f;
-	private const float RoadLift = 0.12f;   // clear of the terrain without floating visibly
+	private const float RoadWidth = 0.95f;
+	private const float RoadLift = 0.22f;   // clear of the terrain without floating visibly
 
 	/// <summary>What a province works, drawn on its ground. Mirrors the resources
 	/// ProvinceDefinition gives capacities for.</summary>
@@ -47,7 +48,7 @@ public partial class MapDecoration : Node3D
 	public void Build(CampaignMap3D map)
 	{
 		_map = map;
-		_props = GD.Load<Image>(PropsPath);
+		_props = GD.Load<Image>(Campaign.Asset(PropsFile));
 		_rng = new RandomNumberGenerator();
 		_rng.Seed = 20260917; // fixed: the map must look the same every time it loads
 
@@ -83,8 +84,8 @@ public partial class MapDecoration : Node3D
 		// local offset so the trunk stands ON the ground instead of being centred in it, and its
 		// own colour, which one merged mesh could not have.
 		AddScatter(TrunkMesh(), new Color("4a3524"), conifers, liftY: 0.35f);
-		AddScatter(LowerConeMesh(), new Color("2c4630"), conifers, liftY: 1.25f, colorJitter: 0.16f);
-		AddScatter(UpperConeMesh(), new Color("36543a"), conifers, liftY: 2.1f, colorJitter: 0.16f);
+		AddScatter(LowerConeMesh(), new Color("293b2a"), conifers, liftY: 1.25f, colorJitter: 0.24f);
+		AddScatter(UpperConeMesh(), new Color("314a33"), conifers, liftY: 2.1f, colorJitter: 0.24f);
 
 		AddScatter(TrunkMesh(), new Color("53402c"), broadleaves, liftY: 0.4f);
 		AddScatter(BroadleafCrownMesh(), BroadleafBySeason[(int)Season.Summer], broadleaves,
@@ -224,7 +225,7 @@ public partial class MapDecoration : Node3D
 
 	private void BuildRoads()
 	{
-		var file = GD.Load<Json>(RoadsPath);
+		var file = GD.Load<Json>(Campaign.Data(RoadsFile));
 		if (file?.Data.VariantType != Variant.Type.Array)
 		{
 			GD.PushWarning("MapDecoration: no roads data; run tools/generate_campaign_map.py");

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b5h6bi2p7sc1c"
-path="res://.godot/imported/campaign-map-drawn.png-5cc9c3ee7960911142c53d1011bc2ae0.ctex"
+uid="uid://danp0mt2yeh6i"
+path="res://.godot/imported/card.png-7ea3a2bc1edd67d74a6d996226ec76c5.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/ui/campaign-map-drawn.png"
-dest_files=["res://.godot/imported/campaign-map-drawn.png-5cc9c3ee7960911142c53d1011bc2ae0.ctex"]
+source_file="res://assets/campaigns/royal-crown/card.png"
+dest_files=["res://.godot/imported/card.png-7ea3a2bc1edd67d74a6d996226ec76c5.ctex"]
 
 [params]
 

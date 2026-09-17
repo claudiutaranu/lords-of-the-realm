@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://danp0mt2yeh6i"
-path="res://.godot/imported/campaign-card-royal.png-18d46de133e923364003424fe578c4d0.ctex"
+uid="uid://dgg7hygx5u0cj"
+path="res://.godot/imported/card.png-53df5f4aeb608aec3e8a9b2a08ca20bc.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/ui/campaign-card-royal.png"
-dest_files=["res://.godot/imported/campaign-card-royal.png-18d46de133e923364003424fe578c4d0.ctex"]
+source_file="res://assets/campaigns/sunlit-isles/card.png"
+dest_files=["res://.godot/imported/card.png-53df5f4aeb608aec3e8a9b2a08ca20bc.ctex"]
 
 [params]
 
