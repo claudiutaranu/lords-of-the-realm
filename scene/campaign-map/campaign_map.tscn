@@ -360,11 +360,11 @@ theme_override_constants/margin_bottom = 6
 
 [node name="MinimapRow" type="HBoxContainer" parent="Sidebar/SidebarMargin/SidebarContent/MinimapPanel/MinimapMargin"]
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 7
 
 [node name="MinimapTexture" type="TextureRect" parent="Sidebar/SidebarMargin/SidebarContent/MinimapPanel/MinimapMargin/MinimapRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(230, 230)
+custom_minimum_size = Vector2(228, 228)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
@@ -378,7 +378,7 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 4
-theme_override_constants/separation = 6
+theme_override_constants/separation = 0
 
 [node name="ProvinceSidebar" type="VBoxContainer" parent="Sidebar/SidebarMargin/SidebarContent" unique_id=211143184]
 unique_name_in_owner = true
