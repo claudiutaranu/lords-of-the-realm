@@ -1,0 +1,7 @@
+Terrain detail textures from Poly Haven (polyhaven.com), licensed CC0 (public domain).
+No attribution required; kept here for provenance.
+
+  grass-*  : aerial_grass_rock
+  rock-*   : rocks_ground_06
+  snow-*   : snow_02
+  sand-*   : coast_sand_rocks_02

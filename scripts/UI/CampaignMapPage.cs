@@ -124,6 +124,7 @@ public partial class CampaignMapPage : Control
 			definitions.Add(definition);
 			_definitionsByName[definition.ProvinceName] = definition;
 		}
+
 		_turnManager = new TurnManager(_balance, definitions);
 		if (SaveGame.Pending != null)
 		{
@@ -183,6 +184,11 @@ public partial class CampaignMapPage : Control
 		};
 		GetNode<Button>("%QuitButton").Pressed += () => ConfirmLeave(MainMenuScenePath);
 
+		foreach (ProvinceDefinition definition in definitions)
+		{
+			ShowProvinceTrade(definition);
+		}
+
 		SelectProvince(0); // Kingsreach, the capital — shows something real before any click.
 	}
 
@@ -228,6 +234,36 @@ public partial class CampaignMapPage : Control
 		tween.TweenInterval(TurnHoldSeconds);
 		tween.TweenProperty(_turnTransition, "modulate:a", 0.0, TurnFadeOutSeconds);
 		tween.TweenCallback(Callable.From(() => _turnTransition.Visible = false));
+	}
+
+	/// <summary>Draws what a province lives on: its two strongest industries become visible sites
+	/// on its ground. Capacity times modifier is the same product the economy pays out on, so a
+	/// quarry on the map means quarry income in the ledger, not decoration.</summary>
+	private void ShowProvinceTrade(ProvinceDefinition definition)
+	{
+		Vector2 seat = Vector2.Zero;
+		foreach (ProvinceData province in Provinces)
+		{
+			if (province.Name == definition.ProvinceName)
+			{
+				seat = province.MapPosition;
+			}
+		}
+
+		var industries = new (MapDecoration.SiteKind Kind, float Weight)[]
+		{
+			(MapDecoration.SiteKind.Grain, definition.GrainWorkerCapacity * definition.GrainModifier),
+			(MapDecoration.SiteKind.Cattle, definition.CattleWorkerCapacity * definition.CattleModifier),
+			(MapDecoration.SiteKind.Wood, definition.WoodWorkerCapacity * definition.WoodModifier),
+			(MapDecoration.SiteKind.Stone, definition.StoneWorkerCapacity * definition.StoneModifier),
+			(MapDecoration.SiteKind.Iron, definition.IronWorkerCapacity * definition.IronModifier),
+		};
+
+		System.Array.Sort(industries, (left, right) => right.Weight.CompareTo(left.Weight));
+		for (int i = 0; i < 2; i++)
+		{
+			_world.AddSite(seat, industries[i].Kind, industries[i].Weight);
+		}
 	}
 
 	// A save is instant and silent otherwise: the toast holds long enough to be read, then

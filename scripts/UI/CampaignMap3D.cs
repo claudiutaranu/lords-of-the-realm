@@ -15,12 +15,16 @@ public partial class CampaignMap3D : Node3D
 	private const string AlbedoPath = "res://assets/ui/campaign-map-albedo.png";
 	private const string IdPath = "res://assets/ui/campaign-map-ids.png";
 	private const string TerrainShaderPath = "res://assets/shaders/terrain.gdshader";
+	private const string TerrainTextureDirectory = "res://assets/terrain";
 
 	// The map image's pixels laid out in world units, and how tall a full-white height pixel is.
 	private const float MapWidth = 153.6f;
 	private const float MapDepth = 102.4f;
 	private const float HeightScale = 20.0f;
-	private const float SeaLevel = 0.55f;
+	// The height map stores the seabed too: this byte value is the waterline, and everything below
+	// it is under water (tools/generate_campaign_map.py: SEA_FLOOR_BYTE).
+	private const float SeaFloorByte = 46.0f;
+	private const float SeaLevel = HeightScale * SeaFloorByte / 255.0f;
 
 	// Fixed pitch: the map reads like the painted original from one angle, and markers stay
 	// where the player expects. Free orbit can come later if armies ever need to be seen behind
@@ -30,11 +34,13 @@ public partial class CampaignMap3D : Node3D
 	private const float MaxDistance = 170.0f;
 	private const float ZoomStep = 8.0f;
 	private const float PanSpeed = 0.13f;
+	private const float KeyPanSpeed = 62.0f; // world units per second, at full zoom-out
 
 	private Camera3D _camera;
 	private ShaderMaterial _terrainMaterial;
 	private Image _heightImage;
 	private Image _idImage;
+	private MapDecoration _decoration;
 	private Vector3 _focus = Vector3.Zero;
 	private float _distance = 120.0f;
 
@@ -46,6 +52,10 @@ public partial class CampaignMap3D : Node3D
 		BuildEnvironment();
 		BuildTerrain();
 		BuildWater();
+
+		_decoration = new MapDecoration();
+		AddChild(_decoration);
+		_decoration.Build(this);
 
 		_camera = new Camera3D { Fov = 48.0f, Far = 800.0f, Current = true };
 		AddChild(_camera);
@@ -85,6 +95,29 @@ public partial class CampaignMap3D : Node3D
 		_terrainMaterial.SetShaderParameter("hovered_index", hoveredIndex + 1);
 	}
 
+	// Physical key positions, not letters, so WASD stays under the same fingers on a non-QWERTY
+	// layout. Polled rather than handled as events: holding a key has to pan every frame, and the
+	// UI over the map would otherwise eat the repeats.
+	public override void _Process(double delta)
+	{
+		var move = new Vector3(
+			(IsHeld(Key.D) || IsHeld(Key.Right) ? 1 : 0) - (IsHeld(Key.A) || IsHeld(Key.Left) ? 1 : 0),
+			0,
+			(IsHeld(Key.S) || IsHeld(Key.Down) ? 1 : 0) - (IsHeld(Key.W) || IsHeld(Key.Up) ? 1 : 0));
+		if (move == Vector3.Zero)
+		{
+			return;
+		}
+
+		// Close in, the same key press should cover less ground, or the map bolts away from you.
+		float speed = KeyPanSpeed * Mathf.Max(_distance / MaxDistance, 0.35f);
+		_focus += move.Normalized() * speed * (float)delta;
+		ClampFocus();
+		UpdateCamera();
+	}
+
+	private static bool IsHeld(Key key) => Input.IsPhysicalKeyPressed(key);
+
 	/// <summary>Pan with a right/middle drag, zoom on the wheel. Left clicks are the page's,
 	/// for selecting provinces.</summary>
 	public void HandleInput(InputEvent @event)
@@ -111,9 +144,23 @@ public partial class CampaignMap3D : Node3D
 		}
 	}
 
+	/// <summary>Hands the current season to the terrain, which is where the map's response to it
+	/// lives. Called on every turn change, from behind the turn curtain.</summary>
+	public void SetSeason(Season season) => _terrainMaterial.SetShaderParameter("season", (float)(int)season);
+
+	/// <summary>World position of a map pixel, sitting on the terrain surface.</summary>
+	public Vector3 WorldAt(Vector2 mapPixel) => MapToWorld(mapPixel);
+
+	/// <summary>Puts a working site (quarry, pasture, lumber camp) on a province's ground.</summary>
+	public void AddSite(Vector2 seatPixel, MapDecoration.SiteKind kind, float weight) =>
+		_decoration.AddSite(seatPixel, kind, weight);
+
 	/// <summary>Terrain height in world units at a map pixel — where a marker or a future army
 	/// has to stand so it isn't buried in a hillside.</summary>
 	public float HeightAt(Vector2 mapPixel) => SampleHeight(MapToWorld(mapPixel));
+
+	/// <summary>The waterline in world units — anything below it is sea.</summary>
+	public float WaterLine => SeaLevel;
 
 	// --- world building ------------------------------------------------------------------
 
@@ -135,7 +182,12 @@ public partial class CampaignMap3D : Node3D
 			TonemapMode = Godot.Environment.ToneMapper.Filmic,
 			FogEnabled = true,
 			FogLightColor = new Color("9fb4c8"),
-			FogDensity = 0.0022f,
+			FogDensity = 0.0005f,
+			FogSkyAffect = 0.15f,
+			FogAerialPerspective = 0.25f,
+			SsaoEnabled = true,
+			SsaoRadius = 3.0f,
+			SsaoIntensity = 1.4f,
 		};
 		AddChild(new WorldEnvironment { Environment = environment });
 
@@ -146,6 +198,7 @@ public partial class CampaignMap3D : Node3D
 			LightColor = new Color("fff2d8"),
 			ShadowEnabled = true,
 			DirectionalShadowMaxDistance = 320.0f,
+			ShadowBlur = 1.4f,
 		};
 		light.RotationDegrees = new Vector3(-42, -38, 0);
 		AddChild(light);
@@ -158,8 +211,20 @@ public partial class CampaignMap3D : Node3D
 		_terrainMaterial.SetShaderParameter("albedo_map", GD.Load<Texture2D>(AlbedoPath));
 		_terrainMaterial.SetShaderParameter("id_map", ImageTexture.CreateFromImage(_idImage));
 		_terrainMaterial.SetShaderParameter("height_scale", HeightScale);
+		_terrainMaterial.SetShaderParameter("sea_level_normalized", SeaFloorByte / 255.0f);
+		_terrainMaterial.SetShaderParameter("map_size_x", MapWidth);
 		_terrainMaterial.SetShaderParameter("world_texel",
 			new Vector2(MapWidth / _heightImage.GetWidth(), MapDepth / _heightImage.GetHeight()));
+
+		// CC0 ground textures (assets/terrain/LICENSE.txt), tiled far tighter than the map so the
+		// surface has grain of its own instead of reading as painted clay.
+		foreach (string surface in new[] { "grass", "rock", "snow", "sand" })
+		{
+			_terrainMaterial.SetShaderParameter($"{surface}_texture",
+				GD.Load<Texture2D>($"{TerrainTextureDirectory}/{surface}-diffuse.jpg"));
+			_terrainMaterial.SetShaderParameter($"{surface}_normal",
+				GD.Load<Texture2D>($"{TerrainTextureDirectory}/{surface}-normal.jpg"));
+		}
 
 		// One vertex per 4 height pixels: finer than that and the mesh resolves noise the
 		// heightmap doesn't actually carry.
@@ -183,19 +248,9 @@ public partial class CampaignMap3D : Node3D
 
 	private void BuildWater()
 	{
-		var material = new StandardMaterial3D
-		{
-			AlbedoColor = new Color("14304f"),
-			Metallic = 0.35f,
-			Roughness = 0.09f,
-		};
-		AddChild(new MeshInstance3D
-		{
-			// Wider than the land so the sea runs past the coast to the horizon.
-			Mesh = new PlaneMesh { Size = new Vector2(MapWidth * 3.5f, MapDepth * 3.5f), Material = material },
-			Position = new Vector3(0, SeaLevel, 0),
-			CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
-		});
+		var water = new MapWater();
+		AddChild(water);
+		water.Build(_heightImage, new Vector2(MapWidth, MapDepth), HeightScale, SeaLevel);
 	}
 
 	// --- camera ---------------------------------------------------------------------------

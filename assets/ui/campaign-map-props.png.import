@@ -1,0 +1,14 @@
+[remap]
+
+importer="image"
+type="Image"
+uid="uid://dbkw4dot1dy6j"
+path="res://.godot/imported/campaign-map-props.png-e2d982dc8c55d2c19cd41c6bdc23d209.image"
+
+[deps]
+
+source_file="res://assets/ui/campaign-map-props.png"
+dest_files=["res://.godot/imported/campaign-map-props.png-e2d982dc8c55d2c19cd41c6bdc23d209.image"]
+
+[params]
+
