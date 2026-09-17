@@ -233,6 +233,7 @@ public partial class CampaignMapPage : Control
 			{
 				CustomMinimumSize = new Vector2(44, 0),
 				SizeFlagsVertical = Control.SizeFlags.ExpandFill,
+				SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd, // against the panel's right edge
 				TooltipText = tip,
 			};
 			foreach (string state in new[] { "normal", "hover", "pressed", "focus" })
