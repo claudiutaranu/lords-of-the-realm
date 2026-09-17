@@ -216,15 +216,17 @@ public partial class CampaignMapPage : Control
 	{
 		var column = GetNode<VBoxContainer>("%MinimapButtons");
 
-		(NavRailIcon.Glyph Glyph, string Tip, Action Open)[] entries =
+		// Art where there is art, the drawn glyph where there is not yet: an icon file name here is
+		// all it takes to replace one.
+		(NavRailIcon.Glyph Glyph, string Art, string Tip, Action Open)[] entries =
 		{
-			(NavRailIcon.Glyph.Crown, "Court", () => ShowSection(NavRail.Section.Court)),
-			(NavRailIcon.Glyph.Book, "Chronicle", () => ShowSection(NavRail.Section.Chronicle)),
-			(NavRailIcon.Glyph.Helmet, "Military", () => ShowSection(NavRail.Section.Military)),
-			(NavRailIcon.Glyph.Gear, "Menu", () => gameMenu.Visible = !gameMenu.Visible),
+			(NavRailIcon.Glyph.Crown, null, "Court", () => ShowSection(NavRail.Section.Court)),
+			(NavRailIcon.Glyph.Book, "scroll", "Chronicle", () => ShowSection(NavRail.Section.Chronicle)),
+			(NavRailIcon.Glyph.Helmet, null, "Military", () => ShowSection(NavRail.Section.Military)),
+			(NavRailIcon.Glyph.Gear, null, "Menu", () => gameMenu.Visible = !gameMenu.Visible),
 		};
 
-		foreach ((NavRailIcon.Glyph glyph, string tip, Action open) in entries)
+		foreach ((NavRailIcon.Glyph glyph, string art, string tip, Action open) in entries)
 		{
 			// Square, touching, and sized so four of them stand exactly as tall as the 228 square
 			// map beside them.
@@ -243,7 +245,15 @@ public partial class CampaignMapPage : Control
 			button.Pressed += () => open();
 			column.AddChild(button);
 
-			var icon = new NavRailIcon { Kind = glyph, MouseFilter = Control.MouseFilterEnum.Ignore };
+			Control icon = art == null
+				? new NavRailIcon { Kind = glyph, MouseFilter = Control.MouseFilterEnum.Ignore }
+				: new TextureRect
+				{
+					Texture = GD.Load<Texture2D>($"res://assets/ui/icons/{art}.png"),
+					ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+					StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+					MouseFilter = Control.MouseFilterEnum.Ignore,
+				};
 			button.AddChild(icon);
 			// An even inset all round, so the glyph sits centred in the button with room to breathe.
 			icon.SetAnchorsPreset(Control.LayoutPreset.FullRect);
