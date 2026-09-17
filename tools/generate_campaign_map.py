@@ -17,11 +17,16 @@ same per-pixel province assignment produces two images:
 Also prints the adjacency between provinces (which ones actually touch), computed as a side
 effect of the same pixel scan.
 
-Everything written here belongs to one campaign and goes into that campaign's own folders:
-assets/campaigns/<CAMPAIGN>/ for the images, data/campaigns/<CAMPAIGN>/ for map-roads.json. Set
-CAMPAIGN below when generating a map for another one. PROVINCES here and the game's provinces.json
-in the same data folder describe the same provinces in the same order, and are kept in step by
-hand - there is no auto-sync between this script and what the game reads.
+To change the map, edit the campaign's data, not this file:
+
+  data/campaigns/<CAMPAIGN>/map.json       - canvas size, the island's outline, and the terrain,
+                                             island and forest knobs
+  data/campaigns/<CAMPAIGN>/provinces.json - each province's name, seat (x, y in map pixels),
+                                             region (north/south geography), owner and capital flag
+
+Then run this script and reopen the project so Godot re-imports. provinces.json is the same file
+the game reads, so there is no second copy to keep in step: move a seat here and it moves there.
+Output goes to assets/campaigns/<CAMPAIGN>/ (images) and data/campaigns/<CAMPAIGN>/ (roads).
 
 Run: pip install pillow numpy; python tools/generate_campaign_map.py
 
@@ -39,37 +44,68 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 
-W, H = 1536, 1024
 CAMPAIGN = "royal-crown"
 PROJECT_DIR = Path(__file__).resolve().parent.parent
 OUT_DIR = PROJECT_DIR / "assets" / "campaigns" / CAMPAIGN
 DATA_DIR = PROJECT_DIR / "data" / "campaigns" / CAMPAIGN
 
-# Simplified landmass silhouette traced from the original reference painted map (clockwise),
-# smoothed to a clean shape since this is now stylized graphics, not a photo trace.
-LANDMASS = [
-    (130, 20), (400, 15), (650, 10), (900, 15), (1100, 50), (1300, 40),
-    (1450, 100), (1520, 220), (1500, 380), (1520, 520), (1430, 660),
-    (1300, 780), (1100, 880), (900, 960), (750, 980), (600, 900),
-    (450, 820), (320, 700), (200, 600), (80, 480), (30, 350), (60, 200),
-]
+# The map's shape, its terrain knobs and its provinces are the campaign's data, not this script's:
+# edit data/campaigns/<CAMPAIGN>/map.json and provinces.json, re-run, and the images follow. The
+# game reads the same provinces.json, so a seat moved here is a seat moved there — no second copy to
+# keep in step.
+MAP = json.loads((DATA_DIR / "map.json").read_text())
+CAMPAIGN_DATA = json.loads((DATA_DIR / "provinces.json").read_text())
+
+
+def required(data, section, *keys):
+    """Reads a block of knobs, and says plainly what is missing instead of dying on a KeyError:
+    these files are meant to be edited by hand, so a typo has to name itself."""
+    if section not in data:
+        raise SystemExit(f"map.json is missing the \"{section}\" block — it is required.")
+
+    block = data[section]
+    missing = [key for key in keys if key not in block]
+    if missing:
+        raise SystemExit(f"map.json: \"{section}\" is missing {', '.join(missing)}.")
+
+    return block
+
+W, H = MAP["size"]
+LANDMASS = [tuple(point) for point in MAP["outline"]]
+
+TERRAIN = required(MAP, "terrain", "sea_floor_byte", "ridge_height", "ridge_detail",
+                   "inland_height", "north_lift", "seat_height", "noise_height")
+SEA_FLOOR_BYTE = TERRAIN["sea_floor_byte"]
+RIDGE_HEIGHT = TERRAIN["ridge_height"]
+RIDGE_DETAIL = TERRAIN["ridge_detail"]
+INLAND_HEIGHT = TERRAIN["inland_height"]
+NORTH_LIFT = TERRAIN["north_lift"]
+SEAT_HEIGHT = TERRAIN["seat_height"]
+NOISE_HEIGHT = TERRAIN["noise_height"]
+
+ISLANDS = required(MAP, "islands", "islet_height", "stack_height", "emergent_shape",
+                   "base_reach", "stack_count", "islets_per_province")
+ISLET_HEIGHT = ISLANDS["islet_height"]
+STACK_HEIGHT = ISLANDS["stack_height"]
+EMERGENT_SHAPE = ISLANDS["emergent_shape"]
+BASE_REACH = ISLANDS["base_reach"]
+STACK_COUNT = int(ISLANDS["stack_count"])
+# Offshore islands per province. 0 here and 0 stacks leaves a clean coastline.
+ISLETS_PER_PROVINCE = float(ISLANDS["islets_per_province"])
+
+FOREST = required(MAP, "forest", "southern_density", "northern_density", "treeline_strength")
+
+# Realms in the order the campaign lists them; that order is the owner code written into the ID
+# map's green channel (+1), which is how the terrain shader knows whose frontier it is drawing.
+REALM_ORDER = list(CAMPAIGN_DATA["realms"].keys())
 
 # name, x, y, region (0=southern lowlands, 1=northern highlands), is_capital, owner
-#
-# Region is geography and never changes: it decides climate, snow, and which side of the mountains a
-# province lies on. Owner is who holds it when the campaign opens, and that is meant to change: the
-# war starts with one seat each and everything else unclaimed.
-OWNER_ROYAL_CROWN, OWNER_NORTHERN_WATCH, OWNER_NEUTRAL = 0, 1, 2
-
 PROVINCES = [
-    ("Kingsreach",     365,  485, 0, True,  OWNER_ROYAL_CROWN),
-    ("Redmoor Hold",   295,  175, 0, False, OWNER_NEUTRAL),
-    ("Ashenvale",      565,  385, 0, False, OWNER_NEUTRAL),
-    ("Thornwatch",     625,  655, 0, False, OWNER_NEUTRAL),
-    ("Farrowmere",     900,  885, 0, False, OWNER_NEUTRAL),
-    ("Valmere",       1095,  105, 1, True,  OWNER_NORTHERN_WATCH),
-    ("Frostgate",     1260,  290, 1, False, OWNER_NEUTRAL),
-    ("Icemere Reach", 1200,  485, 1, False, OWNER_NEUTRAL),
+    (province["name"], province["x"], province["y"],
+     1 if province.get("region") == "north" else 0,
+     bool(province.get("capital", False)),
+     REALM_ORDER.index(province["realm"]))
+    for province in CAMPAIGN_DATA["provinces"]
 ]
 
 WATER_COLOR = np.array([18, 33, 54])
@@ -134,6 +170,7 @@ def smooth_noise(rng, cells, height=H, width=W):
 ISLET_HEIGHT = 30.0
 STACK_HEIGHT = 34.0
 EMERGENT_SHAPE = 0.35  # below this the disc is the island's underwater base, not land
+BASE_REACH = 3.2       # how far the submarine shelf spreads, in island radii
 
 
 def build_islets(rng, land):
@@ -144,7 +181,8 @@ def build_islets(rng, land):
     whatever shape the coastline generator produced instead of drifting inland when it changes."""
     owned, stacks = [], []
     for index, (_, seat_x, seat_y, _, _, _) in enumerate(PROVINCES):
-        wanted = 2 if index % 2 == 0 else 1
+        # A fractional setting alternates: 1.5 gives every other province the second islet.
+        wanted = int(ISLETS_PER_PROVINCE) + (1 if index % 2 == 0 and ISLETS_PER_PROVINCE % 1 else 0)
         for attempt in range(60):
             if wanted == 0:
                 break
@@ -167,7 +205,7 @@ def build_islets(rng, land):
                 wanted -= 1
 
     for _ in range(300):
-        if len(stacks) >= 26:
+        if len(stacks) >= STACK_COUNT:
             break
         point = np.array([rng.uniform(0, W), rng.uniform(0, H)])
         radius = rng.uniform(12, 22)
@@ -177,11 +215,14 @@ def build_islets(rng, land):
     return owned, stacks
 
 
-def seabed_base(shape):
-    """The underwater cone an islet stands on: seabed out at the disc's rim, rising to just under
-    the waterline where the island itself starts. Clamping a height field instead left a flat mesa
-    a hand's breadth under the surface — the grey slab that showed through the water."""
-    return np.clip(shape / EMERGENT_SHAPE, 0, 1) ** 1.3 * (SEA_FLOOR_BYTE - 1.0)
+def seabed_base(distance, radius):
+    """The submarine platform an island stands on, spread over several times the island's own width.
+
+    Islands do not rise from the seabed as pillars: they sit on a shelf that shoals for a long way
+    out. Keeping the base inside the island's own radius made a four-unit wall barely a unit wide —
+    a grey slab visible straight through the shallow water."""
+    reach = radius * BASE_REACH
+    return np.clip(1.0 - distance / reach, 0, 1) ** 0.85 * (SEA_FLOOR_BYTE - 1.0)
 
 
 def _inside(point):
@@ -325,13 +366,15 @@ def build_props(rng, land, height, slope, north_field, inland, province_id, isle
     # Woods in stands with open ground between them, not a blanket: fields and roads need somewhere
     # to be, and a solid canopy hides the terrain the player is reading.
     southern_woods = np.clip((noise - 0.05) * 1.5, 0, 1) * warm * np.clip(1.0 - (altitude - 0.28) * 3.2, 0, 1)
+    southern_woods *= FOREST["southern_density"]
     # The north is not bare rock: it is taiga. Sparser than the southern woods and stopping at the
     # snow line, but the Northern Watch has forests of its own.
     northern_woods = np.clip((noise - 0.2) * 1.7, 0, 1) * (1.0 - warm) * np.clip(1.0 - (altitude - 0.46) * 3.0, 0, 1)
+    northern_woods *= FOREST["northern_density"]
     treeline = border_band / max(border_band.max(), 1e-6)
-    forest = np.clip(southern_woods * 0.72 + northern_woods, 0, 1)
+    forest = np.clip(southern_woods + northern_woods, 0, 1)
     # Trees mark borders in both realms, but nothing grows on the snowy crest itself.
-    forest = np.clip(forest + treeline * 0.8 * np.clip(1.0 - (altitude - 0.5) * 3.0, 0, 1), 0, 1)
+    forest = np.clip(forest + treeline * FOREST["treeline_strength"] * np.clip(1.0 - (altitude - 0.5) * 3.0, 0, 1), 0, 1)
     forest *= (1.0 - np.clip(slope * 1.2, 0, 1))
     # Islets are too small for the inland field to register, so they would come out bare rock:
     # give them their own stand of trees, thinner than the mainland's.
@@ -404,7 +447,48 @@ def build_roads(height, land, province_id, adjacency):
         roads.append({"from": PROVINCES[i][0], "to": PROVINCES[j][0],
                       "points": [[round(x, 1), round(y, 1)] for x, y in points[::2]]})
 
+    # The trunk road: the chain of routes that actually joins the two capitals. It gets paved in
+    # the game, the rest stay dirt tracks, so the map shows at a glance how an army would march
+    # from one realm's seat to the other.
+    trunk = capital_route(adjacency)
+    for road in roads:
+        pair = tuple(sorted((road["from"], road["to"])))
+        road["kind"] = "paved" if pair in trunk else "dirt"
+
     return roads
+
+
+def capital_route(adjacency):
+    """Province-to-province hops along the shortest chain between the two capitals, as name pairs."""
+    capitals = [index for index, province in enumerate(PROVINCES) if province[4]]
+    if len(capitals) < 2:
+        return set()
+
+    neighbours = {index: set() for index in range(len(PROVINCES))}
+    for i, j in adjacency:
+        neighbours[i].add(j)
+        neighbours[j].add(i)
+
+    start, goal = capitals[0], capitals[1]
+    came, queue = {start: None}, [start]
+    while queue:
+        current = queue.pop(0)
+        if current == goal:
+            break
+        for neighbour in sorted(neighbours[current]):
+            if neighbour not in came:
+                came[neighbour] = current
+                queue.append(neighbour)
+
+    if goal not in came:
+        return set()
+
+    hops, node = set(), goal
+    while came[node] is not None:
+        hops.add(tuple(sorted((PROVINCES[node][0], PROVINCES[came[node]][0]))))
+        node = came[node]
+
+    return hops
 
 
 def shifted(arr, dx, dy):
@@ -437,14 +521,14 @@ def main():
         shape = np.clip(1.0 - distance / radius, 0, 1)
         land |= shape > EMERGENT_SHAPE
         islet_field = np.maximum(islet_field, shape ** 1.5 * (ISLET_HEIGHT / 255.0))
-        islet_base = np.maximum(islet_base, seabed_base(shape))
+        islet_base = np.maximum(islet_base, seabed_base(distance, radius))
         islet_owner = np.where(shape > EMERGENT_SHAPE, owner, islet_owner)
     for x, y, radius in stacks:
         distance = np.sqrt((xs - x) ** 2 + (ys - y) ** 2)
         shape = np.clip(1.0 - distance / radius, 0, 1)
         land |= shape > EMERGENT_SHAPE
         islet_field = np.maximum(islet_field, shape ** 1.3 * (STACK_HEIGHT / 255.0))
-        islet_base = np.maximum(islet_base, seabed_base(shape))
+        islet_base = np.maximum(islet_base, seabed_base(distance, radius))
 
     print(f"Islets: {len(islets)} owned, {len(stacks)} bare stacks")
 
@@ -525,6 +609,10 @@ def main():
     # No borders baked into the terrain colour: the shader draws them from the ID map, which keeps
     # them a clean line however close the camera gets (seams stay in the flat drawn map, which the
     # sidebar minimap still uses).
+
+    print(f"Map: {W}x{H}, {len(LANDMASS)} outline points, {len(PROVINCES)} provinces")
+    print(f"Terrain: ridge {TERRAIN['ridge_height']:.0f} (+{TERRAIN['ridge_detail']:.0f} detail), "
+          f"inland {TERRAIN['inland_height']:.0f}, sea level byte {SEA_FLOOR_BYTE:.0f}")
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     Image.fromarray(drawn, "RGB").save(OUT_DIR / "map-drawn.png")

@@ -1,18 +1,82 @@
 {
-	"player": "royal-crown",
-	"realms": {
-		"royal-crown": { "name": "The Royal Crown", "accent": "b23a3a" },
-		"northern-watch": { "name": "The Northern Watch", "accent": "5f8fc9" },
-		"neutral": { "name": "Unclaimed", "accent": "8a8274" }
-	},
-	"provinces": [
-		{ "name": "Kingsreach", "x": 365, "y": 485, "realm": "royal-crown", "capital": true, "economy": "kingsreach" },
-		{ "name": "Redmoor Hold", "x": 295, "y": 175, "realm": "neutral", "economy": "redmoor-hold" },
-		{ "name": "Ashenvale", "x": 565, "y": 385, "realm": "neutral", "economy": "ashenvale" },
-		{ "name": "Thornwatch", "x": 625, "y": 655, "realm": "neutral", "economy": "thornwatch" },
-		{ "name": "Farrowmere", "x": 900, "y": 885, "realm": "neutral", "economy": "farrowmere" },
-		{ "name": "Valmere", "x": 1095, "y": 105, "realm": "northern-watch", "capital": true },
-		{ "name": "Frostgate", "x": 1260, "y": 290, "realm": "neutral" },
-		{ "name": "Icemere Reach", "x": 1200, "y": 485, "realm": "neutral" }
-	]
+ "player": "royal-crown",
+ "realms": {
+  "royal-crown": {
+   "name": "The Royal Crown",
+   "accent": "b23a3a"
+  },
+  "northern-watch": {
+   "name": "The Northern Watch",
+   "accent": "5f8fc9"
+  },
+  "neutral": {
+   "name": "Unclaimed",
+   "accent": "8b8b86"
+  }
+ },
+ "provinces": [
+  {
+   "name": "Kingsreach",
+   "x": 365,
+   "y": 485,
+   "realm": "royal-crown",
+   "capital": true,
+   "economy": "kingsreach",
+   "region": "south"
+  },
+  {
+   "name": "Redmoor Hold",
+   "x": 295,
+   "y": 175,
+   "realm": "neutral",
+   "economy": "redmoor-hold",
+   "region": "south"
+  },
+  {
+   "name": "Ashenvale",
+   "x": 565,
+   "y": 385,
+   "realm": "neutral",
+   "economy": "ashenvale",
+   "region": "south"
+  },
+  {
+   "name": "Thornwatch",
+   "x": 625,
+   "y": 655,
+   "realm": "neutral",
+   "economy": "thornwatch",
+   "region": "south"
+  },
+  {
+   "name": "Farrowmere",
+   "x": 900,
+   "y": 885,
+   "realm": "neutral",
+   "economy": "farrowmere",
+   "region": "south"
+  },
+  {
+   "name": "Valmere",
+   "x": 1095,
+   "y": 105,
+   "realm": "northern-watch",
+   "capital": true,
+   "region": "north"
+  },
+  {
+   "name": "Frostgate",
+   "x": 1260,
+   "y": 290,
+   "realm": "neutral",
+   "region": "north"
+  },
+  {
+   "name": "Icemere Reach",
+   "x": 1200,
+   "y": 485,
+   "realm": "neutral",
+   "region": "north"
+  }
+ ]
 }

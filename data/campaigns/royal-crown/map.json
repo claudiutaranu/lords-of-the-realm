@@ -1,0 +1,118 @@
+{
+ "_comment": "The campaign map's shape and terrain, read by tools/generate_campaign_map.py. Edit, re-run the tool, reopen Godot.",
+ "size": [
+  1536,
+  1024
+ ],
+ "outline": [
+  [
+   130,
+   20
+  ],
+  [
+   400,
+   15
+  ],
+  [
+   650,
+   10
+  ],
+  [
+   900,
+   15
+  ],
+  [
+   1100,
+   50
+  ],
+  [
+   1300,
+   40
+  ],
+  [
+   1450,
+   100
+  ],
+  [
+   1520,
+   220
+  ],
+  [
+   1500,
+   380
+  ],
+  [
+   1520,
+   520
+  ],
+  [
+   1430,
+   660
+  ],
+  [
+   1300,
+   780
+  ],
+  [
+   1100,
+   880
+  ],
+  [
+   900,
+   960
+  ],
+  [
+   750,
+   980
+  ],
+  [
+   600,
+   900
+  ],
+  [
+   450,
+   820
+  ],
+  [
+   320,
+   700
+  ],
+  [
+   200,
+   600
+  ],
+  [
+   80,
+   480
+  ],
+  [
+   30,
+   350
+  ],
+  [
+   60,
+   200
+  ]
+ ],
+ "terrain": {
+  "sea_floor_byte": 46.0,
+  "ridge_height": 100.0,
+  "ridge_detail": 67.0,
+  "inland_height": 44.0,
+  "north_lift": 26.0,
+  "seat_height": 16.0,
+  "noise_height": 26.0
+ },
+ "islands": {
+  "islet_height": 14.0,
+  "stack_height": 12.0,
+  "emergent_shape": 0.55,
+  "base_reach": 6,
+  "stack_count": 115
+ },
+ "forest": {
+  "southern_density": 0.72,
+  "northern_density": 1.0,
+  "treeline_strength": 0.7
+ }
+}

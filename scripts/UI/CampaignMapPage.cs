@@ -70,12 +70,7 @@ public partial class CampaignMapPage : Control
 	private Label _stoneLabel;
 	private Label _ironLabel;
 	private Label _populationLabel;
-	private ColorRect _sidebarBanner;
-	private Label _sidebarName;
-	private Label _sidebarPopulation;
-	private Label _sidebarLoyalty;
-	private Label _sidebarTax;
-	private Label _sidebarRation;
+	private ProvinceSidebar _sidebar;
 	private Control _leaveConfirm;
 	private AudioStreamPlayer _leaveFarewell;
 	private string _leaveTarget;
@@ -95,12 +90,7 @@ public partial class CampaignMapPage : Control
 		_stoneLabel = GetNode<Label>("%StoneValue");
 		_ironLabel = GetNode<Label>("%IronValue");
 		_populationLabel = GetNode<Label>("%PopulationValue");
-		_sidebarBanner = GetNode<ColorRect>("%SidebarBanner");
-		_sidebarName = GetNode<Label>("%SidebarProvinceName");
-		_sidebarPopulation = GetNode<Label>("%SidebarPopulationValue");
-		_sidebarLoyalty = GetNode<Label>("%SidebarLoyaltyValue");
-		_sidebarTax = GetNode<Label>("%SidebarTaxValue");
-		_sidebarRation = GetNode<Label>("%SidebarRationValue");
+		_sidebar = GetNode<ProvinceSidebar>("%ProvinceSidebar");
 		GoldTitle.Apply(_infoName);
 		// Only the date reads gilded; the stockpile numbers stay cream so they carry at a glance
 		// against the dark bar.
@@ -145,6 +135,7 @@ public partial class CampaignMapPage : Control
 		var infoPanel = GetNode<Control>("InfoPanel");
 		infoPanel.OffsetTop = -320f;
 		_economyPanel = new ProvinceEconomyPanel { Visible = false };
+		_economyPanel.WorkersMoved += _sidebar.Refresh;
 		GetNode<VBoxContainer>("InfoPanel/InfoContent").AddChild(_economyPanel);
 
 		_map.GuiInput += OnMapGuiInput;
@@ -430,12 +421,11 @@ public partial class CampaignMapPage : Control
 			UpdateResourceBar(economy);
 		}
 
-		_sidebarBanner.Color = _realms[province.Realm].Accent;
-		_sidebarName.Text = province.Name;
-		_sidebarPopulation.Text = economy != null ? economy.Population.ToString("N0") : "-";
-		_sidebarLoyalty.Text = economy != null ? Mathf.RoundToInt(economy.Loyalty).ToString() : "-";
-		_sidebarTax.Text = economy != null ? $"Tax {economy.Tax}" : "Tax -";
-		_sidebarRation.Text = economy != null ? $"Ration {economy.Ration}" : "Ration -";
+		// The sidebar takes the province whether or not anyone runs it: an unclaimed one still has a
+		// name, a crest and the land under it, it just has no numbers of its own to show.
+		_sidebar.ShowHeader(province.Name, realmName, province.Realm, _realms[province.Realm].Accent);
+		_sidebar.ShowEconomy(economy, _definitionsByName.GetValueOrDefault(province.Name),
+			_balance, _turnManager.CurrentSeason);
 	}
 
 	// Markers are 2D art pinned to 3D ground, so every frame the camera moves they have to be

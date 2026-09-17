@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Godot;
 
@@ -14,6 +15,10 @@ public partial class ProvinceEconomyPanel : VBoxContainer
 		("Stone", ResourceType.Stone),
 		("Iron", ResourceType.Iron),
 	};
+
+	/// <summary>Raised when a worker is moved, so anything else showing the same projection — the
+	/// sidebar's yields — follows the change instead of going stale until the next turn.</summary>
+	public event Action WorkersMoved;
 
 	private ProvinceEconomy _economy;
 	private ProvinceDefinition _definition;
@@ -102,6 +107,7 @@ public partial class ProvinceEconomyPanel : VBoxContainer
 
 		SetWorkers(type, next);
 		Refresh();
+		WorkersMoved?.Invoke();
 	}
 
 	private int GetWorkers(ResourceType type) => type switch
