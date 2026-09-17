@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Godot;
 
 /// <summary>Runtime economic state for one province — everything that changes turn to
@@ -18,6 +19,20 @@ public class ProvinceEconomy
 	public int Wood;
 	public int Stone;
 	public int Iron;
+
+	/// <summary>What the smithy is forging, by weapon key, and how many turns are left on it. Empty
+	/// when the forge is cold. The order is paid for when it is placed, so a save carries only what
+	/// is still owed.</summary>
+	public string Forging = "";
+	public int ForgeTurnsLeft;
+
+	/// <summary>How many the order delivers when it finishes — carried with the order rather than
+	/// looked up later, so retuning weapons.json never changes what is already on the anvil.</summary>
+	public int ForgeBatch;
+
+	/// <summary>Finished weapons the province holds, by the same key. What an army is armed from,
+	/// once there are armies.</summary>
+	public Dictionary<string, int> Armoury = new();
 
 	public int GrainWorkers;
 	public int CattleWorkers;

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Godot;
 
 /// <summary>Pure per-province turn math: production, food, cattle, tax, growth. Takes
@@ -21,6 +22,7 @@ public static class EconomySimulation
 		int ironBefore = province.Iron;
 
 		ProduceResources(province, definition, balance, season);
+		ForgeWeapons(province);
 		ConsumeFood(province, balance);
 		GrowCattle(province, definition, balance);
 		CollectTaxes(province, balance);
@@ -46,6 +48,27 @@ public static class EconomySimulation
 			IronBefore = ironBefore,
 			IronAfter = province.Iron,
 		};
+	}
+
+	/// <summary>The smithy works off the order the player placed, which was paid for when it was
+	/// placed; a turn here is one turn of work, and the batch lands in the armoury when the last one
+	/// is done. Nothing to do when the forge is cold.</summary>
+	private static void ForgeWeapons(ProvinceEconomy p)
+	{
+		if (p.Forging.Length == 0)
+		{
+			return;
+		}
+
+		p.ForgeTurnsLeft--;
+		if (p.ForgeTurnsLeft > 0)
+		{
+			return;
+		}
+
+		p.Armoury[p.Forging] = p.Armoury.GetValueOrDefault(p.Forging) + p.ForgeBatch;
+		p.Forging = "";
+		p.ForgeBatch = 0;
 	}
 
 	private static void ProduceResources(ProvinceEconomy p, ProvinceDefinition def, GameBalance b, Season season)

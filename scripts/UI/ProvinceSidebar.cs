@@ -15,8 +15,6 @@ using Godot;
 public partial class ProvinceSidebar : VBoxContainer
 {
 	private const string IconDirectory = "res://assets/ui/icons";
-	// Soldiers belong to the engine, not to a campaign: every realm musters the same six.
-	private const string UnitDirectory = "res://assets/units";
 	// The crest art carries wide empty margins, and this is the crop the top bar's shield uses too.
 	// A realm whose shield is drawn to different margins needs its own crop, not this one.
 	private static readonly Rect2 CrestRegion = new(174, 94, 908, 1070);
@@ -68,6 +66,11 @@ public partial class ProvinceSidebar : VBoxContainer
 	private Label _ration;
 	private readonly Dictionary<ResourceType, Label> _stock = new();
 	private readonly Dictionary<ResourceType, Label> _yield = new();
+	private readonly Dictionary<string, Label> _muster = new();
+
+	/// <summary>Raised with a building's name when its tile is pressed. The page knows which of them
+	/// opens onto something.</summary>
+	public event System.Action<string> BuildingChosen;
 
 	private ProvinceEconomy _economy;
 	private ProvinceDefinition _definition;
@@ -135,6 +138,14 @@ public partial class ProvinceSidebar : VBoxContainer
 				_definition, _balance, _season);
 			// Nothing at all rather than a dash: a column of dashes is noise under the numbers.
 			_yield[type].Text = projected > 0 ? $"+{projected}" : "";
+		}
+
+		// What the smithy has finished. A dash until it has finished anything.
+		foreach ((string unit, Label count) in _muster)
+		{
+			int held_weapons = held ? _economy.Armoury.GetValueOrDefault(unit) : 0;
+			count.Text = held_weapons > 0 ? held_weapons.ToString("N0") : "—";
+			count.AddThemeColorOverride("font_color", held_weapons > 0 ? Cream : Waiting);
 		}
 	}
 
@@ -258,15 +269,25 @@ public partial class ProvinceSidebar : VBoxContainer
 
 		foreach ((string building, string art) in Buildings)
 		{
-			var tile = new PanelContainer
+			// A button, not a panel: a building is somewhere you go. The page decides which of them
+			// has a screen behind it yet.
+			var tile = new Button
 			{
 				CustomMinimumSize = new Vector2(0, 52),
 				SizeFlagsHorizontal = SizeFlags.ExpandFill,
+				TooltipText = building,
 			};
-			tile.AddThemeStyleboxOverride("panel", TileStyle());
+			tile.AddThemeStyleboxOverride("normal", TileStyle());
+			tile.AddThemeStyleboxOverride("hover", HoverTileStyle());
+			tile.AddThemeStyleboxOverride("pressed", HoverTileStyle());
+			tile.AddThemeStyleboxOverride("focus", HoverTileStyle());
 
-			var stack = new VBoxContainer { SizeFlagsVertical = SizeFlags.ShrinkCenter };
+			string chosen = building;
+			tile.Pressed += () => BuildingChosen?.Invoke(chosen);
+
+			var stack = new VBoxContainer { SizeFlagsVertical = SizeFlags.ShrinkCenter, MouseFilter = MouseFilterEnum.Ignore };
 			stack.AddThemeConstantOverride("separation", 1);
+			stack.SetAnchorsPreset(LayoutPreset.FullRect);
 			tile.AddChild(stack);
 
 			if (art != null)
@@ -311,6 +332,16 @@ public partial class ProvinceSidebar : VBoxContainer
 			};
 			tile.AddThemeStyleboxOverride("panel", TileStyle());
 
+			// The ground he stands on, behind him. A PanelContainer lays every child over the same
+			// rect, so this is simply the first one in.
+			tile.AddChild(new TextureRect
+			{
+				Texture = GD.Load<Texture2D>(UnitArt.Backdrop(unit)),
+				ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+				StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered,
+				Modulate = new Color(1, 1, 1, 0.55f), // held back, so the man reads in front of it
+			});
+
 			var stack = new VBoxContainer();
 			stack.AddThemeConstantOverride("separation", 0);
 			tile.AddChild(stack);
@@ -319,7 +350,7 @@ public partial class ProvinceSidebar : VBoxContainer
 			// of sitting small in the middle of it.
 			var portrait = new TextureRect
 			{
-				Texture = GD.Load<Texture2D>($"{UnitDirectory}/{unit}.png"),
+				Texture = GD.Load<Texture2D>(UnitArt.Portrait(unit)),
 				ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
 				StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered,
 				SizeFlagsVertical = SizeFlags.ExpandFill,
@@ -331,6 +362,7 @@ public partial class ProvinceSidebar : VBoxContainer
 			count.AddThemeFontSizeOverride("font_size", 14);
 			count.HorizontalAlignment = HorizontalAlignment.Center;
 			stack.AddChild(count);
+			_muster[unit] = count;
 
 			row.AddChild(tile);
 		}
@@ -361,6 +393,14 @@ public partial class ProvinceSidebar : VBoxContainer
 	{
 		StyleBoxFlat style = TileStyle();
 		style.BgColor = new Color(0.098f, 0.094f, 0.090f, 0.94f);
+		return style;
+	}
+
+	private static StyleBoxFlat HoverTileStyle()
+	{
+		StyleBoxFlat style = TileStyle();
+		style.BgColor = new Color(0.16f, 0.13f, 0.08f, 0.95f);
+		style.BorderColor = new Color(0.8f, 0.651f, 0.376f, 1f);
 		return style;
 	}
 

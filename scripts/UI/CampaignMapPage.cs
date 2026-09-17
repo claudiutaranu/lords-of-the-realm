@@ -27,6 +27,7 @@ public partial class CampaignMapPage : Control
 	private const string LeaveFarewellPath = "res://assets/audio/quit-farewell.mp3";
 	private const string SquareButtonPath = "res://assets/ui/button-square.png";
 	private const string ProvincesDataFile = "provinces.json";
+	private const string BlacksmithScenePath = "res://scene/campaign-map/blacksmith.tscn";
 	private const float TurnFadeInSeconds = 0.4f;
 	private const float TurnHoldSeconds = 1.1f;
 	private const float TurnFadeOutSeconds = 0.5f;
@@ -73,6 +74,7 @@ public partial class CampaignMapPage : Control
 	private Label _ironLabel;
 	private Label _populationLabel;
 	private ProvinceSidebar _sidebar;
+	private BlacksmithPage _blacksmith;
 	private Control _leaveConfirm;
 	private AudioStreamPlayer _leaveFarewell;
 	private string _leaveTarget;
@@ -138,6 +140,7 @@ public partial class CampaignMapPage : Control
 		infoPanel.OffsetTop = -320f;
 		_economyPanel = new ProvinceEconomyPanel { Visible = false };
 		_economyPanel.WorkersMoved += _sidebar.Refresh;
+		_sidebar.BuildingChosen += OpenBuilding;
 		GetNode<VBoxContainer>("InfoPanel/InfoContent").AddChild(_economyPanel);
 
 		_map.GuiInput += OnMapGuiInput;
@@ -208,6 +211,35 @@ public partial class CampaignMapPage : Control
 		_world.SetSeason(_turnManager.CurrentSeason);
 
 		SelectProvince(0); // Kingsreach, the capital — shows something real before any click.
+	}
+
+	/// <summary>Opens the screen behind a building tile, for the province currently selected. Only the
+	/// smithy has one so far; the rest are named but empty, and pressing them does nothing on purpose
+	/// rather than opening a room with nothing in it.
+	///
+	/// It opens over this page instead of replacing it, so the turn, the camera and the selection are
+	/// all exactly where they were when it closes.</summary>
+	private void OpenBuilding(string building)
+	{
+		ProvinceEconomy economy = _selected != null
+			? _turnManager.GetProvince(_provinces[_markers.IndexOf(_selected)].Name)
+			: null;
+		if (building != "Blacksmith" || economy == null || _blacksmith != null)
+		{
+			return;
+		}
+
+		_blacksmith = GD.Load<PackedScene>(BlacksmithScenePath).Instantiate<BlacksmithPage>();
+		AddChild(_blacksmith);
+		_blacksmith.Open(economy);
+		_blacksmith.Closed += () =>
+		{
+			_blacksmith.QueueFree();
+			_blacksmith = null;
+			// An order spends the province's stores, so the sidebar's numbers are stale by now.
+			_sidebar.Refresh();
+			UpdateResourceBar(economy);
+		};
 	}
 
 	/// <summary>The column of buttons beside the minimap: the places a lord returns to most, and the
