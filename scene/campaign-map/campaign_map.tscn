@@ -333,7 +333,7 @@ anchors_preset = -1
 anchor_left = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -340.0
+offset_left = -360.0
 grow_horizontal = 0
 grow_vertical = 2
 
@@ -364,7 +364,7 @@ theme_override_constants/separation = 7
 
 [node name="MinimapTexture" type="TextureRect" parent="Sidebar/SidebarMargin/SidebarContent/MinimapPanel/MinimapMargin/MinimapRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(228, 228)
+custom_minimum_size = Vector2(244, 244)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4

@@ -46,7 +46,7 @@ alignment = 1
 
 [node name="BuildingsButton" type="Button" parent="Margin/Buttons"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(57, 57)
+custom_minimum_size = Vector2(61, 61)
 layout_mode = 2
 tooltip_text = "Buildings"
 
@@ -58,10 +58,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -16.0
-offset_top = -16.0
-offset_right = 16.0
-offset_bottom = 16.0
+offset_left = -17.0
+offset_top = -17.0
+offset_right = 17.0
+offset_bottom = 17.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
@@ -71,7 +71,7 @@ stretch_mode = 5
 
 [node name="ChronicleButton" type="Button" parent="Margin/Buttons"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(57, 57)
+custom_minimum_size = Vector2(61, 61)
 layout_mode = 2
 tooltip_text = "Chronicle"
 
@@ -83,10 +83,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -16.0
-offset_top = -16.0
-offset_right = 16.0
-offset_bottom = 16.0
+offset_left = -17.0
+offset_top = -17.0
+offset_right = 17.0
+offset_bottom = 17.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
@@ -96,7 +96,7 @@ stretch_mode = 5
 
 [node name="TradeButton" type="Button" parent="Margin/Buttons"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(57, 57)
+custom_minimum_size = Vector2(61, 61)
 layout_mode = 2
 tooltip_text = "Trade"
 
@@ -108,10 +108,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -16.0
-offset_top = -16.0
-offset_right = 16.0
-offset_bottom = 16.0
+offset_left = -17.0
+offset_top = -17.0
+offset_right = 17.0
+offset_bottom = 17.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
@@ -120,7 +120,7 @@ expand_mode = 1
 stretch_mode = 5
 [node name="MilitaryButton" type="Button" parent="Margin/Buttons"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(57, 57)
+custom_minimum_size = Vector2(61, 61)
 layout_mode = 2
 tooltip_text = "Military"
 
@@ -132,10 +132,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -16.0
-offset_top = -16.0
-offset_right = 16.0
-offset_bottom = 16.0
+offset_left = -17.0
+offset_top = -17.0
+offset_right = 17.0
+offset_bottom = 17.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
@@ -145,7 +145,7 @@ stretch_mode = 5
 
 [node name="CourtButton" type="Button" parent="Margin/Buttons"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(57, 57)
+custom_minimum_size = Vector2(61, 61)
 layout_mode = 2
 tooltip_text = "Court"
 
@@ -157,10 +157,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -16.0
-offset_top = -16.0
-offset_right = 16.0
-offset_bottom = 16.0
+offset_left = -17.0
+offset_top = -17.0
+offset_right = 17.0
+offset_bottom = 17.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
