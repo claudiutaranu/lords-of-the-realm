@@ -30,9 +30,19 @@ public class ProvinceEconomy
 	/// looked up later, so retuning weapons.json never changes what is already on the anvil.</summary>
 	public int ForgeBatch;
 
-	/// <summary>Finished weapons the province holds, by the same key. What an army is armed from,
-	/// once there are armies.</summary>
+	/// <summary>Finished weapons the province holds, by the same key — what the yard arms its
+	/// recruits out of.</summary>
 	public Dictionary<string, int> Armoury = new();
+
+	/// <summary>What the training yard is raising, and how many turns are left on the intake. Paid
+	/// for when it is ordered, in people and in arms out of the armoury.</summary>
+	public string Training = "";
+	public int TrainTurnsLeft;
+	public int TrainBatch;
+
+	/// <summary>The men standing in the province, by unit key. What an army is drawn from, once
+	/// there are armies.</summary>
+	public Dictionary<string, int> Garrison = new();
 
 	public int GrainWorkers;
 	public int CattleWorkers;

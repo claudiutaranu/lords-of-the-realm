@@ -1,0 +1,27 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/UI/RecruitsPage.cs" id="1_script"]
+[ext_resource type="Theme" path="res://theme/main-menu.tres" id="2_theme"]
+[ext_resource type="VideoStream" path="res://assets/video/barracks-background.ogv" id="3_yard"]
+
+[node name="RecruitsPage" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_theme")
+script = ExtResource("1_script")
+
+[node name="Background" type="VideoStreamPlayer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+expand = true
+autoplay = true
+stream = ExtResource("3_yard")

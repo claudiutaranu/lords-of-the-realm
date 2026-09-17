@@ -126,12 +126,13 @@ public partial class ProvinceSidebar : VBoxContainer
 			_yield[type].Text = projected > 0 ? $"+{projected}" : "";
 		}
 
-		// What the smithy has finished. A dash until it has finished anything.
+		// Men standing in the province, not the weapons waiting for them: the yard's count, not
+		// the smithy's. A dash until it has mustered any.
 		foreach ((string unit, Label count) in _muster)
 		{
-			int held_weapons = held ? _economy.Armoury.GetValueOrDefault(unit) : 0;
-			count.Text = held_weapons > 0 ? held_weapons.ToString("N0") : "—";
-			count.AddThemeColorOverride("font_color", held_weapons > 0 ? Cream : Waiting);
+			int mustered = held ? _economy.Garrison.GetValueOrDefault(unit) : 0;
+			count.Text = mustered > 0 ? mustered.ToString("N0") : "—";
+			count.AddThemeColorOverride("font_color", mustered > 0 ? Cream : Waiting);
 		}
 	}
 
