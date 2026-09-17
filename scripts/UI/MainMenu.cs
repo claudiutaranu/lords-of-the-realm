@@ -7,6 +7,7 @@ public partial class MainMenu : Control
 	private const string AboutScenePath = "res://scene/about/about.tscn";
 	private const string CampaignScenePath = "res://scene/campaign/campaign.tscn";
 	private const string LoadGameScenePath = "res://scene/load-game/load_game.tscn";
+	private const string QuitFarewellPath = "res://assets/audio/quit-farewell.mp3";
 	private const float SceneFadeOutSeconds = 0.4f;
 
 	// Survives scene reloads (static field), reset only when the game restarts.
@@ -49,7 +50,31 @@ public partial class MainMenu : Control
 		GetNode<Button>("%LoadGameButton").Pressed += () => SceneRouter.GoTo(this, LoadGameScenePath);
 		GetNode<Button>("%OptionsButton").Pressed += () => SceneRouter.GoTo(this, OptionsScenePath);
 		GetNode<Button>("%AboutButton").Pressed += () => SceneRouter.GoTo(this, AboutScenePath);
-		GetNode<Button>("%QuitButton").Pressed += () => GetTree().Quit();
+		// Quitting on the click itself cuts the old man's farewell off after a syllable, so the
+		// window goes when he has finished speaking, not before. The menu locks while he does:
+		// nothing else can be pressed, and a second Quit can't restart the line.
+		var farewell = new AudioStreamPlayer
+		{
+			Stream = GD.Load<AudioStreamMP3>(QuitFarewellPath),
+			Bus = Settings.SfxBus,
+		};
+		AddChild(farewell);
+		farewell.Finished += () => GetTree().Quit();
+		GetNode<Button>("%QuitButton").Pressed += () =>
+		{
+			if (farewell.Stream == null)
+			{
+				GetTree().Quit(); // clip missing or not yet imported: never trap the player in the menu
+				return;
+			}
+
+			foreach (Button button in buttons)
+			{
+				button.Disabled = true;
+			}
+
+			farewell.Play();
+		};
 		GetNode<Button>("%CampaignButton").Pressed += () => FadeOutAndChangeScene(CampaignScenePath);
 		GetNode<Button>("%CampaignButton").GrabFocus();
 
