@@ -227,13 +227,12 @@ public partial class CampaignMapPage : Control
 
 		foreach ((NavRailIcon.Glyph glyph, string tip, Action open) in entries)
 		{
-			// The four share the panel's height between them, so the column sits inside the frame
-			// rather than spilling past it.
+			// Square, and sized so four of them with 6 between stand exactly as tall as the 230
+			// square map beside them. Stretching them to fill instead is what made them oblong.
 			var button = new Button
 			{
-				CustomMinimumSize = new Vector2(44, 0),
-				SizeFlagsVertical = Control.SizeFlags.ExpandFill,
-				SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd, // against the panel's right edge
+				CustomMinimumSize = new Vector2(53, 53),
+				SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
 				TooltipText = tip,
 			};
 			foreach (string state in new[] { "normal", "hover", "pressed", "focus" })
@@ -246,11 +245,12 @@ public partial class CampaignMapPage : Control
 
 			var icon = new NavRailIcon { Kind = glyph, MouseFilter = Control.MouseFilterEnum.Ignore };
 			button.AddChild(icon);
+			// An even inset all round, so the glyph sits centred in the button with room to breathe.
 			icon.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-			icon.OffsetLeft = 10;
-			icon.OffsetTop = 10;
-			icon.OffsetRight = -10;
-			icon.OffsetBottom = -10;
+			icon.OffsetLeft = 12;
+			icon.OffsetTop = 12;
+			icon.OffsetRight = -12;
+			icon.OffsetBottom = -12;
 		}
 	}
 
