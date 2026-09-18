@@ -218,7 +218,9 @@ public abstract partial class ProductionPage : Control
 
 		_purseRow = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
 		_purseRow.AddThemeConstantOverride("separation", 22);
-		row.AddChild(Framed(_purseRow, 10));
+		PanelContainer stores = Framed(_purseRow, 10);
+		stores.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		row.AddChild(stores);
 
 		var close = new Button { Text = "✕", CustomMinimumSize = new Vector2(52, 52) };
 		close.AddThemeFontSizeOverride("font_size", 22);
@@ -230,7 +232,7 @@ public abstract partial class ProductionPage : Control
 	private Control BuildTitle()
 	{
 		var titles = new VBoxContainer();
-		titles.AddThemeConstantOverride("separation", 0);
+		titles.AddThemeConstantOverride("separation", 4);
 
 		Label realm = Line("LORDS OF THE REALM", 16, Dim);
 		realm.HorizontalAlignment = HorizontalAlignment.Center;

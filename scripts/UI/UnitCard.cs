@@ -41,6 +41,7 @@ public static class UnitCard
 		if (pressed != null)
 		{
 			pad.MouseFilter = Control.MouseFilterEnum.Ignore;
+			pad.SetAnchorsPreset(Control.LayoutPreset.FullRect);
 		}
 
 
