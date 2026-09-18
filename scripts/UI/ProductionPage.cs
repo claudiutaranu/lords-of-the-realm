@@ -33,10 +33,14 @@ public abstract partial class ProductionPage : Control
 
 	protected ProvinceEconomy Province { get; private set; }
 
-	private readonly List<Item> _items = new();
+	protected readonly List<Item> Items = new();
 	private readonly Dictionary<string, Button> _signs = new();
 	private Item _chosen;
 	private Label _provinceLabel;
+	/// <summary>The row across the foot of the page: whatever a room lays its choices out in goes
+	/// here, to the left of the panel that reads them.</summary>
+	protected HBoxContainer Body { get; private set; }
+
 	private HBoxContainer _purseRow;
 	private VBoxContainer _detail;
 
@@ -91,13 +95,13 @@ public abstract partial class ProductionPage : Control
 	{
 		Province = province;
 		_provinceLabel.Text = province.ProvinceName;
-		Choose(_items.Count > 0 ? _items[0] : null);
+		Choose(Items.Count > 0 ? Items[0] : null);
 		Refresh();
 	}
 
 	/// <summary>Re-reads the province: its stockpiles along the top, and whether the chosen order is
 	/// still affordable.</summary>
-	public void Refresh()
+	public virtual void Refresh()
 	{
 		foreach (Node cell in _purseRow.GetChildren())
 		{
@@ -139,7 +143,7 @@ public abstract partial class ProductionPage : Control
 			}
 
 			string key = fields["key"].AsString();
-			_items.Add(new Item(
+			Items.Add(new Item(
 				key,
 				fields["name"].AsString(),
 				fields.TryGetValue("icon", out Variant icon) ? icon.AsString() : key,
@@ -184,8 +188,16 @@ public abstract partial class ProductionPage : Control
 		body.Alignment = BoxContainer.AlignmentMode.End;
 		page.AddChild(body);
 
+		Body = body;
+		Control band = BuildBand();
+		if (band != null)
+		{
+			page.AddChild(band);
+			page.MoveChild(band, 2);
+		}
+
 		body.AddChild(BuildDetailPanel());
-		HangSigns();
+		BuildChoosers();
 	}
 
 	private Control BuildTopRow()
@@ -229,12 +241,19 @@ public abstract partial class ProductionPage : Control
 		return titles;
 	}
 
+	/// <summary>How the room offers its choices. A wall of signs, a row of cards — each room says.</summary>
+	protected abstract void BuildChoosers();
+
+	/// <summary>A band under the title, where a room has something more to say about what it is
+	/// working from. Nothing, for a room that does not.</summary>
+	protected virtual Control BuildBand() => null;
+
 	/// <summary>Hangs a sign over each thing the room offers, the way a smith labels his own wall.
 	/// They are children of the page rather than of a container, anchored by the fractions in
 	/// SignSpots, so each stays over its own corner however the window is shaped.</summary>
-	private void HangSigns()
+	protected void HangSigns()
 	{
-		foreach (Item item in _items)
+		foreach (Item item in Items)
 		{
 			if (!SignSpots.TryGetValue(item.Key, out Vector2 spot))
 			{
@@ -270,7 +289,7 @@ public abstract partial class ProductionPage : Control
 	}
 
 	/// <summary>A sign is either hanging on the wall or lit up as the one being worked to.</summary>
-	private void DressSign(string key, bool lit)
+	private protected void DressSign(string key, bool lit)
 	{
 		StyleBoxFlat style = CardStyle(lit
 			? new Color(0.20f, 0.15f, 0.06f, 0.94f)
@@ -302,7 +321,7 @@ public abstract partial class ProductionPage : Control
 		return holder;
 	}
 
-	private void Choose(Item item)
+	protected void Choose(Item item)
 	{
 		if (_chosen != null && _signs.ContainsKey(_chosen.Key))
 		{
@@ -425,11 +444,11 @@ public abstract partial class ProductionPage : Control
 		return true;
 	}
 
-	private string NameOf(string key) => _items.Find(item => item.Key == key)?.Name ?? key;
+	private string NameOf(string key) => Items.Find(item => item.Key == key)?.Name ?? key;
 
 	// --- small parts ---------------------------------------------------------------------------
 
-	private static Control Bar(string label, int value)
+	private protected static Control Bar(string label, int value)
 	{
 		var row = new HBoxContainer();
 		row.AddThemeConstantOverride("separation", 10);
@@ -468,7 +487,7 @@ public abstract partial class ProductionPage : Control
 		return row;
 	}
 
-	private static PanelContainer Framed(Control content, int margin)
+	private protected static PanelContainer Framed(Control content, int margin)
 	{
 		var panel = new PanelContainer();
 		panel.AddThemeStyleboxOverride("panel", CardStyle(new Color(0.05f, 0.045f, 0.04f, 0.88f)));
@@ -498,7 +517,7 @@ public abstract partial class ProductionPage : Control
 		CornerRadiusBottomLeft = 4,
 	};
 
-	private static Label Line(string text, int size, Color color)
+	private protected static Label Line(string text, int size, Color color)
 	{
 		var label = new Label { Text = text };
 		label.AddThemeFontSizeOverride("font_size", size);
@@ -506,7 +525,7 @@ public abstract partial class ProductionPage : Control
 		return label;
 	}
 
-	private static TextureRect Icon(string name, int side) => new()
+	private protected static TextureRect Icon(string name, int side) => new()
 	{
 		Texture = GD.Load<Texture2D>($"{IconDirectory}/{name}.png"),
 		CustomMinimumSize = new Vector2(side, side),

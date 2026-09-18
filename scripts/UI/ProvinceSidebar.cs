@@ -261,50 +261,10 @@ public partial class ProvinceSidebar : VBoxContainer
 				continue; // nobody has drawn him yet
 			}
 
-			// A card, in the order a card reads: who he is, his picture, then what you have of him.
-			var tile = new PanelContainer
-			{
-				CustomMinimumSize = new Vector2(0, 150),
-				SizeFlagsHorizontal = SizeFlags.ExpandFill,
-				TooltipText = name,
-			};
-			tile.AddThemeStyleboxOverride("panel", TileStyle());
-
-			var pad = new MarginContainer();
-			foreach (string side in new[] { "left", "top", "right", "bottom" })
-			{
-				pad.AddThemeConstantOverride($"margin_{side}", 5);
-			}
-
-			tile.AddChild(pad);
-
-			var stack = new VBoxContainer();
-			stack.AddThemeConstantOverride("separation", 4);
-			pad.AddChild(stack);
-
-			// No name across the top: the picture says which of them he is better than a word trimmed
-			// to "CROSSBO..." does, and the tile's tooltip still names him.
-			// The picture has a frame of its own inside the card's. A PanelContainer lays every child
-			// over the same rect, so the ground goes in first and the man stands on it.
-			var picture = new PanelContainer { SizeFlagsVertical = SizeFlags.ExpandFill, ClipContents = true };
-			picture.AddThemeStyleboxOverride("panel", PictureStyle());
-			stack.AddChild(picture);
-
-			picture.AddChild(new TextureRect
-			{
-				Texture = GD.Load<Texture2D>(UnitArt.Backdrop(unit)),
-				ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
-				StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered,
-			});
-			picture.AddChild(new TextureRect
-			{
-				Texture = GD.Load<Texture2D>(UnitArt.Portrait(unit)),
-				ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
-				StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered,
-			});
+			(Control tile, VBoxContainer stack) = UnitCard.Build(unit, name, 150, titled: false);
 
 			// Only the number: how many of him stand in the garrison. Nothing else belongs under a
-			// card that already says who he is and shows him.
+			// card that already shows him.
 			Label count = Small("—", Waiting);
 			count.AddThemeFontSizeOverride("font_size", 16);
 			count.HorizontalAlignment = HorizontalAlignment.Center;
@@ -342,22 +302,6 @@ public partial class ProvinceSidebar : VBoxContainer
 		style.BgColor = new Color(0.098f, 0.094f, 0.090f, 0.94f);
 		return style;
 	}
-
-	/// <summary>The thinner frame the picture inside a card sits in — a mount inside the card's own
-	/// border, dark enough that a portrait's sky does not run into the frame.</summary>
-	private static StyleBoxFlat PictureStyle() => new()
-	{
-		BgColor = new Color(0.05f, 0.05f, 0.06f, 1f),
-		BorderWidthLeft = 1,
-		BorderWidthTop = 1,
-		BorderWidthRight = 1,
-		BorderWidthBottom = 1,
-		BorderColor = new Color(0.549f, 0.447f, 0.271f, 0.55f),
-		ContentMarginLeft = 0,
-		ContentMarginTop = 0,
-		ContentMarginRight = 0,
-		ContentMarginBottom = 0,
-	};
 
 	private static StyleBoxFlat TileStyle() => new()
 	{

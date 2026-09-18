@@ -30,6 +30,9 @@ public partial class BlacksmithPage : ProductionPage
 		("iron", "iron"),
 	};
 
+	// The smith labels his own wall: each sign hangs over its rack.
+	protected override void BuildChoosers() => HangSigns();
+
 	protected override (string Making, int TurnsLeft) InHand => (Province.Forging, Province.ForgeTurnsLeft);
 
 	protected override string BusyLine => "The forge is busy";
