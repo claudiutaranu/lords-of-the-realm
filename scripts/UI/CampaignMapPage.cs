@@ -28,6 +28,8 @@ public partial class CampaignMapPage : Control
 	private const string SquareButtonPath = "res://assets/ui/button-square.png";
 	private const string ProvincesDataFile = "provinces.json";
 	private const string BlacksmithScenePath = "res://scene/campaign-map/blacksmith.tscn";
+	private const string RecruitsScenePath = "res://scene/campaign-map/recruits.tscn";
+	private const string MarketScenePath = "res://scene/campaign-map/market.tscn";
 	private const float TurnFadeInSeconds = 0.4f;
 	private const float TurnHoldSeconds = 1.1f;
 	private const float TurnFadeOutSeconds = 0.5f;
@@ -71,7 +73,7 @@ public partial class CampaignMapPage : Control
 	private Label _ironLabel;
 	private Label _populationLabel;
 	private ProvinceSidebar _sidebar;
-	private BlacksmithPage _blacksmith;
+	private RoomPage _room;
 	private Control _leaveConfirm;
 	private AudioStreamPlayer _leaveFarewell;
 	private string _leaveTarget;
@@ -201,37 +203,35 @@ public partial class CampaignMapPage : Control
 		SelectProvince(0); // Kingsreach, the capital — shows something real before any click.
 	}
 
-	/// <summary>Opens the screen behind a building tile, for the province currently selected. Only the
-	/// smithy has one so far; the rest are named but empty, and pressing them does nothing on purpose
-	/// rather than opening a room with nothing in it.
-	///
-	/// It opens over this page instead of replacing it, so the turn, the camera and the selection are
-	/// all exactly where they were when it closes.</summary>
-	private void OpenBuilding(string building)
+	/// <summary>Opens one of the province's rooms — the smithy, the training yard — over this page
+	/// rather than in place of it, so the turn, the camera and the selection are all exactly where
+	/// they were when it closes.</summary>
+	private void OpenRoom(string scenePath, string verb)
 	{
-		if (building != "Blacksmith" || _blacksmith != null)
+		if (_room != null)
 		{
-			return;
+			return; // one room at a time; the map is behind this one
 		}
 
 		ProvinceData province = _provinces[_selected != null ? _markers.IndexOf(_selected) : 0];
 		ProvinceEconomy economy = _turnManager.GetProvince(province.Name);
 		if (economy == null)
 		{
-			// A province you do not hold has no smithy of yours in it. Say so rather than letting the
+			// A province you do not hold has none of your rooms in it. Say so rather than letting the
 			// press do nothing at all.
-			ShowSaveToast($"{province.Name} is not yours to forge in");
+			ShowSaveToast($"{province.Name} is not yours to {verb} in");
 			return;
 		}
 
-		_blacksmith = GD.Load<PackedScene>(BlacksmithScenePath).Instantiate<BlacksmithPage>();
-		AddChild(_blacksmith);
-		_blacksmith.Open(economy);
-		_blacksmith.Closed += () =>
+		_room = GD.Load<PackedScene>(scenePath).Instantiate<RoomPage>();
+		AddChild(_room);
+		_room.Open(economy);
+		_room.Closed += () =>
 		{
-			_blacksmith.QueueFree();
-			_blacksmith = null;
-			// An order spends the province's stores, so the sidebar's numbers are stale by now.
+			_room.QueueFree();
+			_room = null;
+			// An order spends the province's stores and its people, so everything on the map that
+			// reads them is stale by now.
 			_sidebar.Refresh();
 			UpdateResourceBar(economy);
 		};
@@ -428,10 +428,22 @@ public partial class CampaignMapPage : Control
 	// naming what belongs there. Replace a case with a real panel as that system gets built.
 	private void ShowSection(NavRail.Section section)
 	{
-		// Buildings is the one that opens onto somewhere real: the smithy of the province in hand.
+		// Three of them open onto a room of the province in hand rather than onto a panel of text.
 		if (section == NavRail.Section.Buildings)
 		{
-			OpenBuilding("Blacksmith");
+			OpenRoom(BlacksmithScenePath, "forge");
+			return;
+		}
+
+		if (section == NavRail.Section.Military)
+		{
+			OpenRoom(RecruitsScenePath, "raise men");
+			return;
+		}
+
+		if (section == NavRail.Section.Trade)
+		{
+			OpenRoom(MarketScenePath, "trade");
 			return;
 		}
 

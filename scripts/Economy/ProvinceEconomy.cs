@@ -20,6 +20,41 @@ public class ProvinceEconomy
 	public int Stone;
 	public int Iron;
 
+	/// <summary>How much of one store the province holds, by the same key the market and the smithy
+	/// price things in. The six raw stores and the head count are fields; anything else is a rack in
+	/// the armoury, which is keyed by name and open-ended by design — the smithy fills it from
+	/// weapons.json and the market trades out of it. A name nobody has ever put anything under reads
+	/// as empty rather than throwing.</summary>
+	public int Stored(string store) => store switch
+	{
+		"gold" => Gold,
+		"grain" => Grain,
+		"cattle" => Cattle,
+		"wood" => Wood,
+		"stone" => Stone,
+		"iron" => Iron,
+		"people" => Population,
+		_ => Armoury.GetValueOrDefault(store),
+	};
+
+	/// <summary>Moves one store by a signed amount — the single place a trade, a wage or a harvest
+	/// reaches into the pile. It does not ask whether the move makes sense: whether a name can be
+	/// traded at all is the market's to answer, before it gets here.</summary>
+	public void Add(string store, int amount)
+	{
+		switch (store)
+		{
+			case "gold": Gold += amount; break;
+			case "grain": Grain += amount; break;
+			case "cattle": Cattle += amount; break;
+			case "wood": Wood += amount; break;
+			case "stone": Stone += amount; break;
+			case "iron": Iron += amount; break;
+			case "people": Population += amount; break;
+			default: Armoury[store] = Armoury.GetValueOrDefault(store) + amount; break;
+		}
+	}
+
 	/// <summary>What the smithy is forging, by weapon key, and how many turns are left on it. Empty
 	/// when the forge is cold. The order is paid for when it is placed, so a save carries only what
 	/// is still owed.</summary>
@@ -30,9 +65,19 @@ public class ProvinceEconomy
 	/// looked up later, so retuning weapons.json never changes what is already on the anvil.</summary>
 	public int ForgeBatch;
 
-	/// <summary>Finished weapons the province holds, by the same key. What an army is armed from,
-	/// once there are armies.</summary>
+	/// <summary>Finished weapons the province holds, by the same key — what the yard arms its
+	/// recruits out of.</summary>
 	public Dictionary<string, int> Armoury = new();
+
+	/// <summary>What the training yard is raising, and how many turns are left on the intake. Paid
+	/// for when it is ordered, in people and in arms out of the armoury.</summary>
+	public string Training = "";
+	public int TrainTurnsLeft;
+	public int TrainBatch;
+
+	/// <summary>The men standing in the province, by unit key. What an army is drawn from, once
+	/// there are armies.</summary>
+	public Dictionary<string, int> Garrison = new();
 
 	public int GrainWorkers;
 	public int CattleWorkers;

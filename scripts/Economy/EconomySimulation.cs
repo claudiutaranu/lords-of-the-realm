@@ -23,6 +23,7 @@ public static class EconomySimulation
 
 		ProduceResources(province, definition, balance, season);
 		ForgeWeapons(province);
+		TrainRecruits(province);
 		ConsumeFood(province, balance);
 		GrowCattle(province, definition, balance);
 		CollectTaxes(province, balance);
@@ -69,6 +70,26 @@ public static class EconomySimulation
 		p.Armoury[p.Forging] = p.Armoury.GetValueOrDefault(p.Forging) + p.ForgeBatch;
 		p.Forging = "";
 		p.ForgeBatch = 0;
+	}
+
+	/// <summary>The yard drills the intake the player ordered, which was paid for in people and arms
+	/// when it was placed; the men fall in with the garrison when the last turn of it is done.</summary>
+	private static void TrainRecruits(ProvinceEconomy p)
+	{
+		if (p.Training.Length == 0)
+		{
+			return;
+		}
+
+		p.TrainTurnsLeft--;
+		if (p.TrainTurnsLeft > 0)
+		{
+			return;
+		}
+
+		p.Garrison[p.Training] = p.Garrison.GetValueOrDefault(p.Training) + p.TrainBatch;
+		p.Training = "";
+		p.TrainBatch = 0;
 	}
 
 	private static void ProduceResources(ProvinceEconomy p, ProvinceDefinition def, GameBalance b, Season season)

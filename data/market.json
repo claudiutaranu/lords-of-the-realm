@@ -1,0 +1,91 @@
+{
+	"_comment": "What the market's stalls look like. Prices are not here: they are engine tuning, and live in data/game-balance.tres beside the yields and the tax rates. Engine data, not a campaign's: every realm's market works the same. 'step' is how much the amount moves per press. A stall with a 'rack' is not traded itself: it is a counter you pick off, and each entry on it trades on its own terms. Every number here is placeholder balance, meant to be tuned.",
+	"goods": [
+		{
+			"key": "grain",
+			"name": "Grain",
+			"icon": "food",
+			"blurb": "Essential food for your people. Keeps your realm strong and growing.",
+			"step": 50
+		},
+		{
+			"key": "cattle",
+			"name": "Cattle",
+			"icon": "livestock",
+			"blurb": "Meat on the hoof. Slower to raise than grain, and worth more at the gate.",
+			"step": 10
+		},
+		{
+			"key": "wood",
+			"name": "Wood",
+			"icon": "wood",
+			"blurb": "Beams, shafts and bow staves. Everything a province builds starts here.",
+			"step": 25
+		},
+		{
+			"key": "stone",
+			"name": "Stone",
+			"icon": "stone",
+			"blurb": "Cut blocks for walls and keeps. Heavy to haul, and priced accordingly.",
+			"step": 25
+		},
+		{
+			"key": "iron",
+			"name": "Iron",
+			"icon": "iron",
+			"blurb": "Pig iron for the forge. Nothing with an edge on it is made without this.",
+			"step": 10
+		},
+		{
+			"key": "weapons",
+			"name": "Weapons",
+			"icon": "sword",
+			"blurb": "Arms off the rack, bought finished instead of waiting on the forge.",
+			"step": 5,
+			"rack": [
+				{
+					"key": "sword",
+					"name": "Swords",
+					"icon": "sword",
+					"blurb": "Forged blades, ready for the hands that will carry them.",
+					"step": 5
+				},
+				{
+					"key": "bow",
+					"name": "Bows",
+					"icon": "bow",
+					"blurb": "Staves and strings, the cheapest reach a province can buy.",
+					"step": 5
+				},
+				{
+					"key": "crossbow",
+					"name": "Crossbows",
+					"icon": "crossbow",
+					"blurb": "Slow to wind, but a bolt goes through mail where an arrow turns.",
+					"step": 5
+				},
+				{
+					"key": "spear",
+					"name": "Pikes",
+					"icon": "spear",
+					"blurb": "Ash and iron by the bundle. Nothing stops a horse cheaper.",
+					"step": 5
+				},
+				{
+					"key": "mace",
+					"name": "Maces",
+					"icon": "mace",
+					"blurb": "Heavy heads for the work plate armour makes of a sword.",
+					"step": 5
+				},
+				{
+					"key": "horse",
+					"name": "Horses",
+					"icon": "helmet",
+					"blurb": "Trained warhorses, sold with the harness that makes them cavalry.",
+					"step": 1
+				}
+			]
+		}
+	]
+}

@@ -1,0 +1,63 @@
+{
+	"_comment": "Who a province can raise in its yard. Engine data, not a campaign's. 'cost' is what ONE man needs — people out of the province's population, and the weapon the smithy forged for him, out of its armoury — so an intake of ten costs ten of each. 'batch' is how many the captain is asked for to begin with. The four stats are 0..10 bars. Every number here is placeholder balance, meant to be tuned.",
+	"items": [
+		{
+			"key": "peasant",
+			"name": "Peasant",
+			"icon": "pitchfork",
+			"blurb": "Farmhands with whatever hangs in the barn. They cost nothing but the hands that were working the fields.",
+			"attack": 2, "range": 1, "defence": 2, "speed": 5,
+			"turns": 1, "batch": 20,
+			"cost": { "people": 1 }
+		},
+		{
+			"key": "spear",
+			"name": "Spearmen",
+			"blurb": "The line that holds. Cheap to raise and quick to drill, and a wall of points is what a charge breaks on.",
+			"attack": 5, "range": 3, "defence": 7, "speed": 4,
+			"turns": 1, "batch": 10,
+			"cost": { "people": 1, "spear": 1 }
+		},
+		{
+			"key": "bow",
+			"name": "Archers",
+			"blurb": "Months of drawing before a man is worth his bow, but he thins a charge long before it reaches the line.",
+			"attack": 6, "range": 8, "defence": 2, "speed": 6,
+			"turns": 2, "batch": 10,
+			"cost": { "people": 1, "bow": 1 }
+		},
+		{
+			"key": "crossbow",
+			"name": "Crossbowmen",
+			"blurb": "Anyone can be taught to aim one in a fortnight, which is the whole point of the weapon.",
+			"attack": 8, "range": 7, "defence": 2, "speed": 3,
+			"turns": 1, "batch": 10,
+			"cost": { "people": 1, "crossbow": 1 }
+		},
+		{
+			"key": "sword",
+			"name": "Swordsmen",
+			"blurb": "Disciplined infantry, and the men a lord puts where the fighting is decided.",
+			"attack": 7, "range": 1, "defence": 6, "speed": 5,
+			"turns": 2, "batch": 10,
+			"cost": { "people": 1, "sword": 1 }
+		},
+		{
+			"key": "mace",
+			"name": "Macemen",
+			"blurb": "Heavy, crude and indifferent to armour. What you raise when the enemy comes in plate.",
+			"attack": 8, "range": 1, "defence": 4, "speed": 4,
+			"turns": 2, "batch": 10,
+			"cost": { "people": 1, "mace": 1 }
+		},
+		{
+			"key": "horse",
+			"name": "Cavalry",
+			"icon": "helmet",
+			"blurb": "The costliest men a province can raise, and the only ones who decide a field in a single charge.",
+			"attack": 9, "range": 1, "defence": 6, "speed": 9,
+			"turns": 3, "batch": 5,
+			"cost": { "people": 2, "horse": 1 }
+		}
+	]
+}

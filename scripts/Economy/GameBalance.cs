@@ -35,6 +35,24 @@ public partial class GameBalance : Resource
 	[Export] public float[] TaxIncomeMultiplier = { 0f, 0.5f, 1.0f, 1.5f, 2.0f };
 	[Export] public float[] TaxLoyaltyDelta = { 4f, 2f, 0f, -4f, -10f };
 
+	// What one unit of each store fetches at market. One price, paid either way: the realm buys at
+	// it and sells at it, so a province can turn a glut into gold and gold into what it lacks.
+	[Export] public int GrainPrice = 10;
+	[Export] public int CattlePrice = 42;
+	[Export] public int WoodPrice = 14;
+	[Export] public int StonePrice = 22;
+	[Export] public int IronPrice = 35;
+
+	// What finished arms fetch. Dearer than the stores they are made of — the market is paying for
+	// the smith's turns as well as his iron, which is what makes buying them a real alternative to
+	// forging them.
+	[Export] public int SwordPrice = 120;
+	[Export] public int BowPrice = 70;
+	[Export] public int CrossbowPrice = 95;
+	[Export] public int SpearPrice = 60;
+	[Export] public int MacePrice = 110;
+	[Export] public int HorsePrice = 260;
+
 	// [Low, Normal, High]
 	[Export] public float[] RationFoodMultiplier = { 0.7f, 1.0f, 1.3f };
 	[Export] public float[] RationGrowthMultiplier = { 0.5f, 1.0f, 1.5f };
