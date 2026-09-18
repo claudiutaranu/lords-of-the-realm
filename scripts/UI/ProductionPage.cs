@@ -36,6 +36,7 @@ public abstract partial class ProductionPage : Control
 	protected readonly List<Item> Items = new();
 	private readonly Dictionary<string, Button> _signs = new();
 	private Item _chosen;
+	private int _count;
 	private Label _provinceLabel;
 	/// <summary>The row across the foot of the page: whatever a room lays its choices out in goes
 	/// here, to the left of the panel that reads them.</summary>
@@ -66,7 +67,17 @@ public abstract partial class ProductionPage : Control
 	/// room is idle and will take an order.</summary>
 	protected abstract (string Making, int TurnsLeft) InHand { get; }
 
-	protected abstract void Begin(Item item);
+	/// <summary>Writes the order onto the province: what, and how many of it.</summary>
+	protected abstract void Begin(Item item, int count);
+
+	/// <summary>A line under the room's name, where it has one.</summary>
+	protected virtual string Tagline => null;
+
+	/// <summary>Whether an order here is sized by the player. A smith takes a commission as it
+	/// comes; a captain is asked how many men.</summary>
+	protected virtual bool SizedOrder => false;
+
+	protected virtual int OrderStep => 5;
 
 	protected abstract string BusyLine { get; }
 
@@ -235,7 +246,14 @@ public abstract partial class ProductionPage : Control
 		GoldTitle.Apply(name);
 		titles.AddChild(name);
 
-		_provinceLabel = Line("", 18, Cream);
+		if (Tagline != null)
+		{
+			Label tagline = Line(Tagline, 17, Cream);
+			tagline.HorizontalAlignment = HorizontalAlignment.Center;
+			titles.AddChild(tagline);
+		}
+
+		_provinceLabel = Line("", 15, Dim);
 		_provinceLabel.HorizontalAlignment = HorizontalAlignment.Center;
 		titles.AddChild(_provinceLabel);
 		return titles;
@@ -329,13 +347,25 @@ public abstract partial class ProductionPage : Control
 		}
 
 		_chosen = item;
+		_count = item?.Batch ?? 0;
 		if (item != null && _signs.ContainsKey(item.Key))
 		{
 			DressSign(item.Key, lit: true);
 		}
 
+		Chosen(item);
 		ShowDetail();
 	}
+
+	/// <summary>Told when the choice changes, for a room that marks it somewhere of its own.</summary>
+	protected virtual void Chosen(Item item)
+	{
+	}
+
+	/// <summary>How many the order is for, and what that costs of one purse.</summary>
+	protected int OrderSize => _count;
+
+	protected int PriceOf(Item item, string purse) => item.Cost[purse] * (SizedOrder ? _count : 1);
 
 	// --- the panel on the right ----------------------------------------------------------------
 
@@ -381,19 +411,29 @@ public abstract partial class ProductionPage : Control
 
 		var terms = new HBoxContainer();
 		terms.AddThemeConstantOverride("separation", 14);
-		terms.AddChild(Line("Cost", 14, Dim));
+		terms.AddChild(Line(SizedOrder ? "Each needs" : "Cost", 14, Dim));
 		foreach ((string key, int amount) in _chosen.Cost)
 		{
 			var group = new HBoxContainer();
 			group.AddThemeConstantOverride("separation", 5);
 			group.AddChild(Icon(IconFor(key), 22));
-			// Red when the province is short of it: the reason the button below is dead.
-			group.AddChild(Line(amount.ToString(), 16, Held(key) >= amount ? Cream : Short));
+			// Red when the province is short of what the whole order needs: the reason the button
+			// below is dead.
+			int owed = PriceOf(_chosen, key);
+			group.AddChild(Line(amount.ToString(), 16, Held(key) >= owed ? Cream : Short));
 			terms.AddChild(group);
 		}
 
 		_detail.AddChild(terms);
-		_detail.AddChild(Line(DeliveryLine(_chosen), 14, Dim));
+
+		if (SizedOrder)
+		{
+			_detail.AddChild(BuildStepper());
+		}
+		else
+		{
+			_detail.AddChild(Line(DeliveryLine(_chosen), 14, Dim));
+		}
 
 		(string making, int turnsLeft) = InHand;
 		bool busy = making.Length > 0;
@@ -412,30 +452,77 @@ public abstract partial class ProductionPage : Control
 			_detail.AddChild(Line(
 				$"{NameOf(making)} — {turnsLeft} turn{(turnsLeft == 1 ? "" : "s")} left", 14, Cream));
 		}
+		else if (SizedOrder)
+		{
+			var total = new HBoxContainer();
+			total.AddThemeConstantOverride("separation", 10);
+			total.AddChild(Line("Will cost", 13, Dim));
+			foreach ((string key, int _) in _chosen.Cost)
+			{
+				int owed = PriceOf(_chosen, key);
+				var group = new HBoxContainer();
+				group.AddThemeConstantOverride("separation", 4);
+				group.AddChild(Line(owed.ToString(), 13, Held(key) >= owed ? Cream : Short));
+				group.AddChild(Icon(IconFor(key), 16));
+				total.AddChild(group);
+			}
+
+			total.AddChild(Line(DeliveryLine(_chosen), 13, Dim));
+			_detail.AddChild(total);
+		}
+	}
+
+	/// <summary>The minus, the number and the plus: how many men the captain is asked for.</summary>
+	private Control BuildStepper()
+	{
+		var row = new HBoxContainer();
+		row.AddThemeConstantOverride("separation", 10);
+		row.Alignment = BoxContainer.AlignmentMode.Center;
+
+		var fewer = new Button { Text = "−", CustomMinimumSize = new Vector2(46, 38) };
+		fewer.Pressed += () => Resize(-OrderStep);
+		row.AddChild(fewer);
+
+		Label count = Line(_count.ToString(), 20, Cream);
+		count.HorizontalAlignment = HorizontalAlignment.Center;
+		count.CustomMinimumSize = new Vector2(76, 0);
+		count.VerticalAlignment = VerticalAlignment.Center;
+		row.AddChild(count);
+
+		var more = new Button { Text = "+", CustomMinimumSize = new Vector2(46, 38) };
+		more.Pressed += () => Resize(OrderStep);
+		row.AddChild(more);
+		return row;
+	}
+
+	private void Resize(int by)
+	{
+		_count = Mathf.Max(OrderStep, _count + by);
+		ShowDetail();
 	}
 
 	/// <summary>Pays for the order and puts it on the bench. The turn does the rest.</summary>
-	private void PlaceOrder()
+	protected void PlaceOrder()
 	{
 		if (_chosen == null || InHand.Making.Length > 0 || !CanAfford(_chosen))
 		{
 			return;
 		}
 
-		foreach ((string key, int amount) in _chosen.Cost)
+		foreach ((string key, int _) in _chosen.Cost)
 		{
-			Pay(key, amount);
+			Pay(key, PriceOf(_chosen, key));
 		}
 
-		Begin(_chosen);
+		Begin(_chosen, SizedOrder ? _count : _chosen.Batch);
 		Refresh();
 	}
 
-	private bool CanAfford(Item item)
+	protected bool CanAfford(Item item)
 	{
-		foreach ((string key, int amount) in item.Cost)
+		foreach ((string key, int _) in item.Cost)
 		{
-			if (Held(key) < amount)
+			if (Held(key) < PriceOf(item, key))
 			{
 				return false;
 			}

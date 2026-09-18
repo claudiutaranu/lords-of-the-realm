@@ -72,10 +72,10 @@ public partial class BlacksmithPage : ProductionPage
 		}
 	}
 
-	protected override void Begin(Item item)
+	protected override void Begin(Item item, int count)
 	{
 		Province.Forging = item.Key;
 		Province.ForgeTurnsLeft = item.Turns;
-		Province.ForgeBatch = item.Batch;
+		Province.ForgeBatch = count;
 	}
 }
