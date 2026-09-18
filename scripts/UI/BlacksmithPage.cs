@@ -9,25 +9,17 @@ public partial class BlacksmithPage : ProductionPage
 
 	protected override string RoomName => "Blacksmith";
 
-	// Read off a still of the forge: each sign hangs over its own rack.
+	protected override string Tagline => "Forge stronger armies";
+
+	// Read off a still of the forge: each sign hangs over the rack it names.
 	protected override Dictionary<string, Vector2> SignSpots { get; } = new()
 	{
-		["bow"] = new Vector2(0.205f, 0.115f),
-		["crossbow"] = new Vector2(0.255f, 0.445f),
-		["sword"] = new Vector2(0.445f, 0.215f),
-		["spear"] = new Vector2(0.585f, 0.135f),
-		["horse"] = new Vector2(0.720f, 0.300f),
-		["mace"] = new Vector2(0.845f, 0.285f),
-	};
-
-	protected override (string Key, string Icon)[] Purses { get; } =
-	{
-		("gold", "gold"),
-		("grain", "food"),
-		("cattle", "livestock"),
-		("wood", "wood"),
-		("stone", "stone"),
-		("iron", "iron"),
+		["bow"] = new Vector2(0.105f, 0.330f),
+		["crossbow"] = new Vector2(0.225f, 0.470f),
+		["sword"] = new Vector2(0.410f, 0.470f),
+		["spear"] = new Vector2(0.600f, 0.560f),
+		["horse"] = new Vector2(0.745f, 0.570f),
+		["mace"] = new Vector2(0.920f, 0.570f),
 	};
 
 	// The smith labels his own wall: each sign hangs over its rack.
@@ -41,6 +33,9 @@ public partial class BlacksmithPage : ProductionPage
 
 	protected override string DeliveryLine(Item item) =>
 		$"{item.Batch} forged in {item.Turns} turn{(item.Turns == 1 ? "" : "s")}";
+
+	protected override string MakingLine(string name, int turns) =>
+		$"Forging {base.MakingLine(name, turns)}";
 
 	protected override string IconFor(string purse) => purse switch
 	{

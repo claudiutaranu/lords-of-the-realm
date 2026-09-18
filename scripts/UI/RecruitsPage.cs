@@ -42,17 +42,6 @@ public partial class RecruitsPage : ProductionPage
 	// The yard chooses off cards along the foot of the page, not off signs on a wall.
 	protected override Dictionary<string, Vector2> SignSpots { get; } = new();
 
-	// The same stockpiles the smithy prices in, so the two rooms read alike along the top.
-	protected override (string Key, string Icon)[] Purses { get; } =
-	{
-		("gold", "gold"),
-		("grain", "food"),
-		("wood", "wood"),
-		("stone", "stone"),
-		("iron", "iron"),
-		("people", "population"),
-	};
-
 	protected override (string Making, int TurnsLeft) InHand => (Province.Training, Province.TrainTurnsLeft);
 
 	protected override string BusyLine => "The yard is drilling";

@@ -16,6 +16,7 @@ using Godot;
 public abstract partial class ProductionPage : Control
 {
 	protected const string IconDirectory = "res://assets/ui/icons";
+	private const string SquarePlatePath = "res://assets/ui/button-square.png";
 
 	protected static readonly Color Cream = new("d9cdb4");
 	protected static readonly Color Dim = new("8d8577");
@@ -56,8 +57,17 @@ public abstract partial class ProductionPage : Control
 	/// choosing off the room itself, not off a list beside it.</summary>
 	protected abstract Dictionary<string, Vector2> SignSpots { get; }
 
-	/// <summary>The stockpiles an order here is priced in, along the top of the page.</summary>
-	protected abstract (string Key, string Icon)[] Purses { get; }
+	/// <summary>The stores read along the top of the page. Both rooms show the province's own, so it
+	/// is the same strip in each; a room with something else to count says so. The yard reads its
+	/// people and its armoury in a band of its own instead.</summary>
+	protected virtual (string Key, string Icon)[] Purses { get; } =
+	{
+		("gold", "gold"),
+		("grain", "food"),
+		("wood", "wood"),
+		("stone", "stone"),
+		("iron", "iron"),
+	};
 
 	protected abstract int Held(string purse);
 
@@ -85,6 +95,11 @@ public abstract partial class ProductionPage : Control
 
 	/// <summary>How an order reads when it lands: forged and delivered, or trained and mustered.</summary>
 	protected abstract string DeliveryLine(Item item);
+
+	/// <summary>How the work in hand reads while it is still on the bench. A room wraps this in what
+	/// it is doing to the thing — forging it, drilling it.</summary>
+	protected virtual string MakingLine(string name, int turns) =>
+		$"{name} — {turns} turn{(turns == 1 ? "" : "s")} left";
 
 	/// <summary>The icon a stockpile is read by, where it is not simply its own name.</summary>
 	protected virtual string IconFor(string purse) => purse;
@@ -452,7 +467,7 @@ public abstract partial class ProductionPage : Control
 		if (busy)
 		{
 			_detail.AddChild(Line(
-				$"{NameOf(making)} — {turnsLeft} turn{(turnsLeft == 1 ? "" : "s")} left", 14, Cream));
+				MakingLine(NameOf(making), turnsLeft), 14, Cream));
 		}
 		else if (SizedOrder)
 		{
@@ -481,9 +496,7 @@ public abstract partial class ProductionPage : Control
 		row.AddThemeConstantOverride("separation", 10);
 		row.Alignment = BoxContainer.AlignmentMode.Center;
 
-		var fewer = new Button { Text = "−", CustomMinimumSize = new Vector2(46, 38) };
-		fewer.Pressed += () => Resize(-OrderStep);
-		row.AddChild(fewer);
+		row.AddChild(Step("−", -OrderStep));
 
 		Label count = Line(_count.ToString(), 20, Cream);
 		count.HorizontalAlignment = HorizontalAlignment.Center;
@@ -491,10 +504,28 @@ public abstract partial class ProductionPage : Control
 		count.VerticalAlignment = VerticalAlignment.Center;
 		row.AddChild(count);
 
-		var more = new Button { Text = "+", CustomMinimumSize = new Vector2(46, 38) };
-		more.Pressed += () => Resize(OrderStep);
-		row.AddChild(more);
+		row.AddChild(Step("+", OrderStep));
 		return row;
+	}
+
+	/// <summary>One end of the stepper. It wears the square plate the rest of the game's icon buttons
+	/// wear: the theme's own button is a gilded lozenge, which at this size reads as an ornament
+	/// rather than as something to press.</summary>
+	private Button Step(string sign, int by)
+	{
+		var button = new Button { Text = sign, CustomMinimumSize = new Vector2(44, 44) };
+		button.AddThemeFontSizeOverride("font_size", 22);
+		foreach (string state in new[] { "normal", "hover", "pressed", "focus" })
+		{
+			button.AddThemeStyleboxOverride(state, new StyleBoxTexture
+			{
+				Texture = GD.Load<Texture2D>(SquarePlatePath),
+				ModulateColor = state == "normal" ? Colors.White : new Color(1.3f, 1.2f, 1.05f),
+			});
+		}
+
+		button.Pressed += () => Resize(by);
+		return button;
 	}
 
 	private void Resize(int by)
