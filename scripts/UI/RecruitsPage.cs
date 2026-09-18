@@ -154,26 +154,26 @@ public partial class RecruitsPage : ProductionPage
 		{
 			Item chosen = item;
 			(Control tile, VBoxContainer stack) = UnitCard.Build(
-				item.Key, item.Name, 232, titled: true, pressed: () => Choose(chosen));
+				item.Key, item.Name, 300, titled: true, pressed: () => Choose(chosen), pad: 9);
 			row.AddChild(tile);
 			_cards[item.Key] = tile;
 
 			// What ONE of him needs, which is how the panel prices the whole intake.
 			var price = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center };
-			price.AddThemeConstantOverride("separation", 12);
+			price.AddThemeConstantOverride("separation", 14);
 			stack.AddChild(price);
 
 			foreach ((string key, int amount) in item.Cost)
 			{
 				var group = new HBoxContainer();
 				group.AddThemeConstantOverride("separation", 4);
-				group.AddChild(Icon(IconFor(key), 18));
-				group.AddChild(Line(amount.ToString(), 13, Cream));
+				group.AddChild(Icon(IconFor(key), 22));
+				group.AddChild(Line(amount.ToString(), 16, Cream));
 				price.AddChild(group);
 			}
 
-			var recruit = new Button { Text = "Recruit", CustomMinimumSize = new Vector2(0, 30) };
-			recruit.AddThemeFontSizeOverride("font_size", 14);
+			var recruit = new Button { Text = "Recruit", CustomMinimumSize = new Vector2(0, 40) };
+			recruit.AddThemeFontSizeOverride("font_size", 17);
 			recruit.Pressed += () =>
 			{
 				Choose(chosen);

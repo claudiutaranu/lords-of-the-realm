@@ -11,7 +11,7 @@ public static class UnitCard
 {
 	/// <summary>Builds the frame and returns the column inside it, for the caller to finish.</summary>
 	public static (Control Tile, VBoxContainer Stack) Build(string unit, string name, int height,
-		bool titled, Action pressed = null)
+		bool titled, Action pressed = null, int pad = 5)
 	{
 		// A card you can pick is a button wearing the card's frame; one you only read is a panel.
 		Control tile = pressed == null ? new PanelContainer() : new Button();
@@ -31,23 +31,23 @@ public static class UnitCard
 			}
 		}
 
-		var pad = new MarginContainer();
+		var inset = new MarginContainer();
 		foreach (string side in new[] { "left", "top", "right", "bottom" })
 		{
-			pad.AddThemeConstantOverride($"margin_{side}", 5);
+			inset.AddThemeConstantOverride($"margin_{side}", pad);
 		}
 
-		tile.AddChild(pad);
+		tile.AddChild(inset);
 		if (pressed != null)
 		{
-			pad.MouseFilter = Control.MouseFilterEnum.Ignore;
-			pad.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+			// A Button lays nothing out, so the column has to be pinned to it by hand.
+			inset.MouseFilter = Control.MouseFilterEnum.Ignore;
+			inset.SetAnchorsPreset(Control.LayoutPreset.FullRect);
 		}
 
-
 		var stack = new VBoxContainer();
-		stack.AddThemeConstantOverride("separation", 4);
-		pad.AddChild(stack);
+		stack.AddThemeConstantOverride("separation", pad > 6 ? 7 : 4);
+		inset.AddChild(stack);
 
 		if (titled)
 		{
@@ -57,7 +57,7 @@ public static class UnitCard
 				HorizontalAlignment = HorizontalAlignment.Center,
 				TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis,
 			};
-			title.AddThemeFontSizeOverride("font_size", 12);
+			title.AddThemeFontSizeOverride("font_size", 15);
 			title.AddThemeColorOverride("font_color", new Color("d9cdb4"));
 			stack.AddChild(title);
 		}
