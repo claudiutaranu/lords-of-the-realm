@@ -154,7 +154,7 @@ public partial class RecruitsPage : ProductionPage
 		{
 			Item chosen = item;
 			(Control tile, VBoxContainer stack) = UnitCard.Build(
-				item.Key, item.Name, 300, titled: true, pressed: () => Choose(chosen), pad: 9);
+				item.Key, item.Name, 360, titled: true, pressed: () => Choose(chosen), pad: 12);
 			row.AddChild(tile);
 			_cards[item.Key] = tile;
 
