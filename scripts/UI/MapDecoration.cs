@@ -19,9 +19,11 @@ public partial class MapDecoration : Node3D
 	private const string RoadsFile = "map-roads.json";
 
 	// Attempts, not instances: each one rolls against the density at a random pixel, so the count
-	// that lands is whatever the mask supports (~8,700 trees, ~2,500 boulders on this map).
+	// that lands is whatever the mask supports — ~3,800 trees and ~9,300 boulders on this map. The
+	// woods have been thinned twice from where they started: a forest that covers the ground reads
+	// as a texture, and what the map wants is stands of trees with country between them.
 	private const int ScatterAttempts = 345000;
-	private const float TreeChance = 0.55f;
+	private const float TreeChance = 0.234f;
 	private const float BoulderChance = 0.22f;
 	// Above this height conifers take over from broadleaf, the way a real treeline works.
 	private const float ConiferHeight = 9.0f;
@@ -44,8 +46,11 @@ public partial class MapDecoration : Node3D
 	// Broadleaf woods and standing crops are the two things on the ground that a season changes;
 	// conifers are evergreen, and stone doesn't care. Each entry is one material and its colour in
 	// Spring/Summer/Autumn/Winter order — the Season enum's own order, so it indexes straight in.
+	// Winter is snow on the branches, not bare wood. The dark brown that used to sit here was right
+	// for a crown built as a bare sphere; on a model with its foliage modelled in, it reads as a
+	// black blot on a white hillside.
 	private static readonly Color[] BroadleafBySeason =
-		{ new("6d8f3c"), new("4a6b34"), new("a86a28"), new("5a4a37") };
+		{ new("6d8f3c"), new("4a6b34"), new("a86a28"), new("ccd4d8") };
 	private static readonly Color[] GrainBySeason =
 		{ new("6f8a3f"), new("d4b264"), new("9c8552"), new("8f8b84") };
 
@@ -53,7 +58,14 @@ public partial class MapDecoration : Node3D
 	private Image _props;
 	private RandomNumberGenerator _rng;
 	private readonly List<(StandardMaterial3D Material, Color[] BySeason)> _seasonal = new();
+	/// <summary>One node per province's walls, so a finished build can replace them on their own.</summary>
+	private readonly Dictionary<string, Node3D> _forts = new();
+	/// <summary>Ground somebody has built on, which the woods are sown around.</summary>
+	private readonly List<(Vector2 Centre, float Radius)> _clearings = new();
 
+	/// <summary>Opens the map and lays its roads. The woods are not sown here: a settlement has to
+	/// be standing before them, or the trees grow through its roofs. The page calls
+	/// <see cref="SowWoods"/> once it has put every province on the ground.</summary>
 	public void Build(CampaignMap3D map)
 	{
 		_map = map;
@@ -61,6 +73,14 @@ public partial class MapDecoration : Node3D
 		_rng = new RandomNumberGenerator();
 		_rng.Seed = 20260917; // fixed: the map must look the same every time it loads
 
+		BuildRoads();
+	}
+
+	/// <summary>Sows every wood and boulder field on the map, keeping clear of whatever has already
+	/// been built. Called after the settlements, which is the whole point of it being its own
+	/// call — a forest sown first grows straight through the villages.</summary>
+	public void SowWoods()
+	{
 		var conifers = new List<Transform3D>();
 		var broadleaves = new List<Transform3D>();
 		var boulders = new List<Transform3D>();
@@ -68,6 +88,11 @@ public partial class MapDecoration : Node3D
 		for (int i = 0; i < ScatterAttempts; i++)
 		{
 			var pixel = new Vector2(_rng.RandfRange(0, _props.GetWidth() - 1), _rng.RandfRange(0, _props.GetHeight() - 1));
+			if (IsBuiltOn(pixel))
+			{
+				continue; // somebody's village, or the ground their castle stands on
+			}
+
 			Color density = _props.GetPixel((int)pixel.X, (int)pixel.Y);
 			if (density.R > 0.05f && _rng.Randf() < density.R * TreeChance)
 			{
@@ -92,18 +117,37 @@ public partial class MapDecoration : Node3D
 		// A tree is several instanced meshes over one transform list: each piece carries its own
 		// local offset so the trunk stands ON the ground instead of being centred in it, and its
 		// own colour, which one merged mesh could not have.
-		AddScatter(TrunkMesh(), new Color("4a3524"), conifers, liftY: 0.35f, castsShadow: false);
-		AddScatter(LowerConeMesh(), new Color("293b2a"), conifers, liftY: 1.25f, colorJitter: 0.24f);
-		AddScatter(UpperConeMesh(), new Color("314a33"), conifers, liftY: 2.1f, colorJitter: 0.24f,
-			castsShadow: false);
+		// One mesh per tree now, where each used to take three: the model carries its own trunk and
+		// crown as two surfaces of one drawing, so a wood costs a third of the draw calls it did.
+		AddScatter(Models.MeshOf("Resource_PineTree"), null, Grown(conifers, 4.2f));
 
-		AddScatter(TrunkMesh(), new Color("53402c"), broadleaves, liftY: 0.4f, castsShadow: false);
-		AddScatter(BroadleafCrownMesh(), BroadleafBySeason[(int)Season.Summer], broadleaves,
-			liftY: 1.35f, colorJitter: 0.2f, seasonColors: BroadleafBySeason);
+		// A broadleaf still turns with the year, so its crown surface is repainted on the way in and
+		// that material is handed to SetSeason like the hand-built one was.
+		var crown = new StandardMaterial3D
+		{
+			AlbedoColor = BroadleafBySeason[(int)Season.Summer],
+			Roughness = 0.95f,
+		};
+		_seasonal.Add((crown, BroadleafBySeason));
+		AddScatter(Models.Repainted("Resource_Tree1", "Green", crown), null, Grown(broadleaves, 2.6f));
 
-		AddScatter(BoulderMesh(), new Color("77736e"), boulders, colorJitter: 0.12f, castsShadow: false);
+		AddScatter(Models.MeshOf("Rock"), null, Grown(boulders, 3.4f), castsShadow: false);
+	}
 
-		BuildRoads();
+	/// <summary>Whether a spot has been taken by something built. Kept as circles rather than as a
+	/// mask because there are a dozen of them against a third of a million scatter attempts, and a
+	/// dozen distance checks is cheaper than an image lookup.</summary>
+	private bool IsBuiltOn(Vector2 pixel)
+	{
+		foreach ((Vector2 centre, float radius) in _clearings)
+		{
+			if (pixel.DistanceSquaredTo(centre) < radius * radius)
+			{
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/// <summary>Drops a working site — a quarry, a pasture, a lumber camp — on the ground around a
@@ -141,16 +185,210 @@ public partial class MapDecoration : Node3D
 			transforms.Add(PropTransform(pixel, _rng.RandfRange(0.9f, 1.15f)));
 		}
 
+		if (kind == SiteKind.Grain)
+		{
+			// A standing crop turns with the year like a broadleaf wood does, so its one surface is
+			// repainted on the way in and handed to SetSeason.
+			var standing = new StandardMaterial3D
+			{
+				AlbedoColor = GrainBySeason[(int)Season.Summer],
+				Roughness = 0.95f,
+			};
+			_seasonal.Add((standing, GrainBySeason));
+			AddScatter(Models.Repainted("Farm_FirstAge_Level2_Wheat", "Wheat", standing), null,
+				Grown(transforms, 5.0f), castsShadow: false);
+			return;
+		}
+
 		(Mesh mesh, Color color) = kind switch
 		{
-			SiteKind.Grain => (FieldMesh(), GrainBySeason[(int)Season.Summer]),
 			SiteKind.Cattle => (CattleMesh(), new Color("d8d2c6")),
 			SiteKind.Wood => (LogPileMesh(), new Color("6b4c2f")),
 			SiteKind.Stone => (QuarryMesh(), new Color("9d9891")),
 			_ => (MineMesh(), new Color("4a4440")),
 		};
-		AddScatter(mesh, color, transforms, colorJitter: 0.1f,
-			seasonColors: kind == SiteKind.Grain ? GrainBySeason : null);
+		AddScatter(mesh, color, transforms, colorJitter: 0.1f);
+	}
+
+	/// <summary>How big a place stands on a province's seat. Two rungs, not three: a walled seat is
+	/// no longer a kind of town but a fortification standing beside one, because the player builds
+	/// that and cannot build the town.</summary>
+	public enum Settlement { Hamlet, Town }
+
+	/// <summary>Which model a rung wears, and how big it stands. The ladder runs a timber watchtower
+	/// up to a walled castle, which is the progression the fortifications page charges for — so what
+	/// the map shows and what the ledger holds are the same fact.</summary>
+	private record Works(string Model, float Size);
+
+	/// <summary>The three cottages a village is dealt from, and how far the pack's own units have to
+	/// be stretched to stand beside this map's trees — its buildings are modelled about a metre
+	/// tall, where a conifer here is nearly three.</summary>
+	private static readonly string[] Cottages =
+		{ "Houses_SecondAge_1_Level1", "Houses_SecondAge_2_Level1", "Houses_SecondAge_3_Level1" };
+
+	private const float HouseScale = 2.1f;
+
+	// A town is more cottages than a hamlet and nothing else. The pack's hall is a walled compound
+	// with ponds and gardens in it, which from map height reads as a blue smear rather than as a
+	// building, and its church stood taller than anything a village of this size would raise.
+
+	private static Works PlanFor(string fort) => fort switch
+	{
+		"small-palisade" => new Works("WatchTower_FirstAge_Level1", 3.2f),
+		"medium-fort" => new Works("WatchTower_FirstAge_Level2", 3.4f),
+		"large-fort" => new Works("TowerHouse_FirstAge", 3.2f),
+		"small-castle" => new Works("WatchTower_SecondAge_Level1", 3.6f),
+		"medium-castle" => new Works("WatchTower_SecondAge_Level3", 3.8f),
+		"large-castle" => new Works("Wonder_SecondAge_Level2", 3.4f),
+		"grand-castle" => new Works("Wonder_SecondAge_Level3", 3.8f),
+		_ => null,
+	};
+
+	/// <summary>Raises a settlement on a province's seat — the thing the map pin points at, built
+	/// out of the same primitives as the woods and the quarries rather than an imported model.
+	///
+	/// Houses are laid in a loose ring around the seat with a clear middle, because a cluster with
+	/// a square in it reads as a place people live and an even scatter reads as debris. The ring
+	/// starts wide of the seat, not on it: a province's pin is drawn over that spot, and a
+	/// settlement tucked underneath it is a settlement nobody ever sees.
+	///
+	/// Everything here stands plumb and unstretched: a leaning tree is character, a leaning house
+	/// is a bug, and a roof only sits on its walls if both took the same transform.</summary>
+	public void AddSettlement(Vector2 seatPixel, Settlement kind)
+	{
+		int houses = kind == Settlement.Hamlet ? 5 : 8;
+		float inner = kind == Settlement.Hamlet ? 16f : 18f;
+		float outer = kind == Settlement.Hamlet ? 30f : 38f;
+
+		// Measured off the widest cottage rather than guessed: its own footprint, grown by the scale
+		// it is placed at, converted into map pixels, and given a third again so the walls have
+		// daylight between them. Guessed at thirteen pixels, this was narrower than a house.
+		float clearance = 1.34f * HouseScale * _map.PixelsPerUnit
+			* Mathf.Max(Models.FootprintOf(Cottages[0]),
+				Mathf.Max(Models.FootprintOf(Cottages[1]), Models.FootprintOf(Cottages[2])));
+
+		// Wide of the last roof, so a village sits in a clearing rather than in a thicket.
+		_clearings.Add((seatPixel, outer + 14f));
+
+		var taken = new List<Vector2>();
+		var homes = new List<Transform3D>();
+		for (int attempt = 0; attempt < houses * 40 && homes.Count < houses; attempt++)
+		{
+			float angle = _rng.RandfRange(0, Mathf.Tau);
+			float radius = _rng.RandfRange(inner, outer);
+			Vector2 pixel = Clamped(seatPixel, angle, radius);
+			if (_map.HeightAt(pixel) <= _map.WaterLine + 0.3f || Crowds(taken, clearance, pixel))
+			{
+				continue; // below the tideline, or on top of somebody's roof
+			}
+
+			taken.Add(pixel);
+			homes.Add(BuildingTransform(pixel, HouseScale * _rng.RandfRange(0.92f, 1.12f)));
+		}
+
+		// Dealt round-robin rather than at random: three kinds shuffled by chance leaves a village
+		// with four of one and none of another often enough to look wrong.
+		for (int cottage = 0; cottage < Cottages.Length; cottage++)
+		{
+			var mine = new List<Transform3D>();
+			for (int i = cottage; i < homes.Count; i += Cottages.Length)
+			{
+				mine.Add(homes[i]);
+			}
+
+			AddScatter(Models.MeshOf(Cottages[cottage]), null, mine);
+		}
+
+	}
+	/// <summary>Puts a province's castle on the ground beside its town, and takes down whatever
+	/// stood there before. Its whole job is to say, from the map and without a click, that this
+	/// place has a castle and roughly how much of one — so it is the building itself and no curtain
+	/// wall around it: a ring of blocks at map scale reads as a smudge, and the keep is what carries
+	/// the fact.
+	///
+	/// A castle is the one thing on this map the player builds, so it is the one thing that has to
+	/// change without the map being rebuilt around it — hence a node of its own per province rather
+	/// than another scatter folded in with the trees.
+	///
+	/// An empty key takes it down and leaves an open village, which is what a province that has
+	/// never built looks like.</summary>
+	public void SetFortification(string province, Vector2 seatPixel, string fort)
+	{
+		if (_forts.TryGetValue(province, out Node3D standing))
+		{
+			standing.QueueFree();
+			_forts.Remove(province);
+		}
+
+		Works plan = PlanFor(fort);
+		if (plan == null)
+		{
+			return; // an open village, or a key this map has no shapes for
+		}
+
+		var works = new Node3D();
+		AddChild(works);
+		_forts[province] = works;
+
+		// South-east of the town and clear of its houses: near enough to read as this place's
+		// castle, far enough that the two are not one heap under the province's pin.
+		Vector2 site = Clamped(seatPixel, Mathf.Pi * 0.25f, 62f);
+		if (_map.HeightAt(site) <= _map.WaterLine + 0.3f)
+		{
+			return; // nowhere to stand
+		}
+
+		_clearings.Add((site, 26f));
+
+		Node3D castle = Models.Instance(plan.Model);
+		if (castle == null)
+		{
+			return;
+		}
+
+		works.AddChild(castle);
+		castle.Transform = BuildingTransform(site, plan.Size, yaw: Mathf.Pi * 0.25f);
+	}
+
+	/// <summary>The pack models about a metre tall where this map's props are two or three, so every
+	/// scatter of them is grown on the way in. The transforms keep their own random spread and tilt;
+	/// this only changes how big one of them is.</summary>
+	private static List<Transform3D> Grown(List<Transform3D> transforms, float by)
+	{
+		var grown = new List<Transform3D>(transforms.Count);
+		foreach (Transform3D one in transforms)
+		{
+			grown.Add(one.ScaledLocal(Vector3.One * by));
+		}
+
+		return grown;
+	}
+
+	/// <summary>Whether a spot is too near a house already standing.</summary>
+	private static bool Crowds(List<Vector2> taken, float clearance, Vector2 pixel)
+	{
+		foreach (Vector2 built in taken)
+		{
+			if (pixel.DistanceSquaredTo(built) < clearance * clearance)
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/// <summary>A point that many pixels from the seat, kept inside the map.</summary>	/// <summary>A point that many pixels from the seat, kept inside the map.</summary>
+	private Vector2 Clamped(Vector2 seat, float angle, float radius) => new(
+		Mathf.Clamp(seat.X + Mathf.Cos(angle) * radius, 0, _props.GetWidth() - 1),
+		Mathf.Clamp(seat.Y + Mathf.Sin(angle) * radius, 0, _props.GetHeight() - 1));
+
+	/// <summary>Like PropTransform, but for things people built: no tilt, no vertical stretch, and
+	/// a yaw the caller can pin down so a roof lands on its own walls.</summary>
+	private Transform3D BuildingTransform(Vector2 mapPixel, float scale, float? yaw = null)
+	{
+		Basis basis = Basis.Identity.Rotated(Vector3.Up, yaw ?? _rng.RandfRange(0, Mathf.Tau));
+		return new Transform3D(basis.Scaled(Vector3.One * scale), _map.WorldAt(mapPixel));
 	}
 
 	/// <summary>Repaints everything that turns with the year — sown, standing, harvested, bare.
@@ -187,8 +425,9 @@ public partial class MapDecoration : Node3D
 	/// brightness the shader multiplies the material's colour by, which is what lets
 	/// <see cref="SetSeason"/> repaint a whole scatter by setting that one colour.
 	/// <paramref name="seasonColors"/>, when given, is the four seasons' colours for this piece.</summary>
-	private void AddScatter(Mesh mesh, Color color, List<Transform3D> transforms, float liftY = 0f,
-		float colorJitter = 0f, Color[] seasonColors = null, bool castsShadow = true)
+	private void AddScatter(Mesh mesh, Color? color, List<Transform3D> transforms, float liftY = 0f,
+		float colorJitter = 0f, Color[] seasonColors = null, bool castsShadow = true,
+		Node3D parent = null)
 	{
 		if (transforms.Count == 0)
 		{
@@ -212,18 +451,25 @@ public partial class MapDecoration : Node3D
 			}
 		}
 
-		var material = new StandardMaterial3D
+		// A model brought in from the pack paints itself — its walls and its roof are different
+		// materials on the one mesh, and an override would flatten both to one colour. Only the
+		// shapes built here in code need telling what colour to be.
+		StandardMaterial3D material = null;
+		if (color.HasValue)
 		{
-			AlbedoColor = color,
-			Roughness = 0.95f,
-			VertexColorUseAsAlbedo = colorJitter > 0f,
-		};
-		if (seasonColors != null)
-		{
-			_seasonal.Add((material, seasonColors));
+			material = new StandardMaterial3D
+			{
+				AlbedoColor = color.Value,
+				Roughness = 0.95f,
+				VertexColorUseAsAlbedo = colorJitter > 0f,
+			};
+			if (seasonColors != null)
+			{
+				_seasonal.Add((material, seasonColors));
+			}
 		}
 
-		AddChild(new MultiMeshInstance3D
+		(parent ?? this).AddChild(new MultiMeshInstance3D
 		{
 			Multimesh = multiMesh,
 			MaterialOverride = material,
@@ -393,6 +639,38 @@ public partial class MapDecoration : Node3D
 	}
 
 	// --- placeholder meshes -------------------------------------------------------------------
+
+	// --- what people build ---------------------------------------------------------------------
+	// Cottages, halls and towers out of the same box-and-cone kit the woods are made of. At map
+	// scale a roof is a four-sided cone and nobody is ever close enough to disagree.
+
+	private static Mesh HouseMesh() =>
+		new BoxMesh { Size = new Vector3(2.3f, 1.7f, 1.9f) };
+
+	/// <summary>Four radial segments makes a cone a pyramid, which is what a thatched roof is.</summary>
+	private static Mesh ThatchMesh() =>
+		new CylinderMesh { TopRadius = 0f, BottomRadius = 1.8f, Height = 1.4f, RadialSegments = 4, Rings = 1 };
+
+	private static Mesh HallMesh() =>
+		new BoxMesh { Size = new Vector3(4.6f, 2.8f, 3.0f) };
+
+	private static Mesh HallRoofMesh() =>
+		new CylinderMesh { TopRadius = 0f, BottomRadius = 3.0f, Height = 2.0f, RadialSegments = 4, Rings = 1 };
+
+	private static Mesh SpireMesh() =>
+		new CylinderMesh { TopRadius = 0f, BottomRadius = 0.7f, Height = 4.4f, RadialSegments = 6, Rings = 1 };
+
+	private static Mesh KeepMesh() =>
+		new BoxMesh { Size = new Vector3(4.4f, 5.6f, 4.4f) };
+
+	private static Mesh TowerMesh() =>
+		new CylinderMesh { TopRadius = 1.0f, BottomRadius = 1.2f, Height = 4.6f, RadialSegments = 8, Rings = 1 };
+
+	private static Mesh TowerRoofMesh() =>
+		new CylinderMesh { TopRadius = 0f, BottomRadius = 1.45f, Height = 1.8f, RadialSegments = 8, Rings = 1 };
+
+	private static Mesh KeepRoofMesh() =>
+		new CylinderMesh { TopRadius = 0f, BottomRadius = 3.2f, Height = 2.0f, RadialSegments = 4, Rings = 1 };
 
 	private static Mesh TrunkMesh() =>
 		new CylinderMesh { TopRadius = 0.07f, BottomRadius = 0.12f, Height = 0.8f, RadialSegments = 5, Rings = 1 };

@@ -14,17 +14,15 @@ using Godot;
 /// exactly where they were when it closes.</summary>
 public abstract partial class RoomPage : Control
 {
-	protected const string IconDirectory = "res://assets/ui/icons";
-	private const string SquarePlatePath = "res://assets/ui/button-square.png";
+	// The game's handwriting is Chrome's, so the hall and the rooms are lettered and framed alike.
+	// These are here only so a page can reach them without naming Chrome on every line.
+	protected const string IconDirectory = Chrome.IconDirectory;
 
-	protected static readonly Color Cream = new("d9cdb4");
-	protected static readonly Color Dim = new("8d8577");
-	protected static readonly Color Short = new("c9604e"); // a price the province cannot meet
-
-	// The panel is read over moving film, not over a still page. White carries where the cream the
-	// rest of the chrome is lettered in goes soft against a bright frame.
-	protected static readonly Color Bright = Colors.White;
-	protected static readonly Color Soft = new(0.90f, 0.90f, 0.88f);
+	protected static readonly Color Cream = Chrome.Cream;
+	protected static readonly Color Dim = Chrome.Dim;
+	protected static readonly Color Short = Chrome.Short;
+	protected static readonly Color Bright = Chrome.Bright;
+	protected static readonly Color Soft = Chrome.Soft;
 
 	/// <summary>Raised when the player shuts the room, so the map can drop this page and refresh
 	/// whatever happened in here.</summary>
@@ -76,9 +74,14 @@ public abstract partial class RoomPage : Control
 
 	public override void _Ready()
 	{
-		// A few seconds of the room, played back to back: it should never stop moving.
-		var background = GetNode<VideoStreamPlayer>("Background");
-		background.Finished += background.Play;
+		// A few seconds of the room, played back to back: it should never stop moving. Not every
+		// room is filmed, though — a view over a valley is a painting, and holds still — so a scene
+		// that puts something other than a player behind itself is left alone.
+		var background = GetNodeOrNull<VideoStreamPlayer>("Background");
+		if (background != null)
+		{
+			background.Finished += background.Play;
+		}
 
 		Load();
 		BuildChrome();
@@ -212,19 +215,22 @@ public abstract partial class RoomPage : Control
 		// follows it.
 		var rule = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ShrinkCenter };
 		rule.AddThemeConstantOverride("separation", 10);
-		rule.AddChild(Rule(150));
+		rule.AddChild(Chrome.Rule(150));
 		rule.AddChild(Line("◆", 12, new Color(0.72f, 0.60f, 0.36f)));
-		rule.AddChild(Rule(150));
+		rule.AddChild(Chrome.Rule(150));
 		titles.AddChild(rule);
 
+		// White, both of them. These sit on the film itself with no panel under them, and the rooms
+		// open onto anything from a dark forge to a noon sky over a valley — cream reads on the
+		// first and vanishes on the second.
 		if (Tagline != null)
 		{
-			Label tagline = Line(Tagline, 19, Cream);
+			Label tagline = Line(Tagline, 19, Bright);
 			tagline.HorizontalAlignment = HorizontalAlignment.Center;
 			titles.AddChild(tagline);
 		}
 
-		_provinceLabel = Line("", 15, Dim);
+		_provinceLabel = Line("", 15, Soft);
 		_provinceLabel.HorizontalAlignment = HorizontalAlignment.Center;
 		titles.AddChild(_provinceLabel);
 		return titles;
@@ -250,24 +256,15 @@ public abstract partial class RoomPage : Control
 		};
 	}
 
-	/// <summary>A hairline of the same gold the frames use, for the rule under the title.</summary>
-	private static Control Rule(int width) => new ColorRect
-	{
-		Color = new Color(0.549f, 0.447f, 0.271f, 0.55f),
-		CustomMinimumSize = new Vector2(width, 1),
-		SizeFlagsVertical = SizeFlags.ShrinkCenter,
-		MouseFilter = MouseFilterEnum.Ignore,
-	};
-
 	/// <summary>Hangs one sign in the room, the way a smith labels his own wall. Signs are children
 	/// of the page rather than of a container, anchored by the fractions in SignSpots, so each stays
 	/// over its own corner however the window is shaped. A key with no spot picked for it yet hangs
 	/// nowhere rather than landing in the middle of the room.</summary>
-	protected void HangSign(string key, string name, string icon, string blurb, Action pressed)
+	protected Button HangSign(string key, string name, string icon, string blurb, Action pressed)
 	{
 		if (!SignSpots.TryGetValue(key, out Vector2 spot))
 		{
-			return;
+			return null;
 		}
 
 		// The button's own icon and label, not a container laid inside it: a Button centres those
@@ -291,20 +288,12 @@ public abstract partial class RoomPage : Control
 		sign.Pressed += pressed;
 		AddChild(sign);
 
-		sign.AnchorLeft = sign.AnchorRight = spot.X;
-		sign.AnchorTop = sign.AnchorBottom = spot.Y;
-		sign.OffsetTop = -32;
-		sign.OffsetBottom = 32;
-
 		_signs[key] = sign;
 		DressSign(key, lit: false);
 
-		// The plaque is cut to its own words rather than to one width for all of them: on a fixed
-		// box a short name leaves the icon stranded at the far edge, a plaque away from what it
-		// names. Measured after it is dressed, so the frame and its padding are counted in.
-		float half = sign.GetCombinedMinimumSize().X / 2f;
-		sign.OffsetLeft = -half;
-		sign.OffsetRight = half;
+		// Measured after it is dressed, so the frame and its padding are counted into the width.
+		Chrome.Anchor(sign, spot, sign.GetCombinedMinimumSize().X, 64);
+		return sign;
 	}
 
 	/// <summary>Lights one sign and puts every other one back on the wall. A null key lights none.</summary>
@@ -316,36 +305,7 @@ public abstract partial class RoomPage : Control
 		}
 	}
 
-	/// <summary>A sign is either waiting on the wall or lit as the one in hand. The lit one carries a
-	/// gold edge and a warm glow off the room; the rest sit back in the dark, and lift a little under
-	/// the cursor so the wall answers the mouse.</summary>
-	private void DressSign(string key, bool lit)
-	{
-		Button sign = _signs[key];
-
-		StyleBoxFlat resting = CardStyle(lit
-			? new Color(0.19f, 0.135f, 0.06f, 0.96f)   // lit by the room
-			: new Color(0.085f, 0.065f, 0.048f, 0.92f)); // dark oak
-		resting.BorderColor = lit ? new Color(1f, 0.86f, 0.5f, 1f) : new Color(0.51f, 0.41f, 0.25f, 0.9f);
-		resting.BorderWidthLeft = resting.BorderWidthTop = resting.BorderWidthRight = resting.BorderWidthBottom = lit ? 3 : 2;
-		resting.CornerRadiusTopLeft = resting.CornerRadiusTopRight = 3;
-		resting.CornerRadiusBottomLeft = resting.CornerRadiusBottomRight = 3;
-		resting.ContentMarginLeft = resting.ContentMarginRight = 14;
-		resting.ContentMarginTop = resting.ContentMarginBottom = 8;
-		// Every plaque throws a shadow on the wall; the chosen one throws firelight instead.
-		resting.ShadowColor = lit ? new Color(1f, 0.74f, 0.33f, 0.45f) : new Color(0f, 0f, 0f, 0.55f);
-		resting.ShadowSize = lit ? 14 : 6;
-		resting.ShadowOffset = lit ? Vector2.Zero : new Vector2(2, 3);
-
-		StyleBoxFlat hovered = (StyleBoxFlat)resting.Duplicate();
-		hovered.BgColor = lit ? new Color(0.27f, 0.2f, 0.09f, 0.96f) : new Color(0.10f, 0.088f, 0.075f, 0.92f);
-		hovered.BorderColor = new Color(1f, 0.84f, 0.45f, lit ? 1f : 0.85f);
-
-		sign.AddThemeStyleboxOverride("normal", resting);
-		sign.AddThemeStyleboxOverride("focus", resting);
-		sign.AddThemeStyleboxOverride("hover", hovered);
-		sign.AddThemeStyleboxOverride("pressed", hovered);
-	}
+	private void DressSign(string key, bool lit) => Chrome.DressPlaque(_signs[key], lit);
 
 	private Control BuildDetailPanel()
 	{
@@ -374,38 +334,6 @@ public abstract partial class RoomPage : Control
 			child.QueueFree();
 		}
 	}
-
-	// --- small parts ---------------------------------------------------------------------------
-
-	protected static PanelContainer Framed(Control content, int margin)
-	{
-		var panel = new PanelContainer();
-		panel.AddThemeStyleboxOverride("panel", CardStyle(new Color(0.05f, 0.045f, 0.04f, 0.88f)));
-
-		var inset = new MarginContainer();
-		foreach (string side in new[] { "left", "top", "right", "bottom" })
-		{
-			inset.AddThemeConstantOverride($"margin_{side}", margin);
-		}
-
-		panel.AddChild(inset);
-		inset.AddChild(content);
-		return panel;
-	}
-
-	protected static StyleBoxFlat CardStyle(Color background) => new()
-	{
-		BgColor = background,
-		BorderWidthLeft = 2,
-		BorderWidthTop = 2,
-		BorderWidthRight = 2,
-		BorderWidthBottom = 2,
-		BorderColor = new Color(0.549f, 0.447f, 0.271f, 0.85f),
-		CornerRadiusTopLeft = 4,
-		CornerRadiusTopRight = 4,
-		CornerRadiusBottomRight = 4,
-		CornerRadiusBottomLeft = 4,
-	};
 
 	/// <summary>A number the player sets: the plates either side, the reading between them, and a
 	/// slider running to what the room will allow — men the province can raise, sacks the purse can
@@ -473,39 +401,15 @@ public abstract partial class RoomPage : Control
 		return row;
 	}
 
-	/// <summary>A small button wearing the square plate the rest of the game's icon buttons wear:
-	/// the theme's own button is a gilded lozenge, which at this size reads as an ornament rather
-	/// than as something to press.</summary>
-	protected static Button Plate(string text, int side, Action pressed)
-	{
-		var button = new Button { Text = text, CustomMinimumSize = new Vector2(side, side) };
-		button.AddThemeFontSizeOverride("font_size", 22);
-		foreach (string state in new[] { "normal", "hover", "pressed", "focus" })
-		{
-			button.AddThemeStyleboxOverride(state, new StyleBoxTexture
-			{
-				Texture = GD.Load<Texture2D>(SquarePlatePath),
-				ModulateColor = state == "normal" ? Colors.White : new Color(1.3f, 1.2f, 1.05f),
-			});
-		}
+	// --- small parts ---------------------------------------------------------------------------
 
-		button.Pressed += pressed;
-		return button;
-	}
+	protected static PanelContainer Framed(Control content, int margin) => Chrome.Framed(content, margin);
 
-	protected static Label Line(string text, int size, Color color)
-	{
-		var label = new Label { Text = text };
-		label.AddThemeFontSizeOverride("font_size", size);
-		label.AddThemeColorOverride("font_color", color);
-		return label;
-	}
+	protected static StyleBoxFlat CardStyle(Color background) => Chrome.CardStyle(background);
 
-	protected static TextureRect Icon(string name, int side) => new()
-	{
-		Texture = GD.Load<Texture2D>($"{IconDirectory}/{name}.png"),
-		CustomMinimumSize = new Vector2(side, side),
-		ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
-		StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
-	};
+	protected static Label Line(string text, int size, Color color) => Chrome.Line(text, size, color);
+
+	protected static TextureRect Icon(string name, int side) => Chrome.Icon(name, side);
+
+	protected static Button Plate(string text, int side, Action pressed) => Chrome.Plate(text, side, pressed);
 }

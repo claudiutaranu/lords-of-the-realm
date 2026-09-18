@@ -25,17 +25,28 @@ public partial class CampaignMapPage : Control
 	private const string OptionsScenePath = "res://scene/options/options.tscn";
 	private const string SelfScenePath = "res://scene/campaign-map/campaign_map.tscn";
 	private const string LeaveFarewellPath = "res://assets/audio/quit-farewell.mp3";
+	private const string OpeningVoicePath = "res://assets/audio/campaign-opening-briefing.mp3";
 	private const string SquareButtonPath = "res://assets/ui/button-square.png";
 	private const string ProvincesDataFile = "provinces.json";
-	private const string BlacksmithScenePath = "res://scene/campaign-map/blacksmith.tscn";
 	private const string RecruitsScenePath = "res://scene/campaign-map/recruits.tscn";
 	private const string MarketScenePath = "res://scene/campaign-map/market.tscn";
+	private const string HallScenePath = "res://scene/campaign-map/hall.tscn";
+	private const string FortificationsScenePath = "res://scene/campaign-map/fortifications.tscn";
+	private const string CityScenePath = "res://scene/campaign-map/city.tscn";
 	private const float TurnFadeInSeconds = 0.4f;
 	private const float TurnHoldSeconds = 1.1f;
 	private const float TurnFadeOutSeconds = 0.5f;
 	private const float ToastFadeInSeconds = 0.15f;
 	private const float ToastHoldSeconds = 1.6f;
 	private const float ToastFadeOutSeconds = 0.6f;
+
+	/// <summary>What the narrator says over the map on the first turn, and what stays on screen after
+	/// he has stopped. Kept to what a first turn can actually do, because a briefing nobody can act
+	/// on is a cutscene with a Close button.</summary>
+	private const string Briefing =
+		"Greetings, sire. The crown is yours, and with it Kingsreach \u2014 one seat out of eight " +
+		"on this map. The Northern Watch holds another, and six lie unclaimed between you.\n\n" +
+		"Fill your stores, raise an army, and take the rest.";
 
 	/// <summary>A realm as the campaign describes it: what it is called, and the colour everything
 	/// belonging to it is drawn in.</summary>
@@ -73,7 +84,8 @@ public partial class CampaignMapPage : Control
 	private Label _ironLabel;
 	private Label _populationLabel;
 	private ProvinceSidebar _sidebar;
-	private RoomPage _room;
+	private readonly List<RoomPage> _rooms = new();
+	private HallPage _hall;
 	private Control _leaveConfirm;
 	private AudioStreamPlayer _leaveFarewell;
 	private string _leaveTarget;
@@ -124,6 +136,9 @@ public partial class CampaignMapPage : Control
 		}
 
 		_turnManager = new TurnManager(_balance, playerDefinitions);
+		// Read before the pending save is consumed: it is the only thing that tells a campaign
+		// being started from a campaign being resumed.
+		bool opening = SaveGame.Pending == null;
 		if (SaveGame.Pending != null)
 		{
 			_turnManager.Restore(SaveGame.Pending.Turn, SaveGame.Pending.Provinces);
@@ -196,46 +211,89 @@ public partial class CampaignMapPage : Control
 			ShowProvinceTrade(definition);
 		}
 
+		// Every province on the map, described or not. Sites need an economy to draw from, but a
+		// town does not: somebody lives at Frostgate whether or not this campaign has written down
+		// what they mine there, and a seat with no roofs on it reads as a bug.
+		ShowSettlements();
+
+		// After the sites, and after any save has been restored: a loaded game's walls are whatever
+		// that save built, not whatever the campaign started with.
+		ShowFortifications();
+
+		// Last of all. Every village and castle is on the ground by now, so the woods can be sown
+		// around them instead of through them.
+		_world.SowWoods();
+
 		// After the sites are placed, so a loaded save's crops open in their own season rather than
 		// being sown green and repainted a frame later.
 		_world.SetSeason(_turnManager.CurrentSeason);
 
 		SelectProvince(0); // Kingsreach, the capital — shows something real before any click.
+
+		if (opening)
+		{
+			OpenBriefing();
+		}
 	}
 
 	/// <summary>Opens one of the province's rooms — the smithy, the training yard — over this page
 	/// rather than in place of it, so the turn, the camera and the selection are all exactly where
 	/// they were when it closes.</summary>
-	private void OpenRoom(string scenePath, string verb)
+	private RoomPage OpenRoom(string scenePath, string verb)
 	{
-		if (_room != null)
-		{
-			return; // one room at a time; the map is behind this one
-		}
-
-		ProvinceData province = _provinces[_selected != null ? _markers.IndexOf(_selected) : 0];
+		ProvinceData province = Selected();
 		ProvinceEconomy economy = _turnManager.GetProvince(province.Name);
 		if (economy == null)
 		{
 			// A province you do not hold has none of your rooms in it. Say so rather than letting the
 			// press do nothing at all.
 			ShowSaveToast($"{province.Name} is not yours to {verb} in");
+			return null;
+		}
+
+		// A stack rather than one room: the town is a room too, and the smithy opens over it the way
+		// the town opens over the map. Closing one uncovers whatever it was opened from.
+		var room = GD.Load<PackedScene>(scenePath).Instantiate<RoomPage>();
+		AddChild(room);
+		_rooms.Add(room);
+		room.Open(economy);
+		room.Closed += () =>
+		{
+			_rooms.Remove(room);
+			room.QueueFree();
+			// An order spends the province's stores and its people, so everything that reads them is
+			// stale by now — the map behind, and any room this one was opened from.
+			_sidebar.Refresh();
+			UpdateResourceBar(economy);
+			if (_rooms.Count > 0)
+			{
+				_rooms[^1].Refresh();
+			}
+		};
+
+		return room;
+	}
+
+	/// <summary>The province's town: every building it has raised, and the way into each of them.
+	/// The sites it shows are the ones the province actually has, which is why it is handed the
+	/// definition as well as the economy a room normally gets.</summary>
+	private void OpenCity()
+	{
+		if (OpenRoom(CityScenePath, "rule") is not CityPage city)
+		{
 			return;
 		}
 
-		_room = GD.Load<PackedScene>(scenePath).Instantiate<RoomPage>();
-		AddChild(_room);
-		_room.Open(economy);
-		_room.Closed += () =>
+		if (_definitionsByName.TryGetValue(Selected().Name, out ProvinceDefinition definition))
 		{
-			_room.QueueFree();
-			_room = null;
-			// An order spends the province's stores and its people, so everything on the map that
-			// reads them is stale by now.
-			_sidebar.Refresh();
-			UpdateResourceBar(economy);
-		};
+			city.ShowSites(definition);
+		}
+
+		city.RoomChosen += room => OpenRoom($"res://scene/campaign-map/{room}.tscn", "use");
 	}
+
+	private ProvinceData Selected() =>
+		_provinces[_selected != null ? _markers.IndexOf(_selected) : 0];
 
 	/// <summary>The column of buttons beside the minimap: the places a lord returns to most, and the
 	/// crest menu. Each wears the square button plate, with the glyph inset inside its frame.</summary>
@@ -248,7 +306,7 @@ public partial class CampaignMapPage : Control
 		(NavRailIcon.Glyph Glyph, string Art, string Tip, Action Open)[] entries =
 		{
 			(NavRailIcon.Glyph.Crown, null, "Court", () => ShowSection(NavRail.Section.Court)),
-			(NavRailIcon.Glyph.Book, "scroll", "Chronicle", () => ShowSection(NavRail.Section.Chronicle)),
+			(NavRailIcon.Glyph.Book, "castle", "Fortifications", () => ShowSection(NavRail.Section.Fortifications)),
 			(NavRailIcon.Glyph.Helmet, "shield", "Military", () => ShowSection(NavRail.Section.Military)),
 			(NavRailIcon.Glyph.Gear, null, "Menu", () => gameMenu.Visible = !gameMenu.Visible),
 		};
@@ -363,6 +421,10 @@ public partial class CampaignMapPage : Control
 			UpdateTurnDisplay();
 			SelectProvince(_selected != null ? _markers.IndexOf(_selected) : 0);
 
+			// A season's masons may have finished a wall; the map has to say so the moment they do,
+			// and it is hidden behind the transition while this happens.
+			ShowFortifications();
+
 			Season season = _turnManager.CurrentSeason;
 			_world.SetSeason(season); // the map turns over here too, while nothing of it is visible
 			GetNode<Label>("%TransitionSeason").Text = season.ToString();
@@ -410,6 +472,86 @@ public partial class CampaignMapPage : Control
 		}
 	}
 
+	/// <summary>Puts a town on every province's seat, yours and everyone else's.</summary>
+	private void ShowSettlements()
+	{
+		foreach (ProvinceData province in _provinces)
+		{
+			_definitionsByName.TryGetValue(province.Name, out ProvinceDefinition definition);
+			_world.AddSettlement(province.MapPosition, SettlementFor(definition, province.IsCapital));
+		}
+	}
+
+	/// <summary>How big a place stands on a province's seat: a realm's capital is a town whatever
+	/// its land, and the rest are read off the hands that land can work, because land that can work
+	/// more hands has more hands living on it. So the map says what a province is worth before the
+	/// sidebar does.
+	///
+	/// The threshold sits inside the authored spread rather than on a round number — every province
+	/// on this campaign holds between 230 and 260, and a round 250 would have made them all one
+	/// thing, which is no map at all.
+	///
+	/// Walls are not part of this. A town is what the province grew; a castle is what its lord
+	/// built, and that stands beside it and changes as it is built.</summary>
+	private static MapDecoration.Settlement SettlementFor(ProvinceDefinition definition, bool capital)
+	{
+		if (capital)
+		{
+			return MapDecoration.Settlement.Town;
+		}
+
+		if (definition == null)
+		{
+			// A province this campaign has not written an economy for. A hamlet is the honest guess:
+			// it says people live there without claiming a size nobody has decided on.
+			return MapDecoration.Settlement.Hamlet;
+		}
+
+		int hands = definition.GrainWorkerCapacity + definition.CattleWorkerCapacity
+			+ definition.WoodWorkerCapacity + definition.StoneWorkerCapacity
+			+ definition.IronWorkerCapacity;
+
+		return hands >= 245 ? MapDecoration.Settlement.Town : MapDecoration.Settlement.Hamlet;
+	}
+
+	/// <summary>Puts every province's walls on the map as the ledger has them. Called once the world
+	/// is built and again after each turn, because a build that finished this season has to show up
+	/// on the ground the moment it does.</summary>
+	private void ShowFortifications()
+	{
+		foreach (ProvinceData province in _provinces)
+		{
+			ProvinceEconomy economy = _turnManager.GetProvince(province.Name);
+			_world.SetFortification(province.Name, province.MapPosition, economy?.Fortification ?? "");
+		}
+	}
+
+	/// <summary>The briefing a campaign opens on: what you hold, and what to do before you end your
+	/// first turn. It borrows the rail's own panel rather than standing up a second one in the same
+	/// place in the same frame, and closes by the same button.
+	///
+	/// The voice is optional. Until it is recorded the briefing simply reads itself.</summary>
+	private void OpenBriefing()
+	{
+		_sectionTitle.Text = $"{_turnManager.CurrentSeason}, {_turnManager.CurrentYear}";
+		_sectionBody.Text = Briefing;
+		_sectionPanel.Visible = true;
+
+		if (!ResourceLoader.Exists(OpeningVoicePath))
+		{
+			return;
+		}
+
+		var voice = new AudioStreamPlayer
+		{
+			Stream = GD.Load<AudioStreamMP3>(OpeningVoicePath),
+			Bus = Settings.SfxBus,
+		};
+		AddChild(voice);
+		voice.Finished += voice.QueueFree;
+		voice.Play();
+	}
+
 	// A save is instant and silent otherwise: the toast holds long enough to be read, then
 	// clears itself so nothing stays parked over the map.
 	private void ShowSaveToast(string message)
@@ -425,13 +567,58 @@ public partial class CampaignMapPage : Control
 	}
 
 	// Each rail destination is its own screen that doesn't exist yet, so the rail opens a shell
+	/// <summary>Opens the hall of lords over the map. It reads the whole realm rather than the
+	/// province in hand, so it takes the turn manager and not one economy.
+	///
+	/// It opens over the map for now, the way the rooms do. If it becomes the screen the campaign is
+	/// actually played from, this is the call that turns around: the map opens from the hall's
+	/// Province Affairs door instead.</summary>
+	private void OpenHall()
+	{
+		if (_hall != null)
+		{
+			return;
+		}
+
+		_hall = GD.Load<PackedScene>(HallScenePath).Instantiate<HallPage>();
+		AddChild(_hall);
+		_hall.Open(_turnManager);
+
+		_hall.Closed += () =>
+		{
+			_hall.QueueFree();
+			_hall = null;
+		};
+
+		// The doors are named but most of them open onto nothing yet. The two that do lead
+		// somewhere go there; the rest say so rather than doing nothing at all.
+		_hall.DoorChosen += door =>
+		{
+			switch (door)
+			{
+				case "army": OpenRoom(RecruitsScenePath, "raise men"); break;
+				case "treasury": OpenRoom(MarketScenePath, "trade"); break;
+				// Walls are what developing a province means so far, so Province Affairs opens onto
+				// them. It becomes a door of its own once there is more than one thing behind it.
+				case "provinces": OpenRoom(FortificationsScenePath, "build"); break;
+				default: ShowSaveToast($"{door} is not built yet"); break;
+			}
+		};
+
+		_hall.TurnEnded += () =>
+		{
+			AdvanceTurn();
+			_hall?.Refresh();
+		};
+	}
+
 	// naming what belongs there. Replace a case with a real panel as that system gets built.
 	private void ShowSection(NavRail.Section section)
 	{
 		// Three of them open onto a room of the province in hand rather than onto a panel of text.
 		if (section == NavRail.Section.Buildings)
 		{
-			OpenRoom(BlacksmithScenePath, "forge");
+			OpenCity();
 			return;
 		}
 
@@ -441,15 +628,27 @@ public partial class CampaignMapPage : Control
 			return;
 		}
 
+		if (section == NavRail.Section.Fortifications)
+		{
+			OpenRoom(FortificationsScenePath, "build");
+			return;
+		}
+
 		if (section == NavRail.Section.Trade)
 		{
 			OpenRoom(MarketScenePath, "trade");
 			return;
 		}
 
+		if (section == NavRail.Section.Court)
+		{
+			OpenHall();
+			return;
+		}
+
 		_sectionTitle.Text = section switch
 		{
-			NavRail.Section.Chronicle => "Chronicle",
+			NavRail.Section.Fortifications => "Fortifications",
 			NavRail.Section.Military => "Military",
 			NavRail.Section.Buildings => "Buildings",
 			NavRail.Section.Court => "Court",
@@ -457,7 +656,7 @@ public partial class CampaignMapPage : Control
 		};
 		_sectionBody.Text = section switch
 		{
-			NavRail.Section.Chronicle => "A running record of the realm's events, turn by turn. Not built yet.",
+			NavRail.Section.Fortifications => "The walls of every province, and what they cost to raise. Not built yet.",
 			NavRail.Section.Military => "Every army you command, where it stands and what it costs. Not built yet.",
 			NavRail.Section.Buildings => "What each province has raised, and what it can raise next. Not built yet.",
 			NavRail.Section.Court => "Your lords, advisors and heirs. Not built yet.",
@@ -505,7 +704,16 @@ public partial class CampaignMapPage : Control
 			int index = _world.ProvinceAt(click.Position);
 			if (index >= 0 && index < _provinces.Count)
 			{
-				SelectProvince(index);
+				// The first press is how you look a province over; a second press on the one already
+				// in hand is how you walk into its town.
+				if (_selected != null && _markers.IndexOf(_selected) == index)
+				{
+					OpenCity();
+				}
+				else
+				{
+					SelectProvince(index);
+				}
 			}
 		}
 	}

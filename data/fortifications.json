@@ -1,0 +1,75 @@
+{
+	"_comment": "What a province can raise around itself. Engine data, not a campaign's: every realm builds the same ladder. A province holds one fortification at a time, and raising a new one replaces what stood there — the cost is the whole thing, not the difference. 'cost' is paid in full when the order is placed, out of the province's own stores; timber alone raises a palisade, but nothing above a fort goes up without stone, and nothing above a small castle without iron for its hinges, grilles and bars. 'short' is the one word the progression strip in the panel uses, because four full names will not fit across it. 'seasons' is how many turns the masons take. The rungs are named for the real Norman ladder England was fortified by, which is the same one Lords of the Realm II used: a palisade, then a motte with its bailey, then stone raised over the motte, then a keep, a walled castle, and the king's own. Every number here is placeholder balance, meant to be tuned.",
+	"materials": [
+		{
+			"key": "wood",
+			"name": "Wood",
+			"icon": "wood",
+			"forts": [
+				{
+					"key": "small-palisade",
+					"name": "Palisade",
+					"short": "Palisade",
+					"blurb": "A ring of sharpened stakes on a bank of earth. It will not stop an army, but it stops a raid.",
+					"seasons": 1,
+					"cost": { "wood": 200 }
+				},
+				{
+					"key": "medium-fort",
+					"name": "Motte and Bailey",
+					"short": "Motte",
+					"blurb": "A timber tower on a raised mound, and a stockaded yard beneath it. What the Normans threw up in a fortnight.",
+					"seasons": 2,
+					"cost": { "wood": 400, "stone": 60 }
+				},
+				{
+					"key": "large-fort",
+					"name": "Wooden Keep",
+					"short": "Timber",
+					"blurb": "A great tower of squared oak on the mound, where the old stockade stood. Timber still, but nothing a raiding party will climb.",
+					"seasons": 3,
+					"cost": { "wood": 700, "stone": 150, "iron": 40 }
+				}
+			]
+		},
+		{
+			"key": "stone",
+			"name": "Stone",
+			"icon": "stone",
+			"forts": [
+				{
+					"key": "small-castle",
+					"name": "Small Keep",
+					"short": "Small",
+					"blurb": "The timber tower comes down and stone goes up where it stood. What fire did to the old one, it cannot do here.",
+					"seasons": 3,
+					"cost": { "stone": 300, "wood": 120, "iron": 30 }
+				},
+				{
+					"key": "medium-castle",
+					"name": "Keep",
+					"short": "Keep",
+					"blurb": "One great tower of cut stone, its walls thicker than a man is tall. A siege stops being a raid and becomes a season.",
+					"seasons": 4,
+					"cost": { "stone": 600, "wood": 220, "iron": 80 }
+				},
+				{
+					"key": "large-castle",
+					"name": "Stone Castle",
+					"short": "Stone",
+					"blurb": "A curtain wall with a tower on every corner, and a gatehouse that costs an army to force.",
+					"seasons": 5,
+					"cost": { "stone": 1000, "wood": 350, "iron": 160 }
+				},
+				{
+					"key": "grand-castle",
+					"name": "Royal Castle",
+					"short": "Royal",
+					"blurb": "Two rings of walls, one inside the other. The seat of a realm, taken by starvation or by treachery and rarely by assault.",
+					"seasons": 7,
+					"cost": { "stone": 1500, "wood": 500, "iron": 280 }
+				}
+			]
+		}
+	]
+}

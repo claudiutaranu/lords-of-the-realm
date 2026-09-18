@@ -55,6 +55,17 @@ public class ProvinceEconomy
 		}
 	}
 
+	/// <summary>What stands around the province, by the key fortifications.json uses. Empty for an
+	/// open village. A province holds one at a time: building a new one replaces what was there,
+	/// which is why nothing here counts what it replaced.</summary>
+	public string Fortification = "";
+
+	/// <summary>What the masons are raising, and how many seasons are left on it. Empty when no
+	/// work is in hand. The stores were spent when the order was placed, so a save carries only
+	/// what is still owed in time — and the old wall stands until the new one is finished.</summary>
+	public string Building = "";
+	public int BuildSeasonsLeft;
+
 	/// <summary>What the smithy is forging, by weapon key, and how many turns are left on it. Empty
 	/// when the forge is cold. The order is paid for when it is placed, so a save carries only what
 	/// is still owed.</summary>

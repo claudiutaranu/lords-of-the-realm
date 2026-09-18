@@ -227,6 +227,18 @@ public partial class CampaignMap3D : Node3D
 	public void AddSite(Vector2 seatPixel, MapDecoration.SiteKind kind, float weight) =>
 		_decoration.AddSite(seatPixel, kind, weight);
 
+	/// <summary>Raises a province's settlement on its seat — what the map pin points at.</summary>
+	public void AddSettlement(Vector2 seatPixel, MapDecoration.Settlement kind) =>
+		_decoration.AddSettlement(seatPixel, kind);
+
+	/// <summary>Puts a province's walls on the ground beside its town, taking down whatever stood
+	/// there before. Called again whenever a build finishes, so the map keeps up with the ledger.</summary>
+	public void SetFortification(string province, Vector2 seatPixel, string fort) =>
+		_decoration.SetFortification(province, seatPixel, fort);
+
+	/// <summary>Sows the woods, once everything built is standing. Last, so they grow around it.</summary>
+	public void SowWoods() => _decoration.SowWoods();
+
 	/// <summary>Terrain height in world units at a map pixel — where a marker or a future army
 	/// has to stand so it isn't buried in a hillside.</summary>
 	public float HeightAt(Vector2 mapPixel) => SampleHeight(MapToWorld(mapPixel));

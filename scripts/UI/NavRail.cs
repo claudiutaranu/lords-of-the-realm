@@ -10,7 +10,7 @@ public partial class NavRail : PanelContainer
 	public enum Section
 	{
 		Buildings,
-		Chronicle,
+		Fortifications,
 		Trade,
 		Military,
 		Court,
@@ -21,7 +21,7 @@ public partial class NavRail : PanelContainer
 	public override void _Ready()
 	{
 		Wire("%BuildingsButton", Section.Buildings);
-		Wire("%ChronicleButton", Section.Chronicle);
+		Wire("%FortificationsButton", Section.Fortifications);
 		Wire("%TradeButton", Section.Trade);
 		Wire("%MilitaryButton", Section.Military);
 		Wire("%CourtButton", Section.Court);

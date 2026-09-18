@@ -37,6 +37,20 @@ public class TurnManager
 	public List<ProvinceEconomy> Provinces =>
 		_definitions.ConvertAll(definition => _provincesByName[definition.ProvinceName]);
 
+	/// <summary>What the realm as a whole holds of one store right now, across every province it
+	/// keeps. There is no shared treasury — each province has its own pile — so the hall adds them
+	/// up to say what the crown is worth.</summary>
+	public int RealmStore(string store)
+	{
+		int total = 0;
+		foreach (ProvinceEconomy province in _provincesByName.Values)
+		{
+			total += province.Stored(store);
+		}
+
+		return total;
+	}
+
 	/// <summary>Puts a save's state back in place. Provinces are matched by name, so a save
 	/// written before a province was added or renamed still loads: the missing one simply keeps
 	/// the starting values the definitions gave it.</summary>

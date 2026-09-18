@@ -46,53 +46,49 @@ public partial class ResourceBar : PanelContainer
 		});
 
 		_row = new HBoxContainer();
-		_row.AddThemeConstantOverride("separation", 38);
+		_row.AddThemeConstantOverride("separation", 34);
 		AddChild(_row);
 	}
 
 	/// <summary>Draws what the province holds. Call it again whenever those numbers change.</summary>
-	public void Show(ProvinceEconomy province)
+	public void Show(ProvinceEconomy province) =>
+		Show(province == null ? null : province.Stored); // an unclaimed province keeps no stores
+
+	/// <summary>Draws whatever answers for the stores, which is not always one province: the hall of
+	/// lords reads the whole realm across every province the crown holds. Null draws an empty
+	/// strip.</summary>
+	public void Show(System.Func<string, int> held)
 	{
 		foreach (Node cell in _row.GetChildren())
 		{
 			cell.QueueFree();
 		}
 
-		if (province == null)
+		if (held == null)
 		{
-			return; // an unclaimed province keeps no stores
+			return;
 		}
 
 		foreach ((string key, string icon) in Stores)
 		{
 			var cell = new HBoxContainer();
-			cell.AddThemeConstantOverride("separation", 9);
+			cell.AddThemeConstantOverride("separation", 11);
 
 			cell.AddChild(new TextureRect
 			{
 				Texture = GD.Load<Texture2D>($"{IconDirectory}/{icon}.png"),
-				CustomMinimumSize = new Vector2(30, 30),
+				CustomMinimumSize = new Vector2(42, 42),
 				ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
 				StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
 				MouseFilter = MouseFilterEnum.Ignore,
 			});
 
-			var amount = new Label { Text = Held(province, key).ToString("N0"), VerticalAlignment = VerticalAlignment.Center };
-			amount.AddThemeFontSizeOverride("font_size", 22);
+			var amount = new Label { Text = held(key).ToString("N0"), VerticalAlignment = VerticalAlignment.Center };
+			amount.AddThemeFontSizeOverride("font_size", 24);
 			amount.AddThemeColorOverride("font_color", Cream);
 			cell.AddChild(amount);
 
 			_row.AddChild(cell);
 		}
 	}
-
-	private static int Held(ProvinceEconomy province, string key) => key switch
-	{
-		"gold" => province.Gold,
-		"grain" => province.Grain,
-		"cattle" => province.Cattle,
-		"wood" => province.Wood,
-		"stone" => province.Stone,
-		_ => province.Iron,
-	};
 }

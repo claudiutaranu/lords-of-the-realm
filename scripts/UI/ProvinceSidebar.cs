@@ -47,6 +47,10 @@ public partial class ProvinceSidebar : VBoxContainer
 		("Horse", "horse"),
 	};
 
+	private const string UnclaimedArtPath = "res://assets/ui/unclaimed.png";
+
+	private Control _held;
+	private Control _foreign;
 	private ColorRect _accent;
 	private TextureRect _crest;
 	private Label _name;
@@ -68,9 +72,18 @@ public partial class ProvinceSidebar : VBoxContainer
 	{
 		AddThemeConstantOverride("separation", 8);
 		BuildHeader();
+
+		// Everything below the header is somebody's books, and you only get to read your own. The
+		// two halves are built once and swapped by Refresh, rather than torn down and rebuilt every
+		// time the selection crosses a border.
+		_held = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+		_held.AddThemeConstantOverride("separation", 8);
+		AddChild(_held);
 		BuildStats();
 		BuildResources();
 		BuildMuster();
+
+		BuildForeign();
 	}
 
 	/// <summary>Who this province is. Independent of the economy, so the rival's provinces and the
@@ -104,6 +117,8 @@ public partial class ProvinceSidebar : VBoxContainer
 	public void Refresh()
 	{
 		bool held = _economy != null;
+		_held.Visible = held;
+		_foreign.Visible = !held;
 		_population.Text = held ? _economy.Population.ToString("N0") : "—";
 		_loyalty.Text = held ? Mathf.RoundToInt(_economy.Loyalty).ToString() : "—";
 		_tax.Text = held ? _economy.Tax.ToString() : "—";
@@ -184,16 +199,19 @@ public partial class ProvinceSidebar : VBoxContainer
 	private void BuildStats()
 	{
 		var row = new HBoxContainer();
-		row.AddThemeConstantOverride("separation", 4);
-		AddChild(Framed(row, 8));
+		row.AddThemeConstantOverride("separation", 2);
+		_held.AddChild(Framed(row, 8));
 
-		_population = StatCell(row, Icon("population", 22));
+		// 20 and 14 rather than 22 and 16: tax and ration read as words, not numbers, and at the
+		// larger size the four cells together are wider than the sidebar is — which pushed the whole
+		// sidebar out every time the selection landed on a province you hold.
+		_population = StatCell(row, Icon("population", 20));
 		row.AddChild(Divider());
-		_loyalty = StatCell(row, Icon("heart", 22));
+		_loyalty = StatCell(row, Icon("heart", 20));
 		row.AddChild(Divider());
-		_tax = StatCell(row, Icon("gold", 22));
+		_tax = StatCell(row, Icon("gold", 20));
 		row.AddChild(Divider());
-		_ration = StatCell(row, Icon("food", 22));
+		_ration = StatCell(row, Icon("food", 20));
 	}
 
 	private Label StatCell(HBoxContainer row, Control icon)
@@ -203,7 +221,7 @@ public partial class ProvinceSidebar : VBoxContainer
 		cell.AddChild(icon);
 
 		var value = new Label { VerticalAlignment = VerticalAlignment.Center };
-		value.AddThemeFontSizeOverride("font_size", 16);
+		value.AddThemeFontSizeOverride("font_size", 14);
 		value.AddThemeColorOverride("font_color", Cream);
 		cell.AddChild(value);
 
@@ -216,7 +234,7 @@ public partial class ProvinceSidebar : VBoxContainer
 	{
 		var row = new HBoxContainer();
 		row.AddThemeConstantOverride("separation", 2);
-		AddChild(Framed(row, 8));
+		_held.AddChild(Framed(row, 8));
 
 		bool first = true;
 		foreach ((ResourceType type, string icon) in Resources)
@@ -252,7 +270,7 @@ public partial class ProvinceSidebar : VBoxContainer
 		var grid = new GridContainer { Columns = 4 };
 		grid.AddThemeConstantOverride("h_separation", 5);
 		grid.AddThemeConstantOverride("v_separation", 5);
-		AddChild(Framed(grid, 6));
+		_held.AddChild(Framed(grid, 6));
 
 		foreach ((string name, string unit) in Muster)
 		{
@@ -273,6 +291,37 @@ public partial class ProvinceSidebar : VBoxContainer
 
 			grid.AddChild(tile);
 		}
+	}
+
+	/// <summary>What stands in place of the books for a province you do not hold: the keep on its
+	/// hill, unlit, and a line saying why there are no numbers under it. A column of dashes where
+	/// the stores should be reads as a province with nothing in it rather than as one you cannot
+	/// see into.</summary>
+	private void BuildForeign()
+	{
+		var stack = new VBoxContainer();
+		stack.AddThemeConstantOverride("separation", 8);
+
+		// Covered and expanding: the panel runs the whole height the books would have taken, and the
+		// keep is cropped to fill it rather than leaving a dark gap under a small picture.
+		stack.AddChild(new TextureRect
+		{
+			Texture = GD.Load<Texture2D>(UnclaimedArtPath),
+			CustomMinimumSize = new Vector2(0, 190),
+			SizeFlagsVertical = SizeFlags.ExpandFill,
+			ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+			StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered,
+		});
+
+		Label line = Small("No word reaches you of what it holds.", Waiting);
+		line.AutowrapMode = TextServer.AutowrapMode.Word;
+		line.HorizontalAlignment = HorizontalAlignment.Center;
+		stack.AddChild(line);
+
+		_foreign = Framed(stack, 8);
+		_foreign.SizeFlagsVertical = SizeFlags.ExpandFill;
+		_foreign.Visible = false;
+		AddChild(_foreign);
 	}
 
 	// --- small parts -------------------------------------------------------------------------

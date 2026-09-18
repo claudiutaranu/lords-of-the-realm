@@ -18,8 +18,10 @@ public partial class BlacksmithPage : ProductionPage
 		["crossbow"] = new Vector2(0.225f, 0.470f),
 		["sword"] = new Vector2(0.410f, 0.470f),
 		["spear"] = new Vector2(0.600f, 0.560f),
-		["horse"] = new Vector2(0.745f, 0.570f),
-		["mace"] = new Vector2(0.920f, 0.570f),
+		// Held clear of the panel in the corner, not just off the racks: the panel grows taller as
+		// the window narrows and the blurb wraps, and these two are the ones it reaches first.
+		["horse"] = new Vector2(0.745f, 0.470f),
+		["mace"] = new Vector2(0.920f, 0.450f),
 	};
 
 	// The smith labels his own wall: each sign hangs over its rack.

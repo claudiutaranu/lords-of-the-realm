@@ -23,6 +23,7 @@ public static class EconomySimulation
 
 		ProduceResources(province, definition, balance, season);
 		ForgeWeapons(province);
+		RaiseFortification(province);
 		TrainRecruits(province);
 		ConsumeFood(province, balance);
 		GrowCattle(province, definition, balance);
@@ -70,6 +71,26 @@ public static class EconomySimulation
 		p.Armoury[p.Forging] = p.Armoury.GetValueOrDefault(p.Forging) + p.ForgeBatch;
 		p.Forging = "";
 		p.ForgeBatch = 0;
+	}
+
+	/// <summary>The masons work another season on whatever was ordered, and the new wall replaces
+	/// the old one on the season it is finished. It was paid for when it was placed, so nothing is
+	/// spent here — a province that falls on hard times still gets the castle it already bought.</summary>
+	private static void RaiseFortification(ProvinceEconomy p)
+	{
+		if (p.Building.Length == 0)
+		{
+			return;
+		}
+
+		p.BuildSeasonsLeft--;
+		if (p.BuildSeasonsLeft > 0)
+		{
+			return;
+		}
+
+		p.Fortification = p.Building;
+		p.Building = "";
 	}
 
 	/// <summary>The yard drills the intake the player ordered, which was paid for in people and arms
