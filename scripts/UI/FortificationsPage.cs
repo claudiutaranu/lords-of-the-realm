@@ -60,6 +60,12 @@ public partial class FortificationsPage : RoomPage
 	private readonly Dictionary<string, Label> _prices = new();
 	private Fort _chosen;
 
+	/// <summary>The column that says who is standing on the walls, and the line under it that counts
+	/// them. The steppers themselves are built once: moving a man between the field and the gate
+	/// does not change how many of him there are, so nothing about them goes stale.</summary>
+	private VBoxContainer _garrison;
+	private Label _manned;
+
 	protected override string RoomName => "Fortifications";
 
 	protected override string Tagline => "Raise the walls your lands stand behind";
@@ -188,7 +194,104 @@ public partial class FortificationsPage : RoomPage
 			frame.SizeFlagsStretchRatio = ladder.Forts.Count;
 			row.AddChild(frame);
 		}
+
+		_garrison = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+		_garrison.AddThemeConstantOverride("separation", 8);
+		PanelContainer watch = Framed(_garrison, 12);
+		watch.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		watch.SizeFlagsStretchRatio = 3;
+		row.AddChild(watch);
 	}
+
+	/// <summary>Who stands on the walls, company by company.
+	///
+	/// It belongs in this room and nowhere else: manning a gate is meaningless without a gate, and
+	/// this is the only screen that knows what the province has raised. The decision it asks is the
+	/// one a castle exists to ask — a lord can leave archers on the parapet and ride out with the
+	/// rest, and the men he leaves are the ones who still hold the county after he has lost
+	/// everything he took into the field.
+	///
+	/// Companies and not one number, because WHICH men is the whole question. Bows are worth twice
+	/// as much behind a parapet as in front of one, and cavalry on a wall are the most expensive men
+	/// in the realm standing about watching.</summary>
+	private void ShowGarrison()
+	{
+		foreach (Node old in _garrison.GetChildren())
+		{
+			old.QueueFree();
+		}
+
+		var heading = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center };
+		heading.AddThemeConstantOverride("separation", 10);
+		heading.AddChild(Icon("castle", 28));
+		Label title = Line("THE WALLS", 20, Cream);
+		title.VerticalAlignment = VerticalAlignment.Center;
+		heading.AddChild(title);
+		_garrison.AddChild(heading);
+
+		var companies = new List<string>(Province.Garrison.Keys);
+		foreach (string unit in Province.Castle.Keys)
+		{
+			if (!companies.Contains(unit))
+			{
+				companies.Add(unit);
+			}
+		}
+
+		companies.Sort(System.StringComparer.Ordinal);
+
+		if (Province.Fortification.Length == 0)
+		{
+			_garrison.AddChild(Line("There is nothing here yet for a man to stand on.", 16, Dim));
+			return;
+		}
+
+		if (companies.Count == 0)
+		{
+			_garrison.AddChild(Line("No men in the county to put on them.", 16, Dim));
+			return;
+		}
+
+		foreach (string unit in companies)
+		{
+			int held = Province.Castle.GetValueOrDefault(unit);
+			int all = held + Province.Garrison.GetValueOrDefault(unit);
+			string name = unit;
+			_garrison.AddChild(Stepper(Units.Of(unit).Name, held, 5, all, men => Man(name, men), floor: 0));
+		}
+
+		_manned = Line("", 16, Soft);
+		_manned.HorizontalAlignment = HorizontalAlignment.Center;
+		_garrison.AddChild(_manned);
+		Counted();
+	}
+
+	/// <summary>Moves one company between the field and the gate. Nothing is raised or spent: these
+	/// are the same men either way, and the only question is where they are standing when somebody
+	/// comes for the county.</summary>
+	private void Man(string unit, int onTheWalls)
+	{
+		int all = Province.Castle.GetValueOrDefault(unit) + Province.Garrison.GetValueOrDefault(unit);
+		onTheWalls = Mathf.Clamp(onTheWalls, 0, all);
+		Post(Province.Castle, unit, onTheWalls);
+		Post(Province.Garrison, unit, all - onTheWalls);
+		Counted();
+	}
+
+	private static void Post(Dictionary<string, int> roster, string unit, int men)
+	{
+		if (men > 0)
+		{
+			roster[unit] = men;
+		}
+		else
+		{
+			roster.Remove(unit);
+		}
+	}
+
+	private void Counted() =>
+		_manned.Text = $"{Province.CastleMen:N0} of {Province.Soldiers:N0} men on the walls";
 
 	/// <summary>The two layers a fort is drawn on, laid straight over the valley and under
 	/// everything else. They go in at the front of the page rather than at the back, because a room
@@ -644,6 +747,7 @@ public partial class FortificationsPage : RoomPage
 	public override void Refresh()
 	{
 		base.Refresh();
+		ShowGarrison();
 		foreach (Ladder ladder in _ladders)
 		{
 			foreach (Fort fort in ladder.Forts)

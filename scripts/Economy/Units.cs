@@ -17,11 +17,12 @@ public static class Units
 	/// <summary>One kind of soldier. <paramref name="Mounted"/> is what a man cannot take up a
 	/// ladder: horses are useless against a wall, and the data says so rather than a string
 	/// comparison somewhere in the battle deciding it.</summary>
-	public readonly record struct Unit(int Attack, int Range, int Defence, int Speed, bool Mounted);
+	public readonly record struct Unit(string Name, int Attack, int Range, int Defence, int Speed,
+		bool Mounted);
 
 	/// <summary>A man nobody has written down. Not zero: a company that fought as nothing would make
 	/// a typo in a save file into a massacre, and this way it fights badly and is noticed.</summary>
-	private static readonly Unit Unknown = new(1, 1, 1, 1, false);
+	private static readonly Unit Unknown = new("Men", 1, 1, 1, 1, false);
 
 	private static Dictionary<string, Unit> _units;
 
@@ -59,6 +60,7 @@ public static class Units
 		{
 			Godot.Collections.Dictionary man = entry.AsGodotDictionary();
 			units[man["key"].AsString()] = new Unit(
+				man["name"].AsString(),
 				man["attack"].AsInt32(),
 				man["range"].AsInt32(),
 				man["defence"].AsInt32(),

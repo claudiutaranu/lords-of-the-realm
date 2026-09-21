@@ -348,6 +348,12 @@ public partial class GameBalance : Resource
 	/// than he strictly needs.</summary>
 	[Export] public float BattleLuck = 0.15f;
 
+	/// <summary>What a county thinks of the lord who has just taken it. Nobody is glad to be
+	/// conquered, and a county held down is a county that has to be fed, garrisoned and watched
+	/// before it is worth anything — which is what stops a lord from simply taking everything he can
+	/// reach and is the whole reason holding ground is a decision.</summary>
+	[Export] public float ConquestResentment = 20f;
+
 	/// <summary>What the town itself is worth to whoever is holding it: lanes they know, a wall of a
 	/// house at their back, and nobody having to be told where anything is.</summary>
 	[Export] public float TownDefence = 1.15f;

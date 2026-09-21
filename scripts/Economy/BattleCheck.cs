@@ -33,6 +33,7 @@ public partial class BattleCheck : Node
 		TheLadder(b);
 		WhatTheLordCanSee(b);
 		TheButchersBill(b);
+		TheReckoning(b);
 
 		GD.Print(_failed == 0
 			? "\nthe fighting: all checks passed"
@@ -215,7 +216,87 @@ public partial class BattleCheck : Node
 			once.AttackerFell == again.AttackerFell && once.AttackerWon == again.AttackerWon, true);
 	}
 
+	/// <summary>What a battle does to the ledger afterwards, which is the half of this nobody sees
+	/// happening and everybody lives with. The thing worth pinning down is WHEN a county changes
+	/// hands: the moment there is nobody left to stop it and not one moment sooner. A lord can lose
+	/// every man he had outside his walls and still hold his county — if that ever stops being true,
+	/// the whole stone ladder is decoration.</summary>
+	private void TheReckoning(GameBalance b)
+	{
+		// A walled county, with men in front of the walls and men on them.
+		TurnManager turns = Realm(b, out ProvinceEconomy crown, out ProvinceEconomy watch);
+		watch.Fortification = "large-fort";
+		watch.Garrison["peasant"] = 30;
+		watch.Castle["spear"] = 20;
+		crown.Garrison["sword"] = 200;
+
+		Battle.Result field = turns.Attack("Kingsreach", "Valmere", new Vector2(900, 200), walls: false);
+		Is("the field is carried", field.AttackerWon, true);
+		Is("  and the county is NOT taken with it", turns.AnyProvince("Valmere").Realm, "northern-watch");
+		Is("  because the survivors are behind the walls now", watch.FieldMen, 0);
+		Is("  standing with the gate watch", watch.CastleMen > 20, true);
+		Is("  and our dead are off our own roster",
+			crown.FieldMen, 200 - field.AttackerFell);
+
+		Battle.Result storm = turns.Attack("Kingsreach", "Valmere", new Vector2(900, 200), walls: true);
+		Is("the walls are carried", storm.AttackerWon, true);
+		Is("  and NOW the county is taken", turns.AnyProvince("Valmere").Realm, "royal-crown");
+		Is("  with our men standing on it", turns.AnyProvince("Valmere").FieldMen > 0, true);
+		Is("  and nobody left of theirs", turns.AnyProvince("Valmere").CastleMen, 0);
+		Is("  and none of ours left at home", crown.FieldMen, 0);
+		Is("  in a county that did not ask for us",
+			turns.AnyProvince("Valmere").Loyalty, ProvinceEconomy.OpeningLoyalty - b.ConquestResentment);
+
+		// An open county falls with its field, because there is nowhere for anybody to fall back to.
+		TurnManager open = Realm(b, out ProvinceEconomy mine, out ProvinceEconomy theirs);
+		theirs.Garrison["peasant"] = 30;
+		mine.Garrison["sword"] = 200;
+		Is("a county with no walls falls with its field",
+			open.Attack("Kingsreach", "Valmere", new Vector2(900, 200), false).AttackerWon, true);
+		Is("  and changes hands at once", open.AnyProvince("Valmere").Realm, "royal-crown");
+
+		// And a beaten attacker takes nothing home but his losses.
+		TurnManager hopeless = Realm(b, out ProvinceEconomy few, out ProvinceEconomy many);
+		many.Fortification = "grand-castle";
+		many.Castle["spear"] = 60;
+		few.Garrison["peasant"] = 40;
+		Battle.Result thrown = hopeless.Attack("Kingsreach", "Valmere", new Vector2(900, 200), true);
+		Is("forty peasants do not storm a royal castle", thrown.AttackerWon, false);
+		Is("  the county is still theirs", hopeless.AnyProvince("Valmere").Realm, "northern-watch");
+		Is("  and we are down the men it cost", few.FieldMen, 40 - thrown.AttackerFell);
+		Is("  which was not nothing", thrown.AttackerFell > 0, true);
+	}
+
 	// --- scaffolding -------------------------------------------------------------------------------
+
+	/// <summary>Two counties, two realms, nobody in either of them yet.</summary>
+	private static TurnManager Realm(GameBalance b, out ProvinceEconomy crown, out ProvinceEconomy watch)
+	{
+		var turns = new TurnManager(b,
+			new List<ProvinceDefinition> { Definition("Kingsreach"), Definition("Valmere") },
+			new Dictionary<string, string>
+			{
+				["Kingsreach"] = "royal-crown",
+				["Valmere"] = "northern-watch",
+			},
+			"royal-crown", Difficulty.Medium);
+
+		crown = turns.AnyProvince("Kingsreach");
+		watch = turns.AnyProvince("Valmere");
+		crown.Garrison.Clear();
+		watch.Garrison.Clear();
+		watch.Castle.Clear();
+		return turns;
+	}
+
+	private static ProvinceDefinition Definition(string name) => new()
+	{
+		ProvinceName = name,
+		InitialPopulation = 850,
+		Fields = 9,
+		InitialGrainFields = 4,
+		InitialPastureFields = 2,
+	};
 
 	/// <summary>Fights one shape of battle many times and says how it went: how often the attacker
 	/// carried it, and what the average day cost each side.</summary>

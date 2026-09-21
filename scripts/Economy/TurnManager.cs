@@ -235,8 +235,99 @@ public class TurnManager
 		there.Castle.Clear();
 		there.Realm = here.Realm;
 		there.Purse = here.Purse;
+
+		// Nobody is glad to be conquered. A county taken has to be held before it is worth having,
+		// which is what stops a lord taking everything he can walk to.
+		there.Loyalty = Mathf.Max(0f, there.Loyalty - _balance.ConquestResentment);
 		Join(here, there, at);
 		return true;
+	}
+
+	/// <summary>Fights for a county, and writes what the day cost into the ledger.
+	///
+	/// <paramref name="walls"/> picks which of the two fights this is. What is standing in the open
+	/// is beaten in the open; whatever is behind the stone is beaten afterwards and on far worse
+	/// terms. The caller asks for them in that order — see <see cref="DefendersOf"/>, whose two
+	/// rosters are the two halves — because there is nothing to storm until the field is cleared.
+	///
+	/// The county changes hands the moment there is nobody left to stop it and not before, which is
+	/// what a castle is for: a lord can lose every man he had outside his walls and still hold his
+	/// county, as long as somebody is standing on them.</summary>
+	public Battle.Result Attack(string from, string county, Vector2 at, bool walls)
+	{
+		ProvinceEconomy here = _provincesByName.GetValueOrDefault(from);
+		if (here == null || here.FieldMen == 0)
+		{
+			return new Battle.Result(false, new Dictionary<string, int>(),
+				new Dictionary<string, int>(), 0);
+		}
+
+		// Men who have nothing left in their legs are attacking on the last of them. The map charged
+		// them for the road on the way here, so this is simply read off what is left of the season.
+		bool spent = here.MarchLeft <= 0f;
+		Defenders against = DefendersOf(county);
+		Battle.Result day = walls
+			? Battle.OnTheWalls(here.Garrison, against, spent, _balance, _rng)
+			: Battle.InTheField(here.Garrison, against, spent, _balance, _rng);
+
+		Bury(here.Garrison, day.AttackerLosses);
+		Bury(walls ? against.Castle : against.Field, day.DefenderLosses);
+
+		// Beaten in the open with walls at their back, the survivors do not stand in the field to be
+		// ridden down. This is what turns one battle into two, and what a lord who keeps a garrison
+		// is paying for.
+		if (!walls && day.AttackerWon)
+		{
+			FallBack(county);
+		}
+
+		// Carrying the walls IS taking the county: whoever is left on them when they are carried is
+		// taken with them, and Claim clears them off. Carrying the FIELD only takes it where there
+		// was nowhere left to fall back to — a lord can lose every man he had outside his walls and
+		// still hold the place, which is the entire argument for quarrying stone.
+		if (day.AttackerWon && (walls || !DefendersOf(county).Held))
+		{
+			Claim(from, county, at);
+		}
+
+		return day;
+	}
+
+	/// <summary>Takes a battle's dead off a roster. A company wiped out is gone from it rather than
+	/// left standing at nought men, so everything that counts companies counts the ones there
+	/// are.</summary>
+	private static void Bury(Dictionary<string, int> roster, Dictionary<string, int> fallen)
+	{
+		foreach ((string unit, int men) in fallen)
+		{
+			int left = roster.GetValueOrDefault(unit) - men;
+			if (left > 0)
+			{
+				roster[unit] = left;
+			}
+			else
+			{
+				roster.Remove(unit);
+			}
+		}
+	}
+
+	/// <summary>Puts what is left of a beaten field army behind its own walls, where it has any. A
+	/// county with none has nowhere to fall back to and loses everything with the field.</summary>
+	private void FallBack(string county)
+	{
+		ProvinceEconomy holding = _provincesByName.GetValueOrDefault(county);
+		if (holding == null || holding.Fortification.Length == 0)
+		{
+			return;
+		}
+
+		foreach ((string unit, int men) in holding.Garrison)
+		{
+			holding.Castle[unit] = holding.Castle.GetValueOrDefault(unit) + men;
+		}
+
+		holding.Garrison.Clear();
 	}
 
 	/// <summary>Moves a county's field army onto another county of the same realm, with whatever the
