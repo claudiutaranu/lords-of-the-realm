@@ -25,6 +25,7 @@ public partial class LordCheck : Node
 		TheCounter(b, def);
 		TheLine(b);
 		WordGetsAround(b);
+		TheLarder(b, def);
 		TheMarch(b);
 
 		GD.Print(_failed == 0
@@ -203,6 +204,44 @@ public partial class LordCheck : Node
 		Is("  and it is not charged to its own tax", next.LoyaltyFromTax, 0f);
 		Is("  while the county being squeezed hears nothing from next door",
 			told.Find(summary => summary.ProvinceName == "Kingsreach").LoyaltyFromNeighbours, 0f);
+	}
+
+	/// <summary>Bread behind his gate. A rival who never carries any up is a rival whose castle falls
+	/// to anybody who sits down in front of it for three seasons — and that is not a hard opponent
+	/// playing badly, it is a mechanic the computer does not know exists.</summary>
+	private void TheLarder(GameBalance b, ProvinceDefinition def)
+	{
+		ProvinceEconomy keep = County(def);
+		keep.Fortification = "medium-castle";
+		keep.Grain = 2000;
+		keep.Castle["spear"] = 20;
+		LordAI.TakeTurn(keep, def, b, Counter(b, Season.Summer), Season.Summer, Difficulty.Medium);
+		Is("a lord with walls keeps bread behind them",
+			keep.CastleStores, Fortifications.Of("medium-castle").Stores);
+		Is("  and no more than they hold",
+			keep.CastleStores <= Fortifications.Of("medium-castle").Stores, true);
+
+		// Bread he has not got, he does not carry up: the larder comes out of what is over and above
+		// what his people are going to eat.
+		ProvinceEconomy thin = County(def);
+		thin.Fortification = "medium-castle";
+		thin.Grain = 0;
+		LordAI.TakeTurn(thin, def, b, Counter(b, Season.Summer), Season.Summer, Difficulty.Medium);
+		Is("a lord with nothing in the barn carries nothing up", thin.CastleStores, 0);
+
+		// And nothing goes in through a siege line, or a siege would never end.
+		ProvinceEconomy shut = County(def);
+		shut.Fortification = "medium-castle";
+		shut.Grain = 2000;
+		shut.BesiegedFrom = "Kingsreach";
+		LordAI.TakeTurn(shut, def, b, Counter(b, Season.Summer), Season.Summer, Difficulty.Medium);
+		Is("and nothing gets in past the men outside", shut.CastleStores, 0);
+
+		// An open village has nowhere to put it.
+		ProvinceEconomy village = County(def);
+		village.Grain = 2000;
+		LordAI.TakeTurn(village, def, b, Counter(b, Season.Summer), Season.Summer, Difficulty.Medium);
+		Is("a county with no walls has nowhere to put any", village.CastleStores, 0);
 	}
 
 	/// <summary>An army leaving home. The men ARE the county's roster, so the thing to pin down is

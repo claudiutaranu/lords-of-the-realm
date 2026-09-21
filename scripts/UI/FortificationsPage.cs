@@ -323,6 +323,11 @@ public partial class FortificationsPage : RoomPage
 	/// either way: nothing is spent, and what is up there is simply not in the granary.</summary>
 	private void Stock(int carried)
 	{
+		if (Province.BesiegedFrom.Length > 0)
+		{
+			return; // nothing goes in or out through a siege line
+		}
+
 		int all = Province.CastleStores + Province.Grain;
 		carried = Mathf.Clamp(carried, 0, Mathf.Min(all, Fortifications.Of(Province.Fortification).Stores));
 		Province.CastleStores = carried;
@@ -369,7 +374,9 @@ public partial class FortificationsPage : RoomPage
 		// carried; how long they hold out is what a lord is deciding.
 		int eaten = Mathf.CeilToInt(
 			Province.CastleMen / GameBalance.Engine.PeoplePerGrain * GameBalance.Engine.SoldierAppetite);
-		string holds = Province.CastleMen == 0
+		string holds = Province.BesiegedFrom.Length > 0
+			? "and nothing gets in while they are out there"
+			: Province.CastleMen == 0
 			? "nobody up there to eat it"
 			: eaten <= 0 ? "as long as you like"
 			: $"{Province.CastleStores / eaten:N0} seasons of bread for them";

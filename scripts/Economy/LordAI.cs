@@ -34,6 +34,7 @@ public static class LordAI
 		Season season, Difficulty skill)
 	{
 		Feed(p, b, skill);
+		Victual(p, b, skill);
 		Tax(p, b, skill);
 		Plough(p, b, season, skill);
 		Work(p, def, b, season, skill);
@@ -57,6 +58,31 @@ public static class LordAI
 		p.Ration = p.Grain * 2 < reserve ? RationLevel.Half
 			: p.Grain >= reserve + Need(p, b) ? RationLevel.Double
 			: RationLevel.Normal;
+	}
+
+	/// <summary>He keeps bread behind his own gate.
+	///
+	/// A castle is worth what it can hold out on, and a lord who only thinks of it once there is an
+	/// army at his border is a lord whose keep falls in three seasons — which, before this, is
+	/// exactly what every rival in the game would have done. It is the same lever the player has and
+	/// on the same terms: his own county's grain, nothing spent, and the walls hold what the walls
+	/// hold. A careful lord keeps a deeper reserve, so he stocks later and more surely; that is the
+	/// whole of the difference between them, the way it is everywhere else in here.
+	///
+	/// Not while he is being besieged. Nothing gets in through a siege line, and a lord quietly
+	/// restocking his larder out of fields somebody else's army is camped on would make a siege a
+	/// thing that never ends.</summary>
+	private static void Victual(ProvinceEconomy p, GameBalance b, Difficulty skill)
+	{
+		int room = Fortifications.Of(p.Fortification).Stores;
+		if (room <= p.CastleStores || p.BesiegedFrom.Length > 0)
+		{
+			return;
+		}
+
+		int carried = Mathf.Clamp(p.Grain - Reserve(p, b, skill), 0, room - p.CastleStores);
+		p.CastleStores += carried;
+		p.Grain -= carried;
 	}
 
 	/// <summary>He taxes as hard as his people will carry and no harder. The floor is the whole
