@@ -149,6 +149,30 @@ public class ProvinceEconomy
 	/// to take the walls off — after he has beaten whatever was standing in front of them.</summary>
 	public Dictionary<string, int> Castle = new();
 
+	/// <summary>Grain put by behind the gate, for the men who will be shut in with it. It is the
+	/// county's own bread, carried up before anybody needed it — which is the whole decision: a lord
+	/// who waits until an army is at his border is a lord stocking a castle he is already locked out
+	/// of. What the walls can hold is the rung's own figure (see <see cref="Fortifications.Wall"/>),
+	/// so stone is worth quarrying twice over: it is harder to storm and it holds more bread.</summary>
+	public int CastleStores;
+
+	/// <summary>Which county's army is sitting in front of the gate, or nothing. Sitting there is
+	/// the other way to take a place — the one its own blurb says the royal castle falls to — and it
+	/// is a commitment rather than a click: the men have to stay, so they are holding nothing else
+	/// while they do it.</summary>
+	public string BesiegedFrom = "";
+
+	/// <summary>How long they have been sitting there, and how many of those seasons the garrison
+	/// has gone without. The second is what actually ends it: men hold out on an empty larder for a
+	/// while and then they open the gate.</summary>
+	public int SiegeSeasons;
+	public int HungrySeasons;
+
+	/// <summary>The men the county's own granary has to feed. Everybody, until somebody shuts the
+	/// gate: from then on the garrison is eating what was carried up before the siege, and counting
+	/// them twice would feed a besieged castle out of the fields its besiegers are standing on.</summary>
+	public int Fed => BesiegedFrom.Length > 0 ? FieldMen : Soldiers;
+
 	/// <summary>How much ground this county's men have left in them this season, in map pixels of
 	/// road. Open country costs more of it per pixel than a road does, so the same budget carries an
 	/// army a long way along the stone and a short way over the hills — which is the whole of what a

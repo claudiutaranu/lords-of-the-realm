@@ -47,7 +47,9 @@ public partial class BattlePanel : CountyPanel
 	private ColorRect _theirWeight;
 	private GridContainer _terms;
 	private Label _verdict;
+	private HBoxContainer _orders;
 	private Button _attack;
+	private Button _siege;
 
 	protected override int Width => 780;
 
@@ -93,10 +95,26 @@ public partial class BattlePanel : CountyPanel
 		_verdict.AutowrapMode = TextServer.AutowrapMode.WordSmart;
 		Column.AddChild(_verdict);
 
-		_attack = new Button { CustomMinimumSize = new Vector2(0, 46) };
-		_attack.AddThemeFontSizeOverride("font_size", 19);
-		_attack.Pressed += Strike;
-		Column.AddChild(_attack);
+		_orders = new HBoxContainer();
+		_orders.AddThemeConstantOverride("separation", 12);
+		Column.AddChild(_orders);
+
+		_attack = Order("Attack", Strike);
+		_siege = Order("Sit down before the gate", Sit);
+	}
+
+	private Button Order(string what, System.Action pressed)
+	{
+		var order = new Button
+		{
+			Text = what,
+			CustomMinimumSize = new Vector2(0, 46),
+			SizeFlagsHorizontal = SizeFlags.ExpandFill,
+		};
+		order.AddThemeFontSizeOverride("font_size", 19);
+		order.Pressed += pressed;
+		_orders.AddChild(order);
+		return order;
 	}
 
 	/// <summary>One army's side of the table: a heading, a row of companies, and a count.</summary>
@@ -149,6 +167,11 @@ public partial class BattlePanel : CountyPanel
 		_verdict.AddThemeColorOverride("font_color", Chrome.Cream);
 		_attack.Visible = true;
 		_attack.Text = _walls ? "Storm the walls" : "Attack";
+
+		// Sitting down in front of it is the other way, and against the stone rungs it is the only
+		// way. It costs the army every season it lasts — they are standing here and nowhere else —
+		// so it is offered as an order of its own and not as a thing that happens by waiting.
+		_siege.Visible = _walls && ProvinceEconomy.Men(against.Castle) > 0;
 	}
 
 	private static void Fill(VBoxContainer host, Label count, string name, Dictionary<string, int> roster)
@@ -208,6 +231,14 @@ public partial class BattlePanel : CountyPanel
 					Note($"Our {riders:N0} {Units.Of(unit).Name.ToLowerInvariant()} are no use on a ladder");
 				}
 			}
+
+			// What a besieging captain would put at: the size of the place and the number of mouths
+			// in it. It is the whole basis of choosing to sit down rather than climb, so a lord who
+			// cannot see it is choosing blind.
+			int mouths = Mathf.CeilToInt(ProvinceEconomy.Men(against.Castle)
+				/ _balance.PeoplePerGrain * _balance.SoldierAppetite);
+			int seasons = mouths <= 0 ? 0 : Mathf.CeilToInt(wall.Stores / (float)mouths);
+			Note($"A place that size holds perhaps {seasons:N0} seasons of bread");
 		}
 
 		Term("Holding their own town", _balance.TownDefence, good: false);
@@ -256,6 +287,29 @@ public partial class BattlePanel : CountyPanel
 		};
 	}
 
+	/// <summary>Sits the army down in front of the gate instead of climbing it. Nothing happens
+	/// today — that is the point of it — so the panel says so and closes.</summary>
+	private void Sit()
+	{
+		if (!_turns.Besiege(_from, _county))
+		{
+			return;
+		}
+
+		Settled?.Invoke();
+		foreach (Node old in _terms.GetChildren())
+		{
+			old.QueueFree();
+		}
+
+		Note("Our men hold the ground and nothing else, for as long as it takes");
+		Note("The county pays its lord nothing while we sit here");
+		_verdict.Text = $"We sit down before {_county}.";
+		_verdict.AddThemeColorOverride("font_color", Chrome.Cream);
+		_attack.Visible = false;
+		_siege.Visible = false;
+	}
+
 	/// <summary>Fights the one on the table, and says what it cost. Whether the county has changed
 	/// hands is read back off the ledger rather than worked out here — the ledger is what decides
 	/// it, and a panel with a second opinion about who owns a county is a panel that will one day
@@ -294,6 +348,7 @@ public partial class BattlePanel : CountyPanel
 		// one: the lord may storm it now, on what the first fight left him, or leave it and come
 		// back with more men next season.
 		_attack.Visible = fellBack && ProvinceEconomy.Men(left.Castle) > 0;
+		_siege.Visible = _attack.Visible;
 		if (_attack.Visible)
 		{
 			_walls = true;

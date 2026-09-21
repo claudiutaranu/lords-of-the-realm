@@ -65,6 +65,14 @@ public partial class FortificationsPage : RoomPage
 	/// does not change how many of him there are, so nothing about them goes stale.</summary>
 	private VBoxContainer _garrison;
 	private Label _manned;
+	private Label _larder;
+
+	/// <summary>What the column was last built for. The steppers hold a snapshot of their own
+	/// ceiling, so they are rebuilt when the ceiling could have moved and left alone when it cannot
+	/// — moving a man from the field to the gate, or a sack from the granary to the larder, changes
+	/// where a thing is and never how much of it there is. Rebuilding on every press would free the
+	/// slider out from under the finger still holding it.</summary>
+	private string _standing = "";
 
 	protected override string RoomName => "Fortifications";
 
@@ -216,6 +224,14 @@ public partial class FortificationsPage : RoomPage
 	/// in the realm standing about watching.</summary>
 	private void ShowGarrison()
 	{
+		string signature = Signature();
+		if (signature == _standing)
+		{
+			Counted();
+			return;
+		}
+
+		_standing = signature;
 		foreach (Node old in _garrison.GetChildren())
 		{
 			old.QueueFree();
@@ -263,19 +279,69 @@ public partial class FortificationsPage : RoomPage
 		_manned = Line("", 16, Soft);
 		_manned.HorizontalAlignment = HorizontalAlignment.Center;
 		_garrison.AddChild(_manned);
+
+		// The larder. A siege is lost or won on this line and on nothing else, and it has to be
+		// carried up BEFORE anybody is at the border — a lord stocking a castle he is already shut
+		// out of is a lord who has understood the mechanism a season too late.
+		_garrison.AddChild(Chrome.Rule(0));
+		int room = Fortifications.Of(Province.Fortification).Stores;
+		_garrison.AddChild(Stepper("Grain behind the gate", Province.CastleStores, 5,
+			Mathf.Min(room, Province.CastleStores + Province.Grain), Stock, floor: 0));
+
+		_larder = Line("", 16, Soft);
+		_larder.HorizontalAlignment = HorizontalAlignment.Center;
+		_garrison.AddChild(_larder);
 		Counted();
+	}
+
+	/// <summary>Everything about the column that decides how it is BUILT, as against what it
+	/// reads.</summary>
+	private string Signature()
+	{
+		var mark = new System.Text.StringBuilder(Province.Fortification);
+		mark.Append('|').Append(Province.CastleStores + Province.Grain);
+		var companies = new List<string>(Province.Garrison.Keys);
+		foreach (string unit in Province.Castle.Keys)
+		{
+			if (!companies.Contains(unit))
+			{
+				companies.Add(unit);
+			}
+		}
+
+		companies.Sort(System.StringComparer.Ordinal);
+		foreach (string unit in companies)
+		{
+			mark.Append('|').Append(unit).Append(':')
+				.Append(Province.Garrison.GetValueOrDefault(unit) + Province.Castle.GetValueOrDefault(unit));
+		}
+
+		return mark.ToString();
+	}
+
+	/// <summary>Carries grain up behind the gate, or brings it back down. It is the same grain
+	/// either way: nothing is spent, and what is up there is simply not in the granary.</summary>
+	private void Stock(int carried)
+	{
+		int all = Province.CastleStores + Province.Grain;
+		carried = Mathf.Clamp(carried, 0, Mathf.Min(all, Fortifications.Of(Province.Fortification).Stores));
+		Province.CastleStores = carried;
+		Province.Grain = all - carried;
+		Refresh();
 	}
 
 	/// <summary>Moves one company between the field and the gate. Nothing is raised or spent: these
 	/// are the same men either way, and the only question is where they are standing when somebody
 	/// comes for the county.</summary>
+	/// <summary>Men moved between the field and the gate. The column is not rebuilt for it — see
+	/// <see cref="_standing"/> — but the count under it and the larder's reading both move.</summary>
 	private void Man(string unit, int onTheWalls)
 	{
 		int all = Province.Castle.GetValueOrDefault(unit) + Province.Garrison.GetValueOrDefault(unit);
 		onTheWalls = Mathf.Clamp(onTheWalls, 0, all);
 		Post(Province.Castle, unit, onTheWalls);
 		Post(Province.Garrison, unit, all - onTheWalls);
-		Counted();
+		Refresh();
 	}
 
 	private static void Post(Dictionary<string, int> roster, string unit, int men)
@@ -290,8 +356,25 @@ public partial class FortificationsPage : RoomPage
 		}
 	}
 
-	private void Counted() =>
+	private void Counted()
+	{
+		if (_manned == null)
+		{
+			return;
+		}
+
 		_manned.Text = $"{Province.CastleMen:N0} of {Province.Soldiers:N0} men on the walls";
+
+		// In seasons rather than in sacks, because seasons is the question. Sacks is how it is
+		// carried; how long they hold out is what a lord is deciding.
+		int eaten = Mathf.CeilToInt(
+			Province.CastleMen / GameBalance.Engine.PeoplePerGrain * GameBalance.Engine.SoldierAppetite);
+		string holds = Province.CastleMen == 0
+			? "nobody up there to eat it"
+			: eaten <= 0 ? "as long as you like"
+			: $"{Province.CastleStores / eaten:N0} seasons of bread for them";
+		_larder.Text = $"{Province.CastleStores:N0} of {Fortifications.Of(Province.Fortification).Stores:N0} sacks — {holds}";
+	}
 
 	/// <summary>The two layers a fort is drawn on, laid straight over the valley and under
 	/// everything else. They go in at the front of the page rather than at the back, because a room

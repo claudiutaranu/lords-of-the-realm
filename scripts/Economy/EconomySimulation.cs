@@ -248,7 +248,7 @@ public static class EconomySimulation
 		// the whole difference between an army being a burden and an army being a saving — men are
 		// taken out of the population when they are raised, so until they ate, every company a lord
 		// trained quietly made his winter cheaper.
-		summary.SoldierFood = Mathf.CeilToInt(p.Soldiers / b.PeoplePerGrain * b.SoldierAppetite);
+		summary.SoldierFood = Mathf.CeilToInt(p.Fed / b.PeoplePerGrain * b.SoldierAppetite);
 		int required = Mathf.CeilToInt(p.Population / b.PeoplePerGrain * b.RationFoodMultiplier[(int)p.Ration])
 			+ summary.SoldierFood;
 		summary.Needed = required;
@@ -355,7 +355,10 @@ public static class EconomySimulation
 	/// market worth coming to, and a lord who is harder to refuse.</summary>
 	private static void CollectTaxes(ProvinceEconomy p, GameBalance b)
 	{
-		p.Gold += TaxDue(p, b);
+		// Not out of a county somebody else's army is sitting on. The reeve does not ride out to
+		// collect with a siege camp between him and the village, and this is most of what a siege
+		// costs the lord being besieged: his castle holds, and his county stops paying for it.
+		p.Gold += p.BesiegedFrom.Length > 0 ? 0 : TaxDue(p, b);
 	}
 
 	/// <summary>The season's wages, out of what the reeve just brought in. A treasury that cannot

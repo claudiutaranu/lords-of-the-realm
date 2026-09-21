@@ -34,6 +34,7 @@ public partial class BattleCheck : Node
 		WhatTheLordCanSee(b);
 		TheButchersBill(b);
 		TheReckoning(b);
+		TheSiege(b);
 
 		GD.Print(_failed == 0
 			? "\nthe fighting: all checks passed"
@@ -265,6 +266,84 @@ public partial class BattleCheck : Node
 		Is("  the county is still theirs", hopeless.AnyProvince("Valmere").Realm, "northern-watch");
 		Is("  and we are down the men it cost", few.FieldMen, 40 - thrown.AttackerFell);
 		Is("  which was not nothing", thrown.AttackerFell > 0, true);
+	}
+
+	/// <summary>The other way a castle falls, and the one the stone rungs actually fall to. What is
+	/// pinned down here is that it ENDS: a siege that never resolves is worse than no siege at all,
+	/// because a lord would sit an army in front of a gate for the rest of the campaign waiting for
+	/// something the engine was never going to do.</summary>
+	private void TheSiege(GameBalance b)
+	{
+		TurnManager turns = Realm(b, out ProvinceEconomy crown, out ProvinceEconomy watch);
+		watch.Fortification = "large-fort";
+		watch.Castle["spear"] = 20;
+		crown.Garrison["sword"] = 100;
+		crown.ArmyX = 900f;
+		crown.ArmyY = 200f;
+
+		// Two seasons of bread for twenty men, and an empty larder after that.
+		int eaten = Mathf.CeilToInt(20 / b.PeoplePerGrain * b.SoldierAppetite);
+		watch.CastleStores = eaten * 2;
+
+		Is("an army can sit down in front of a manned gate", turns.Besiege("Kingsreach", "Valmere"), true);
+		Is("  and the county knows who is out there", watch.BesiegedFrom, "Kingsreach");
+
+		turns.AdvanceTurn();
+		Is("a besieged garrison eats its own larder", watch.CastleStores, eaten);
+		Is("  and not the county's granary", watch.Fed, 0);
+		turns.AdvanceTurn();
+		Is("  until there is none of it left", watch.CastleStores, 0);
+
+		turns.AdvanceTurn();
+		Is("then they go hungry", watch.HungrySeasons, 1);
+		Is("  and they thin", watch.CastleMen < 20, true);
+		Is("  but they do not give up on the first empty week",
+			turns.AnyProvince("Valmere").Realm, "northern-watch");
+
+		for (int season = 1; season < b.SurrenderAfterHungrySeasons; season++)
+		{
+			turns.AdvanceTurn();
+		}
+
+		Is("the gate is opened", turns.GetProvince("Valmere") != null, true);
+		Is("  by the lord who was sitting outside it", turns.GetProvince("Valmere").Realm, "royal-crown");
+		Is("  with his men in it", turns.GetProvince("Valmere").FieldMen > 0, true);
+		Is("  and nobody besieging anything any more", turns.GetProvince("Valmere").BesiegedFrom, "");
+
+		// A siege is the army BEING there. The moment it is anywhere else, there is no siege.
+		TurnManager left = Realm(b, out ProvinceEconomy ours, out ProvinceEconomy theirs);
+		theirs.Fortification = "medium-castle";
+		theirs.Castle["spear"] = 20;
+		ours.Garrison["sword"] = 100;
+		Is("a siege is laid", left.Besiege("Kingsreach", "Valmere"), true);
+		Is("  and marching away lifts it",
+			left.March("Kingsreach", "Kingsreach", new Vector2(370, 500), 60f) && theirs.BesiegedFrom == "",
+			true);
+
+		// And what cannot be sat down in front of.
+		TurnManager wrong = Realm(b, out ProvinceEconomy host, out ProvinceEconomy open);
+		host.Garrison["sword"] = 100;
+		open.Garrison["peasant"] = 30;
+		Is("a county with no walls cannot be besieged", wrong.Besiege("Kingsreach", "Valmere"), false);
+		open.Fortification = "medium-castle";
+		open.Castle["spear"] = 10;
+		Is("  nor one whose field army is still standing", wrong.Besiege("Kingsreach", "Valmere"), false);
+		open.Garrison.Clear();
+		Is("  but a shut gate with nobody outside it can be", wrong.Besiege("Kingsreach", "Valmere"), true);
+
+		// What it costs the lord being sat on: his county stops paying him. Run on two copies of the
+		// same county so nothing but the siege is different between them.
+		ProvinceDefinition definition = Definition("Valmere");
+		ProvinceEconomy paying = ProvinceEconomy.FromDefinition(definition);
+		paying.Grain = 2000;
+		paying.Castle["spear"] = 20;
+		ProvinceEconomy shut = paying.Copy();
+		shut.BesiegedFrom = "Kingsreach";
+		int due = EconomySimulation.TaxDue(paying, b);
+		EconomySimulation.RunTurn(paying, definition, b, Season.Summer);
+		EconomySimulation.RunTurn(shut, definition, b, Season.Summer);
+		Is("a besieged county pays its lord nothing", paying.Gold - shut.Gold, due);
+		Is("  and its granary is not feeding the men behind the gate", shut.Grain > paying.Grain, true);
 	}
 
 	// --- scaffolding -------------------------------------------------------------------------------

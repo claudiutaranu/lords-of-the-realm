@@ -159,6 +159,11 @@ public class TurnManager
 			return false;
 		}
 
+		// Men who are marching are not sitting in front of anybody's gate. A siege is the army being
+		// THERE, so the moment it is somewhere else there is no siege — no order to cancel and no way
+		// to forget to.
+		Lift(from);
+
 		// Wherever they were sent, they are standing there now and the season is that much shorter.
 		// Everything below is about whether anything CHANGED HANDS by their standing there, which is
 		// a different question and mostly answered no.
@@ -229,6 +234,11 @@ public class TurnManager
 			here.Purse.Gold += there.Gold;
 		}
 
+		// A county taken is a county nobody is besieging any more, whichever way it fell.
+		there.BesiegedFrom = "";
+		there.SiegeSeasons = 0;
+		there.HungrySeasons = 0;
+
 		// Whoever was holding it is not holding it any more, and neither are his men: they are dead,
 		// scattered or walked off by the time anybody is claiming anything.
 		there.Garrison.Clear();
@@ -291,6 +301,116 @@ public class TurnManager
 		}
 
 		return day;
+	}
+
+	/// <summary>Sits an army down in front of a gate it has decided not to climb.
+	///
+	/// The other way to take a castle, and the one the stone rungs are actually taken by: a garrison
+	/// eats what was carried up before the siege, and then it eats nothing. It costs the besieger
+	/// his army's whole season, every season — the men are standing there rather than anywhere
+	/// else — and it costs the besieged his county's income for as long as it lasts.
+	///
+	/// Refused where there is anybody still standing in the open: a castle cannot be shut in while
+	/// its lord's field army is at large behind the siege lines.</summary>
+	public bool Besiege(string from, string county)
+	{
+		ProvinceEconomy here = _provincesByName.GetValueOrDefault(from);
+		ProvinceEconomy there = _provincesByName.GetValueOrDefault(county);
+		Defenders against = DefendersOf(county);
+		if (here == null || there == null || here.FieldMen == 0 || here.Realm == there.Realm
+			|| !against.Held || ProvinceEconomy.Men(against.Field) > 0)
+		{
+			return false;
+		}
+
+		there.BesiegedFrom = from;
+		there.SiegeSeasons = 0;
+		there.HungrySeasons = 0;
+		return true;
+	}
+
+	/// <summary>Takes a county's army out of every siege it was keeping.</summary>
+	private void Lift(string besieger)
+	{
+		foreach (ProvinceEconomy province in _provincesByName.Values)
+		{
+			if (province.BesiegedFrom == besieger)
+			{
+				province.BesiegedFrom = "";
+				province.SiegeSeasons = 0;
+				province.HungrySeasons = 0;
+			}
+		}
+	}
+
+	/// <summary>A season of sitting outside somebody's gate.
+	///
+	/// Run after every county has had its own season, because a surrender moves a county between
+	/// realms and doing that in the middle of the loop that is running them would be running a
+	/// county for the lord who no longer holds it.</summary>
+	private void Sieges(List<FiredEvent> news)
+	{
+		foreach (ProvinceDefinition definition in _definitions)
+		{
+			ProvinceEconomy province = _provincesByName[definition.ProvinceName];
+			ProvinceEconomy besieger = province.BesiegedFrom.Length == 0
+				? null
+				: _provincesByName.GetValueOrDefault(province.BesiegedFrom);
+
+			if (province.BesiegedFrom.Length == 0)
+			{
+				continue;
+			}
+
+			// Nobody out there any more — the besiegers starved, deserted or were beaten off.
+			if (besieger == null || besieger.FieldMen == 0)
+			{
+				Lift(province.BesiegedFrom);
+				continue;
+			}
+
+			province.SiegeSeasons++;
+			int eaten = Mathf.CeilToInt(province.CastleMen / _balance.PeoplePerGrain * _balance.SoldierAppetite);
+			if (province.CastleStores >= eaten)
+			{
+				province.CastleStores -= eaten;
+				province.HungrySeasons = 0;
+				continue;
+			}
+
+			// The larder is out. They hold for a while on nothing, thinning as they go, and then
+			// somebody draws the bolt — which is how nearly every castle of the period fell.
+			province.CastleStores = 0;
+			province.HungrySeasons++;
+			foreach (string unit in new List<string>(province.Castle.Keys))
+			{
+				int lost = Mathf.CeilToInt(province.Castle[unit] * _balance.StarvedGarrisonRate);
+				province.Castle[unit] -= lost;
+				if (province.Castle[unit] <= 0)
+				{
+					province.Castle.Remove(unit);
+				}
+			}
+
+			if (province.HungrySeasons < _balance.SurrenderAfterHungrySeasons && province.CastleMen > 0)
+			{
+				continue;
+			}
+
+			bool ours = besieger.Realm == _playerRealm;
+			string county = province.ProvinceName;
+			Claim(province.BesiegedFrom, county, new Vector2(besieger.ArmyX, besieger.ArmyY));
+
+			// Written here rather than authored into events.json with the rest: this line has to
+			// name a county and a number, and a static line cannot.
+			if (ours)
+			{
+				news.Add(new FiredEvent(county,
+					new GameEvent("siege-fallen", "The gate is opened",
+						$"{county} has given up its castle. They were starved out of it.", ""),
+					false));
+			}
+		}
 	}
 
 	/// <summary>Takes a battle's dead off a roster. A company wiped out is gone from it rather than
@@ -591,6 +711,11 @@ public class TurnManager
 				summaries.Add(summary);
 			}
 		}
+
+		// Last, and outside the loop above: a castle that gives up moves a county between realms, and
+		// doing that while that loop is still walking the counties would be running one of them for
+		// a lord who no longer holds it.
+		Sieges(news);
 
 		// A turn that carries more news than it can tell drops the world's half first: cutting by the
 		// order the provinces happen to be authored in would let one county's rats bury another

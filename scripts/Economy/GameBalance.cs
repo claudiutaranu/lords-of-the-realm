@@ -348,6 +348,13 @@ public partial class GameBalance : Resource
 	/// than he strictly needs.</summary>
 	[Export] public float BattleLuck = 0.15f;
 
+	/// <summary>How much of a starving garrison is lost each season once the larder is out, and how
+	/// many of those seasons they hold before the gate opens. Men do not sit behind a wall until the
+	/// last of them is dead: they hold out for a while on nothing and then somebody draws the bolt,
+	/// which is how nearly every castle in the period actually fell.</summary>
+	[Export] public float StarvedGarrisonRate = 0.2f;
+	[Export] public int SurrenderAfterHungrySeasons = 3;
+
 	/// <summary>What a county thinks of the lord who has just taken it. Nobody is glad to be
 	/// conquered, and a county held down is a county that has to be fed, garrisoned and watched
 	/// before it is worth anything — which is what stops a lord from simply taking everything he can

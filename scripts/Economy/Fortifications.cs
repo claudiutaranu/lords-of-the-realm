@@ -28,11 +28,11 @@ public static class Fortifications
 	/// the figure that actually holds a castle: a multiplier can be answered by bringing more men,
 	/// and a wall that could be answered that way is not a wall. Twenty-five at a time against a
 	/// royal castle is why taking one is a matter of starving it rather than storming it.</summary>
-	public readonly record struct Wall(string Name, float Tax, float Defence, int Frontage);
+	public readonly record struct Wall(string Name, float Tax, float Defence, int Frontage, int Stores);
 
 	/// <summary>Open ground: no bonus, and every man an attacker has can be brought to bear at once.
 	/// What a village with no walls answers to, and what an unreadable key answers to as well.</summary>
-	private static readonly Wall None = new("open ground", 0f, 1f, int.MaxValue);
+	private static readonly Wall None = new("open ground", 0f, 1f, int.MaxValue, 0);
 
 	private static Dictionary<string, Wall> _walls;
 
@@ -72,7 +72,8 @@ public static class Fortifications
 					fort["name"].AsString(),
 					fort.TryGetValue("tax", out Variant tax) ? (float)tax : 0f,
 					fort.TryGetValue("defence", out Variant defence) ? (float)defence : 1f,
-					fort.TryGetValue("frontage", out Variant frontage) ? (int)frontage : int.MaxValue);
+					fort.TryGetValue("frontage", out Variant frontage) ? (int)frontage : int.MaxValue,
+					fort.TryGetValue("stores", out Variant stores) ? (int)stores : 0);
 			}
 		}
 
