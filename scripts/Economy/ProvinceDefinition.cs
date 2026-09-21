@@ -39,4 +39,22 @@ public partial class ProvinceDefinition : Resource
 	[Export] public int InitialWood = 180;
 	[Export] public int InitialStone = 150;
 	[Export] public int InitialIron = 60;
+
+	/// <summary>The men the province stands up the day the campaign opens, by unit key. A lord's
+	/// county opens with his own army on it; a county nobody holds has none authored at all, because
+	/// what it fields is not an army — it is the place itself, and how many of them stand up is read
+	/// off its people (see <see cref="GameBalance.MilitiaShare"/>).
+	///
+	/// Authored and not derived for a lord, for the same reason his stores are: a rival meant to open
+	/// ahead should be ahead on the map, where it can be seen and planned against, rather than in a
+	/// number somewhere inside the engine.</summary>
+	[Export] public Godot.Collections.Dictionary InitialGarrison = new();
+
+	/// <summary>What stands around the seat when the campaign opens, by the key fortifications.json
+	/// uses. Empty for a county with no walls.
+	///
+	/// It is not decoration. No lord in this game builds a castle of his own yet, so a campaign that
+	/// authors none is a campaign where walls are only ever something the player stands behind and
+	/// never something he has to take.</summary>
+	[Export] public string InitialFortification = "";
 }

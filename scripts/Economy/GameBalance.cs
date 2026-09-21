@@ -299,6 +299,16 @@ public partial class GameBalance : Resource
 	/// The allowance is not softness. Without it the game would contradict itself: a county with no
 	/// soldiers in it is the one the brigands come for, so a lord would be punished for the garrison
 	/// he keeps and robbed for the one he does not. The cost has to begin where the watch ends.</summary>
+	/// <summary>How many of a county's own people stand up for it while nobody holds it, as a share
+	/// of them. An unclaimed county is nobody's army and nobody's wage bill — it is the place itself,
+	/// defending itself with whatever hangs in the barn, which is what the old game this one is
+	/// copied from put in front of every lord who went looking for easy land.
+	///
+	/// Peasants to a man, and that is not a shortcut: a county with no lord has no smithy filling an
+	/// armoury and nobody drilling anybody, so what it fields is how many of them there are and
+	/// nothing else.</summary>
+	[Export] public float MilitiaShare = 0.14f;
+
 	[Export] public float GarrisonTolerated = 0.05f;
 	[Export] public float GarrisonLoyaltyPerTenth = 4f;
 
@@ -308,6 +318,62 @@ public partial class GameBalance : Resource
 	/// an accusation with nothing behind it.</summary>
 	[Export] public float ConscriptionLoyaltyPerHundred = 7f;
 	[Export] public float ConscriptionForgetRate = 0.34f;
+
+	// --- what a battle does ------------------------------------------------------------------------
+
+	/// <summary>How much of a side one round of fighting takes off, at most — the share that falls
+	/// when the two sides are exactly matched is half this. A battle is a handful of rounds and not
+	/// a grind: the men who break, break early, and a field that took twenty exchanges to decide
+	/// would be a field nobody could have read beforehand.</summary>
+	[Export] public float BattleBite = 0.12f;
+
+	/// <summary>How much of what it brought a side loses before it breaks. Armies do not fight to
+	/// the last man and never have — they come apart, and the ones who can run, run. It is also what
+	/// makes a won battle affordable: the winner buries a fraction of what the loser does.</summary>
+	[Export] public float BattleBreakPoint = 0.35f;
+
+	/// <summary>How long the day is. An attack that has not carried by the end of it has not carried
+	/// — the ground stays with whoever was standing on it, which is what withdrawing from a wall
+	/// looks like from the outside.</summary>
+	[Export] public int BattleMostRounds = 12;
+
+	/// <summary>How far THE DAY swings either side of what the numbers say — rolled once for each
+	/// army when it forms up, and not again.
+	///
+	/// Once and not per round on purpose. A die thrown every exchange averages itself out over the
+	/// handful of exchanges a battle lasts, and what comes out the far end is arithmetic with a
+	/// rattle on it: the stronger side wins every single time and the noise shows up in nothing but
+	/// the casualty list. Rolled once, it is the ground, the weather and whether the captain has
+	/// slept — a real uncertainty a lord has to leave room for, and the reason to bring more men
+	/// than he strictly needs.</summary>
+	[Export] public float BattleLuck = 0.15f;
+
+	/// <summary>What the town itself is worth to whoever is holding it: lanes they know, a wall of a
+	/// house at their back, and nobody having to be told where anything is.</summary>
+	[Export] public float TownDefence = 1.15f;
+
+	/// <summary>How much a county's goodwill is worth to the men defending it, either way. A people
+	/// who think well of their lord hold longer for him; a people who do not, do not — which is the
+	/// one place in this game where the happiness bar and the sword meet.</summary>
+	[Export] public float LoyaltyDefence = 0.25f;
+
+	/// <summary>What a man coming up a wall is worth defending himself. He has a ladder in one hand
+	/// and nowhere to give ground, and everything above him is dropping things on his head.
+	///
+	/// The third of the three things a wall does, and the one without which the other two are not
+	/// enough: a multiplier only makes the garrison harder to kill, and a small force attacking a
+	/// castle is not crowded by its frontage either — so without this a keep would be worth nothing
+	/// at all against exactly the army it exists to stop.</summary>
+	[Export] public float AssaultExposure = 0.6f;
+
+	/// <summary>What an archer standing in the open is worth shooting at men behind stone. Half a
+	/// bow: he is loosing at heads and helmets over a parapet while they are loosing at all of him.</summary>
+	[Export] public float AssaultVolley = 0.5f;
+
+	/// <summary>What men who have spent the whole season walking are worth on the day they arrive.
+	/// This is the reason to set out early rather than to arrive at all costs — a lord who has run
+	/// his army to the edge of its legs is attacking with a tired one.</summary>
+	[Export] public float MarchedOutOffence = 0.9f;
 
 	// --- the lords who are not the player -----------------------------------------------------------
 

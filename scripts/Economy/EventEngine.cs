@@ -255,7 +255,7 @@ public static class EventEngine
 		// Brigands are either outsiders taking advantage of an unguarded county, or the county's own
 		// people driven into the woods. The second is the lord's doing and is named as such.
 		bool desperate = p.Loyalty < b.UnrestBelow;
-		if (desperate || Garrison(p) == 0)
+		if (desperate || p.Soldiers == 0)
 		{
 			Offer(choices, b.BanditWeight, "bandits",
 				desperate ? "bandits-desperate-peasants" : "bandits-no-garrison",
@@ -348,17 +348,6 @@ public static class EventEngine
 		float before = p.Loyalty;
 		p.Loyalty = Mathf.Clamp(p.Loyalty + hearts, 0f, 100f);
 		summary.LoyaltyFromEvents += p.Loyalty - before;
-	}
-
-	private static int Garrison(ProvinceEconomy p)
-	{
-		int men = 0;
-		foreach (int company in p.Garrison.Values)
-		{
-			men += company;
-		}
-
-		return men;
 	}
 
 	// --- saying it ------------------------------------------------------------------------------

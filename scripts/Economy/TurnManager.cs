@@ -16,6 +16,10 @@ using Godot;
 /// the player spent his turn doing it, and <see cref="LordAI"/> does it for everybody else.</summary>
 public class TurnManager
 {
+	/// <summary>What a county with no lord puts in the way of one who wants it, by the key
+	/// recruits.json uses. Nobody drilled them and nobody armed them.</summary>
+	private const string MilitiaUnit = "peasant";
+
 	/// <summary>How much news one turn may carry, however many provinces a lord holds. Lords of the
 	/// Realm told you one thing at a time and let you get on with it; a realm of eight counties
 	/// reporting everything would bury the turn it belongs to.</summary>
@@ -136,50 +140,78 @@ public class TurnManager
 	/// <summary>The player's province of that name, or null — which is what every screen that asks
 	/// this actually means: a room that is not his to walk into, a ledger that is not his to read. A
 	/// rival's county is in here too, and is deliberately not what comes back.</summary>
-	/// <summary>Sends a county's men across country to a point on the map, and hands them the ground
-	/// they end on when nobody was holding it.
+	/// <summary>Sends a county's men across country to a point on the map.
 	///
 	/// The WAY is the map's business and the LEDGER is this one's. Which cells are passable, what a
 	/// road saves and how far a budget stretches are questions about ground, and the ground is drawn
 	/// in images this class has never seen; so the map works the road out and comes here with a
 	/// destination and a price. What cannot be delegated is asked here: that there are men to send,
-	/// that they can afford it, and that the county they are walking into is not somebody else's.
+	/// and that they can afford the walk.
 	///
-	/// The men move, not a copy of them: the county they left has none, the county they enter has
-	/// them all, and the season that follows feeds and pays them out of wherever they now stand.</summary>
+	/// A march is a march and not a conquest. Crossing into another lord's county puts the men on his
+	/// ground and nothing more — see <see cref="Claim"/> for the only thing that moves a border, and
+	/// <see cref="DefendersOf"/> for what has to be beaten first.</summary>
 	public bool March(string from, string toCounty, Vector2 at, float cost)
 	{
 		ProvinceEconomy here = _provincesByName.GetValueOrDefault(from);
-		if (here == null || here.Soldiers == 0 || cost <= 0f || cost > here.MarchLeft)
+		if (here == null || here.FieldMen == 0 || cost <= 0f || cost > here.MarchLeft)
 		{
 			return false;
 		}
 
-
-		if (toCounty == from)
-		{
-			// Ground of their own county: they have walked, and nothing has changed hands.
-			here.ArmyX = at.X;
-			here.ArmyY = at.Y;
-			here.MarchLeft -= cost;
-			return true;
-		}
+		// Wherever they were sent, they are standing there now and the season is that much shorter.
+		// Everything below is about whether anything CHANGED HANDS by their standing there, which is
+		// a different question and mostly answered no.
+		here.ArmyX = at.X;
+		here.ArmyY = at.Y;
+		here.MarchLeft -= cost;
 
 		ProvinceEconomy there = _provincesByName.GetValueOrDefault(toCounty);
-		if (there != null && there.Realm != here.Realm)
+
+		// Their own county, or another lord's they are only crossing. Walking over a county has never
+		// taken it and does not take it now: that is settled at the seat, against whoever is standing
+		// on it. The men stay on the roster of the county that raised them — the one still feeding
+		// and paying them — however far from home they have got.
+		if (toCounty == from || (there != null && there.Realm != here.Realm))
 		{
-			// Somebody else is holding it. Walking into another lord's county is a war, and this game
-			// has no way to fight one yet — so the march is refused rather than quietly handing the
-			// ground over. A conquest that costs nothing is worse than no conquest at all: it would
-			// be the fastest way to win and the least interesting.
-			return false;
+			return true;
 		}
 
 		if (there == null)
 		{
-			// Nobody was holding it, so walking in takes it. A county with no lord and no men in it
-			// does not have to be fought for — and until somebody's army stands on the ground, an
-			// unclaimed county is not in the turn at all.
+			// Nobody holds it. If its own people have taken up what hangs in the barn, they have to
+			// be beaten before anything changes hands, and the march simply ends on their ground.
+			// An empty county is walked into, the way it always was.
+			return DefendersOf(toCounty).Men > 0 || Claim(from, toCounty, at);
+		}
+
+		// A county of his own realm: the men join whoever is already standing there, so two counties'
+		// companies can be brought together into one army instead of standing in the same field under
+		// two banners.
+		Join(here, there, at);
+		return true;
+	}
+
+	/// <summary>Hands a county to the realm whose men are standing on its seat, with those men on it.
+	/// Called when there is nobody left in the way — either because there never was anybody, or
+	/// because the battle for it has just been settled.
+	///
+	/// The county keeps everything but its lord: its stores, its fields, its walls and its people are
+	/// exactly what they were the moment before, because they are the reason anybody wanted it. What
+	/// it loses is whoever was holding it, and whatever they still had standing.</summary>
+	public bool Claim(string from, string toCounty, Vector2 at)
+	{
+		ProvinceEconomy here = _provincesByName.GetValueOrDefault(from);
+		if (here == null || toCounty == from)
+		{
+			return false;
+		}
+
+		ProvinceEconomy there = _provincesByName.GetValueOrDefault(toCounty);
+		if (there == null)
+		{
+			// Until somebody's army stands on the ground, an unclaimed county is not in the turn at
+			// all — this is where it joins it.
 			ProvinceDefinition taken = _unheld.GetValueOrDefault(toCounty);
 			if (taken == null)
 			{
@@ -191,24 +223,80 @@ public class TurnManager
 			_definitions.Add(taken);
 			_provincesByName[toCounty] = there;
 			_unheld.Remove(toCounty);
+
+			// What was in its coffers falls with it, into the one purse the taking realm keeps.
+			// Otherwise the ground taken would sit on money the crown could see and never spend.
+			here.Purse.Gold += there.Gold;
 		}
 
+		// Whoever was holding it is not holding it any more, and neither are his men: they are dead,
+		// scattered or walked off by the time anybody is claiming anything.
+		there.Garrison.Clear();
+		there.Castle.Clear();
 		there.Realm = here.Realm;
+		there.Purse = here.Purse;
+		Join(here, there, at);
+		return true;
+	}
+
+	/// <summary>Moves a county's field army onto another county of the same realm, with whatever the
+	/// season has left in it. The men move, not a copy of them: the county they left has none and the
+	/// county they entered has them all.
+	///
+	/// What the season has left goes with the men rather than with the county they walked out of —
+	/// an army that crossed one border can cross another before the snow.</summary>
+	private static void Join(ProvinceEconomy here, ProvinceEconomy there, Vector2 at)
+	{
 		foreach ((string unit, int men) in here.Garrison)
 		{
 			there.Garrison[unit] = there.Garrison.GetValueOrDefault(unit) + men;
 		}
 
-		// What the season has left in it goes with the men, not with the county they walked out of:
-		// an army that crossed one border can cross another before the snow.
-		float left = here.MarchLeft - cost;
+		float left = here.MarchLeft;
 		here.Garrison.Clear();
 		here.MarchLeft = 0f;
 
 		there.ArmyX = at.X;
 		there.ArmyY = at.Y;
 		there.MarchLeft = Mathf.Max(0f, left);
-		return true;
+	}
+
+	/// <summary>Who would have to be beaten to take a county: the men a lord has standing in it, or
+	/// the militia an unclaimed one raises out of its own people.
+	///
+	/// One answer and not two, because the banner the map hangs over a county is read off the same
+	/// call the battle is fought against. A county that shows forty men from the hilltop and fields
+	/// ninety when the shooting starts is the game lying to the player about the one thing he planned
+	/// his season around.
+	///
+	/// The rosters of a county somebody holds are that county's own and not copies: what a battle
+	/// takes out of them, it takes out of the men themselves. An unclaimed county's militia is raised
+	/// fresh on every call, so what a failed attack cost them is forgotten by the next one — they are
+	/// not in the turn, and there is nowhere for it to be remembered.
+	/// ponytail: militia damage is not kept, add when unheld counties take turns of their own.</summary>
+	public Defenders DefendersOf(string county)
+	{
+		ProvinceEconomy held = _provincesByName.GetValueOrDefault(county);
+		if (held != null)
+		{
+			return new Defenders(held.Garrison, held.Castle, held.Fortification, held.Loyalty);
+		}
+
+		ProvinceDefinition free = _unheld.GetValueOrDefault(county);
+		if (free == null)
+		{
+			return new Defenders(new Dictionary<string, int>(), new Dictionary<string, int>(), "", 0f);
+		}
+
+		var raised = new Dictionary<string, int>();
+		int militia = Mathf.FloorToInt(free.InitialPopulation * _balance.MilitiaShare);
+		if (militia > 0)
+		{
+			raised[MilitiaUnit] = militia;
+		}
+
+		return new Defenders(raised, new Dictionary<string, int>(), free.InitialFortification,
+			ProvinceEconomy.OpeningLoyalty);
 	}
 
 	public ProvinceEconomy GetProvince(string name)

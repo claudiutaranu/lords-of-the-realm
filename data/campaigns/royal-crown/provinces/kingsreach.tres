@@ -22,3 +22,7 @@ InitialCattle = 60
 InitialWood = 250
 InitialStone = 220
 InitialIron = 90
+InitialGarrison = {
+"spear": 25,
+"bow": 15
+}

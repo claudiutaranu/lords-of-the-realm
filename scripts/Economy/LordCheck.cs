@@ -239,34 +239,49 @@ public partial class LordCheck : Node
 		Is("a march further than the season is refused",
 			turns.March("Redmoor", "Kingsreach", new Vector2(100, 100), b.MarchReach), false);
 
-		// Walking onto ground nobody holds takes it — there is nobody there to say otherwise, and
-		// until an army stands on it an unclaimed county is not in the turn at all.
+		// Walking onto ground nobody holds does NOT take it any more: the county's own people stand
+		// up for it, and men in the way have to be beaten rather than walked past.
 		var free = new TurnManager(b, new List<ProvinceDefinition> { Definition("Kingsreach") },
 			new Dictionary<string, string> { ["Kingsreach"] = "royal-crown" }, "royal-crown",
 			Difficulty.Medium, new List<ProvinceDefinition> { Definition("Ashenvale") });
 
 		free.GetProvince("Kingsreach").Garrison["spear"] = 40;
-		Is("an unheld county is nobody's until somebody walks in", free.AnyProvince("Ashenvale") == null, true);
-		Is("walking in takes it", free.March("Kingsreach", "Ashenvale", new Vector2(500, 400), 150f), true);
+		Is("an unheld county is nobody's until somebody takes it", free.AnyProvince("Ashenvale") == null, true);
+		Is("  and its own people are what stands in the way", free.DefendersOf("Ashenvale").Men,
+			Mathf.FloorToInt(Definition("Ashenvale").InitialPopulation * b.MilitiaShare));
+		Is("the men can still be walked onto it",
+			free.March("Kingsreach", "Ashenvale", new Vector2(500, 400), 150f), true);
+		Is("  but it is nobody's still", free.AnyProvince("Ashenvale") == null, true);
+		Is("  and they are standing on its ground", free.GetProvince("Kingsreach").ArmyX, 500f);
+		Is("  on the roster of the county that feeds them", free.GetProvince("Kingsreach").Soldiers, 40);
+
+		// Beating them is what takes it, and it is the only thing that does.
+		Is("beating them takes it", free.Claim("Kingsreach", "Ashenvale", new Vector2(500, 400)), true);
 		Is("  and it answers to the lord who took it", free.GetProvince("Ashenvale").Realm, "royal-crown");
 		Is("  with his men standing on it", free.GetProvince("Ashenvale").Soldiers, 40);
+		Is("  and none left in the county they marched out of", free.GetProvince("Kingsreach").Soldiers, 0);
+		Is("  drawing on the same purse as the rest of his realm",
+			free.GetProvince("Ashenvale").Purse == free.GetProvince("Kingsreach").Purse, true);
 		Is("  and it takes its turns from now on", free.AdvanceTurn().Count, 2);
 
 		// And an empty county cannot march: there is nobody in it to go.
 		Is("a county with no men marches nowhere",
 			free.March("Kingsreach", "Ashenvale", new Vector2(500, 400), 10f), false);
 
-		// Another lord's ground is not walked onto. There is no way to fight for it yet, and ground
-		// that changes hands for nothing would be the fastest way to win the campaign.
+		// Another lord's ground can be crossed. Crossing it is all it is — his county is his until
+		// somebody takes its seat off him, and ground that changed hands for being walked over would
+		// be the fastest way to win the campaign and the least interesting.
 		var rival = new TurnManager(b, new List<ProvinceDefinition> { Definition("Kingsreach"), Definition("Valmere") },
 			new Dictionary<string, string> { ["Kingsreach"] = "royal-crown", ["Valmere"] = "northern-watch" },
 			"royal-crown", Difficulty.Medium);
 
 		rival.GetProvince("Kingsreach").Garrison["spear"] = 80;
-		Is("a rival's county is not walked into",
-			rival.March("Kingsreach", "Valmere", new Vector2(900, 200), 100f), false);
-		Is("  and his men are still his", rival.AnyProvince("Valmere").Realm, "northern-watch");
-		Is("  while ours are still at home", rival.GetProvince("Kingsreach").Soldiers, 80);
+		Is("a rival's border no longer stops an army",
+			rival.March("Kingsreach", "Valmere", new Vector2(900, 200), 100f), true);
+		Is("  but crossing his county has not taken it", rival.AnyProvince("Valmere").Realm, "northern-watch");
+		Is("  and his own county is none the worse for it", rival.AnyProvince("Valmere").Soldiers, 0);
+		Is("  while our men are still ours to feed", rival.GetProvince("Kingsreach").Soldiers, 80);
+		Is("  standing on his ground", rival.GetProvince("Kingsreach").ArmyX, 900f);
 
 		// Ground inside a county's own borders: the men walk, and nothing changes hands.
 		ProvinceEconomy walking = rival.GetProvince("Kingsreach");
@@ -274,6 +289,17 @@ public partial class LordCheck : Node
 		Is("men can walk their own county", rival.March("Kingsreach", "Kingsreach", new Vector2(370, 500), 60f), true);
 		Is("  and it still costs them ground", walking.MarchLeft, had - 60f);
 		Is("  and nobody has taken anything", walking.Realm, "royal-crown");
+
+		// The walls and the field are two rosters. The county feeds, pays and resents both of them;
+		// only one of them ever goes anywhere. Without the second, a lord could not leave men on his
+		// own gate and march out with the rest — he could only choose — and every castle in the realm
+		// would stand empty the season its county went to war.
+		walking.Castle["spear"] = 20;
+		Is("the gate watch is counted with the men the county keeps", walking.Soldiers, 100);
+		Is("  but it is not what marches", walking.FieldMen, 80);
+		walking.Garrison.Clear();
+		Is("a county with nobody but a gate watch marches nowhere",
+			rival.March("Kingsreach", "Kingsreach", new Vector2(360, 500), 10f), false);
 	}
 
 	// --- scaffolding -------------------------------------------------------------------------------

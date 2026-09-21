@@ -384,22 +384,28 @@ public static class EconomySimulation
 	/// <summary>Thins every company by the same share and gives back how many left. Rounded up, so
 	/// a company that is owed anything at all loses somebody — a desertion of nought men is a
 	/// consequence the player cannot see.</summary>
-	private static int Disband(ProvinceEconomy p, float share)
+	private static int Disband(ProvinceEconomy p, float share) =>
+		Thin(p.Garrison, share) + Thin(p.Castle, share);
+
+	/// <summary>Thins one roster. The walls go on the same terms as the field: a man on the gate who
+	/// is not paid walks home like anybody else, and a castle that quietly kept its garrison for
+	/// nothing would be the one place in the realm where soldiering was free.</summary>
+	private static int Thin(Dictionary<string, int> roster, float share)
 	{
 		int gone = 0;
-		foreach (string unit in new List<string>(p.Garrison.Keys))
+		foreach (string unit in new List<string>(roster.Keys))
 		{
-			int leaving = Mathf.Min(p.Garrison[unit], Mathf.CeilToInt(p.Garrison[unit] * share));
+			int leaving = Mathf.Min(roster[unit], Mathf.CeilToInt(roster[unit] * share));
 			if (leaving <= 0)
 			{
 				continue;
 			}
 
 			gone += leaving;
-			p.Garrison[unit] -= leaving;
-			if (p.Garrison[unit] <= 0)
+			roster[unit] -= leaving;
+			if (roster[unit] <= 0)
 			{
-				p.Garrison.Remove(unit);
+				roster.Remove(unit);
 			}
 		}
 

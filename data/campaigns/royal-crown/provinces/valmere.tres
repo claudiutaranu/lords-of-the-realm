@@ -25,3 +25,9 @@ InitialCattle = 50
 InitialWood = 200
 InitialStone = 260
 InitialIron = 120
+InitialFortification = "large-fort"
+InitialGarrison = {
+"spear": 30,
+"bow": 20,
+"sword": 10
+}

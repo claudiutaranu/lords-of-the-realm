@@ -1,5 +1,5 @@
 {
-	"_comment": "Who a province can raise in its yard. Engine data, not a campaign's. 'cost' is what ONE man needs — people out of the province's population, and the weapon the smithy forged for him, out of its armoury — so an intake of ten costs ten of each. 'batch' is how many the captain is asked for to begin with. Men are raised the turn they are paid for, so there is no drill time to give. The four stats are 0..10 bars. Every number here is placeholder balance, meant to be tuned.",
+	"_comment": "Who a province can raise in its yard. Engine data, not a campaign's. 'cost' is what ONE man needs — people out of the province's population, and the weapon the smithy forged for him, out of its armoury — so an intake of ten costs ten of each. 'batch' is how many the captain is asked for to begin with. Men are raised the turn they are paid for, so there is no drill time to give. The four stats are 0..10 bars, and they are what a battle is decided by as well as what the card shows. 'mounted' is the one thing a man cannot take up a ladder: horses win a field and are worth nothing against a wall. Every number here is placeholder balance, meant to be tuned.",
 	"items": [
 		{
 			"key": "peasant",
@@ -55,7 +55,7 @@
 			"name": "Cavalry",
 			"icon": "helmet",
 			"blurb": "The costliest men a province can raise, and the only ones who decide a field in a single charge.",
-			"attack": 9, "range": 1, "defence": 6, "speed": 9,
+			"attack": 9, "range": 1, "defence": 6, "speed": 9, "mounted": true,
 			"batch": 5,
 			"cost": { "people": 2, "horse": 1 }
 		}

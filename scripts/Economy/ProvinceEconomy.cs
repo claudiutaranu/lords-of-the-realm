@@ -16,7 +16,12 @@ public class ProvinceEconomy
 	public string Realm = "";
 
 	public int Population;
-	public float Loyalty = 70f;
+	public float Loyalty = OpeningLoyalty;
+
+	/// <summary>What a county thinks of a lord it has no history with. Where every county opens, and
+	/// what an unclaimed one's militia fights on: nobody has ever taxed them or fed them, so there is
+	/// nothing else for them to be weighed against.</summary>
+	public const float OpeningLoyalty = 70f;
 	/// <summary>What the lord takes, as a percentage of what the county earns. A number and not one
 	/// of five named steps, because the decision it stands for is "how much more can I ask for
 	/// before they turn on me" — and that question has an answer a point at a time.
@@ -130,10 +135,19 @@ public class ProvinceEconomy
 	/// <summary>What the training yard is raising, and how many turns are left on the intake. Paid
 	/// for when it is ordered, in people and in arms out of the armoury.</summary>
 
-	/// <summary>The men standing in the province, by unit key. They ARE the army piece the map draws
-	/// on this county: there is no second roster kept somewhere else, so a company cannot be in the
-	/// field and in the muster at the same time, and whoever holds the ground feeds them.</summary>
+	/// <summary>The men standing in the field, by unit key. They ARE the army piece the map draws on
+	/// this county — a company is here or it is on the walls, never in two places at once — and
+	/// whoever holds the ground feeds them.</summary>
 	public Dictionary<string, int> Garrison = new();
+
+	/// <summary>The men held inside the walls, by the same keys. A second roster and not a flag on
+	/// the first, because a lord has to be able to do both things at once: leave men on the gate and
+	/// march out with the rest. With one roster he could only ever choose between them, and every
+	/// castle in the realm would empty itself the moment its county went to war.
+	///
+	/// They do not march, ever. Whatever stands in here when an enemy reaches the seat is what he has
+	/// to take the walls off — after he has beaten whatever was standing in front of them.</summary>
+	public Dictionary<string, int> Castle = new();
 
 	/// <summary>How much ground this county's men have left in them this season, in map pixels of
 	/// road. Open country costs more of it per pixel than a road does, so the same budget carries an
@@ -245,18 +259,25 @@ public class ProvinceEconomy
 	/// <summary>Men under arms in the province. They are not part of <see cref="Population"/> — they
 	/// were taken out of it when they were raised — so everything that feeds, pays or counts them
 	/// has to come through here.</summary>
-	public int Soldiers
-	{
-		get
-		{
-			int men = 0;
-			foreach (int company in Garrison.Values)
-			{
-				men += company;
-			}
+	public int Soldiers => FieldMen + CastleMen;
 
-			return men;
+	/// <summary>The men who can be marched: the field army, and not the watch on the gate.</summary>
+	public int FieldMen => Men(Garrison);
+
+	/// <summary>The men on the walls, who go nowhere.</summary>
+	public int CastleMen => Men(Castle);
+
+	/// <summary>How many men a roster comes to. Public because whoever is counting the defenders of
+	/// a county that nobody holds is counting a roster that belongs to no province.</summary>
+	public static int Men(Dictionary<string, int> roster)
+	{
+		int men = 0;
+		foreach (int company in roster.Values)
+		{
+			men += company;
 		}
+
+		return men;
 	}
 
 	public int AllocatedWorkers =>
@@ -283,6 +304,7 @@ public class ProvinceEconomy
 		copy.Fertility = (float[])Fertility.Clone();
 		copy.Armoury = new Dictionary<string, int>(Armoury);
 		copy.Garrison = new Dictionary<string, int>(Garrison);
+		copy.Castle = new Dictionary<string, int>(Castle);
 		copy.EventQuiet = new Dictionary<string, int>(EventQuiet);
 		copy.HappinessByYear = new List<float>(HappinessByYear);
 		return copy;
@@ -302,7 +324,18 @@ public class ProvinceEconomy
 			Iron = definition.InitialIron,
 			Fields = new FieldUse[definition.Fields],
 			Fertility = new float[definition.Fields],
+			Fortification = definition.InitialFortification,
 		};
+
+		// Men a lord opens with stand where they are of most use: on the walls if his seat has any,
+		// and in front of the town if it has not. A castle authored with nobody in it is a castle the
+		// first army over the border walks into.
+		Dictionary<string, int> opening =
+			province.Fortification.Length > 0 ? province.Castle : province.Garrison;
+		foreach (System.Collections.Generic.KeyValuePair<Variant, Variant> company in definition.InitialGarrison)
+		{
+			opening[company.Key.AsString()] = company.Value.AsInt32();
+		}
 
 		for (int field = 0; field < province.Fields.Length; field++)
 		{
