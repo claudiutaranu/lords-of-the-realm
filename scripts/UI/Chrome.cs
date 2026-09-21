@@ -25,6 +25,12 @@ public static class Chrome
 
 	private const string SquarePlatePath = "res://assets/ui/button-square.png";
 
+	/// <summary>How long a held plate waits before it starts running, and how fast it runs after
+	/// that. The pause is what keeps a click a click; without it, a press that lingers a frame too
+	/// long moves two.</summary>
+	private const double RepeatDelaySeconds = 0.35;
+	private const double RepeatEverySeconds = 0.05;
+
 	public static Label Line(string text, int size, Color color)
 	{
 		var label = new Label { Text = text };
@@ -84,9 +90,18 @@ public static class Chrome
 	/// <summary>A small button wearing the square plate the rest of the game's icon buttons wear:
 	/// the theme's own button is a gilded lozenge, which at this size reads as an ornament rather
 	/// than as something to press.</summary>
-	public static Button Plate(string text, int side, Action pressed)
+	public static Button Plate(string text, int side, Action pressed = null)
 	{
-		var button = new Button { Text = text, CustomMinimumSize = new Vector2(side, side) };
+		var button = new Button
+		{
+			Text = text,
+			CustomMinimumSize = new Vector2(side, side),
+			// Square, and square whatever it is standing next to. A button in a row fills the row's
+			// height by default, so a plate beside a tall label or a taller button comes out as an
+			// oblong — and two plates side by side only look square while nothing else shares their
+			// line.
+			SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
+		};
 		button.AddThemeFontSizeOverride("font_size", 22);
 		foreach (string state in new[] { "normal", "hover", "pressed", "focus" })
 		{
@@ -97,7 +112,43 @@ public static class Chrome
 			});
 		}
 
-		button.Pressed += pressed;
+		if (pressed != null)
+		{
+			button.Pressed += pressed;
+		}
+
+		return button;
+	}
+
+	/// <summary>A plate that keeps stepping while it is held down: once on the press, a pause so a
+	/// single click is still a single step, then quickly for as long as the finger is on it. A
+	/// stepper you have to click forty times to cross its range is one the player stops using —
+	/// he settles for whatever number is near enough rather than the one he wanted.
+	///
+	/// Driven from the press and not from <c>Pressed</c>, which fires on release: wired the other
+	/// way, every hold would end with one extra step the player did not ask for.</summary>
+	public static Button Repeating(string text, int side, Action pressed)
+	{
+		Button button = Plate(text, side);
+		var repeat = new Timer { WaitTime = RepeatDelaySeconds };
+		button.AddChild(repeat);
+
+		repeat.Timeout += () =>
+		{
+			// The pause is only ever before the FIRST repeat; from then on it runs at the fast rate.
+			// Kept on the timer rather than in a flag beside it, because the timer is the only thing
+			// that knows how long the button has been held.
+			repeat.WaitTime = RepeatEverySeconds;
+			pressed();
+		};
+
+		button.ButtonDown += () =>
+		{
+			pressed();
+			repeat.Start(RepeatDelaySeconds);
+		};
+
+		button.ButtonUp += repeat.Stop;
 		return button;
 	}
 

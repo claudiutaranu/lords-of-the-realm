@@ -22,4 +22,20 @@ public static class FortArt
 	public static string Scene(string fort) => $"{Directory}/scene/{fort}.png";
 
 	public static bool HasScene(string fort) => ResourceLoader.Exists(Scene(fort));
+
+	/// <summary>What moves on a fort that is otherwise a still picture: the flags on its poles and
+	/// the banners down its walls, waved by a shader reading a mask painted over the same art. A
+	/// material rather than a second picture, so the wall the player is looking at is the same
+	/// pixels either way and a rung with nothing painted for it simply stands still.</summary>
+	public static string Cloth(string fort) => $"{Directory}/scene/{fort}_cloth.tres";
+
+	public static bool HasCloth(string fort) => ResourceLoader.Exists(Cloth(fort));
+
+	/// <summary>Whatever hangs, swings or walks on a fort and cannot be done by pushing the picture's
+	/// own pixels about — a stone swaying under a crane. A scene laid over the wall in the picture's
+	/// own pixels, measured from its middle, so one placement holds however large the valley is
+	/// drawn.</summary>
+	public static string Life(string fort) => $"{Directory}/scene/{fort}-life.tscn";
+
+	public static bool HasLife(string fort) => ResourceLoader.Exists(Life(fort));
 }

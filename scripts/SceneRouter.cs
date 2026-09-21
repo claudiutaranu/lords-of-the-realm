@@ -37,6 +37,9 @@ public static class SceneRouter
 				return;
 			}
 
+			// A line belongs to the screen that started it: leaving cuts it off, the way it did
+			// when every page carried a player of its own that died with the page.
+			Narrator.Hush();
 			tree.ChangeSceneToPacked(scene);
 		};
 		tree.ProcessFrame += poll;

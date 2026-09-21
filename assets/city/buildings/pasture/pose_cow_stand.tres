@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="RiggedPose" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://assets/city/buildings/pasture/rigged_pose.gd" id="1_script"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/pasture/cow_stand.png" id="2_texture"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/pasture/cow_stand_rig.png" id="3_rig"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/pasture/cow_stand_tail.png" id="4_tail"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/pasture/cow_stand_tail_rig.png" id="5_tail_rig"]
+
+[resource]
+script = ExtResource("1_script")
+texture = ExtResource("2_texture")
+rig_weights = ExtResource("3_rig")
+tail_texture = ExtResource("4_tail")
+tail_rig_weights = ExtResource("5_tail_rig")
+foot_point = Vector2(124.2, 162.0)
+tail_pivot = Vector2(50, 42)
+head_pivot = Vector2(154, 72)
+faces_right = true
+is_grazing = false

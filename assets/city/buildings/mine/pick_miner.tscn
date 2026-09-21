@@ -1,0 +1,93 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://assets/city/buildings/tool_strike_worker.gd" id="1_script"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/mine/pick_miner.png" id="3_arms"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/mine/pick_miner_rig.png" id="4_rig"]
+[ext_resource type="Shader" path="res://assets/city/buildings/limb_motion.gdshader" id="5_motion"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_arms"]
+shader = ExtResource("5_motion")
+shader_parameter/motion_weights = ExtResource("4_rig")
+shader_parameter/pivot_px = Vector2(112, 196)
+shader_parameter/angle = 0.0
+shader_parameter/offset_px = Vector2(0, 0)
+
+[sub_resource type="Gradient" id="Gradient_rock"]
+offsets = PackedFloat32Array(0, 0.75, 1)
+colors = PackedColorArray(0.42, 0.42, 0.46, 1, 0.36, 0.36, 0.4, 1, 0.36, 0.36, 0.4, 0)
+
+[sub_resource type="Gradient" id="Gradient_spark"]
+offsets = PackedFloat32Array(0, 0.5, 1)
+colors = PackedColorArray(1, 0.95, 0.7, 1, 1, 0.65, 0.2, 1, 0.9, 0.3, 0.05, 0)
+
+[sub_resource type="Gradient" id="Gradient_dust"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.62, 0.58, 0.52, 0.55, 0.62, 0.58, 0.52, 0)
+
+[node name="PickMiner" type="Node2D"]
+script = ExtResource("1_script")
+wind_up_degrees = -10.0
+strike_degrees = 4.0
+wind_up_seconds = 0.6
+strike_seconds = 0.1
+hold_seconds = 0.18
+recover_seconds = 0.08
+min_strikes_in_a_row = 3
+max_strikes_in_a_row = 6
+min_rest_seconds = 1.5
+max_rest_seconds = 3.5
+
+[node name="Tool" type="Sprite2D" parent="."]
+material = SubResource("ShaderMaterial_arms")
+texture = ExtResource("3_arms")
+centered = false
+offset = Vector2(-110.4, -279.6)
+scale = Vector2(0.25, 0.25)
+
+[node name="RockChips" type="CPUParticles2D" parent="."]
+position = Vector2(18.9, -16.9)
+emitting = false
+amount = 7
+lifetime = 0.55
+one_shot = true
+explosiveness = 1.0
+direction = Vector2(0.5, -1)
+spread = 60.0
+gravity = Vector2(0, 240)
+initial_velocity_min = 28.0
+initial_velocity_max = 60.0
+scale_amount_min = 1.6
+scale_amount_max = 2.6
+color_ramp = SubResource("Gradient_rock")
+
+[node name="Sparks" type="CPUParticles2D" parent="."]
+position = Vector2(18.9, -16.9)
+emitting = false
+amount = 3
+lifetime = 0.28
+one_shot = true
+explosiveness = 1.0
+direction = Vector2(0.2, -1)
+spread = 75.0
+gravity = Vector2(0, 120)
+initial_velocity_min = 60.0
+initial_velocity_max = 110.0
+scale_amount_min = 0.9
+scale_amount_max = 1.3
+color_ramp = SubResource("Gradient_spark")
+
+[node name="Dust" type="CPUParticles2D" parent="."]
+position = Vector2(18.9, -16.9)
+emitting = false
+amount = 4
+lifetime = 0.8
+one_shot = true
+explosiveness = 1.0
+direction = Vector2(0, -1)
+spread = 80.0
+gravity = Vector2(0, -10)
+initial_velocity_min = 5.0
+initial_velocity_max = 12.0
+scale_amount_min = 1.6
+scale_amount_max = 2.6
+color_ramp = SubResource("Gradient_dust")

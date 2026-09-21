@@ -1,5 +1,6 @@
 {
  "player": "royal-crown",
+ "unclaimed": "neutral",
  "realms": {
   "royal-crown": {
    "name": "The Royal Crown",
@@ -62,6 +63,7 @@
    "y": 105,
    "realm": "northern-watch",
    "capital": true,
+   "economy": "valmere",
    "region": "north"
   },
   {

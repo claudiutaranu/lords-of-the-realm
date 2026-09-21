@@ -1,0 +1,13 @@
+[gd_resource type="ShaderMaterial" load_steps=3 format=3]
+
+[ext_resource type="Shader" path="res://assets/forts/scene/fort_cloth.gdshader" id="1_shader"]
+[ext_resource type="Texture2D" path="res://assets/forts/scene/small-palisade_motion.png" id="2_mask"]
+
+[resource]
+shader = ExtResource("1_shader")
+shader_parameter/cloth_mask = ExtResource("2_mask")
+shader_parameter/flag_direction = -1.0
+; This mask was painted before the shader read alpha, and was saved opaque: every pixel
+; would read as flame. Repaint the mask with the flames marked in alpha and drop these two.
+shader_parameter/flame_lick_px = 0.0
+shader_parameter/flame_flicker = 0.0

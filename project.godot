@@ -24,6 +24,7 @@ driver/output_latency=60
 
 Settings="*res://scripts/Settings.cs"
 Music="*res://scripts/MusicPlayer.cs"
+Narrator="*res://scripts/Narrator.cs"
 
 [display]
 

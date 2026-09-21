@@ -1,0 +1,88 @@
+[gd_scene load_steps=7 format=3]
+
+; Both scripts are the city's, referenced rather than copied: a second file declaring the same
+; class_name would hide the first and neither would load.
+[ext_resource type="Texture2D" path="res://assets/forts/scene/large-fort_patch1.png" id="1_patch"]
+[ext_resource type="Script" path="res://assets/city/buildings/construction/crane_load.gd" id="2_swing"]
+[ext_resource type="Texture2D" path="res://assets/forts/scene/large-fort_load1.png" id="3_load"]
+[ext_resource type="Texture2D" path="res://assets/forts/scene/fire_glow.png" id="4_glow"]
+[ext_resource type="Script" path="res://assets/city/buildings/lantern_glow.gd" id="5_glow_script"]
+[ext_resource type="Texture2D" path="res://assets/forts/scene/ember.png" id="6_ember"]
+
+[sub_resource type="CanvasItemMaterial" id="Material_additive"]
+blend_mode = 1
+
+[sub_resource type="Gradient" id="Gradient_embers"]
+offsets = PackedFloat32Array(0, 0.2, 1)
+colors = PackedColorArray(1, 0.85, 0.45, 0, 1, 0.65, 0.2, 1, 0.9, 0.25, 0.05, 0)
+
+[node name="Life" type="Node2D"]
+
+; Fills the hole the shader cuts where the painted load used to be, and goes in first so the
+; swinging stone is drawn over it.
+[node name="Patch1" type="Sprite2D" parent="."]
+position = Vector2(702.0, -78.5)
+texture = ExtResource("1_patch")
+centered = false
+
+[node name="CraneLoad1" type="Node2D" parent="."]
+position = Vector2(656.0, -243.5)
+script = ExtResource("2_swing")
+sway_degrees = 1.8
+
+[node name="Load" type="Sprite2D" parent="CraneLoad1"]
+texture = ExtResource("3_load")
+centered = false
+offset = Vector2(-76, -6)
+
+[node name="FireGlow1" type="Sprite2D" parent="."]
+position = Vector2(-156.0, 204.5)
+texture = ExtResource("4_glow")
+script = ExtResource("5_glow_script")
+base_scale = 2.031
+base_energy = 0.75
+flicker_amount = 0.3
+
+[node name="Embers1" type="CPUParticles2D" parent="."]
+position = Vector2(-156.0, 181.5)
+material = SubResource("Material_additive")
+amount = 8
+lifetime = 1.4
+preprocess = 1.5
+texture = ExtResource("6_ember")
+emission_shape = 3
+emission_rect_extents = Vector2(15.5, 3)
+direction = Vector2(0, -1)
+spread = 20.0
+gravity = Vector2(4, -15)
+initial_velocity_min = 18.0
+initial_velocity_max = 40.0
+scale_amount_min = 0.25
+scale_amount_max = 0.45
+color_ramp = SubResource("Gradient_embers")
+
+[node name="FireGlow2" type="Sprite2D" parent="."]
+position = Vector2(176.0, 217.5)
+texture = ExtResource("4_glow")
+script = ExtResource("5_glow_script")
+base_scale = 2.031
+base_energy = 0.75
+flicker_amount = 0.3
+
+[node name="Embers2" type="CPUParticles2D" parent="."]
+position = Vector2(176.0, 189.5)
+material = SubResource("Material_additive")
+amount = 8
+lifetime = 1.4
+preprocess = 1.5
+texture = ExtResource("6_ember")
+emission_shape = 3
+emission_rect_extents = Vector2(15.0, 3)
+direction = Vector2(0, -1)
+spread = 20.0
+gravity = Vector2(4, -15)
+initial_velocity_min = 18.0
+initial_velocity_max = 40.0
+scale_amount_min = 0.25
+scale_amount_max = 0.45
+color_ramp = SubResource("Gradient_embers")

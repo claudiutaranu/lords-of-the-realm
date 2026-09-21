@@ -52,9 +52,24 @@ public partial class MarketPage : RoomPage
 		["weapons"] = new Vector2(0.468f, 0.590f),
 	};
 
+	/// <summary>The realm's own market, handed over before the room opens. It is not made here any
+	/// more: a market built fresh every time the stall doors open would forget every price the player
+	/// moved, and a price that resets when you leave the room is a price you can launder a granary
+	/// through.</summary>
+	public void Brief(Market market) => _market = market;
+
 	protected override void Load()
 	{
-		_market = Market.FromBalance();
+		// Said plainly rather than left to throw on the first good it prices. Whoever opens this room
+		// owes it a market before it enters the tree, and the cost of getting that wrong is a room
+		// the player walks into and finds empty — which looks like broken art, not a broken handover,
+		// and is the last place anybody would go looking. No falling back to a market of our own:
+		// that would hide the mistake behind a counter that forgets every price he ever moved.
+		if (_market == null)
+		{
+			GD.PushError($"{RoomName}: opened with no market. Brief() must be called before the room is added to the tree.");
+			return;
+		}
 
 		var file = GD.Load<Json>(DataPath);
 		if (file?.Data.VariantType != Variant.Type.Dictionary)
@@ -185,12 +200,17 @@ public partial class MarketPage : RoomPage
 
 		var terms = new HBoxContainer();
 		terms.AddThemeConstantOverride("separation", 22);
-		terms.AddChild(Reading("Price", "gold", _market.Price(Trading.Key), Bright));
+		// Both sides of the counter, because they are no longer the same number: the merchant's cut
+		// is what a round trip costs, and a player who cannot see it will keep trying to make money
+		// out of one.
+		terms.AddChild(Reading("Buy at", "gold", _market.Asking(Trading.Key), Bright));
+		terms.AddChild(Reading("Sell at", "gold", _market.Offered(Trading.Key), Bright));
 		terms.AddChild(Reading("In stock", Trading.Icon, Province.Stored(Trading.Key), Bright));
 		// Counted in sacks, not in coins, so it wears the good's own icon beside the holding it is
 		// meant to be read against.
 		terms.AddChild(Reading("You can buy", Trading.Icon, Affordable, Affordable > 0 ? Bright : Short));
 		reading.AddChild(terms);
+		reading.AddChild(Weather(Trading.Key));
 
 		// The slider runs to whichever side reaches further, so both trades are in reach of one
 		// control; each button below answers for its own side.
@@ -217,7 +237,7 @@ public partial class MarketPage : RoomPage
 			bool taken = good.Key == Trading.Key;
 			var plate = new Button
 			{
-				TooltipText = $"{good.Name} — {_market.Price(good.Key):N0} gold each",
+				TooltipText = $"{good.Name} — buy at {_market.Asking(good.Key):N0}, sell at {_market.Offered(good.Key):N0} gold",
 				CustomMinimumSize = new Vector2(0, 58),
 				SizeFlagsHorizontal = SizeFlags.ExpandFill,
 			};
@@ -278,7 +298,8 @@ public partial class MarketPage : RoomPage
 	/// it. The line under them is what the trade comes to either way.</summary>
 	private Control BuildCounter()
 	{
-		int worth = _market.Worth(Trading.Key, _amount);
+		int cost = _market.Worth(Trading.Key, _amount, buying: true);
+		int fetches = _market.Worth(Trading.Key, _amount, buying: false);
 		var column = new VBoxContainer();
 		column.AddThemeConstantOverride("separation", 8);
 
@@ -291,7 +312,7 @@ public partial class MarketPage : RoomPage
 			Text = "Buy",
 			CustomMinimumSize = new Vector2(0, 52),
 			SizeFlagsHorizontal = SizeFlags.ExpandFill,
-			Disabled = Province.Gold < worth,
+			Disabled = Province.Gold < cost,
 		};
 		buy.AddThemeFontSizeOverride("font_size", 19);
 		buy.Pressed += Buy;
@@ -310,13 +331,45 @@ public partial class MarketPage : RoomPage
 
 		var total = new HBoxContainer();
 		total.AddThemeConstantOverride("separation", 7);
-		total.AddChild(Line($"{_amount:N0} {Trading.Name.ToLowerInvariant()} for", 15, Soft));
+		total.AddChild(Line($"{_amount:N0} {Trading.Name.ToLowerInvariant()}:", 15, Soft));
 		// Red when the till cannot cover it: the reason the buy button is dead.
-		total.AddChild(Line(worth.ToString("N0"), 15, Province.Gold >= worth ? Bright : Short));
+		total.AddChild(Line(cost.ToString("N0"), 15, Province.Gold >= cost ? Bright : Short));
 		total.AddChild(Icon("gold", 19));
+		total.AddChild(Line("to buy,", 15, Soft));
+		total.AddChild(Line(fetches.ToString("N0"), 15, Gain()));
+		total.AddChild(Icon("gold", 19));
+		total.AddChild(Line("to sell", 15, Soft));
 		column.AddChild(total);
 		return column;
 	}
+
+	/// <summary>Why the price is what it is today. A moving price the player cannot read the reason
+	/// for is indistinguishable from a random one, and he will stop planning around it — which is
+	/// the only thing it exists to make him do.</summary>
+	private Control Weather(string store)
+	{
+		int ordinary = _market.Base(store);
+		int now = _market.Price(store);
+		if (ordinary <= 0)
+		{
+			return new Control();
+		}
+
+		int off = Mathf.RoundToInt((now - ordinary) * 100f / ordinary);
+		string note = off switch
+		{
+			> 25 => "Dear — the country is short of it.",
+			> 8 => "A little above its worth.",
+			< -25 => "Cheap — the market is glutted with it.",
+			< -8 => "A little under its worth.",
+			_ => "Trading at about what it is worth.",
+		};
+
+		return Line(off == 0 ? note : $"{note}  ({(off > 0 ? "+" : "")}{off}%)", 15,
+			off > 8 ? Short : off < -8 ? Gain() : Dim);
+	}
+
+	private static Color Gain() => Chrome.Gain;
 
 	/// <summary>How many of the chosen good the province's gold will stretch to.</summary>
 	private int Affordable => _market.Affordable(Province, Trading.Key);

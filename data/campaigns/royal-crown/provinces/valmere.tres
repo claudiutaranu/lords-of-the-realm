@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="ProvinceDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/Economy/ProvinceDefinition.cs" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+ProvinceName = "Valmere"
+InitialPopulation = 850
+Fields = 9
+InitialGrainFields = 4
+InitialPastureFields = 2
+GrainWorkerCapacity = 320
+CattleWorkerCapacity = 140
+WoodWorkerCapacity = 220
+StoneWorkerCapacity = 0
+IronWorkerCapacity = 160
+GrainModifier = 0.85
+CattleModifier = 0.9
+WoodModifier = 1.0
+StoneModifier = 1.3
+IronModifier = 1.4
+InitialGold = 700
+InitialGrain = 360
+InitialCattle = 50
+InitialWood = 200
+InitialStone = 260
+InitialIron = 120

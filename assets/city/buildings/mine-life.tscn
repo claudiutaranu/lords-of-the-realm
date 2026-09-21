@@ -1,0 +1,110 @@
+[gd_scene load_steps=14 format=3]
+
+[ext_resource type="Texture2D" path="res://assets/city/buildings/mine/mine_base.png" id="1_base"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/mine/tree_sway_mask.png" id="2_mask"]
+[ext_resource type="Shader" path="res://assets/city/buildings/tree_sway.gdshader" id="3_sway"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/mine/torch_glow.png" id="4_glow"]
+[ext_resource type="Script" path="res://assets/city/buildings/lantern_glow.gd" id="5_glow_script"]
+[ext_resource type="PackedScene" path="res://assets/city/buildings/mine/pick_miner.tscn" id="6_miner"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/mine/dust_mote.png" id="7_mote"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/mine/mine_mouth_overlay.png" id="8_mouth"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/mine/cart_pusher.png" id="9_cart"]
+[ext_resource type="Script" path="res://assets/city/buildings/mine/track_cart.gd" id="10_cart_script"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/mine/rock_pile.png" id="11_rock_pile"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/mine/picker.png" id="12_picker"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/mine/carrier.png" id="13_carrier"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_trees"]
+shader = ExtResource("3_sway")
+shader_parameter/sway_mask = ExtResource("2_mask")
+
+[sub_resource type="Gradient" id="Gradient_motes"]
+offsets = PackedFloat32Array(0, 0.25, 0.75, 1)
+colors = PackedColorArray(1, 0.85, 0.6, 0, 1, 0.85, 0.6, 0.55, 1, 0.8, 0.55, 0.45, 1, 0.8, 0.55, 0)
+
+[node name="Life" type="Node2D"]
+
+[node name="Ground" type="Sprite2D" parent="."]
+material = SubResource("ShaderMaterial_trees")
+texture = ExtResource("1_base")
+centered = false
+position = Vector2(64, 64)
+
+[node name="Workers" type="Node2D" parent="."]
+y_sort_enabled = true
+
+[node name="RockPile" type="Sprite2D" parent="Workers"]
+position = Vector2(686.6, 494.5)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("11_rock_pile")
+centered = false
+offset = Vector2(-37.1, -48.5)
+
+[node name="Picker" type="Sprite2D" parent="Workers"]
+position = Vector2(511.6, 390.5)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("12_picker")
+centered = false
+offset = Vector2(-32.7, -85.4)
+
+[node name="Carrier" type="Sprite2D" parent="Workers"]
+position = Vector2(594.0, 410.5)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("13_carrier")
+centered = false
+offset = Vector2(-32.7, -119.3)
+
+[node name="PickMiner" parent="Workers" instance=ExtResource("6_miner")]
+position = Vector2(656.6, 493.5)
+
+[node name="TrackCart" type="Node2D" parent="Workers"]
+script = ExtResource("10_cart_script")
+position = Vector2(365.0, 304.3)
+track_start = Vector2(365.0, 304.3)
+track_stop = Vector2(459.0, 377.6)
+
+[node name="Visual" type="Node2D" parent="Workers/TrackCart"]
+
+[node name="Sprite" type="Sprite2D" parent="Workers/TrackCart/Visual"]
+texture = ExtResource("9_cart")
+centered = false
+offset = Vector2(-116.3, -132.9)
+scale = Vector2(0.5, 0.5)
+
+[node name="MouthOverlay" type="Sprite2D" parent="."]
+texture = ExtResource("8_mouth")
+centered = false
+position = Vector2(293.0, 200.5)
+
+[node name="TorchLeft" type="Sprite2D" parent="."]
+position = Vector2(347.6, 289.5)
+texture = ExtResource("4_glow")
+script = ExtResource("5_glow_script")
+base_scale = 0.938
+base_energy = 0.8
+flicker_amount = 0.28
+
+[node name="TorchRight" type="Sprite2D" parent="."]
+position = Vector2(460.6, 262.0)
+texture = ExtResource("4_glow")
+script = ExtResource("5_glow_script")
+base_scale = 0.938
+base_energy = 0.8
+flicker_amount = 0.28
+
+[node name="DustMotes" type="CPUParticles2D" parent="."]
+position = Vector2(410.3, 290.7)
+amount = 16
+lifetime = 6.0
+preprocess = 6.0
+texture = ExtResource("7_mote")
+emission_shape = 3
+emission_rect_extents = Vector2(43.75, 33.75)
+direction = Vector2(0.3, -1)
+spread = 180.0
+gravity = Vector2(0, -1.5)
+initial_velocity_min = 1.5
+initial_velocity_max = 4.0
+scale_amount_min = 0.12
+scale_amount_max = 0.25
+color_ramp = SubResource("Gradient_motes")

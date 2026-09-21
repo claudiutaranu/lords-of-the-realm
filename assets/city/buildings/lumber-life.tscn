@@ -1,0 +1,56 @@
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="Texture2D" path="res://assets/city/buildings/lumber/lumber_camp_base.png" id="1_base"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/lumber/tree_sway_mask.png" id="2_mask"]
+[ext_resource type="Shader" path="res://assets/city/buildings/tree_sway.gdshader" id="3_sway"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/lumber/lantern_glow.png" id="4_glow"]
+[ext_resource type="Script" path="res://assets/city/buildings/lantern_glow.gd" id="5_glow_script"]
+[ext_resource type="PackedScene" path="res://assets/city/buildings/lumber/wood_chopper.tscn" id="6_chopper"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/lumber/axeman.png" id="7_axeman"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/lumber/log_carrier.png" id="8_log_carrier"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/lumber/log_roller.png" id="9_log_roller"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_trees"]
+shader = ExtResource("3_sway")
+shader_parameter/sway_mask = ExtResource("2_mask")
+
+[node name="Life" type="Node2D"]
+
+[node name="Ground" type="Sprite2D" parent="."]
+material = SubResource("ShaderMaterial_trees")
+texture = ExtResource("1_base")
+centered = false
+position = Vector2(64, 64)
+
+[node name="LanternGlow" type="Sprite2D" parent="."]
+position = Vector2(574.6, 294.0)
+texture = ExtResource("4_glow")
+script = ExtResource("5_glow_script")
+base_scale = 0.875
+
+[node name="Workers" type="Node2D" parent="."]
+y_sort_enabled = true
+
+[node name="Axeman" type="Sprite2D" parent="Workers"]
+position = Vector2(583.0, 398.0)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("7_axeman")
+centered = false
+offset = Vector2(-41.3, -138.7)
+
+[node name="LogCarrier" type="Sprite2D" parent="Workers"]
+position = Vector2(270.6, 364.0)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("8_log_carrier")
+centered = false
+offset = Vector2(-54.7, -139.7)
+
+[node name="LogRoller" type="Sprite2D" parent="Workers"]
+position = Vector2(418.0, 326.5)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("9_log_roller")
+centered = false
+offset = Vector2(-62.4, -126.1)
+
+[node name="WoodChopper" parent="Workers" instance=ExtResource("6_chopper")]
+position = Vector2(365.6, 391.5)

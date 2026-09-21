@@ -99,8 +99,13 @@ void fragment() {
 		+ autumn * vec3(1.22, 0.94, 0.58)
 		+ winter * vec3(0.88, 0.84, 0.80);
 
-	vec3 detail = mix(texture(grass_texture, detail_uv).rgb, texture(grass_texture, detail_uv2).rgb, 0.5) * season_grass;
-	vec3 detail_n = mix(texture(grass_normal, detail_uv).rgb, texture(grass_normal, detail_uv2).rgb, 0.5);
+	// Two scales of the same grass, mixed — but mixed by a weight that wanders over the map rather
+	// than by a flat half. An even blend of two tilings is still a tiling: the pair repeats on the
+	// lowest common period of the two and the eye finds it within a second. Letting one scale lead
+	// here and the other there has no period at all to find.
+	float weave = 0.5 + 0.42 * sin(map_uv.x * 17.0 + 1.3) * cos(map_uv.y * 13.0 - 0.7);
+	vec3 detail = mix(texture(grass_texture, detail_uv).rgb, texture(grass_texture, detail_uv2).rgb, weave) * season_grass;
+	vec3 detail_n = mix(texture(grass_normal, detail_uv).rgb, texture(grass_normal, detail_uv2).rgb, weave);
 	// Cliffs are sampled from the side, not from above: a flat-projected texture on a vertical face
 	// smears into vertical streaks, which is exactly what sea stacks and coastal cliffs showed.
 	float world_tiling = detail_tiling / map_size_x;

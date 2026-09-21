@@ -16,12 +16,27 @@ public partial class Settings : Node
 		new(2560, 1440),
 	};
 
+	/// <summary>The pointer: a sword drawn pointing up and to the left, the way a cursor has to. Its
+	/// own piece of art rather than the stats bar's icon turned round, and cropped to the blade —
+	/// the padding and the drop shadow a picture is drawn with are a fifth of the height, and at
+	/// forty-eight pixels every one of them has to be sword.</summary>
+	private const string CursorIconPath = "res://assets/ui/cursor-sword.png";
+	private const int CursorSize = 48;
+
+	/// <summary>Where the point of the blade falls in that art, as a share of it: the very top, a
+	/// hair in from the left. This is the hotspot — the pixel the click actually happens at — and a
+	/// cursor that clicks from its middle makes every button in the game feel out of place.</summary>
+	private static readonly Vector2 CursorTip = new(0.03f, 0f);
+
 	private const string ConfigPath = "user://settings.cfg";
 	private const string Section = "settings";
 	private const float DefaultVolume = 0.8f;
 	private const float SilenceFloor = 0.0001f;
 
 	private static readonly string[] Buses = { MasterBus, MusicBus, SfxBus };
+
+	/// <summary>The cursor's texture, kept so it can be handed back on the way out.</summary>
+	private static ImageTexture _pointer;
 	private static readonly ConfigFile Config = new();
 
 	public static int ResolutionIndex
@@ -67,11 +82,43 @@ public partial class Settings : Node
 		Config.Load(ConfigPath);
 		ApplyWindow();
 		ApplyVsync();
+		ApplyCursor();
 
 		foreach (string bus in Buses)
 		{
 			ApplyVolume(bus);
 		}
+	}
+
+	/// <summary>Handed back before the renderer goes. The engine holds the cursor texture past the
+	/// point where it can free one, so leaving it in place prints a leaked-texture warning on every
+	/// single quit — and a console that cries wolf at shutdown is one nobody reads on the day it has
+	/// something to say.</summary>
+	public override void _ExitTree()
+	{
+		Input.SetCustomMouseCursor(null, Input.CursorShape.Arrow);
+		Input.SetCustomMouseCursor(null, Input.CursorShape.PointingHand);
+
+		// Handed back AND let go of. Clearing the cursor is not enough on its own: the texture is a
+		// reference-counted resource whose last reference here is a managed object, and waiting for
+		// the garbage collector to notice means the engine shuts down with it still held.
+		_pointer?.Dispose();
+		_pointer = null;
+	}
+
+	private static void ApplyCursor()
+	{
+		Image sword = GD.Load<Texture2D>(CursorIconPath).GetImage();
+		sword.Resize(CursorSize, CursorSize, Image.Interpolation.Lanczos);
+
+		_pointer = ImageTexture.CreateFromImage(sword);
+		Vector2 tip = CursorTip * CursorSize;
+
+		// Both shapes, so nothing in the game can hand the player the system arrow back: a control
+		// that asks for the pointing hand gets the same sword rather than a white glove from another
+		// century.
+		Input.SetCustomMouseCursor(_pointer, Input.CursorShape.Arrow, tip);
+		Input.SetCustomMouseCursor(_pointer, Input.CursorShape.PointingHand, tip);
 	}
 
 	private static T Read<[MustBeVariant] T>(string key, T fallback) =>

@@ -6,11 +6,11 @@
 script = ExtResource("1_script")
 ProvinceName = "Ashenvale"
 InitialPopulation = 700
-GrainWorkerCapacity = 70
-CattleWorkerCapacity = 35
-WoodWorkerCapacity = 90
-StoneWorkerCapacity = 30
-IronWorkerCapacity = 20
+GrainWorkerCapacity = 280
+CattleWorkerCapacity = 140
+WoodWorkerCapacity = 360
+StoneWorkerCapacity = 120
+IronWorkerCapacity = 0
 GrainModifier = 1.0
 CattleModifier = 1.0
 WoodModifier = 1.4

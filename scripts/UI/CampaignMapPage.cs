@@ -4,8 +4,9 @@ using Godot;
 
 /// <summary>
 /// Phase 1 of the campaign: a clickable map of two realms' frontier, an End Turn counter, and a
-/// TurnManager-driven economy for the provinces the player holds. The other realm's provinces sit
-/// inert until there's AI to run them (Phase 4). No armies or combat yet.
+/// TurnManager-driven economy for every province somebody holds — the player's, and the rival
+/// lords', which LordAI runs on the same turn. Unclaimed provinces are held by nobody and stay
+/// exactly as the campaign authored them. No armies or combat yet.
 ///
 /// Nothing here is about one particular campaign: which realms, which provinces, where their seats
 /// sit and which of them the player runs all come from the played campaign's own provinces.json
@@ -26,9 +27,30 @@ public partial class CampaignMapPage : Control
 	private const string SelfScenePath = "res://scene/campaign-map/campaign_map.tscn";
 	private const string LeaveFarewellPath = "res://assets/audio/quit-farewell.mp3";
 	private const string OpeningVoicePath = "res://assets/audio/campaign-opening-briefing.mp3";
+	private const string SavingVoicePath = "res://assets/audio/saving-game.mp3";
 	private const string SquareButtonPath = "res://assets/ui/button-square.png";
+	private const string MercenaryBadgePath = "res://assets/ui/icons/mercenaries.png";
 	private const string ProvincesDataFile = "provinces.json";
+	private const string RoadsDataFile = "map-roads.json";
+
+	/// <summary>How far apart the steps of a march are laid, in map pixels. Close enough to read as a
+	/// road being walked, far enough that a long march is a trail and not a stripe.</summary>
+	private const float StepSpacing = 34f;
+
+	/// <summary>How far above the waterline the ground has to stand before an army will set foot on
+	/// it, and how steeply it may climb across one cell before it is a wall rather than a hill.
+	///
+	/// The rise is in world units, so it follows the map's own height scale: flattening the relief
+	/// to make the roads legible also flattened every mountain out of an army's way, and this came
+	/// down with it. A lord should still have to go round the spine of the island.</summary>
+	private const float ShoreClearance = 0.35f;
+	private const float MarchableRise = 0.9f;
+
+	/// <summary>Where freshly raised men stand, from their county's seat: north-west of the town,
+	/// opposite the corner the castle is built on.</summary>
+	private static readonly Vector2 MusterGround = new(-37f, -37f);
 	private const string RecruitsScenePath = "res://scene/campaign-map/recruits.tscn";
+	private const string BlacksmithScenePath = "res://scene/campaign-map/blacksmith.tscn";
 	private const string MarketScenePath = "res://scene/campaign-map/market.tscn";
 	private const string HallScenePath = "res://scene/campaign-map/hall.tscn";
 	private const string FortificationsScenePath = "res://scene/campaign-map/fortifications.tscn";
@@ -60,6 +82,9 @@ public partial class CampaignMapPage : Control
 	private readonly Dictionary<string, RealmData> _realms = new();
 	// Which realm is yours. The others' provinces, and the unclaimed ones, run on nobody's orders yet.
 	private string _playerRealm = "";
+	// And which realm means nobody. A province of this realm is not simulated at all — it is not
+	// handed to the TurnManager — so it keeps its authored numbers until somebody takes it.
+	private string _unclaimedRealm = "";
 	// Authored order is load-bearing: it is the ID map's index + 1 encoding, so a province's place
 	// in provinces.json is what ties it to its pixels on the map.
 	private readonly List<ProvinceData> _provinces = new();
@@ -87,7 +112,33 @@ public partial class CampaignMapPage : Control
 	private readonly List<RoomPage> _rooms = new();
 	private HallPage _hall;
 	private Control _leaveConfirm;
-	private AudioStreamPlayer _leaveFarewell;
+	private AdvisorPanel _advisor;
+	private TaxPanel _taxes;
+	private HappinessPanel _happiness;
+	private RationPanel _rations;
+	private FieldPanel _fields;
+	/// <summary>One line the turn owes the player that the advisor has no words for — men walking
+	/// away unpaid, so far. Shown once he is done talking.</summary>
+	private string _turnNote = "";
+
+	/// <summary>Whether the next click on a county is a destination rather than a selection. One flag
+	/// and not a mode with its own screen: the lord has already said march, and the only thing left
+	/// to say is where — a click anywhere else means he thought better of it.</summary>
+	private bool _marching;
+
+	/// <summary>The army in hand while an order is being given. Thrown away the moment it is given or
+	/// abandoned.</summary>
+	private string _marchingFrom = "";
+	private readonly Dictionary<(string From, string To), List<Vector2>> _roadLines = new();
+	private MarchGrid _ground;
+
+	/// <summary>The trail the cursor is pointing at, in map pixels: a bead every so far along the way,
+	/// and a larger one where it crosses a border. Kept in map terms and projected to the screen
+	/// every frame, the same as the province pins, so it stays on the ground while the lord pans.</summary>
+	private readonly List<(Vector2 At, bool County, bool Reachable)> _trailSteps = new();
+	private MarchTrail _trail;
+	private ArmyBadges _badges;
+	private Label _marchLabel;
 	private string _leaveTarget;
 	private Control _turnTransition;
 
@@ -116,10 +167,12 @@ public partial class CampaignMapPage : Control
 		// Balance is the engine's, not the campaign's: every campaign is simulated by the same rules.
 		_balance = GD.Load<GameBalance>("res://data/game-balance.tres");
 		// A campaign opens with one seat each and everything else unclaimed, so a province having a
-		// definition and a province being yours are two different things: the land is described
-		// either way — that is what puts its industries on the map — but only what your own realm
-		// holds is simulated. Taking an unclaimed province is what will hand its definition over.
-		var playerDefinitions = new List<ProvinceDefinition>();
+		// definition and a province being run are two different things: the land is described either
+		// way — that is what puts its industries on the map — but only a province somebody holds
+		// takes a turn. Taking an unclaimed one is what will hand its definition over.
+		var held = new List<ProvinceDefinition>();
+		var unheld = new List<ProvinceDefinition>();
+		var realmByProvince = new Dictionary<string, string>();
 		foreach (ProvinceData province in _provinces)
 		{
 			if (province.EconomyFile.Length == 0)
@@ -129,19 +182,26 @@ public partial class CampaignMapPage : Control
 
 			var definition = GD.Load<ProvinceDefinition>(Campaign.Data($"provinces/{province.EconomyFile}.tres"));
 			_definitionsByName[definition.ProvinceName] = definition;
-			if (province.Realm == _playerRealm)
+
+			if (province.Realm == _unclaimedRealm)
 			{
-				playerDefinitions.Add(definition);
+				unheld.Add(definition);
+				continue;
 			}
+
+			held.Add(definition);
+			realmByProvince[definition.ProvinceName] = province.Realm;
 		}
 
-		_turnManager = new TurnManager(_balance, playerDefinitions);
+		_turnManager = new TurnManager(_balance, held, realmByProvince, _playerRealm, Campaign.Difficulty,
+			unheld);
 		// Read before the pending save is consumed: it is the only thing that tells a campaign
 		// being started from a campaign being resumed.
 		bool opening = SaveGame.Pending == null;
 		if (SaveGame.Pending != null)
 		{
-			_turnManager.Restore(SaveGame.Pending.Turn, SaveGame.Pending.Provinces);
+			_turnManager.Restore(SaveGame.Pending.Turn, SaveGame.Pending.Provinces, SaveGame.Pending.Prices,
+				SaveGame.Pending.Difficulty);
 			SaveGame.Pending = null; // consumed, so starting a fresh campaign later doesn't reopen it
 		}
 
@@ -158,6 +218,80 @@ public partial class CampaignMapPage : Control
 			marker.Configure(_realms[province.Realm].Accent, province.IsCapital);
 			_markers.Add(marker);
 		}
+
+		// The advisor stands over everything, so he goes in last and stays: a message about a county
+		// must not be arrived at through the panel of the room the player happened to leave open.
+		_advisor = new AdvisorPanel();
+		AddChild(_advisor);
+
+		_taxes = new TaxPanel();
+		AddChild(_taxes);
+		// The rate is the county's the moment the arrow is pressed, so the readout beside it is out
+		// of date the moment after.
+		_taxes.Changed += _sidebar.Refresh;
+		_sidebar.TaxPressed += OpenTaxes;
+
+		_happiness = new HappinessPanel();
+		AddChild(_happiness);
+		_sidebar.LoyaltyPressed += OpenHappiness;
+
+		_rations = new RationPanel();
+		AddChild(_rations);
+		_rations.Changed += _sidebar.Refresh;
+		_sidebar.RationPressed += OpenRations;
+		_sidebar.MarchPressed += () =>
+		{
+			if (_selected != null)
+			{
+				TakeUpArmy(_provinces[_markers.IndexOf(_selected)].Name);
+			}
+		};
+
+		// What the cursor is standing on while an army is in hand: the county and what it would cost
+		// to get there. Beside the pointer rather than in a panel, because the question being asked
+		// is about the place under the pointer.
+		_marchLabel = Chrome.Line("", 16, Chrome.Bright);
+		_marchLabel.AddThemeColorOverride("font_shadow_color", new Color(0, 0, 0, 0.9f));
+		_marchLabel.AddThemeConstantOverride("shadow_offset_x", 1);
+		_marchLabel.AddThemeConstantOverride("shadow_offset_y", 2);
+		_marchLabel.Visible = false;
+		_marchLabel.MouseFilter = MouseFilterEnum.Ignore;
+
+		// In among the province pins rather than on the page: the trail belongs to the ground, so it
+		// has to pass under the panels the way the pins do. Added to the page itself it would be
+		// drawn over the advisor and over the sidebar, which is a trail crossing furniture.
+		_trail = new MarchTrail();
+		Control markerLayer = GetNode<Control>("%Markers");
+		markerLayer.AddChild(_trail);
+
+		// Under the trail, so a road being laid out passes over the armies it is being laid out for.
+		_badges = new ArmyBadges();
+		markerLayer.AddChild(_badges);
+		markerLayer.MoveChild(_badges, _trail.GetIndex());
+
+		AddChild(_marchLabel);
+
+		_fields = new FieldPanel();
+		AddChild(_fields);
+		_fields.Changed += () =>
+		{
+			// The ground itself changed, so the county out there is wrong until it is drawn again.
+			_sidebar.Refresh();
+			if (_selected != null)
+			{
+				ShowFields(_provinces[_markers.IndexOf(_selected)]);
+			}
+		};
+		// Anything the turn has to report that is not the advisor's waits until he has finished, or
+		// it is shown behind him and read by nobody.
+		_advisor.Emptied += () =>
+		{
+			if (_turnNote.Length > 0)
+			{
+				ShowSaveToast(_turnNote);
+				_turnNote = "";
+			}
+		};
 
 		_turnTransition = GetNode<Control>("%TurnTransition");
 		GoldTitle.Apply(GetNode<Label>("%TransitionSeason"));
@@ -176,53 +310,54 @@ public partial class CampaignMapPage : Control
 		BuildMinimapButtons(gameMenu);
 		GetNode<Button>("%SaveButton").Pressed += () =>
 		{
-			SaveGame.Write(Campaign.Name, _turnManager.Turn, _turnManager.Provinces);
+			// Spoken on the press rather than after the write: the save itself is instant, and a
+			// voice that starts once the work is already done is a voice answering nothing.
+			Narrator.Say(SavingVoicePath);
+			SaveGame.Write(Campaign.Name, _turnManager.Turn, _turnManager.Provinces,
+				_turnManager.Market.Pressure, _turnManager.Difficulty);
 			gameMenu.Visible = false; // out of the way, so the confirmation lands on the map itself
 			ShowSaveToast($"Saved · Turn {_turnManager.Turn}");
 		};
 		GetNode<Button>("%ResumeButton").Pressed += () => gameMenu.Visible = false;
 		GetNode<Button>("%LoadButton").Pressed += () => ConfirmLeave(LoadGameScenePath);
 		_leaveConfirm = GetNode<Control>("%LeaveConfirm");
-		_leaveFarewell = new AudioStreamPlayer
-		{
-			Stream = GD.Load<AudioStreamMP3>(LeaveFarewellPath),
-			Bus = Settings.SfxBus,
-		};
-		AddChild(_leaveFarewell);
 		GetNode<Button>("%LeaveCancelButton").Pressed += () =>
 		{
 			_leaveConfirm.Visible = false;
-			_leaveFarewell.Stop(); // staying: he doesn't get to finish the farewell
+			Narrator.Hush(); // staying: he doesn't get to finish the farewell
 		};
 		GetNode<Button>("%LeaveConfirmButton").Pressed += () => SceneRouter.GoTo(this, _leaveTarget);
 		GetNode<Button>("%OptionsButton").Pressed += () =>
 		{
 			// Options is its own scene, so the running campaign rides along in memory rather
 			// than through a file, and comes back when Back returns here.
-			SaveGame.Pending = SaveGame.Snapshot(Campaign.Name, _turnManager.Turn, _turnManager.Provinces);
+			SaveGame.Pending = SaveGame.Snapshot(Campaign.Name, _turnManager.Turn, _turnManager.Provinces,
+				_turnManager.Market.Pressure, _turnManager.Difficulty);
 			OptionsPage.ReturnScenePath = SelfScenePath;
 			SceneRouter.GoTo(this, OptionsScenePath);
 		};
 		GetNode<Button>("%QuitButton").Pressed += () => ConfirmLeave(MainMenuScenePath);
 
-		// Every described province, not only yours: an unclaimed quarry is still a quarry.
-		foreach (ProvinceDefinition definition in _definitionsByName.Values)
-		{
-			ShowProvinceTrade(definition);
-		}
-
-		// Every province on the map, described or not. Sites need an economy to draw from, but a
-		// town does not: somebody lives at Frostgate whether or not this campaign has written down
-		// what they mine there, and a seat with no roofs on it reads as a bug.
-		ShowSettlements();
-
 		// After the sites, and after any save has been restored: a loaded game's walls are whatever
-		// that save built, not whatever the campaign started with.
+		// that save built, not whatever the campaign started with. The same goes for its armies.
 		ShowFortifications();
+		ShowArmies();
 
-		// Last of all. Every village and castle is on the ground by now, so the woods can be sown
-		// around them instead of through them.
-		_world.SowWoods();
+		// The ground an army may cross, cut once the map and the ledger both exist: it needs the
+		// height of the land, the roads drawn on it, and which counties are already somebody's.
+		LayGround();
+
+		// The first thing to go back onto the stripped map: what the counties are actually growing.
+		// A field is not decoration — it is the one thing out here a lord changes from a screen and
+		// then sees from the road, ploughed in spring and standing gold in autumn.
+		ShowFields();
+
+		// The frontiers, in stone. Last of what is set on the ground, so a march stone is never put
+		// down where a field or a wall has already claimed the spot.
+		_world.SowBorderStones();
+
+		// A save can be loaded into a season that already has men standing about for hire.
+		ShowMercenaries();
 
 		// After the sites are placed, so a loaded save's crops open in their own season rather than
 		// being sown green and repainted a frame later.
@@ -234,6 +369,318 @@ public partial class CampaignMapPage : Control
 		{
 			OpenBriefing();
 		}
+	}
+
+	/// <summary>The tax table for the county in hand. It is the one decision on this page that is not
+	/// made in a room: the reeve comes to the lord, not the other way round.</summary>
+	private void OpenTaxes()
+	{
+		ProvinceData province = Selected();
+		ProvinceEconomy economy = _turnManager.GetProvince(province.Name);
+		if (economy == null)
+		{
+			ShowSaveToast($"{province.Name} is not yours to tax");
+			return;
+		}
+
+		_taxes.Open(economy, _balance, _turnManager.OtherCounties(economy));
+	}
+
+	/// <summary>Lays a road out as beads: one every so far along it, and a larger numbered one wherever
+	/// it crosses into another county — which is the only place on a free march where anything
+	/// actually changes hands.</summary>
+	private void LayTrail(List<(Vector2 At, float Spent)> road, float budget)
+	{
+		_trailSteps.Clear();
+		if (road.Count == 0)
+		{
+			_trail.Lay(System.Array.Empty<(Vector2, int, bool, bool)>());
+			return;
+		}
+
+		int county = _world.CountyAt(road[0].At);
+		float walked = StepSpacing;
+		for (int step = 0; step < road.Count; step++)
+		{
+			int here = _world.CountyAt(road[step].At);
+			bool crossed = here != county && here >= 0;
+			county = here;
+
+			walked += step == 0 ? 0f : road[step - 1].At.DistanceTo(road[step].At);
+			if (!crossed && walked < StepSpacing && step < road.Count - 1)
+			{
+				continue;
+			}
+
+			walked = 0f;
+			_trailSteps.Add((road[step].At, crossed || step == road.Count - 1, road[step].Spent <= budget));
+		}
+	}
+
+	/// <summary>Puts every army's ring and count where the camera currently has it. Every frame, with
+	/// the pins, for the same reason: the map moves under them.</summary>
+	private void ProjectArmies()
+	{
+		var standing = new List<(Vector2, int, Color)>();
+		foreach (ProvinceData province in _provinces)
+		{
+			ProvinceEconomy economy = _turnManager.AnyProvince(province.Name);
+			if (economy is not { Soldiers: > 0 })
+			{
+				continue;
+			}
+
+			if (_world.TryScreenPosition(ArmyPixel(economy), out Vector2 onScreen))
+			{
+				Color colour = _realms.TryGetValue(economy.Realm, out RealmData realm)
+					? realm.Accent
+					: Chrome.Dim;
+
+				standing.Add((onScreen, economy.Soldiers, colour));
+			}
+		}
+
+		_badges.Show(standing.ToArray());
+	}
+
+	/// <summary>Puts the trail where the camera currently has it. Done every frame with the pins, for
+	/// the same reason: the map moves under them.</summary>
+	private void ProjectTrail()
+	{
+		var beads = new List<(Vector2, int, bool, bool)>(_trailSteps.Count);
+		int step = 0;
+		foreach ((Vector2 at, bool county, bool reachable) in _trailSteps)
+		{
+			// Numbered in walking order and not in drawing order: a bead behind the camera is skipped
+			// from the picture, not from the count, or the numbers would renumber themselves every
+			// time the lord panned the map.
+			step++;
+			if (_world.TryScreenPosition(at, out Vector2 onScreen))
+			{
+				beads.Add((onScreen, step, county, reachable));
+			}
+		}
+
+		_trail.Lay(beads.ToArray());
+	}
+
+	private Vector2 SeatOf(string county)
+	{
+		foreach (ProvinceData province in _provinces)
+		{
+			if (province.Name == county)
+			{
+				return province.MapPosition;
+			}
+		}
+
+		return Vector2.Zero;
+	}
+
+	/// <summary>What the ground under the cursor would cost to reach, beside the cursor, and the road
+	/// the men would take laid out in front of them. Worked out afresh on every movement of the
+	/// mouse, because that is the question being asked.</summary>
+	private void ShowMarchCost(Vector2 where)
+	{
+		_marchLabel.Position = where + new Vector2(18, 14);
+		_marchLabel.Visible = true;
+
+		ProvinceEconomy army = _turnManager.GetProvince(_marchingFrom);
+		if (army == null || !_world.TryMapPixel(where, out Vector2 ground))
+		{
+			_marchLabel.Text = "Nowhere to march";
+			_marchLabel.AddThemeColorOverride("font_color", Chrome.Dim);
+			LayTrail(new List<(Vector2, float)>(), 0f);
+			return;
+		}
+
+		List<(Vector2 At, float Spent)> road = _ground.Way(ArmyPixel(army), ground, Beyond(army));
+		if (road.Count == 0)
+		{
+			_marchLabel.Text = "No ground for an army";
+			_marchLabel.AddThemeColorOverride("font_color", Chrome.Dim);
+			LayTrail(road, 0f);
+			return;
+		}
+
+		LayTrail(road, army.MarchLeft);
+
+		// The county named is the one he would actually END the season in, which on a long road is
+		// not the one he is pointing at. Naming the far one would be a promise the season cannot
+		// keep.
+		(Vector2 stop, float spent) = road[Mathf.Max(0, Halting(road, army.MarchLeft))];
+		int county = _world.CountyAt(stop);
+		string reached = county >= 0 && county < _provinces.Count ? _provinces[county].Name : "open country";
+		int left = Mathf.RoundToInt((army.MarchLeft - spent) / _balance.MarchCostByRoad);
+		bool short_ = spent < road[^1].Spent;
+
+		_marchLabel.Text = short_
+			? $"{reached} — as far as this season takes them"
+			: $"{reached} — {left} paces left after";
+		_marchLabel.AddThemeColorOverride("font_color", short_ ? Chrome.Soft : Chrome.Bright);
+	}
+
+	/// <summary>Takes an army in hand: from here until it is sent or let go, the map is asking one
+	/// question — where do these men go — and every movement of the mouse answers it.</summary>
+	private void TakeUpArmy(string province)
+	{
+		ProvinceEconomy army = _turnManager.GetProvince(province);
+		if (army == null || army.Soldiers == 0 || army.MarchLeft <= 0f)
+		{
+			ShowSaveToast($"The men of {province} have no ground left this season");
+			return;
+		}
+
+		_marching = true;
+		_marchingFrom = province;
+	}
+
+	/// <summary>Puts the army down again, however that came about — sent, refused, or thought better
+	/// of. One way out, so no trail is left burning across the map.</summary>
+	private void LayDownArmy()
+	{
+		_marching = false;
+		_marchingFrom = "";
+		_marchLabel.Visible = false;
+		LayTrail(new List<(Vector2, float)>(), 0f);
+	}
+
+	/// <summary>How far past this season's legs a road is still worth working out, so the lord can be
+	/// shown where it goes and how far along it he would get. Not unbounded: a search told to find
+	/// the far side of the world will walk the whole map to say no.</summary>
+	private float Beyond(ProvinceEconomy army) => army.MarchLeft * 4f;
+
+	/// <summary>The last step of a road the army can actually pay for, or -1 when it cannot take a
+	/// single one.</summary>
+	private static int Halting(List<(Vector2 At, float Spent)> road, float budget)
+	{
+		int halt = -1;
+		for (int step = 0; step < road.Count; step++)
+		{
+			if (road[step].Spent <= budget)
+			{
+				halt = step;
+			}
+		}
+
+		return halt;
+	}
+
+	/// <summary>Where a county's men are standing. Men just raised have never been put anywhere, and
+	/// they are at their own county's seat — which is where they were raised.</summary>
+	private Vector2 ArmyPixel(ProvinceEconomy army)
+	{
+		var at = new Vector2(army.ArmyX, army.ArmyY);
+
+		// Men who have never been sent anywhere are mustered beside their own town rather than on top
+		// of its pin — the pin is what the lord clicks to read the county, and a banner standing in
+		// it would be in the way of the one thing that square of ground is already for.
+		return at == Vector2.Zero ? SeatOf(army.ProvinceName) + MusterGround : at;
+	}
+
+	/// <summary>Sends the men where the cursor was pointing. Everything about the ground was settled
+	/// when the trail was drawn; this pays for it and walks it.</summary>
+	private bool March(string from, Vector2 where)
+	{
+		ProvinceEconomy army = _turnManager.GetProvince(from);
+		if (army == null || !_world.TryMapPixel(where, out Vector2 ground))
+		{
+			return false;
+		}
+
+		List<(Vector2 At, float Spent)> road = _ground.Way(ArmyPixel(army), ground, Beyond(army));
+		int halt = Halting(road, army.MarchLeft);
+		if (halt < 0)
+		{
+			ShowSaveToast("There is no way there");
+			return false;
+		}
+
+		// As far as the season carries them along that road, and no further. An order to a far county
+		// is not refused — it is obeyed for as long as there are legs for it, which is what a lord
+		// pointing at the horizon actually means.
+		road = road.GetRange(0, halt + 1);
+		int county = _world.CountyAt(road[^1].At);
+		string into = county >= 0 && county < _provinces.Count ? _provinces[county].Name : "";
+		if (into.Length == 0 || !_turnManager.March(from, into, road[^1].At, road[^1].Spent))
+		{
+			ShowSaveToast(into.Length == 0 ? "Nobody's land lies that way" : $"{into} is not yours to enter");
+			return false;
+		}
+
+		// The banner walks it while the board waits. Everything that has to be redrawn is redrawn
+		// when it arrives — a county changing hands moves its walls, its fields and its crest, and
+		// doing that at the first step would have the map jump ahead of the man walking across it.
+		var strides = new List<Vector2>(road.Count);
+		foreach ((Vector2 step, float _) in road)
+		{
+			strides.Add(step);
+		}
+
+		_world.WalkArmy(from, strides, () =>
+		{
+			ShowArmies();
+			ShowFortifications();
+			ShowFields(_provinces[county]);
+			SelectProvince(county);
+			LayGround(); // a county taken is a county open to walk through
+		});
+
+		return true;
+	}
+
+	/// <summary>The field the click landed on, if it landed on one at all and the county is the
+	/// player's. False otherwise, and the press means whatever it meant before.</summary>
+	private bool OpenField(int index, Vector2 where)
+	{
+		ProvinceData province = _provinces[index];
+		ProvinceEconomy economy = _turnManager.GetProvince(province.Name);
+		if (economy == null
+			|| !_definitionsByName.TryGetValue(province.Name, out ProvinceDefinition definition)
+			|| !_world.TryMapPixel(where, out Vector2 pixel))
+		{
+			return false;
+		}
+
+		int field = _world.PlotAt(province.Name, pixel);
+		if (field < 0 || field >= economy.Fields.Length)
+		{
+			return false;
+		}
+
+		_fields.Open(economy, definition, _balance, _turnManager.CurrentSeason, field);
+		return true;
+	}
+
+	/// <summary>What the county is given to eat. It needs the land as well as the ledger, because
+	/// what the season will actually take is worked out by playing the season on a copy of the
+	/// county — and a county's year depends on the fields it has.</summary>
+	private void OpenRations()
+	{
+		ProvinceData province = Selected();
+		ProvinceEconomy economy = _turnManager.GetProvince(province.Name);
+		if (economy == null || !_definitionsByName.TryGetValue(province.Name, out ProvinceDefinition definition))
+		{
+			ShowSaveToast($"{province.Name} is not yours to feed");
+			return;
+		}
+
+		_rations.Open(economy, definition, _balance, _turnManager.CurrentSeason);
+	}
+
+	/// <summary>Where the county's goodwill went, and where it has stood year by year. Read-only, so
+	/// unlike the tax table nothing here has to be told about afterwards.</summary>
+	private void OpenHappiness()
+	{
+		ProvinceData province = Selected();
+		ProvinceEconomy economy = _turnManager.GetProvince(province.Name);
+		if (economy == null)
+		{
+			ShowSaveToast($"{province.Name} keeps its own counsel");
+			return;
+		}
+
+		_happiness.Open(economy, _balance, _turnManager.LastSeason(province.Name), TurnManager.StartYear);
 	}
 
 	/// <summary>Opens one of the province's rooms — the smithy, the training yard — over this page
@@ -254,8 +701,20 @@ public partial class CampaignMapPage : Control
 		// A stack rather than one room: the town is a room too, and the smithy opens over it the way
 		// the town opens over the map. Closing one uncovers whatever it was opened from.
 		var room = GD.Load<PackedScene>(scenePath).Instantiate<RoomPage>();
+
+		// The stall trades on the realm's market and not one of its own, and it has to be handed
+		// over BEFORE the room goes into the tree. A room builds itself in _Ready, and AddChild runs
+		// _Ready there and then — hand the market over on the line after, and the stall has already
+		// tried to price its goods against a market that does not exist. It throws on the first one
+		// and the room comes up as bare scenery with not a card on it.
+		if (room is MarketPage stall)
+		{
+			stall.Brief(_turnManager.Market);
+		}
+
 		AddChild(room);
 		_rooms.Add(room);
+
 		room.Open(economy);
 		room.Closed += () =>
 		{
@@ -265,6 +724,11 @@ public partial class CampaignMapPage : Control
 			// stale by now — the map behind, and any room this one was opened from.
 			_sidebar.Refresh();
 			UpdateResourceBar(economy);
+			// The labour room turns fields over, so the land out here is stale too. Redrawn whichever
+			// room was closed: ten plots cost nothing to lay, and asking which rooms can change the
+			// land is how a room added later quietly stops updating it.
+			ShowFields(province);
+			ShowArmies();
 			if (_rooms.Count > 0)
 			{
 				_rooms[^1].Refresh();
@@ -286,10 +750,23 @@ public partial class CampaignMapPage : Control
 
 		if (_definitionsByName.TryGetValue(Selected().Name, out ProvinceDefinition definition))
 		{
-			city.ShowSites(definition);
+			city.Brief(definition, _balance, _turnManager.CurrentSeason);
 		}
 
-		city.RoomChosen += room => OpenRoom($"res://scene/campaign-map/{room}.tscn", "use");
+		city.RoomChosen += room => Enter(room);
+	}
+
+	/// <summary>Opens one of the town's buildings. Most rooms need nothing but the province's own
+	/// stores; the labour room needs the land it is working and the season it is working it in,
+	/// neither of which a room is handed, so it is told separately.</summary>
+	private void Enter(string room)
+	{
+		RoomPage opened = OpenRoom($"res://scene/campaign-map/{room}.tscn", "use");
+		if (opened is LabourPage labour
+			&& _definitionsByName.TryGetValue(Selected().Name, out ProvinceDefinition definition))
+		{
+			labour.Brief(definition, _balance, _turnManager.CurrentSeason);
+		}
 	}
 
 	private ProvinceData Selected() =>
@@ -360,6 +837,86 @@ public partial class CampaignMapPage : Control
 
 	/// <summary>Reads the played campaign's realms, which of them is yours, and its provinces. Who
 	/// holds what and where each seat sits are the campaign's own file; this page only draws it.</summary>
+	/// <summary>The lines the campaign's roads are drawn along. The same file the map draws them
+	/// from, so the cheap ground an army looks for is exactly the stone the player can see under
+	/// it — a second idea of where the roads are would be wrong the first time somebody moved
+	/// one.</summary>
+	private void LoadRoads()
+	{
+		var file = GD.Load<Json>(Campaign.Data(RoadsDataFile));
+		if (file?.Data.VariantType != Variant.Type.Array)
+		{
+			return;
+		}
+
+		foreach (Variant entry in file.Data.AsGodotArray())
+		{
+			Godot.Collections.Dictionary road = entry.AsGodotDictionary();
+			string from = road["from"].AsString();
+			string to = road["to"].AsString();
+
+			// The line the road is drawn along, kept both ways round: an army marching the other way
+			// walks the same road, and reversing it at the point of use is how the two drift apart.
+			var walked = new List<Vector2>();
+			foreach (Variant point in road["points"].AsGodotArray())
+			{
+				Godot.Collections.Array pair = point.AsGodotArray();
+				walked.Add(new Vector2(pair[0].AsSingle(), pair[1].AsSingle()));
+			}
+
+			_roadLines[(from, to)] = walked;
+			var back = new List<Vector2>(walked);
+			back.Reverse();
+			_roadLines[(to, from)] = back;
+		}
+	}
+
+	/// <summary>Cuts the country into ground an army can be marched over: what can be walked, what it
+	/// costs, and whose county it is. Built once, off the same height and ID images the map itself is
+	/// drawn from, so what the player sees and what his army can cross are the same thing.
+	///
+	/// A rival's county is shut outright. There is no way to fight for it yet, and ground an army can
+	/// walk across but not stop on would be a border it could ignore.</summary>
+	private void LayGround()
+	{
+		LoadRoads();
+
+		Vector2I pixels = _world.MapPixels;
+		_ground = new MarchGrid(pixels.X, pixels.Y);
+		_ground.Describe(pixel =>
+		{
+			float height = _world.HeightAt(pixel);
+			if (height <= _world.WaterLine + ShoreClearance)
+			{
+				return (false, 0f, -1); // the sea, and the sand it breaks on
+			}
+
+			// How hard the ground climbs across one cell. A wall of rock is not a road with a price
+			// on it, it is somewhere an army does not go.
+			float rise = Mathf.Max(
+				Mathf.Abs(_world.HeightAt(pixel + (Vector2.Right * MarchGrid.CellSize)) - height),
+				Mathf.Abs(_world.HeightAt(pixel + (Vector2.Down * MarchGrid.CellSize)) - height));
+
+			return rise > MarchableRise
+				? (false, 0f, _world.CountyAt(pixel))
+				: (true, _balance.MarchCostOffRoad, _world.CountyAt(pixel));
+		});
+
+		foreach (List<Vector2> road in _roadLines.Values)
+		{
+			_ground.LayRoad(road, _balance.MarchCostByRoad);
+		}
+
+		for (int county = 0; county < _provinces.Count; county++)
+		{
+			ProvinceEconomy economy = _turnManager.AnyProvince(_provinces[county].Name);
+			if (economy != null && economy.Realm != _playerRealm)
+			{
+				_ground.Close(county);
+			}
+		}
+	}
+
 	private void LoadCampaignProvinces()
 	{
 		var file = GD.Load<Json>(Campaign.Data(ProvincesDataFile));
@@ -371,6 +928,7 @@ public partial class CampaignMapPage : Control
 
 		Godot.Collections.Dictionary data = file.Data.AsGodotDictionary();
 		_playerRealm = data["player"].AsString();
+		_unclaimedRealm = data["unclaimed"].AsString();
 		foreach (System.Collections.Generic.KeyValuePair<Variant, Variant> realm in data["realms"].AsGodotDictionary())
 		{
 			Godot.Collections.Dictionary fields = realm.Value.AsGodotDictionary();
@@ -398,7 +956,7 @@ public partial class CampaignMapPage : Control
 		_leaveConfirm.Visible = true;
 		// The old man asks it out loud while the panel asks it in writing. He speaks over the
 		// campaign he is being left, so the line starts with the panel rather than after it.
-		_leaveFarewell.Play();
+		Narrator.Say(LeaveFarewellPath);
 	}
 
 	/// <summary>A turn passes behind a curtain: the screen fades out, the season turns over while
@@ -417,13 +975,22 @@ public partial class CampaignMapPage : Control
 		tween.TweenProperty(_turnTransition, "modulate:a", 1.0, TurnFadeInSeconds);
 		tween.TweenCallback(Callable.From(() =>
 		{
-			_turnManager.AdvanceTurn();
+			_turnNote = MenLost(_turnManager.AdvanceTurn());
 			UpdateTurnDisplay();
 			SelectProvince(_selected != null ? _markers.IndexOf(_selected) : 0);
 
 			// A season's masons may have finished a wall; the map has to say so the moment they do,
-			// and it is hidden behind the transition while this happens.
+			// and it is hidden behind the transition while this happens. The fields turn over with
+			// it: what was standing gold in autumn is ploughed earth by winter.
 			ShowFortifications();
+
+			// The fields turn over with the season: what was standing gold in autumn is ploughed
+			// earth by winter, and it is redrawn behind the curtain so nobody watches it change.
+			ShowFields();
+			ShowMercenaries();
+			// Men raised, men lost and a rival's men on the march all land in the same turn; the
+			// banners are redrawn once here, behind the curtain, rather than by each of the three.
+			ShowArmies();
 
 			Season season = _turnManager.CurrentSeason;
 			_world.SetSeason(season); // the map turns over here too, while nothing of it is visible
@@ -439,12 +1006,40 @@ public partial class CampaignMapPage : Control
 		}));
 		tween.TweenInterval(TurnHoldSeconds);
 		tween.TweenProperty(_turnTransition, "modulate:a", 0.0, TurnFadeOutSeconds);
-		tween.TweenCallback(Callable.From(() => _turnTransition.Visible = false));
+		tween.TweenCallback(Callable.From(() =>
+		{
+			_turnTransition.Visible = false;
+
+			// After the curtain, never through it: the lord is told what happened to his county with
+			// the county in front of him, so he can see the flooded fields the advisor is describing.
+			// A season where nothing happened tells nothing and the panel is never seen.
+			_advisor.Tell(_turnManager.News);
+		}));
 	}
 
-	/// <summary>Draws what a province lives on: its two strongest industries become visible sites
-	/// on its ground. Capacity times modifier is the same product the economy pays out on, so a
-	/// quarry on the map means quarry income in the ledger, not decoration.</summary>
+	/// <summary>Men who walked away this season because the treasury could not pay them. Desertion
+	/// is the one thing a turn does that the player would otherwise only find by counting his own
+	/// garrison twice — it has no recorded line, so it is said plainly instead of not at all.</summary>
+	private static string MenLost(System.Collections.Generic.List<TurnSummary> summaries)
+	{
+		foreach (TurnSummary summary in summaries)
+		{
+			if (summary.Deserted > 0)
+			{
+				return $"{summary.Deserted:N0} unpaid men left {summary.ProvinceName}";
+			}
+		}
+
+		return "";
+	}
+
+	/// <summary>Draws what a province digs: its two strongest extractive industries become visible
+	/// sites on its ground. Capacity times modifier is the same product the economy pays out on, so
+	/// a quarry on the map means quarry income in the ledger, not decoration.
+	///
+	/// Grain and the herd are not in here. They are worked on fields, and the fields are drawn as
+	/// fields — see <see cref="ShowFields()"/> — off what the land is actually under this season,
+	/// not off a capacity it might one day use.</summary>
 	private void ShowProvinceTrade(ProvinceDefinition definition)
 	{
 		Vector2 seat = Vector2.Zero;
@@ -458,8 +1053,6 @@ public partial class CampaignMapPage : Control
 
 		var industries = new (MapDecoration.SiteKind Kind, float Weight)[]
 		{
-			(MapDecoration.SiteKind.Grain, definition.GrainWorkerCapacity * definition.GrainModifier),
-			(MapDecoration.SiteKind.Cattle, definition.CattleWorkerCapacity * definition.CattleModifier),
 			(MapDecoration.SiteKind.Wood, definition.WoodWorkerCapacity * definition.WoodModifier),
 			(MapDecoration.SiteKind.Stone, definition.StoneWorkerCapacity * definition.StoneModifier),
 			(MapDecoration.SiteKind.Iron, definition.IronWorkerCapacity * definition.IronModifier),
@@ -470,6 +1063,44 @@ public partial class CampaignMapPage : Control
 		{
 			_world.AddSite(seat, industries[i].Kind, industries[i].Weight);
 		}
+	}
+
+	/// <summary>Lays every described province's fields on its ground — what its land is under this
+	/// season, plot by plot.</summary>
+	private void ShowFields()
+	{
+		foreach (ProvinceData province in _provinces)
+		{
+			ShowFields(province);
+		}
+	}
+
+	/// <summary>One province's fields. Yours are worked turn by turn and drawn off the economy the
+	/// labour room is changing; everyone else's stand as the campaign authored them, because nothing
+	/// is simulating them yet. Both read the same array, so the day an unclaimed province starts
+	/// taking turns the map already draws what it does with its land.
+	///
+	/// A province the campaign has not described has no fields to draw, the way it has no industries
+	/// to show.</summary>
+	private void ShowFields(ProvinceData province)
+	{
+		if (!_definitionsByName.TryGetValue(province.Name, out ProvinceDefinition definition))
+		{
+			return;
+		}
+
+		ProvinceEconomy economy = _turnManager.AnyProvince(province.Name);
+		if (economy == null)
+		{
+			// Nobody is running this county's year, so it has never had a spring and its fields
+			// would stand bare for ever. It plainly feeds itself, so it is drawn as a province that
+			// sowed — one number, and the day the province starts taking turns its own sowing
+			// replaces it.
+			economy = ProvinceEconomy.FromDefinition(definition);
+			economy.StandingCrop = definition.InitialGrain;
+		}
+
+		_world.SetFields(province.Name, province.MapPosition, economy, _turnManager.CurrentSeason);
 	}
 
 	/// <summary>Puts a town on every province's seat, yours and everyone else's.</summary>
@@ -514,14 +1145,47 @@ public partial class CampaignMapPage : Control
 		return hands >= 245 ? MapDecoration.Settlement.Town : MapDecoration.Settlement.Hamlet;
 	}
 
+	/// <summary>Puts a banner on every county that has men standing in it, whoever holds it. An army
+	/// is the one thing on this map worth seeing from across the realm, and a rival's is worth seeing
+	/// most of all.</summary>
+	private void ShowArmies()
+	{
+		foreach (ProvinceData province in _provinces)
+		{
+			ProvinceEconomy economy = _turnManager.AnyProvince(province.Name);
+			bool standing = economy is { Soldiers: > 0 };
+
+			// Where the men actually are, which after a march is a hillside and not a market square.
+			Vector2 at = standing ? ArmyPixel(economy) : province.MapPosition;
+			_world.SetArmy(province.Name, at, standing);
+		}
+	}
+
 	/// <summary>Puts every province's walls on the map as the ledger has them. Called once the world
 	/// is built and again after each turn, because a build that finished this season has to show up
 	/// on the ground the moment it does.</summary>
+	/// <summary>Hangs the hire-mark over every county with a company standing in it this season.
+	/// This is the whole announcement: no panel, no voice, nothing to dismiss — a lord glancing at
+	/// his realm sees where there are men to be had, and goes there if he wants them.</summary>
+	private void ShowMercenaries()
+	{
+		var mark = GD.Load<Texture2D>(MercenaryBadgePath);
+		for (int index = 0; index < _provinces.Count && index < _markers.Count; index++)
+		{
+			// Only his own counties: nobody is offering a company to a lord who does not hold the
+			// ground, and a mark over a rival's seat would be an offer he cannot take.
+			ProvinceEconomy economy = _turnManager.GetProvince(_provinces[index].Name);
+			_markers[index].ShowBadge(Mercenaries.Standing(economy) != null ? mark : null);
+		}
+	}
+
 	private void ShowFortifications()
 	{
 		foreach (ProvinceData province in _provinces)
 		{
-			ProvinceEconomy economy = _turnManager.GetProvince(province.Name);
+			// Everyone's walls, not just the player's: a rival raising a castle is the one thing about
+			// his county a lord could hardly miss from the next valley over.
+			ProvinceEconomy economy = _turnManager.AnyProvince(province.Name);
 			_world.SetFortification(province.Name, province.MapPosition, economy?.Fortification ?? "");
 		}
 	}
@@ -537,19 +1201,7 @@ public partial class CampaignMapPage : Control
 		_sectionBody.Text = Briefing;
 		_sectionPanel.Visible = true;
 
-		if (!ResourceLoader.Exists(OpeningVoicePath))
-		{
-			return;
-		}
-
-		var voice = new AudioStreamPlayer
-		{
-			Stream = GD.Load<AudioStreamMP3>(OpeningVoicePath),
-			Bus = Settings.SfxBus,
-		};
-		AddChild(voice);
-		voice.Finished += voice.QueueFree;
-		voice.Play();
+		Narrator.Say(OpeningVoicePath);
 	}
 
 	// A save is instant and silent otherwise: the toast holds long enough to be read, then
@@ -616,9 +1268,11 @@ public partial class CampaignMapPage : Control
 	private void ShowSection(NavRail.Section section)
 	{
 		// Three of them open onto a room of the province in hand rather than onto a panel of text.
+		// The hammer is the smithy, not the town. The town is reached the way you would reach it —
+		// by walking into it off the map, with a second press on the seat already in hand.
 		if (section == NavRail.Section.Buildings)
 		{
-			OpenCity();
+			OpenRoom(BlacksmithScenePath, "forge");
 			return;
 		}
 
@@ -696,19 +1350,52 @@ public partial class CampaignMapPage : Control
 				_world.SetHighlight(_selected != null ? _markers.IndexOf(_selected) : -1, _hovered);
 			}
 
+			if (_marching)
+			{
+				ShowMarchCost(motion.Position);
+			}
+
 			return;
 		}
 
 		if (@event is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: false } click)
 		{
 			int index = _world.ProvinceAt(click.Position);
+			if (_marching)
+			{
+				string from = _marchingFrom;
+				LayDownArmy();
+				if (March(from, click.Position))
+				{
+					return;
+				}
+			}
+
+			// A banner is taken hold of before the county under it: a lord jabbing at his own army
+			// means the army, not the ground it happens to be standing on.
+			if (!_marching && _world.TryMapPixel(click.Position, out Vector2 ground))
+			{
+				string banner = _world.ArmyAt(ground);
+				if (banner.Length > 0 && _turnManager.GetProvince(banner) != null)
+				{
+					SelectProvince(_provinces.FindIndex(province => province.Name == banner));
+					TakeUpArmy(banner);
+					return;
+				}
+			}
+
 			if (index >= 0 && index < _provinces.Count)
 			{
 				// The first press is how you look a province over; a second press on the one already
-				// in hand is how you walk into its town.
+				// in hand is how you walk into its town — unless it landed on one of that county's
+				// own fields, which is a smaller question about a smaller piece of ground and is
+				// answered where the ground is, rather than three rooms away.
 				if (_selected != null && _markers.IndexOf(_selected) == index)
 				{
-					OpenCity();
+					if (!OpenField(index, click.Position))
+					{
+						OpenCity();
+					}
 				}
 				else
 				{
@@ -728,7 +1415,17 @@ public partial class CampaignMapPage : Control
 		_world.SetHighlight(index, _hovered);
 
 		ProvinceData province = _provinces[index];
-		string realmName = _realms[province.Realm].Name;
+
+		// Who holds it now, which after a march is not who the campaign file says. The authored realm
+		// is only the opening position; the runtime one is the answer to "whose is this".
+		string realmKey = _turnManager.AnyProvince(province.Name)?.Realm ?? province.Realm;
+		if (!_realms.ContainsKey(realmKey))
+		{
+			realmKey = province.Realm;
+		}
+
+		string realmName = _realms[realmKey].Name;
+		_markers[index].Configure(_realms[realmKey].Accent, province.IsCapital);
 
 		ProvinceEconomy economy = _turnManager.GetProvince(province.Name);
 		if (economy != null)
@@ -738,7 +1435,7 @@ public partial class CampaignMapPage : Control
 
 		// The sidebar takes the province whether or not anyone runs it: an unclaimed one still has a
 		// name, a crest and the land under it, it just has no numbers of its own to show.
-		_sidebar.ShowHeader(province.Name, realmName, province.Realm, _realms[province.Realm].Accent);
+		_sidebar.ShowHeader(province.Name, realmName, realmKey, _realms[realmKey].Accent);
 		_sidebar.ShowEconomy(economy, _definitionsByName.GetValueOrDefault(province.Name),
 			_balance, _turnManager.CurrentSeason);
 	}
@@ -747,6 +1444,13 @@ public partial class CampaignMapPage : Control
 	// re-projected; one unproject per province is cheaper than tracking whether it moved.
 	public override void _Process(double delta)
 	{
+		if (_trailSteps.Count > 0)
+		{
+			ProjectTrail();
+		}
+
+		ProjectArmies();
+
 		for (int i = 0; i < _provinces.Count; i++)
 		{
 			bool onScreen = _world.TryScreenPosition(_provinces[i].MapPosition, out Vector2 screenPosition);
@@ -754,6 +1458,7 @@ public partial class CampaignMapPage : Control
 			if (onScreen)
 			{
 				_markers[i].Position = screenPosition - _markers[i].Size / 2f;
+				_markers[i].SetBadgeScale(_world.Closeness);
 			}
 		}
 	}

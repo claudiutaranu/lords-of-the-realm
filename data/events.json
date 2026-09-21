@@ -1,0 +1,142 @@
+{
+	"plague-outbreak-traveler": {
+		"heading": "The Black Death",
+		"text": "My liege... forgive me. A merchant from the east came through your market three days past, coughing and burning with fever. He is dead now... and the Black Death he carried is spreading through your county. Your people are dying in their beds, sire.",
+		"voice": "plague-outbreak-traveler"
+	},
+	"plague-outbreak-weak-health": {
+		"heading": "The Black Death",
+		"text": "My lord, your people were already weak and half-starved... and now the Black Death has found them. A hungry body cannot fight the pestilence, sire. They are falling like wheat before the scythe.",
+		"voice": "plague-outbreak-weak-health"
+	},
+	"plague-ended-01": {
+		"heading": "The Pestilence Passes",
+		"text": "Rejoice, my liege... the Black Death has left your lands. It burned until there was little left to burn. Many of your subjects lie in the churchyard, but those who survived will remember that their lord did not abandon them.",
+		"voice": "plague-ended-01"
+	},
+	"famine-low-rations": {
+		"heading": "Famine",
+		"text": "My lord, you have cut the people's bread to a crust, and they cannot live on crusts. Your people eat roots and boiled leather, and the children no longer have the strength to cry. I beg you, sire... raise their rations, or you will soon rule over graves.",
+		"voice": "famine-low-rations"
+	},
+	"famine-empty-granaries": {
+		"heading": "Famine",
+		"text": "My liege, your granaries are empty. The harvest was too small and the winter too long, and we did not store enough. Your people are starving, sire. Buy grain, trade, do whatever you must... but feed them.",
+		"voice": "famine-empty-granaries"
+	},
+	"emigration-hunger": {
+		"heading": "They Are Leaving",
+		"text": "Sire, your people are leaving you. They have not eaten a full meal in months, and they say that across the border, another lord's peasants have bread. Every soul that leaves is a pair of hands that will never work your fields again.",
+		"voice": "emigration-hunger"
+	},
+	"emigration-unhappy": {
+		"heading": "They Are Leaving",
+		"text": "My lord, families are packing their carts and walking away in the night. Heavy taxes, sons taken for war... they say their lord has given them nothing but burdens. They go to seek a kinder master, sire.",
+		"voice": "emigration-unhappy"
+	},
+	"drought-01": {
+		"heading": "Drought",
+		"text": "My liege, not a drop of rain has fallen since the sowing. The hot winds from the south have not stopped for weeks. Your wells run dry and your wheat withers in the fields. I fear this year's harvest will be a bitter one, sire.",
+		"voice": "drought-01"
+	},
+	"flood-01": {
+		"heading": "The River Rose",
+		"text": "My liege! The spring rains fell for weeks without end, and last night the river burst its banks! Your fields lie drowned beneath the waters, and the seed is lost. That land must rest before it will bear for you again.",
+		"voice": "flood-01"
+	},
+	"flood-overworked-fields": {
+		"heading": "The River Rose",
+		"text": "Sire, your fields have been sown year after year without rest, and the tired soil could not hold the rains. The waters washed it away. Let the land lie fallow, my lord, or it will betray you again.",
+		"voice": "flood-overworked-fields"
+	},
+	"rats-01": {
+		"heading": "Rats in the Granary",
+		"text": "My lord, forgive your stewards. Your granary was so full the grain spilled onto the floors... and the rats came for it. Thousands of them, sire. What they did not devour, they have fouled.",
+		"voice": "rats-01"
+	},
+	"cattle-disease-01": {
+		"heading": "Murrain",
+		"text": "Grave news, my lord. Your herds grew so large that the pastures could no longer feed them, and the beasts were crowded together in the mud. Now a murrain has struck. Your cattle stagger and fall, and we burn the carcasses day and night.",
+		"voice": "cattle-disease-01"
+	},
+	"bandits-no-garrison": {
+		"heading": "Brigands",
+		"text": "My lord, your county has no soldiers to guard it, and the outlaws know it well. They struck in the dead of night, sire. They took your grain and your silver, and burned what they could not carry.",
+		"voice": "bandits-no-garrison"
+	},
+	"bandits-desperate-peasants": {
+		"heading": "Brigands",
+		"text": "My liege, the brigands who raid your roads are not strangers. They are your own peasants, driven to the forest by hunger and heavy taxes. A man with nothing to lose will take up an axe, sire.",
+		"voice": "bandits-desperate-peasants"
+	},
+	"unrest-taxes": {
+		"heading": "Unrest",
+		"text": "My lord, a word of caution. Your taxes weigh too heavily on the people. Your tax collector was stoned in the market square yesterday. I would not push them further, sire.",
+		"voice": "unrest-taxes"
+	},
+	"unrest-conscription": {
+		"heading": "Unrest",
+		"text": "Sire, you have taken too many sons for your army. The fields go untended, and the mothers curse your name at the church doors. Have a care, my liege... a county without sons is a county without hope.",
+		"voice": "unrest-conscription"
+	},
+	"unrest-garrison": {
+		"heading": "Unrest",
+		"text": "My lord, your soldiers are quartered on the village and there are more of them than there are hearths to hold them. They drink the ale, they eat at other men's tables, and they answer to you and not to the reeve. The people ask who the garrison is meant to be guarding them from, sire.",
+		"voice": "unrest-garrison"
+	},
+	"unrest-neighbours": {
+		"heading": "Unrest",
+		"text": "My lord, your people here are not complaining of their own tax. They are complaining of what your collectors are doing in your other counties — word of it came up the road a week ago, and they have drawn the obvious conclusion about what is coming to them. A reputation travels further than a reeve, sire.",
+		"voice": "unrest-neighbours"
+	},
+	"revolt-taxes": {
+		"heading": "Revolt",
+		"text": "My liege... the county has risen against you! You taxed them until they had nothing left, and now they have nothing left to lose. Your steward was dragged from his hall, and your banner burns in the square. What are your orders?",
+		"voice": "revolt-taxes"
+	},
+	"bumper-crop-01": {
+		"heading": "A Good Year",
+		"text": "Glad tidings, my lord! The rains came gently and at the right time, and the fields you let rest have repaid you tenfold. Your barns overflow... and tonight, your people drink to your health, sire!",
+		"voice": "bumper-crop-01"
+	},
+	"merc-scottish": {
+		"heading": "Soldiers for Hire",
+		"text": "A band of Scottish mercenaries is available for hire, my lord.",
+		"voice": "merc-scottish"
+	},
+	"merc-welsh": {
+		"heading": "Soldiers for Hire",
+		"text": "A band of Welsh mercenaries is available for hire, my lord.",
+		"voice": "merc-welsh"
+	},
+	"merc-genoese": {
+		"heading": "Soldiers for Hire",
+		"text": "A band of Genoese crossbowmen is available for hire, my lord.",
+		"voice": "merc-genoese"
+	},
+	"merc-swiss": {
+		"heading": "Soldiers for Hire",
+		"text": "A band of Swiss mercenaries is available for hire, my lord.",
+		"voice": "merc-swiss"
+	},
+	"merc-flemish": {
+		"heading": "Soldiers for Hire",
+		"text": "A band of Flemish mercenaries is available for hire, my lord.",
+		"voice": "merc-flemish"
+	},
+	"merc-danish": {
+		"heading": "Soldiers for Hire",
+		"text": "A band of Danish mercenaries is available for hire, my lord.",
+		"voice": "merc-danish"
+	},
+	"merc-burgundian": {
+		"heading": "Soldiers for Hire",
+		"text": "A band of Burgundian mercenaries is available for hire, my lord.",
+		"voice": "merc-burgundian"
+	},
+	"merc-moorish": {
+		"heading": "Soldiers for Hire",
+		"text": "A band of Moorish mercenaries is available for hire, my lord.",
+		"voice": "merc-moorish"
+	}
+}

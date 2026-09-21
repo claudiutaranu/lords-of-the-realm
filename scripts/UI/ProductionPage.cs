@@ -39,7 +39,14 @@ public abstract partial class ProductionPage : RoomPage
 
 	/// <summary>Whether an order here is sized by the player. A smith takes a commission as it
 	/// comes; a captain is asked how many men.</summary>
-	protected virtual bool SizedOrder => false;
+	/// <summary>Whether the player is asked how many of this one he wants. Per item rather than per
+	/// room: the yard sizes its own intakes, but a company that walked up to the gate came as a
+	/// company and is taken whole or not at all.</summary>
+	protected virtual bool Sized(Item item) => false;
+
+	/// <summary>What the price under the stats is called — what one of them needs, or what the whole
+	/// order costs.</summary>
+	protected virtual string TermsLine(Item item) => Sized(item) ? "Each needs" : "Production cost";
 
 	protected virtual int OrderStep => 5;
 
@@ -94,7 +101,9 @@ public abstract partial class ProductionPage : RoomPage
 				fields["range"].AsInt32(),
 				fields["defence"].AsInt32(),
 				fields["speed"].AsInt32(),
-				fields["turns"].AsInt32(),
+				// Optional: a room where things are made over seasons gives one, and the yard, which
+				// raises its men the day they are paid for, has nothing to give.
+				fields.TryGetValue("turns", out Variant turns) ? turns.AsInt32() : 0,
 				fields["batch"].AsInt32(),
 				cost));
 		}
@@ -114,7 +123,7 @@ public abstract partial class ProductionPage : RoomPage
 	{
 		_chosen = item;
 		_count = item?.Batch ?? 0;
-		if (SizedOrder && item != null)
+		if (item != null && Sized(item))
 		{
 			_count = Mathf.Clamp(_count, OrderStep, Ceiling(item));
 		}
@@ -132,9 +141,13 @@ public abstract partial class ProductionPage : RoomPage
 	/// <summary>How many the order is for, and what that costs of one purse.</summary>
 	protected int OrderSize => _count;
 
-	protected int PriceOf(Item item, string purse) => item.Cost[purse] * (SizedOrder ? _count : 1);
+	protected int PriceOf(Item item, string purse) => item.Cost[purse] * (Sized(item) ? _count : 1);
 
 	// --- the panel on the right ----------------------------------------------------------------
+
+	/// <summary>What the thing costs every season after it is finished, in one line, or nothing at
+	/// all for the rooms whose work is paid for once.</summary>
+	protected virtual string UpkeepLine() => "";
 
 	protected override void ShowDetail()
 	{
@@ -178,7 +191,7 @@ public abstract partial class ProductionPage : RoomPage
 
 		var terms = new HBoxContainer();
 		terms.AddThemeConstantOverride("separation", 14);
-		terms.AddChild(Line(SizedOrder ? "Each needs" : "Production cost", 16, Soft));
+		terms.AddChild(Line(TermsLine(_chosen), 16, Soft));
 		foreach ((string key, int amount) in _chosen.Cost)
 		{
 			var group = new HBoxContainer();
@@ -193,7 +206,17 @@ public abstract partial class ProductionPage : RoomPage
 
 		Detail.AddChild(terms);
 
-		if (SizedOrder)
+		// What it costs to have, as against what it costs to make. Most things a room builds cost
+		// nothing once they are built; men are not most things.
+		string keeping = UpkeepLine();
+		if (keeping.Length > 0)
+		{
+			Label upkeep = Line(keeping, 15, Dim);
+			upkeep.AutowrapMode = TextServer.AutowrapMode.Word;
+			Detail.AddChild(upkeep);
+		}
+
+		if (Sized(_chosen))
 		{
 			Detail.AddChild(Stepper(null, _count, OrderStep, Ceiling(_chosen), settled =>
 			{
@@ -223,7 +246,7 @@ public abstract partial class ProductionPage : RoomPage
 			Detail.AddChild(Line(
 				MakingLine(NameOf(making), turnsLeft), 16, Bright));
 		}
-		else if (SizedOrder)
+		else if (Sized(_chosen))
 		{
 			var total = new HBoxContainer();
 			total.AddThemeConstantOverride("separation", 10);
@@ -241,6 +264,12 @@ public abstract partial class ProductionPage : RoomPage
 			total.AddChild(Line(DeliveryLine(_chosen), 15, Soft));
 			Detail.AddChild(total);
 		}
+
+		Control footer = Footer();
+		if (footer != null)
+		{
+			Detail.AddChild(footer);
+		}
 	}
 
 	/// <summary>The room's ceiling on one order, never below one step: a slider whose end is under
@@ -248,7 +277,12 @@ public abstract partial class ProductionPage : RoomPage
 	private int Ceiling(Item item) => Mathf.Max(OrderStep, OrderCeiling(item));
 
 	/// <summary>Pays for the order and puts it on the bench. The turn does the rest.</summary>
-	protected void PlaceOrder()
+	/// <summary>Anything a room wants under the price line. The yard hangs its muster there — what
+	/// has been picked so far and the button that raises it — because that is a list about the whole
+	/// order and not about the card in hand.</summary>
+	protected virtual Control Footer() => null;
+
+	protected virtual void PlaceOrder()
 	{
 		if (_chosen == null || InHand.Making.Length > 0 || !CanAfford(_chosen))
 		{
@@ -260,7 +294,7 @@ public abstract partial class ProductionPage : RoomPage
 			Pay(key, PriceOf(_chosen, key));
 		}
 
-		Begin(_chosen, SizedOrder ? _count : _chosen.Batch);
+		Begin(_chosen, Sized(_chosen) ? _count : _chosen.Batch);
 		Refresh();
 	}
 

@@ -21,6 +21,10 @@ public partial class ResourceBar : PanelContainer
 		("wood", "wood"),
 		("stone", "stone"),
 		("iron", "iron"),
+		// The people are not a stockpile, but they are the one number every other one comes out of:
+		// they grow the grain, cut the wood and fill the ranks, and a lord reading his stores wants
+		// to see what he has to work them with in the same breath.
+		("people", "population"),
 	};
 
 	private HBoxContainer _row;

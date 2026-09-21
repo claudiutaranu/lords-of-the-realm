@@ -14,6 +14,7 @@ using Godot;
 public static class Models
 {
 	private const string Directory = "res://assets/models/rts";
+	private const string Own = "res://assets/models";
 
 	private static readonly Dictionary<string, Mesh> Meshes = new();
 	private static readonly Dictionary<string, PackedScene> Scenes = new();
@@ -23,7 +24,24 @@ public static class Models
 	{
 		if (!Scenes.TryGetValue(name, out PackedScene scene))
 		{
-			scene = GD.Load<PackedScene>($"{Directory}/{name}.gltf");
+			// Either spelling of the same format. The pack arrived as .gltf with its geometry inline;
+			// a model exported anywhere else comes out as .glb, which is that file in one binary
+			// piece. Godot reads both, so the drop-in rule holds for both and nobody has to rename a
+			// download to match a string in here.
+			// Either spelling, and either folder. The pack keeps to its own directory so its licence
+			// and its provenance stay in one place; anything drawn or bought for this map on its own
+			// sits beside it. A name is looked for in both rather than every caller having to know
+			// which of the two its model came from.
+			scene = null;
+			foreach (string directory in new[] { Directory, Own })
+			{
+				foreach (string extension in new[] { "glb", "gltf" })
+				{
+					string path = $"{directory}/{name}.{extension}";
+					scene ??= ResourceLoader.Exists(path) ? GD.Load<PackedScene>(path) : null;
+				}
+			}
+
 			Scenes[name] = scene;
 		}
 

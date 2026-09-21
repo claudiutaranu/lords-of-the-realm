@@ -17,4 +17,17 @@ public static class CityArt
 	public static string Tile(string building) => $"{Directory}/buildings/{building}.png";
 
 	public static bool HasTile(string building) => ResourceLoader.Exists(Tile(building));
+
+	/// <summary>The sheet a building's moving piece is drawn on — the sails, the wheel, the crane.
+	/// Optional: most buildings stand still.</summary>
+	public static string Rotor(string building) => $"{Directory}/buildings/{building}-rotor.png";
+
+	public static bool HasRotor(string building) => ResourceLoader.Exists(Rotor(building));
+
+	/// <summary>Whatever lives on a building's ground and moves of its own accord — the herd in a
+	/// pasture, the men in a yard. A scene rather than a picture, because each of them animates on
+	/// its own clock and no two should do it in step.</summary>
+	public static string Life(string building) => $"{Directory}/buildings/{building}-life.tscn";
+
+	public static bool HasLife(string building) => ResourceLoader.Exists(Life(building));
 }

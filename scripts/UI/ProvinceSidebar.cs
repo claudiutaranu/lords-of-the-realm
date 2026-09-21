@@ -20,6 +20,7 @@ public partial class ProvinceSidebar : VBoxContainer
 
 	private static readonly Color Cream = new("d9cdb4");
 	private static readonly Color Gain = new("6fbf5f");
+	private static readonly Color Lack = new("c65a45");
 	private static readonly Color Waiting = new("6f6a60");
 
 	private static readonly (ResourceType Type, string Icon)[] Resources =
@@ -36,15 +37,16 @@ public partial class ProvinceSidebar : VBoxContainer
 	//
 	// A card appears once its portrait exists, so the peasant — who needs no weapon, only people
 	// willing to be led — joins the grid the moment assets/units/peasant.png is dropped in.
-	private static readonly (string Name, string Unit)[] Muster =
+	/// <summary>What the smithy makes and the yard arms its men out of, in the order the armoury
+	/// counts them.</summary>
+	private static readonly (string Weapon, string Icon)[] Arms =
 	{
-		("Peasants", "peasant"),
-		("Spearmen", "spear"),
-		("Archers", "bow"),
-		("Crossbows", "crossbow"),
-		("Swords", "sword"),
-		("Maces", "mace"),
-		("Horse", "horse"),
+		("sword", "sword"),
+		("bow", "bow"),
+		("crossbow", "crossbow"),
+		("spear", "spear"),
+		("mace", "mace"),
+		("horse", "helmet"),
 	};
 
 	private const string UnclaimedArtPath = "res://assets/ui/unclaimed.png";
@@ -59,9 +61,28 @@ public partial class ProvinceSidebar : VBoxContainer
 	private Label _loyalty;
 	private Label _tax;
 	private Label _ration;
+	private Button _march;
 	private readonly Dictionary<ResourceType, Label> _stock = new();
 	private readonly Dictionary<ResourceType, Label> _yield = new();
-	private readonly Dictionary<string, Label> _muster = new();
+	private readonly Dictionary<string, Label> _armoury = new();
+	private Label _forging;
+	private LabourBar _labour;
+	private Control _labourFrame;
+
+	/// <summary>The lord wants a word with the reeve about the tax. Raised rather than handled here:
+	/// the sidebar is a readout, and the page above it owns what opens over the map.</summary>
+	public event System.Action TaxPressed;
+
+	/// <summary>And with whoever keeps the county's mood. Same arrangement: the sidebar reads, the
+	/// page above it opens things.</summary>
+	public event System.Action LoyaltyPressed;
+
+	/// <summary>And with whoever feeds them.</summary>
+	public event System.Action RationPressed;
+
+	/// <summary>The lord wants his men to march. The sidebar knows they exist and that they have a
+	/// move left; where they are going is the map's question, not this panel's.</summary>
+	public event System.Action MarchPressed;
 
 	private ProvinceEconomy _economy;
 	private ProvinceDefinition _definition;
@@ -81,9 +102,22 @@ public partial class ProvinceSidebar : VBoxContainer
 		AddChild(_held);
 		BuildStats();
 		BuildResources();
-		BuildMuster();
+		BuildLabour();
+		BuildArmoury();
+		BuildMarch();
 
 		BuildForeign();
+	}
+
+	/// <summary>The one order that is given from here rather than from a room: an army marches off
+	/// the map it is standing on. Hidden — not greyed — when there is nobody to march or no march
+	/// left in them, because an order a county cannot give is not an order it should be offered.</summary>
+	private void BuildMarch()
+	{
+		_march = new Button { CustomMinimumSize = new Vector2(0, 40) };
+		_march.AddThemeFontSizeOverride("font_size", 15);
+		_march.Pressed += () => MarchPressed?.Invoke();
+		_held.AddChild(_march);
 	}
 
 	/// <summary>Who this province is. Independent of the economy, so the rival's provinces and the
@@ -121,7 +155,17 @@ public partial class ProvinceSidebar : VBoxContainer
 		_foreign.Visible = !held;
 		_population.Text = held ? _economy.Population.ToString("N0") : "—";
 		_loyalty.Text = held ? Mathf.RoundToInt(_economy.Loyalty).ToString() : "—";
-		_tax.Text = held ? _economy.Tax.ToString() : "—";
+		_tax.Text = held ? $"{_economy.Tax}%" : "—";
+
+		bool marchable = held && _economy.Soldiers > 0 && _economy.MarchLeft > 0f;
+		_march.Visible = marchable;
+		if (marchable)
+		{
+			// In paces of good road, which is the only unit a lord can hold in his head: the map
+			// charges more than a pace for a pace of hillside, and it says so as he points at it.
+			_march.Text = $"March  ({Mathf.RoundToInt(_economy.MarchLeft / _balance.MarchCostByRoad):N0} paces)";
+		}
+
 		_ration.Text = held ? _economy.Ration.ToString() : "—";
 
 		foreach ((ResourceType type, string _) in Resources)
@@ -134,20 +178,38 @@ public partial class ProvinceSidebar : VBoxContainer
 			}
 
 			_stock[type].Text = StockOf(type).ToString("N0");
-			int projected = EconomySimulation.ProjectedYield(
-				type, WorkersOn(type), type == ResourceType.Cattle ? _economy.Cattle : 0,
-				_definition, _balance, _season);
-			// Nothing at all rather than a dash: a column of dashes is noise under the numbers.
-			_yield[type].Text = projected > 0 ? $"+{projected}" : "";
 		}
 
-		// Men standing in the province, not the weapons waiting for them: the yard's count, not
-		// the smithy's. A dash until it has mustered any.
-		foreach ((string unit, Label count) in _muster)
+		// What next season will leave the province with, net: the harvest less what the people eat,
+		// the seed that goes back into the ground, the herd that goes under the knife in a bad
+		// winter. A row that only ever counted up would show a granary gaining every season of a
+		// year it is quietly being emptied.
+		TurnSummary next = EconomySimulation.Preview(_economy, _definition, _balance, _season);
+		foreach ((ResourceType type, string _) in Resources)
 		{
-			int mustered = held ? _economy.Garrison.GetValueOrDefault(unit) : 0;
-			count.Text = mustered > 0 ? mustered.ToString("N0") : "—";
-			count.AddThemeColorOverride("font_color", mustered > 0 ? Cream : Waiting);
+			int change = ChangeIn(next, type);
+			Label reading = _yield[type];
+			// Nothing at all rather than a zero: a column of zeroes is noise under the numbers.
+			reading.Text = change == 0 ? "" : change > 0 ? $"+{change:N0}" : $"−{-change:N0}";
+			reading.AddThemeColorOverride("font_color", change < 0 ? Lack : Gain);
+		}
+
+		_labour.Show(held ? _economy : null, _definition, _balance, _season);
+		_labourFrame.Visible = held;
+
+		// The weapons waiting in the armoury, not the men holding them: an army raised in the yard
+		// marches out of the county, so a list of it here is a list of who has already gone. What
+		// the smithy has made stays until somebody is handed it.
+		foreach ((string weapon, Label count) in _armoury)
+		{
+			count.Text = held ? _economy.Armoury.GetValueOrDefault(weapon).ToString("N0") : "0";
+		}
+
+		_forging.Visible = held && _economy.Forging.Length > 0;
+		if (_forging.Visible)
+		{
+			_forging.Text = $"On the anvil: {_economy.ForgeBatch:N0} in " +
+				$"{_economy.ForgeTurnsLeft} season{(_economy.ForgeTurnsLeft == 1 ? "" : "s")}";
 		}
 	}
 
@@ -207,14 +269,16 @@ public partial class ProvinceSidebar : VBoxContainer
 		// sidebar out every time the selection landed on a province you hold.
 		_population = StatCell(row, Icon("population", 20));
 		row.AddChild(Divider());
-		_loyalty = StatCell(row, Icon("heart", 20));
+		_loyalty = StatCell(row, Icon("heart", 20), () => LoyaltyPressed?.Invoke(),
+			"See where this county's goodwill went");
 		row.AddChild(Divider());
-		_tax = StatCell(row, Icon("gold", 20));
+		_tax = StatCell(row, Icon("gold", 20), () => TaxPressed?.Invoke(), "Set what this county pays");
 		row.AddChild(Divider());
-		_ration = StatCell(row, Icon("food", 20));
+		_ration = StatCell(row, Icon("food", 20), () => RationPressed?.Invoke(),
+			"Set what this county is given to eat");
 	}
 
-	private Label StatCell(HBoxContainer row, Control icon)
+	private Label StatCell(HBoxContainer row, Control icon, System.Action pressed = null, string hint = "")
 	{
 		var cell = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
 		cell.AddThemeConstantOverride("separation", 5);
@@ -226,6 +290,26 @@ public partial class ProvinceSidebar : VBoxContainer
 		cell.AddChild(value);
 
 		row.AddChild(cell);
+		if (pressed == null)
+		{
+			return value;
+		}
+
+		// A cell that can be pressed has to say so before it is pressed, and the cursor cannot say
+		// it — the game draws the same sword over everything. So the number itself answers the
+		// mouse: it brightens under the pointer, the way the plaques in the rooms do.
+		cell.MouseFilter = MouseFilterEnum.Stop;
+		cell.TooltipText = hint;
+		cell.MouseEntered += () => value.AddThemeColorOverride("font_color", Chrome.Bright);
+		cell.MouseExited += () => value.AddThemeColorOverride("font_color", Cream);
+		cell.GuiInput += pointer =>
+		{
+			if (pointer is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left })
+			{
+				pressed();
+			}
+		};
+
 		return value;
 	}
 
@@ -265,32 +349,60 @@ public partial class ProvinceSidebar : VBoxContainer
 		}
 	}
 
-	private void BuildMuster()
+	/// <summary>What the county has in its armoury, and what the smithy has on the anvil. This is
+	/// where the muster used to stand, and it earns the room better: men raised in the yard leave
+	/// the county, weapons stay in it until somebody is given them.</summary>
+	private void BuildArmoury()
 	{
-		var grid = new GridContainer { Columns = 4 };
-		grid.AddThemeConstantOverride("h_separation", 5);
-		grid.AddThemeConstantOverride("v_separation", 5);
-		_held.AddChild(Framed(grid, 6));
+		var column = new VBoxContainer();
+		column.AddThemeConstantOverride("separation", 4);
 
-		foreach ((string name, string unit) in Muster)
+		var row = new HBoxContainer();
+		row.AddThemeConstantOverride("separation", 2);
+		column.AddChild(row);
+
+		bool first = true;
+		foreach ((string weapon, string icon) in Arms)
 		{
-			if (!ResourceLoader.Exists(UnitArt.Portrait(unit)))
+			if (!first)
 			{
-				continue; // nobody has drawn him yet
+				row.AddChild(Divider());
 			}
 
-			(Control tile, VBoxContainer stack) = UnitCard.Build(unit, name, 150, titled: false);
+			first = false;
 
-			// Only the number: how many of him stand in the garrison. Nothing else belongs under a
-			// card that already shows him.
-			Label count = Small("—", Waiting);
-			count.AddThemeFontSizeOverride("font_size", 16);
-			count.HorizontalAlignment = HorizontalAlignment.Center;
-			stack.AddChild(count);
-			_muster[unit] = count;
+			var cell = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+			cell.AddThemeConstantOverride("separation", 2);
+			cell.AddChild(Centered(Icon(icon, 30)));
 
-			grid.AddChild(tile);
+			var count = new Label { HorizontalAlignment = HorizontalAlignment.Center };
+			count.AddThemeFontSizeOverride("font_size", 20);
+			count.AddThemeColorOverride("font_color", Cream);
+			cell.AddChild(count);
+
+			_armoury[weapon] = count;
+			row.AddChild(cell);
 		}
+
+		// Only while there is something on it: a cold forge has nothing to say.
+		_forging = Small("", Gain);
+		_forging.HorizontalAlignment = HorizontalAlignment.Center;
+		column.AddChild(_forging);
+
+		_held.AddChild(Framed(column, 8));
+	}
+
+	/// <summary>The labour bar, on the panel the lord is looking at his county from — which is where
+	/// Lords of the Realm kept it. The province's own screen carries one too; neither remembers
+	/// anything, both read the allocation, so they cannot drift apart.</summary>
+	private void BuildLabour()
+	{
+		_labour = new LabourBar();
+		_labourFrame = Framed(_labour, 8);
+		_held.AddChild(_labourFrame);
+		// Nothing on this panel follows the grip while it moves — the bar keeps its own two counts —
+		// so only the letting go is worth a redraw, and that is when the forecasts change.
+		_labour.Settled += Refresh;
 	}
 
 	/// <summary>What stands in place of the books for a province you do not hold: the keep on its
@@ -403,6 +515,15 @@ public partial class ProvinceSidebar : VBoxContainer
 		return center;
 	}
 
+	private static int ChangeIn(TurnSummary summary, ResourceType type) => type switch
+	{
+		ResourceType.Grain => summary.GrainChange,
+		ResourceType.Cattle => summary.CattleChange,
+		ResourceType.Wood => summary.WoodChange,
+		ResourceType.Stone => summary.StoneChange,
+		_ => summary.IronChange,
+	};
+
 	private int StockOf(ResourceType type) => type switch
 	{
 		ResourceType.Grain => _economy.Grain,
@@ -412,12 +533,4 @@ public partial class ProvinceSidebar : VBoxContainer
 		_ => _economy.Iron,
 	};
 
-	private int WorkersOn(ResourceType type) => type switch
-	{
-		ResourceType.Grain => _economy.GrainWorkers,
-		ResourceType.Cattle => _economy.CattleWorkers,
-		ResourceType.Wood => _economy.WoodWorkers,
-		ResourceType.Stone => _economy.StoneWorkers,
-		_ => _economy.IronWorkers,
-	};
 }

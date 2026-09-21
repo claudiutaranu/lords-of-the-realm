@@ -1,0 +1,25 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://assets/city/buildings/pasture/idle_animal.gd" id="1_idle"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/pasture/ground_shadow.png" id="2_shadow"]
+[ext_resource type="Shader" path="res://assets/city/buildings/pasture/cow_rig.gdshader" id="3_rig_shader"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_rig"]
+shader = ExtResource("3_rig_shader")
+
+[node name="Cow" type="Node2D"]
+script = ExtResource("1_idle")
+
+[node name="Shadow" type="Sprite2D" parent="."]
+texture = ExtResource("2_shadow")
+scale = Vector2(1.4, 1.4)
+
+[node name="Visual" type="Node2D" parent="."]
+
+[node name="Body" type="Sprite2D" parent="Visual"]
+material = SubResource("ShaderMaterial_rig")
+centered = false
+
+[node name="Tail" type="Sprite2D" parent="Visual"]
+material = SubResource("ShaderMaterial_rig")
+centered = false

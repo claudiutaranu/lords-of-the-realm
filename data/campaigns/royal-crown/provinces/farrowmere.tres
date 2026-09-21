@@ -6,11 +6,11 @@
 script = ExtResource("1_script")
 ProvinceName = "Farrowmere"
 InitialPopulation = 780
-GrainWorkerCapacity = 100
-CattleWorkerCapacity = 55
-WoodWorkerCapacity = 35
-StoneWorkerCapacity = 25
-IronWorkerCapacity = 15
+GrainWorkerCapacity = 400
+CattleWorkerCapacity = 220
+WoodWorkerCapacity = 140
+StoneWorkerCapacity = 100
+IronWorkerCapacity = 0
 GrainModifier = 1.3
 CattleModifier = 1.25
 WoodModifier = 0.9

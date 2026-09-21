@@ -1,0 +1,58 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://assets/city/buildings/tool_strike_worker.gd" id="1_script"]
+[ext_resource type="Shader" path="res://assets/city/buildings/bend.gdshader" id="2_shader"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/blacksmith/stoker_rig.png" id="3_rig"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/blacksmith/spark.png" id="4_spark"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/blacksmith/stoker.png" id="5_stoker"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_tool"]
+shader = ExtResource("2_shader")
+shader_parameter/bend_weights = ExtResource("3_rig")
+shader_parameter/pivot_px = Vector2(175, 215)
+shader_parameter/angle = 0.0
+
+[sub_resource type="CanvasItemMaterial" id="Material_additive"]
+blend_mode = 1
+
+[sub_resource type="Gradient" id="Gradient_sparks"]
+offsets = PackedFloat32Array(0, 0.4, 1)
+colors = PackedColorArray(1, 0.95, 0.7, 1, 1, 0.6, 0.15, 1, 0.8, 0.25, 0.05, 0)
+
+[node name="Stoker" type="Node2D"]
+script = ExtResource("1_script")
+wind_up_degrees = 4.0
+strike_degrees = -6.0
+wind_up_seconds = 0.8
+strike_seconds = 0.35
+hold_seconds = 0.4
+recover_seconds = 0.6
+min_strikes_in_a_row = 2
+max_strikes_in_a_row = 4
+min_rest_seconds = 2.0
+max_rest_seconds = 4.5
+
+[node name="Tool" type="Sprite2D" parent="."]
+material = SubResource("ShaderMaterial_tool")
+texture = ExtResource("5_stoker")
+centered = false
+offset = Vector2(-159.6, -438.6)
+scale = Vector2(0.25, 0.25)
+
+[node name="StirredEmbers" type="CPUParticles2D" parent="."]
+position = Vector2(-16.0, -96.5)
+material = SubResource("Material_additive")
+emitting = false
+one_shot = true
+explosiveness = 1.0
+texture = ExtResource("4_spark")
+amount = 18
+lifetime = 1.1
+direction = Vector2(0.1, -1)
+spread = 50.0
+gravity = Vector2(0, -12)
+initial_velocity_min = 20.0
+initial_velocity_max = 55.0
+scale_amount_min = 0.22
+scale_amount_max = 0.36
+color_ramp = SubResource("Gradient_sparks")

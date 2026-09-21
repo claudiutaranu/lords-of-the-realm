@@ -1,0 +1,233 @@
+[gd_scene load_steps=37 format=3]
+
+[ext_resource type="Texture2D" path="res://assets/city/buildings/idle/idle_camp_base.png" id="1_base"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/idle/ambient_mask.png" id="2_mask"]
+[ext_resource type="Shader" path="res://assets/city/buildings/idle/ambient_wave.gdshader" id="3_ambient"]
+[ext_resource type="Shader" path="res://assets/city/buildings/idle/idle_body.gdshader" id="4_body"]
+[ext_resource type="Script" path="res://assets/city/buildings/idle/idle_person.gd" id="5_person"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/idle/lantern_glow.png" id="6_glow"]
+[ext_resource type="Script" path="res://assets/city/buildings/lantern_glow.gd" id="7_glow_script"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/idle/crate_sitter.png" id="tex_crate_sitter"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/idle/ground_sitter.png" id="tex_ground_sitter"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/idle/listener.png" id="tex_listener"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/idle/looker.png" id="tex_looker"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/idle/pick_leaner.png" id="tex_pick_leaner"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/idle/rake_leaner.png" id="tex_rake_leaner"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/idle/recliner.png" id="tex_recliner"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/idle/shovel_leaner.png" id="tex_shovel_leaner"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/idle/talker_arm.png" id="tex_talker_arm"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/idle/talker_body.png" id="tex_talker_body"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/idle/crate_sitter_motion.png" id="motion_crate_sitter"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/idle/ground_sitter_motion.png" id="motion_ground_sitter"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/idle/listener_motion.png" id="motion_listener"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/idle/looker_motion.png" id="motion_looker"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/idle/pick_leaner_motion.png" id="motion_pick_leaner"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/idle/rake_leaner_motion.png" id="motion_rake_leaner"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/idle/recliner_motion.png" id="motion_recliner"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/idle/shovel_leaner_motion.png" id="motion_shovel_leaner"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/idle/talker_motion.png" id="motion_talker"]
+
+[sub_resource type="ShaderMaterial" id="Material_ground"]
+shader = ExtResource("3_ambient")
+shader_parameter/ambient_mask = ExtResource("2_mask")
+
+[sub_resource type="ShaderMaterial" id="Material_Talker"]
+shader = ExtResource("4_body")
+shader_parameter/motion_weights = ExtResource("motion_talker")
+shader_parameter/sway_pivot_px = Vector2(108.7, 200.5)
+shader_parameter/gesture_pivot_px = Vector2(152, 102)
+
+[sub_resource type="ShaderMaterial" id="Material_Listener"]
+shader = ExtResource("4_body")
+shader_parameter/motion_weights = ExtResource("motion_listener")
+shader_parameter/sway_pivot_px = Vector2(90.2, 204.2)
+shader_parameter/gesture_pivot_px = Vector2(96, 90)
+
+[sub_resource type="ShaderMaterial" id="Material_Looker"]
+shader = ExtResource("4_body")
+shader_parameter/motion_weights = ExtResource("motion_looker")
+shader_parameter/sway_pivot_px = Vector2(101.3, 207.0)
+shader_parameter/gesture_pivot_px = Vector2(0, 0)
+
+[sub_resource type="ShaderMaterial" id="Material_ShovelLeaner"]
+shader = ExtResource("4_body")
+shader_parameter/motion_weights = ExtResource("motion_shovel_leaner")
+shader_parameter/sway_pivot_px = Vector2(98.2, 205.5)
+shader_parameter/gesture_pivot_px = Vector2(0, 0)
+
+[sub_resource type="ShaderMaterial" id="Material_RakeLeaner"]
+shader = ExtResource("4_body")
+shader_parameter/motion_weights = ExtResource("motion_rake_leaner")
+shader_parameter/sway_pivot_px = Vector2(93.4, 211.0)
+shader_parameter/gesture_pivot_px = Vector2(0, 0)
+
+[sub_resource type="ShaderMaterial" id="Material_PickLeaner"]
+shader = ExtResource("4_body")
+shader_parameter/motion_weights = ExtResource("motion_pick_leaner")
+shader_parameter/sway_pivot_px = Vector2(110.3, 208.7)
+shader_parameter/gesture_pivot_px = Vector2(0, 0)
+
+[sub_resource type="ShaderMaterial" id="Material_CrateSitter"]
+shader = ExtResource("4_body")
+shader_parameter/motion_weights = ExtResource("motion_crate_sitter")
+shader_parameter/sway_pivot_px = Vector2(140.2, 182.8)
+shader_parameter/gesture_pivot_px = Vector2(0, 0)
+
+[sub_resource type="ShaderMaterial" id="Material_GroundSitter"]
+shader = ExtResource("4_body")
+shader_parameter/motion_weights = ExtResource("motion_ground_sitter")
+shader_parameter/sway_pivot_px = Vector2(154.1, 135.5)
+shader_parameter/gesture_pivot_px = Vector2(0, 0)
+
+[sub_resource type="ShaderMaterial" id="Material_Recliner"]
+shader = ExtResource("4_body")
+shader_parameter/motion_weights = ExtResource("motion_recliner")
+shader_parameter/sway_pivot_px = Vector2(131.6, 160.8)
+shader_parameter/gesture_pivot_px = Vector2(0, 0)
+
+[node name="Life" type="Node2D"]
+
+[node name="Ground" type="Sprite2D" parent="."]
+material = SubResource("Material_ground")
+texture = ExtResource("1_base")
+centered = false
+position = Vector2(64, 64)
+
+[node name="People" type="Node2D" parent="."]
+position = Vector2(420, 452)
+y_sort_enabled = true
+
+[node name="Talker" type="Node2D" parent="People"]
+position = Vector2(-102.0, -127.5)
+script = ExtResource("5_person")
+role = 1
+
+[node name="Visual" type="Node2D" parent="People/Talker"]
+
+[node name="Body" type="Sprite2D" parent="People/Talker/Visual"]
+material = SubResource("Material_Talker")
+texture = ExtResource("tex_talker_body")
+centered = false
+offset = Vector2(-108.7, -330.7)
+scale = Vector2(0.25, 0.25)
+
+[node name="Arm" type="Sprite2D" parent="People/Talker/Visual"]
+material = SubResource("Material_Talker")
+texture = ExtResource("tex_talker_arm")
+centered = false
+offset = Vector2(-108.7, -330.7)
+scale = Vector2(0.25, 0.25)
+
+[node name="Listener" type="Node2D" parent="People"]
+position = Vector2(-56.0, -120.0)
+script = ExtResource("5_person")
+role = 2
+partner = NodePath("../Talker")
+
+[node name="Visual" type="Node2D" parent="People/Listener"]
+
+[node name="Body" type="Sprite2D" parent="People/Listener/Visual"]
+material = SubResource("Material_Listener")
+texture = ExtResource("tex_listener")
+centered = false
+offset = Vector2(-90.2, -336.6)
+scale = Vector2(0.25, 0.25)
+
+[node name="Looker" type="Node2D" parent="People"]
+position = Vector2(53.0, -187.5)
+script = ExtResource("5_person")
+
+[node name="Visual" type="Node2D" parent="People/Looker"]
+
+[node name="Body" type="Sprite2D" parent="People/Looker/Visual"]
+material = SubResource("Material_Looker")
+texture = ExtResource("tex_looker")
+centered = false
+offset = Vector2(-101.3, -341.4)
+scale = Vector2(0.25, 0.25)
+
+[node name="ShovelLeaner" type="Node2D" parent="People"]
+position = Vector2(100.5, -127.5)
+script = ExtResource("5_person")
+
+[node name="Visual" type="Node2D" parent="People/ShovelLeaner"]
+
+[node name="Body" type="Sprite2D" parent="People/ShovelLeaner/Visual"]
+material = SubResource("Material_ShovelLeaner")
+texture = ExtResource("tex_shovel_leaner")
+centered = false
+offset = Vector2(-98.2, -339.4)
+scale = Vector2(0.25, 0.25)
+
+[node name="RakeLeaner" type="Node2D" parent="People"]
+position = Vector2(-144.5, -167.5)
+script = ExtResource("5_person")
+
+[node name="Visual" type="Node2D" parent="People/RakeLeaner"]
+
+[node name="Body" type="Sprite2D" parent="People/RakeLeaner/Visual"]
+material = SubResource("Material_RakeLeaner")
+texture = ExtResource("tex_rake_leaner")
+centered = false
+offset = Vector2(-93.4, -349.1)
+scale = Vector2(0.25, 0.25)
+
+[node name="PickLeaner" type="Node2D" parent="People"]
+position = Vector2(178.0, -155.0)
+script = ExtResource("5_person")
+
+[node name="Visual" type="Node2D" parent="People/PickLeaner"]
+
+[node name="Body" type="Sprite2D" parent="People/PickLeaner/Visual"]
+material = SubResource("Material_PickLeaner")
+texture = ExtResource("tex_pick_leaner")
+centered = false
+offset = Vector2(-110.3, -344.3)
+scale = Vector2(0.25, 0.25)
+
+[node name="CrateSitter" type="Node2D" parent="People"]
+position = Vector2(-74.5, -212.5)
+script = ExtResource("5_person")
+
+[node name="Visual" type="Node2D" parent="People/CrateSitter"]
+
+[node name="Body" type="Sprite2D" parent="People/CrateSitter/Visual"]
+material = SubResource("Material_CrateSitter")
+texture = ExtResource("tex_crate_sitter")
+centered = false
+offset = Vector2(-140.2, -298.7)
+scale = Vector2(0.25, 0.25)
+
+[node name="GroundSitter" type="Node2D" parent="People"]
+position = Vector2(18.0, -75.0)
+script = ExtResource("5_person")
+
+[node name="Visual" type="Node2D" parent="People/GroundSitter"]
+
+[node name="Body" type="Sprite2D" parent="People/GroundSitter/Visual"]
+material = SubResource("Material_GroundSitter")
+texture = ExtResource("tex_ground_sitter")
+centered = false
+offset = Vector2(-154.1, -215.3)
+scale = Vector2(0.25, 0.25)
+
+[node name="Recliner" type="Node2D" parent="People"]
+position = Vector2(-122.0, -62.5)
+script = ExtResource("5_person")
+
+[node name="Visual" type="Node2D" parent="People/Recliner"]
+
+[node name="Body" type="Sprite2D" parent="People/Recliner/Visual"]
+material = SubResource("Material_Recliner")
+texture = ExtResource("tex_recliner")
+centered = false
+offset = Vector2(-131.6, -259.9)
+scale = Vector2(0.25, 0.25)
+
+[node name="LanternGlow" type="Sprite2D" parent="."]
+position = Vector2(414, 112)
+texture = ExtResource("6_glow")
+script = ExtResource("7_glow_script")
+base_scale = 0.703
+base_energy = 0.7
+flicker_amount = 0.25

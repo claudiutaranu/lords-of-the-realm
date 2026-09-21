@@ -1,0 +1,67 @@
+[gd_scene load_steps=11 format=3]
+
+[ext_resource type="Texture2D" path="res://assets/city/buildings/construction/site_base.png" id="1_site"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/construction/banner_mask.png" id="2_mask"]
+[ext_resource type="Shader" path="res://assets/city/buildings/construction/banner_wave.gdshader" id="3_wave"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/construction/crane_load.png" id="4_load"]
+[ext_resource type="Script" path="res://assets/city/buildings/construction/crane_load.gd" id="5_load_script"]
+[ext_resource type="PackedScene" path="res://assets/city/buildings/construction/stone_chiseler.tscn" id="6_chiseler"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/construction/foreman.png" id="7_foreman"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/construction/beam_pusher.png" id="8_beam_pusher"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/construction/carrier.png" id="9_carrier"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/construction/wheelbarrow.png" id="10_wheelbarrow"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_banner"]
+shader = ExtResource("3_wave")
+shader_parameter/wave_mask = ExtResource("2_mask")
+
+[node name="Life" type="Node2D"]
+
+[node name="Ground" type="Sprite2D" parent="."]
+material = SubResource("ShaderMaterial_banner")
+texture = ExtResource("1_site")
+centered = false
+position = Vector2(64, 64)
+
+[node name="CraneLoad" type="Node2D" parent="."]
+position = Vector2(682.0, 175.0)
+script = ExtResource("5_load_script")
+
+[node name="Load" type="Sprite2D" parent="CraneLoad"]
+texture = ExtResource("4_load")
+centered = false
+offset = Vector2(-21.5, -8)
+
+[node name="Workers" type="Node2D" parent="."]
+y_sort_enabled = true
+
+[node name="Foreman" type="Sprite2D" parent="Workers"]
+position = Vector2(233.0, 467.0)
+scale = Vector2(0.65, 0.65)
+texture = ExtResource("7_foreman")
+centered = false
+offset = Vector2(-23.7, -95.0)
+
+[node name="BeamPusher" type="Sprite2D" parent="Workers"]
+position = Vector2(300.4, 479.5)
+scale = Vector2(0.65, 0.65)
+texture = ExtResource("8_beam_pusher")
+centered = false
+offset = Vector2(-37.6, -111.5)
+
+[node name="Carrier" type="Sprite2D" parent="Workers"]
+position = Vector2(510.4, 488.5)
+scale = Vector2(0.65, 0.65)
+texture = ExtResource("9_carrier")
+centered = false
+offset = Vector2(-27.5, -92.1)
+
+[node name="Wheelbarrow" type="Sprite2D" parent="Workers"]
+position = Vector2(635.4, 473.5)
+scale = Vector2(0.65, 0.65)
+texture = ExtResource("10_wheelbarrow")
+centered = false
+offset = Vector2(-49.6, -90.2)
+
+[node name="Chiseler" parent="Workers" instance=ExtResource("6_chiseler")]
+position = Vector2(373.0, 484.5)

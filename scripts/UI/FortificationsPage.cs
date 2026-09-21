@@ -41,9 +41,19 @@ public partial class FortificationsPage : RoomPage
 	/// takes what is coming, and they trade places every time the choice changes — a single layer
 	/// could only blink to black and back.</summary>
 	private readonly TextureRect[] _walls = new TextureRect[2];
+
+	/// <summary>What moves on each wall layer beyond its own cloth, or null where the rung showing
+	/// there is a still picture. One per layer, so a dissolve carries the old rung's cranes out
+	/// while the new rung's swing in.</summary>
+	private readonly Node2D[] _living = new Node2D[2];
+
+	/// <summary>Every picture the ladder can put on the valley, held for as long as the room is
+	/// open. The first look at a rung would otherwise load a full-frame painting, its wind mask and
+	/// whatever hangs off it on the main thread, which is a visible stop in the middle of a
+	/// dissolve — and the dissolve is the whole point of stepping through the ladder.</summary>
+	private readonly Dictionary<string, Resource> _art = new();
 	private int _showing;
 	private Tween _fade;
-	private AudioStreamPlayer _voice;
 
 	private readonly List<Ladder> _ladders = new();
 	private readonly Dictionary<string, Button> _cards = new();
@@ -113,6 +123,18 @@ public partial class FortificationsPage : RoomPage
 		// Nothing raised here. The panel still opens on the first rung, so there is something to
 		// read the moment the page appears — but the valley behind it stays empty, because an open
 		// village is the true picture until the player asks to see one.
+		// Asked for on the way in, on a worker thread, so that stepping down the ladder never waits
+		// on a disk. By the time the first card is pressed they are usually already in hand.
+		foreach (Ladder ladder in _ladders)
+		{
+			foreach (Fort rung in ladder.Forts)
+			{
+				Want(FortArt.Scene(rung.Key));
+				Want(FortArt.Cloth(rung.Key));
+				Want(FortArt.Life(rung.Key));
+			}
+		}
+
 		Fort first = _ladders.Count > 0 && _ladders[0].Forts.Count > 0 ? _ladders[0].Forts[0] : null;
 		Choose(first, showing: null);
 	}
@@ -125,8 +147,6 @@ public partial class FortificationsPage : RoomPage
 	{
 		BuildWalls();
 
-		_voice = new AudioStreamPlayer { Bus = Settings.SfxBus };
-		AddChild(_voice);
 
 		var row = new HBoxContainer
 		{
@@ -191,6 +211,9 @@ public partial class FortificationsPage : RoomPage
 			// Index 0 is the valley the scene itself put there; the walls go straight on top of it.
 			MoveChild(wall, 1 + layer);
 			_walls[layer] = wall;
+
+			int mine = layer;
+			wall.Resized += () => Place(mine);
 		}
 	}
 
@@ -204,9 +227,7 @@ public partial class FortificationsPage : RoomPage
 	/// one, so what is on screen never disagrees with what the panel says.</summary>
 	private void ShowWall(string fort)
 	{
-		Texture2D coming = fort != null && FortArt.HasScene(fort)
-			? GD.Load<Texture2D>(FortArt.Scene(fort))
-			: null;
+		var coming = fort != null && FortArt.HasScene(fort) ? Art<Texture2D>(FortArt.Scene(fort)) : null;
 
 		TextureRect showing = _walls[_showing];
 		if (showing.Texture == coming)
@@ -214,9 +235,26 @@ public partial class FortificationsPage : RoomPage
 			return;
 		}
 
-		TextureRect incoming = _walls[1 - _showing];
+		int layer = 1 - _showing;
+		TextureRect incoming = _walls[layer];
 		incoming.Texture = coming;
-		_showing = 1 - _showing;
+
+		// The wind goes on with the wall it belongs to. Set on the layer rather than baked into the
+		// picture, so the same art is what dissolves and only the cloth on it knows the difference.
+		incoming.Material = fort != null && FortArt.HasCloth(fort) ? Art<ShaderMaterial>(FortArt.Cloth(fort)) : null;
+
+		// And so does whatever hangs off it. The layer's own fade carries these with it: modulate
+		// runs down the tree, so a crane dissolves out with the wall it was built against.
+		_living[layer]?.QueueFree();
+		_living[layer] = null;
+		if (fort != null && FortArt.HasLife(fort))
+		{
+			_living[layer] = Art<PackedScene>(FortArt.Life(fort)).Instantiate<Node2D>();
+			incoming.AddChild(_living[layer]);
+			Place(layer);
+		}
+
+		_showing = layer;
 
 		// One tween at a time: a second press mid-dissolve would otherwise leave the first fading
 		// against the second and both half-lit.
@@ -224,6 +262,49 @@ public partial class FortificationsPage : RoomPage
 		_fade = CreateTween().SetParallel();
 		_fade.TweenProperty(incoming, "modulate:a", coming == null ? 0f : 1f, FadeSeconds);
 		_fade.TweenProperty(showing, "modulate:a", 0f, FadeSeconds);
+	}
+
+	/// <summary>Starts a file on its way in the background. A rung that has no such file yet is not
+	/// asked for, which is how a half-drawn ladder stays quiet.</summary>
+	private void Want(string path)
+	{
+		if (ResourceLoader.Exists(path))
+		{
+			ResourceLoader.LoadThreadedRequest(path);
+		}
+	}
+
+	/// <summary>Takes a file the room asked for on the way in, waiting on the worker only if it has
+	/// not finished yet, and keeps it: a second look at the same rung costs nothing at all.</summary>
+	private T Art<T>(string path) where T : Resource
+	{
+		if (!_art.TryGetValue(path, out Resource held))
+		{
+			held = ResourceLoader.LoadThreadedGet(path);
+			_art[path] = held;
+		}
+
+		return (T)held;
+	}
+
+	/// <summary>Puts a layer's moving parts where the picture under them actually ended up. The wall
+	/// is drawn to cover the page, so the art is scaled by whichever of the two edges needs the most
+	/// and centred on what is left — which means a point measured from the picture's middle lands at
+	/// the page's middle plus that same offset, scaled. Everything in the scene is placed from the
+	/// middle for exactly this reason.</summary>
+	private void Place(int layer)
+	{
+		TextureRect wall = _walls[layer];
+		Node2D life = _living[layer];
+		if (life == null || wall.Texture == null || wall.Size.X <= 0f || wall.Size.Y <= 0f)
+		{
+			return;
+		}
+
+		Vector2 picture = wall.Texture.GetSize();
+		float cover = Mathf.Max(wall.Size.X / picture.X, wall.Size.Y / picture.Y);
+		life.Scale = new Vector2(cover, cover);
+		life.Position = wall.Size / 2f;
 	}
 
 	/// <summary>One card: the fort as it will look, its name, and what it costs. The picture may not
@@ -380,8 +461,7 @@ public partial class FortificationsPage : RoomPage
 			return; // not recorded yet
 		}
 
-		_voice.Stream = GD.Load<AudioStreamMP3>(path);
-		_voice.Play();
+		Narrator.Say(path);
 	}
 
 	/// <summary>Reads one rung while the valley shows another — or none. The two part company once,
@@ -551,6 +631,9 @@ public partial class FortificationsPage : RoomPage
 		}
 
 		Province.Building = _chosen.Key;
+		// Priced in hand-seasons: the quoted seasons are what it takes at the nominal gang of masons,
+		// and the lord decides whether it gets them.
+		Province.BuildLeft = _chosen.Seasons * GameBalance.Engine.MasonsPerBuildSeason;
 		Province.BuildSeasonsLeft = _chosen.Seasons;
 		Refresh();
 	}

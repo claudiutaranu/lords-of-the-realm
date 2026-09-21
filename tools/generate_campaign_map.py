@@ -79,7 +79,7 @@ LANDMASS = [tuple(point) for point in MAP["outline"]]
 
 TERRAIN = knobs(MAP, "terrain", sea_floor_byte=46.0, ridge_height=190.0, ridge_detail=96.0,
                 inland_height=44.0, north_lift=26.0, seat_height=16.0, noise_height=26.0,
-                lowland_detail=0.08)
+                lowland_detail=0.08, outcrop_height=0.0, outcrop_cover=0.0, border_warp=0.0)
 SEA_FLOOR_BYTE = TERRAIN["sea_floor_byte"]
 RIDGE_HEIGHT = TERRAIN["ridge_height"]
 RIDGE_DETAIL = TERRAIN["ridge_detail"]
@@ -91,6 +91,14 @@ NOISE_HEIGHT = TERRAIN["noise_height"]
 # and gullies belong to the mountains; spread across the lowlands they only crumple the fields the
 # player is trying to read.
 LOWLAND_DETAIL = TERRAIN["lowland_detail"]
+# Crags standing out of the grass, as the reference island has them: how tall they stand in height
+# bytes, and what fraction of the land they cover. Broad, not spiky — see the note on mesh
+# resolution by the island heights.
+OUTCROP_HEIGHT = TERRAIN["outcrop_height"]
+OUTCROP_COVER = TERRAIN["outcrop_cover"]
+# How far a province border wanders off the straight line between two seats, in map pixels. A raster
+# Voronoi draws borders as perfectly straight bisectors, which no country has.
+BORDER_WARP = TERRAIN["border_warp"]
 
 ISLANDS = knobs(MAP, "islands", islet_height=30.0, stack_height=34.0, emergent_shape=0.35,
                 base_reach=3.2, stack_count=26, islets_per_province=1.5)
@@ -103,6 +111,8 @@ BASE_REACH = ISLANDS["base_reach"]
 CARVE_RADIUS_DIRT = 12
 CARVE_RADIUS_PAVED = 17
 CARVE_STRENGTH = 0.85
+CARVE_VERGE = 34        # how far the cutting's bank is graded out into the country it crosses
+CARVE_VERGE_BLUR = 9.0
 GRADE_PASSES = 3
 # Shortcuts kept on top of the minimum network that reaches every seat.
 EXTRA_ROUTES = 2
@@ -185,13 +195,11 @@ def smooth_noise(rng, cells, height=H, width=W):
     return np.array(upscaled).astype(np.float32) / 127.5 - 1.0
 
 
-# Height in height-map bytes. Keep these low against the radii below: the terrain mesh carries one
-# vertex per 4 map pixels, so anything narrower than ~40px and taller than it is wide comes out as a
-# shard rather than a rock.
-ISLET_HEIGHT = 30.0
-STACK_HEIGHT = 34.0
-EMERGENT_SHAPE = 0.35  # below this the disc is the island's underwater base, not land
-BASE_REACH = 3.2       # how far the submarine shelf spreads, in island radii
+# The island heights live in map.json's "islands" block, read above. They used to be re-declared
+# here, which quietly threw that block away: editing the campaign's own file changed nothing.
+#
+# Keep them low against the radii: the terrain mesh carries one vertex per 4 map pixels, so anything
+# narrower than ~40px and taller than it is wide comes out as a shard rather than a rock.
 
 
 def build_islets(rng, land):
@@ -288,9 +296,11 @@ def build_terrain(rng, land, province_id, dist_to_seed, islet_field, islet_base)
     Height comes first on its own because the roads are routed over it and then cut into it: a
     mountain road belongs in a pass it has carved, not draped over the cliffs it happens to cross.
     The colour is painted last, from the carved ground, so scree and snow follow the cutting."""
-    # Distance from the coast, cheaply: a heavy blur of the land mask is ~0 at the shoreline
-    # and ~1 deep inland, already smooth, no distance transform needed.
-    inland = np.clip(blurred(land, 130.0) * 1.15, 0, 1) ** 0.85
+    # Distance from the coast, cheaply: a heavy blur of the land mask, recentred. A blur alone is
+    # not it — over a straight shoreline it reads 0.5, not 0, so everything keyed to this field
+    # (the cliffs, the beach, the treeline, where the range is allowed to stand) came out saturated
+    # at 1 and did nothing at all. Halved and doubled, it is 0 on the waterline and 1 well inland.
+    inland = np.clip((blurred(land, 130.0) - 0.5) * 2.0, 0, 1) ** 0.85
 
     north = np.zeros_like(land, dtype=np.float32)
     for i, (_, _, _, region, _, _) in enumerate(PROVINCES):
@@ -309,6 +319,7 @@ def build_terrain(rng, land, province_id, dist_to_seed, islet_field, islet_base)
 
     noise = 0.45 * smooth_noise(rng, 24) + 0.35 * smooth_noise(rng, 64) + 0.2 * smooth_noise(rng, 160)
     crests = ridged_noise(rng, 26, octaves=5)
+    outcrops = lambda r, l: crag_field(r, l) * np.clip(inland * 6.0, 0, 1)
 
     # Cliffs, not beaches: the ground leaves the water fast and then levels off, which is what gives
     # a coastline a silhouette instead of a ramp.
@@ -316,9 +327,10 @@ def build_terrain(rng, land, province_id, dist_to_seed, islet_field, islet_base)
 
     height = (
         INLAND_HEIGHT * shore_rise
-        + RIDGE_HEIGHT * ridge * np.clip(inland * 1.6, 0, 1) * (0.35 + 0.65 * crests)
+        + RIDGE_HEIGHT * ridge * np.clip(inland * 4.0, 0, 1) * (0.35 + 0.65 * crests)
         # Spurs and gullies riding on the range, and on the northern highlands.
-        + RIDGE_DETAIL * crests * np.clip(inland * 2.2, 0, 1) * (LOWLAND_DETAIL + 1.0 * ridge + 0.5 * north_field)
+        + RIDGE_DETAIL * crests * np.clip(inland * 4.0, 0, 1) * (LOWLAND_DETAIL + 1.0 * ridge + 0.5 * north_field)
+        + OUTCROP_HEIGHT * outcrops(rng, land)
         + NORTH_LIFT * north_field * inland
         + SEAT_HEIGHT * seats
         + NOISE_HEIGHT * noise * inland
@@ -346,7 +358,7 @@ def build_terrain(rng, land, province_id, dist_to_seed, islet_field, islet_base)
     return height, {"north_field": north_field, "inland": inland, "noise": noise}
 
 
-def carve_roads(height, roads):
+def carve_roads(height, roads, land):
     """Cuts every route into the ground: a graded profile along the road, blended into the terrain.
 
     Each route's own elevation is smoothed along its length, then painted back into the map over a
@@ -388,7 +400,36 @@ def carve_roads(height, roads):
                      .filter(ImageFilter.GaussianBlur(6.0))).astype(np.float32) / 255.0
     blend = np.clip(blend * 1.5, 0, 1) * CARVE_STRENGTH
 
-    return height * (1.0 - blend) + cut * blend
+    carved = height * (1.0 - blend) + cut * blend
+
+    # The cutting's own edge is the steepest ground for a long way either side, and paint_albedo
+    # answers steep ground with bare rock: every lane came out running between two raw scars.
+    # So the bank is graded away — the road keeps its level bed and rises to the country it crosses
+    # over a shoulder wide enough that nothing on it reads as a slope.
+    verge = np.clip(1.0 - distance_to_roads(roads) / CARVE_VERGE, 0, 1)
+    verge = verge * verge * (3.0 - 2.0 * verge)
+    # A blur that reaches the water pulls the seabed up into the shore. No road is graded near it.
+    verge[blurred_height((~land) * 255.0, CARVE_VERGE) > 2.0] = 0.0
+    return carved * (1.0 - verge) + blurred_height(carved, CARVE_VERGE_BLUR) * verge
+
+
+def distance_to_roads(roads):
+    """Pixels from each point of the map to the nearest road centre line, out to CARVE_VERGE."""
+    ys, xs = np.mgrid[0:H, 0:W]
+    distance = np.full((H, W), float(CARVE_VERGE), dtype=np.float32)
+    for road in roads:
+        for x, y in road["points"]:
+            left, right = max(int(x - CARVE_VERGE), 0), min(int(x + CARVE_VERGE) + 1, W)
+            top, bottom = max(int(y - CARVE_VERGE), 0), min(int(y + CARVE_VERGE) + 1, H)
+            local = np.sqrt((xs[top:bottom, left:right] - x) ** 2 + (ys[top:bottom, left:right] - y) ** 2)
+            np.minimum(distance[top:bottom, left:right], local, out=distance[top:bottom, left:right])
+
+    return distance
+
+
+def blurred_height(height, sigma):
+    return np.array(Image.fromarray(np.clip(height, 0, 255).astype(np.uint8), "L")
+                    .filter(ImageFilter.GaussianBlur(sigma))).astype(np.float32)
 
 
 def paint_albedo(height, fields, land, rng):
@@ -742,7 +783,7 @@ def main():
     height, terrain_fields = build_terrain(rng, land, province_id, dist_to_seed, islet_field, islet_base)
 
     roads = build_roads(height, land, province_id, adjacency)
-    height = carve_roads(height, roads)
+    height = carve_roads(height, roads, land)
 
     albedo = paint_albedo(height, terrain_fields, land, rng)
 

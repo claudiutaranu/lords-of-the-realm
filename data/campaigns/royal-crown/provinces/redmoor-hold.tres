@@ -6,11 +6,11 @@
 script = ExtResource("1_script")
 ProvinceName = "Redmoor Hold"
 InitialPopulation = 650
-GrainWorkerCapacity = 50
-CattleWorkerCapacity = 30
-WoodWorkerCapacity = 40
-StoneWorkerCapacity = 70
-IronWorkerCapacity = 60
+GrainWorkerCapacity = 200
+CattleWorkerCapacity = 120
+WoodWorkerCapacity = 160
+StoneWorkerCapacity = 0
+IronWorkerCapacity = 240
 GrainModifier = 0.8
 CattleModifier = 0.9
 WoodModifier = 1.0

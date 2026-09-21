@@ -6,11 +6,11 @@
 script = ExtResource("1_script")
 ProvinceName = "Kingsreach"
 InitialPopulation = 900
-GrainWorkerCapacity = 90
-CattleWorkerCapacity = 40
-WoodWorkerCapacity = 50
-StoneWorkerCapacity = 50
-IronWorkerCapacity = 30
+GrainWorkerCapacity = 360
+CattleWorkerCapacity = 160
+WoodWorkerCapacity = 200
+StoneWorkerCapacity = 0
+IronWorkerCapacity = 120
 GrainModifier = 1.1
 CattleModifier = 1.0
 WoodModifier = 1.0

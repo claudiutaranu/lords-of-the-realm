@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Godot;
 
 /// <summary>The campaign map as real geometry: a plane displaced by the campaign's map-height.png,
@@ -25,7 +26,17 @@ public partial class CampaignMap3D : Node3D
 	// bigger ground rather than the same map zoomed. Height goes with it or the relief flattens.
 	private const float MapWidth = 184.3f;
 	private const float MapDepth = 122.9f;
-	private const float HeightScale = 24.0f;
+	// How tall the relief stands. The height map says where the ground rises and by how much
+	// relative to itself; this alone says how much of that the player sees, so it is the one number
+	// that makes the realm rolling country or a mountain range. Down from 24, and down again: a lord
+	// reads his realm off the roads between his counties, and on tall relief the roads spend half
+	// their length behind hills. Flatter is not prettier, it is legible — the old game this one is
+	// copied from drew almost no relief at all and never lost a road. Lower still would flatten the
+	// snow line into a painted stripe, because snow is decided on the height map rather than here.
+	private const float HeightScale = 8.0f;
+
+	/// <summary>How coarsely the ID map is read when looking for borders, in pixels.</summary>
+	private const int BorderStep = 3;
 	// The height map stores the seabed too: this byte value is the waterline, and everything below
 	// it is under water (tools/generate_campaign_map.py: SEA_FLOOR_BYTE).
 	private const float SeaFloorByte = 46.0f;
@@ -106,6 +117,85 @@ public partial class CampaignMap3D : Node3D
 		Vector3 direction = _camera.ProjectRayNormal(viewportPosition);
 		return RayHitsTerrain(origin, direction, out Vector3 hit) ? ProvinceAtWorld(hit) : -1;
 	}
+
+	/// <summary>Where on the map a point in the viewport lands, in map pixels. False for sea and sky,
+	/// the same as <see cref="ProvinceAt"/> — the two answer the same ray.</summary>
+	public bool TryMapPixel(Vector2 viewportPosition, out Vector2 mapPixel)
+	{
+		Vector3 origin = _camera.ProjectRayOrigin(viewportPosition);
+		Vector3 direction = _camera.ProjectRayNormal(viewportPosition);
+		if (!RayHitsTerrain(origin, direction, out Vector3 hit) || !IsInsideMap(hit))
+		{
+			mapPixel = Vector2.Zero;
+			return false;
+		}
+
+		Vector2I pixel = WorldToPixel(hit);
+		mapPixel = new Vector2(pixel.X, pixel.Y);
+		return true;
+	}
+
+	/// <summary>Which counties share a border, by province index. Read off the ID map itself, which
+	/// is the only thing that actually knows: seats a short way apart can be separated by a bay, and
+	/// two counties that look far apart on the pins can run a hundred miles of frontier together.
+	///
+	/// Sampled rather than walked pixel by pixel. A million and a half GetPixel calls to answer a
+	/// question about where borders are is a second of loading for an answer a third of the pixels
+	/// gives exactly as well — a border long enough for an army to cross is many pixels wide.</summary>
+	public List<(int A, int B)> Borders()
+	{
+		var found = new HashSet<(int, int)>();
+		int width = _idImage.GetWidth();
+		int height = _idImage.GetHeight();
+		for (int y = 0; y < height - BorderStep; y += BorderStep)
+		{
+			for (int x = 0; x < width - BorderStep; x += BorderStep)
+			{
+				int here = IdAt(x, y);
+				if (here < 0)
+				{
+					continue;
+				}
+
+				foreach (int there in new[] { IdAt(x + BorderStep, y), IdAt(x, y + BorderStep) })
+				{
+					if (there >= 0 && there != here)
+					{
+						found.Add((Mathf.Min(here, there), Mathf.Max(here, there)));
+					}
+				}
+			}
+		}
+
+		return new List<(int, int)>(found);
+	}
+
+	private int IdAt(int x, int y) => Mathf.RoundToInt(_idImage.GetPixel(x, y).R * 255f) - 1;
+
+	/// <summary>Which county a map pixel belongs to, or -1 for water and the edge of the world.</summary>
+	public int CountyAt(Vector2 mapPixel)
+	{
+		int x = Mathf.Clamp(Mathf.RoundToInt(mapPixel.X), 0, _idImage.GetWidth() - 1);
+		int y = Mathf.Clamp(Mathf.RoundToInt(mapPixel.Y), 0, _idImage.GetHeight() - 1);
+		return IdAt(x, y);
+	}
+
+	/// <summary>How big the map is in pixels, for anything that wants to lay a grid over it.</summary>
+	public Vector2I MapPixels => new(_heightImage.GetWidth(), _heightImage.GetHeight());
+
+	/// <summary>Whose banner stands under a map pixel, or nothing.</summary>
+	public string ArmyAt(Vector2 mapPixel) => _decoration.ArmyAt(mapPixel);
+
+	/// <summary>Walks a county's banner along a road, and says when it has arrived.</summary>
+	public void WalkArmy(string province, List<Vector2> road, System.Action arrived) =>
+		_decoration.WalkArmy(province, road, arrived);
+
+	/// <summary>Puts a county's men on the ground, or takes them off it.</summary>
+	public void SetArmy(string province, Vector2 seatPixel, bool standing) =>
+		_decoration.SetArmy(province, seatPixel, standing);
+
+	/// <summary>Which of a county's fields sits under a map pixel, or -1.</summary>
+	public int PlotAt(string province, Vector2 mapPixel) => _decoration.PlotAt(province, mapPixel);
 
 	/// <summary>Where a map pixel currently sits on screen, for the 2D markers drawn over the
 	/// viewport. Returns false when it is behind the camera.</summary>
@@ -236,8 +326,23 @@ public partial class CampaignMap3D : Node3D
 	public void SetFortification(string province, Vector2 seatPixel, string fort) =>
 		_decoration.SetFortification(province, seatPixel, fort);
 
+	/// <summary>Lays a province's fields on its ground — one plot per field, under what the province
+	/// has it under. Called again whenever the land or the season changes, so the map keeps up with
+	/// the ledger the same way the walls do.</summary>
+	public void SetFields(string name, Vector2 seatPixel, ProvinceEconomy province, Season season) =>
+		_decoration.SetFields(name, seatPixel, province, season);
+
 	/// <summary>Sows the woods, once everything built is standing. Last, so they grow around it.</summary>
 	public void SowWoods() => _decoration.SowWoods();
+
+	/// <summary>Sets the march stones along every frontier between two counties.</summary>
+	public void SowBorderStones() => _decoration.SowBorderStones();
+
+	/// <summary>How close the camera is standing, as a multiple of how close it stands when pulled
+	/// all the way out: 1 at the far end and near three at the near one. What is pinned to the
+	/// ground rather than painted on it grows by this, so a mark over a county reads at the same
+	/// size against the land whatever the lord has done with the wheel.</summary>
+	public float Closeness => MaxDistance / _distance;
 
 	/// <summary>Terrain height in world units at a map pixel — where a marker or a future army
 	/// has to stand so it isn't buried in a hillside.</summary>
@@ -245,6 +350,11 @@ public partial class CampaignMap3D : Node3D
 
 	/// <summary>The waterline in world units — anything below it is sea.</summary>
 	public float WaterLine => SeaLevel;
+
+	/// <summary>How tall this map's relief stands, in world units: the height of ground the map's
+	/// whitest pixel would carry. Anything that means "high up" has to be a share of this rather
+	/// than a height of its own, or flattening the map leaves it behind at the old altitude.</summary>
+	public float Relief => HeightScale;
 
 	// --- world building ------------------------------------------------------------------
 
@@ -281,9 +391,15 @@ public partial class CampaignMap3D : Node3D
 			LightEnergy = 1.55f,
 			LightColor = new Color("fff0cf"),
 			ShadowEnabled = true,
-			DirectionalShadowMode = DirectionalLight3D.ShadowMode.Parallel2Splits,
+			DirectionalShadowMode = DirectionalLight3D.ShadowMode.Parallel4Splits,
 			DirectionalShadowMaxDistance = 190.0f,
 			ShadowBlur = 1.4f,
+			// The seabed is a single near-flat sheet the size of the map, seen almost edge-on: at the
+			// default bias it shadows itself, and the streaks that come off every islet run halfway to
+			// the horizon across the water. Nothing on land needs a bias this generous; the flat sea
+			// does, and it is the same light over both.
+			ShadowBias = 0.6f,
+			ShadowNormalBias = 4.0f,
 		};
 		_sun.RotationDegrees = new Vector3(-42, -38, 0);
 		AddChild(_sun);

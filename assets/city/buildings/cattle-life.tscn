@@ -1,0 +1,26 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/city/buildings/pasture/cow.tscn" id="1_cow"]
+[ext_resource type="Resource" path="res://assets/city/buildings/pasture/pose_cow_graze_left.tres" id="2_graze_left"]
+[ext_resource type="Resource" path="res://assets/city/buildings/pasture/pose_cow_stand.tres" id="3_stand"]
+[ext_resource type="Resource" path="res://assets/city/buildings/pasture/pose_cow_graze_right.tres" id="4_graze_right"]
+[ext_resource type="Resource" path="res://assets/city/buildings/pasture/pose_cow_rear.tres" id="5_rear"]
+
+[node name="Life" type="Node2D"]
+y_sort_enabled = true
+
+[node name="Cow1" parent="." instance=ExtResource("1_cow")]
+position = Vector2(223.0, 241.0)
+pose = ExtResource("2_graze_left")
+
+[node name="Cow2" parent="." instance=ExtResource("1_cow")]
+position = Vector2(408.0, 226.0)
+pose = ExtResource("3_stand")
+
+[node name="Cow3" parent="." instance=ExtResource("1_cow")]
+position = Vector2(328.0, 278.5)
+pose = ExtResource("4_graze_right")
+
+[node name="Cow4" parent="." instance=ExtResource("1_cow")]
+position = Vector2(480.5, 277.5)
+pose = ExtResource("5_rear")

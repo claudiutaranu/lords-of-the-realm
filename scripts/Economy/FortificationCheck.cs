@@ -18,17 +18,23 @@ public partial class FortificationCheck : Node
 		var province = new ProvinceEconomy
 		{
 			ProvinceName = "Kingsreach",
+			Realm = "northern-watch", // taken from its old lord, which the file has to remember
 			Gold = 500, Wood = 900, Stone = 1200, Iron = 300, Population = 1200,
 			Fortification = "medium-fort",
 			Building = "large-castle",
 			BuildSeasonsLeft = 4,
 		};
 		province.Garrison["sword"] = 12;
+		province.HappinessByYear = new List<float> { 70f, 64f }; // two years of a reign
 		province.Armoury["bow"] = 30;
 
 		// Through the real file, not a serializer called by hand: what matters is that a save on
 		// disk carries it, and the options that decide so live inside SaveGame.
-		SaveGame.Write("Check", turn: 9, provinces: new() { province });
+		// The realm's prices ride along in the same file: a market that forgets what the player did
+		// to it is one he can launder a granary through by saving and reloading.
+		var prices = new Dictionary<string, float> { ["grain"] = -0.4f };
+
+		SaveGame.Write("Check", turn: 9, provinces: new() { province }, prices, Difficulty.Hard);
 		SaveGame read = Newest();
 		ProvinceEconomy back = read.Provinces[0];
 
@@ -39,9 +45,17 @@ public partial class FortificationCheck : Node
 		Is("the stores come back", back.Stone, 1200);
 		Is("the garrison comes back", back.Garrison.GetValueOrDefault("sword"), 12);
 		Is("the armoury comes back", back.Armoury.GetValueOrDefault("bow"), 30);
+		Is("a glutted market is still glutted", read.Prices.GetValueOrDefault("grain"), -0.4f);
+		Is("the county comes back in the hands that took it", back.Realm, "northern-watch");
+		// The chart cannot be worked out again later — the turns it is made of are gone — so if it
+		// does not survive the file, the county's whole history is one save away from nothing.
+		Is("and so do the years it remembers", back.HappinessByYear.Count, 2);
+		Is("  with what they were worth", back.HappinessByYear[1], 64f);
+		Is("and the campaign at the difficulty it was played at", read.Difficulty == Difficulty.Hard, true);
 
 		// A province that has never built anything must read as open, not as null.
-		SaveGame.Write("Check", turn: 1, provinces: new() { new ProvinceEconomy { ProvinceName = "Thornwatch" } });
+		SaveGame.Write("Check", turn: 1, provinces: new() { new ProvinceEconomy { ProvinceName = "Thornwatch" } },
+			new Dictionary<string, float>(), Difficulty.Medium);
 		ProvinceEconomy openBack = Newest().Provinces[0];
 		Is("an unbuilt province has no wall", openBack.Fortification, "");
 		Is("an unbuilt province is raising nothing", openBack.Building, "");

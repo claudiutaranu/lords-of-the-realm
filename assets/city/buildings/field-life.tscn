@@ -1,0 +1,35 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Texture2D" path="res://assets/city/buildings/field/field_base.png" id="1_base"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/field/wheat_sway_mask.png" id="2_mask"]
+[ext_resource type="Shader" path="res://assets/city/buildings/tree_sway.gdshader" id="3_sway"]
+[ext_resource type="PackedScene" path="res://assets/city/buildings/field/digger.tscn" id="4_digger"]
+[ext_resource type="PackedScene" path="res://assets/city/buildings/field/hoer.tscn" id="5_hoer"]
+[ext_resource type="PackedScene" path="res://assets/city/buildings/field/raker.tscn" id="6_raker"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_wheat"]
+shader = ExtResource("3_sway")
+shader_parameter/sway_mask = ExtResource("2_mask")
+shader_parameter/amplitude_px = 2.0
+shader_parameter/wind_speed = 0.28
+
+[node name="Life" type="Node2D"]
+
+[node name="Ground" type="Sprite2D" parent="."]
+material = SubResource("ShaderMaterial_wheat")
+texture = ExtResource("1_base")
+centered = false
+position = Vector2(64, 64)
+
+[node name="Workers" type="Node2D" parent="."]
+position = Vector2(425.8, 520.5)
+y_sort_enabled = true
+
+[node name="Digger" parent="Workers" instance=ExtResource("4_digger")]
+position = Vector2(-134.2, -234.0)
+
+[node name="Hoer" parent="Workers" instance=ExtResource("5_hoer")]
+position = Vector2(130.8, -231.5)
+
+[node name="Raker" parent="Workers" instance=ExtResource("6_raker")]
+position = Vector2(-81.8, -286.5)

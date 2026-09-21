@@ -11,7 +11,11 @@ public partial class MarketCheck : Node
 
 	public override void _Ready()
 	{
-		var balance = new GameBalance();
+		// The first half holds the market perfectly still — no merchant's cut, no season, no depth
+		// to push against — because what it is testing is that a trade moves exactly what it says it
+		// moves. Those guarantees did not change when prices learned to move, and they are the ones
+		// that mint or burn gold if they break. The second half turns the market back on.
+		var balance = Still();
 		var market = new Market(balance);
 
 		Is("grain is priced from the balance", market.Price("grain"), balance.GrainPrice);
@@ -72,9 +76,89 @@ public partial class MarketCheck : Node
 		Is("  grain untouched by all of that", province.Grain, 10);
 		Is("  and nothing was racked under it", province.Armoury.ContainsKey("turnips"), false);
 
+		Moving();
+
 		GD.Print(_failed == 0 ? "\nmarket engine: all checks passed" : $"\nmarket engine: {_failed} FAILED");
 		GetTree().Quit(_failed);
 	}
+
+	/// <summary>The half that makes the market worth having: a price that answers the season and
+	/// answers what the realm has been doing to it, with a merchant's cut across the middle so that
+	/// answering cannot be farmed.</summary>
+	private void Moving()
+	{
+		var balance = new GameBalance();
+		var market = new Market(balance);
+		market.Turned(Season.Summer); // a season that does nothing to grain either way
+
+		// The cut. Without it a moving price is a money printer, so this is the load-bearing one.
+		Is("the merchant asks more than he offers", market.Asking("grain") > market.Offered("grain"), true);
+
+		ProvinceEconomy trader = Province(gold: 10000, grain: 0);
+		int purse = trader.Gold;
+		market.Buy(trader, "grain", 40);
+		market.Sell(trader, "grain", 40);
+		Is("a round trip loses money", trader.Gold < purse, true);
+		Is("and leaves the goods where they were", trader.Grain, 0);
+
+		// The same trip at a size that used to turn a profit: priced at the figure before the order
+		// rather than along it, buying this much moved the price further than the merchant's cut,
+		// and selling it straight back minted gold out of nothing.
+		var big = new Market(balance);
+		big.Turned(Season.Summer);
+		ProvinceEconomy whale = Province(gold: 100000, grain: 0);
+		purse = whale.Gold;
+		big.Buy(whale, "grain", 600);
+		big.Sell(whale, "grain", 600);
+		Is("and a big round trip loses money too", whale.Gold < purse, true);
+
+		// Dumping a granary is worth less per sack the more of it you dump.
+		var glut = new Market(balance);
+		glut.Turned(Season.Summer);
+		int before = glut.Offered("grain");
+		ProvinceEconomy farmer = Province(gold: 0, grain: 4000);
+		glut.Sell(farmer, "grain", 3000);
+		int after = glut.Offered("grain");
+		Is("selling a mountain of grain drives the price down", after < before, true);
+		Is("but not below the floor",
+			glut.Price("grain") >= Mathf.RoundToInt(balance.GrainPrice * balance.PriceFloor), true);
+
+		// And it comes back, a season at a time, or one glut would ruin grain for the campaign.
+		for (int season = 0; season < 8; season++)
+		{
+			glut.Turned(Season.Summer);
+		}
+
+		Is("a glut fades with the seasons", glut.Offered("grain") > after, true);
+
+		// Buying the country dry does the opposite.
+		var run = new Market(balance);
+		run.Turned(Season.Summer);
+		int asking = run.Asking("grain");
+		run.Buy(Province(gold: 100000, grain: 0), "grain", 3000);
+		Is("buying the country dry drives the price up", run.Asking("grain") > asking, true);
+		Is("but not past the ceiling",
+			run.Price("grain") <= Mathf.RoundToInt(balance.GrainPrice * balance.PriceCeiling), true);
+
+		// The calendar, which is the only thing in this game that asks a lord to look past next turn.
+		var year = new Market(balance);
+		year.Turned(Season.Autumn);
+		int reaped = year.Offered("grain");
+		year.Turned(Season.Spring);
+		Is("grain is cheap the week it is reaped and dear in spring", year.Offered("grain") > reaped, true);
+		year.Turned(Season.Autumn);
+		Is("a quarry does not care what month it is", year.Price("stone"), balance.StonePrice);
+	}
+
+	/// <summary>A balance with the market's own weather turned off: no cut, no season, and a depth
+	/// nothing can shift.</summary>
+	private static GameBalance Still() => new()
+	{
+		MarketSpread = 0f,
+		MarketDepth = 1000000000f,
+		GrainSeasonPrice = new[] { 1f, 1f, 1f, 1f },
+		CattleSeasonPrice = new[] { 1f, 1f, 1f, 1f },
+	};
 
 	private static ProvinceEconomy Province(int gold, int grain) =>
 		new() { ProvinceName = "Check", Gold = gold, Grain = grain };

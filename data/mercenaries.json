@@ -1,0 +1,29 @@
+{
+	"_comment": "Bands of foreign soldiers that offer themselves to whoever is paying. Engine data, not a campaign's: the same companies walk every realm. A band is men already drilled — 'unit' is which company of the garrison they fall in with once hired, so the muster stays in units the province understands rather than in nationalities. 'men' is how many came and 'gold' is what the whole company asks for itself: a band is taken whole or not at all, which is what keeps it from being a cheaper barracks with a slider on it. The sizes and prices are Lords of the Realm II's own, and they are meant to hurt — a company costs several years of a county's income, so hiring one is a war decision rather than a purchase. The four stats are 0..10 bars and sit a notch above the levy they stand beside, which is the whole reason to pay for them.",
+	"bands": [
+		{ "key": "scottish", "name": "Scottish Pikemen", "unit": "spear", "men": 100, "gold": 1800,
+			"attack": 6, "range": 4, "defence": 8, "speed": 5,
+			"blurb": "Highlanders down for the pay, with eighteen feet of ash ahead of them. The cheapest wall of points a lord can buy, and it has held against better horse than yours." },
+		{ "key": "swiss", "name": "Swiss Pikemen", "unit": "spear", "men": 200, "gold": 3500,
+			"attack": 7, "range": 4, "defence": 9, "speed": 4,
+			"blurb": "The hedge that has never been ridden down. Twice the Scots and twice the price, and horse does not charge them twice." },
+		{ "key": "flemish", "name": "Flemish Crossbowmen", "unit": "crossbow", "men": 100, "gold": 3000,
+			"attack": 8, "range": 7, "defence": 4, "speed": 4,
+			"blurb": "Town militia who broke knights at Courtrai and have dined on it ever since. They bring their own bolts and their own opinion of your county." },
+		{ "key": "genoese", "name": "Genoese Crossbowmen", "unit": "crossbow", "men": 200, "gold": 6000,
+			"attack": 9, "range": 8, "defence": 3, "speed": 3,
+			"blurb": "The trade's professionals, pavise and all. The costliest company on the road, and the only one that can stand in the open and shoot back." },
+		{ "key": "moorish", "name": "Moorish Archers", "unit": "bow", "men": 150, "gold": 3000,
+			"attack": 7, "range": 8, "defence": 3, "speed": 7,
+			"blurb": "Composite bows off the southern trade roads, and men who shoot on the move. Shorter reach than a longbow and quicker to loose it." },
+		{ "key": "welsh", "name": "Welsh Longbowmen", "unit": "bow", "men": 200, "gold": 4000,
+			"attack": 8, "range": 9, "defence": 2, "speed": 6,
+			"blurb": "Bowmen who have drawn since boyhood. What your own yard needs two seasons to teach, they were born knowing." },
+		{ "key": "danish", "name": "Danish Swordsmen", "unit": "sword", "men": 200, "gold": 5500,
+			"attack": 9, "range": 1, "defence": 6, "speed": 5,
+			"blurb": "The long axe and the broadsword, swung two-handed, indifferent to whatever a man is wearing. They do not hold a line; they walk through one." },
+		{ "key": "burgundian", "name": "Burgundian Knights", "unit": "horse", "men": 50, "gold": 5500,
+			"attack": 10, "range": 1, "defence": 7, "speed": 9,
+			"blurb": "Fifty lances for hire, with their own horses and their own opinion of your county. What they cost, they settle in one charge." }
+	]
+}

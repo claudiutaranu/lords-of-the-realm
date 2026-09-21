@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://scripts/UI/CampaignBriefingPage.cs" id="1_script"]
 [ext_resource type="VideoStream" path="res://assets/video/campaign-background.ogv" id="2_bg"]
@@ -16,6 +16,8 @@ region = Rect2(0, 0, 1024, 768)
 [sub_resource type="AtlasTexture" id="AtlasTexture_northern_bust"]
 atlas = ExtResource("5_northern")
 region = Rect2(0, 0, 1024, 768)
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_bare"]
 
 [node name="CampaignBriefingPage" type="Control"]
 layout_mode = 3
@@ -234,11 +236,16 @@ theme_override_font_sizes/font_size = 13
 text = "Difficulty"
 horizontal_alignment = 1
 
-[node name="Value" type="Label" parent="StatsBar/Center/StatsRow/Difficulty/Text"]
+[node name="DifficultyOption" type="OptionButton" parent="StatsBar/Center/StatsRow/Difficulty/Text"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(160, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
-text = "Normal"
-horizontal_alignment = 1
+theme_override_styles/focus = SubResource("StyleBoxEmpty_bare")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_bare")
+theme_override_styles/normal = SubResource("StyleBoxEmpty_bare")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_bare")
+alignment = 1
 
 [node name="Lords" type="VBoxContainer" parent="StatsBar/Center/StatsRow"]
 layout_mode = 2

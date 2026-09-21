@@ -1,0 +1,71 @@
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="Script" path="res://assets/city/buildings/construction/stone_chiseler.gd" id="1_script"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/construction/chiseler_body.png" id="2_body"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/construction/chiseler_arm.png" id="3_arm"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/construction/chiseler_arm_rig.png" id="4_arm_rig"]
+[ext_resource type="Shader" path="res://assets/city/buildings/bend.gdshader" id="5_bend"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/construction/dust_puff.png" id="6_puff"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_arm"]
+shader = ExtResource("5_bend")
+shader_parameter/bend_weights = ExtResource("4_arm_rig")
+shader_parameter/pivot_px = Vector2(55, 69)
+shader_parameter/angle = 0.0
+
+[sub_resource type="Gradient" id="Gradient_dust"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.86, 0.79, 0.66, 0.65, 0.86, 0.79, 0.66, 0)
+
+[sub_resource type="Gradient" id="Gradient_chips"]
+offsets = PackedFloat32Array(0, 0.75, 1)
+colors = PackedColorArray(0.88, 0.83, 0.72, 1, 0.84, 0.79, 0.68, 1, 0.84, 0.79, 0.68, 0)
+
+[node name="StoneChiseler" type="Node2D"]
+script = ExtResource("1_script")
+
+[node name="Body" type="Sprite2D" parent="."]
+texture = ExtResource("2_body")
+centered = false
+offset = Vector2(-92.9, -189.0)
+scale = Vector2(0.325, 0.325)
+
+[node name="Arm" type="Sprite2D" parent="."]
+material = SubResource("ShaderMaterial_arm")
+texture = ExtResource("3_arm")
+centered = false
+offset = Vector2(-92.9, -189.0)
+scale = Vector2(0.325, 0.325)
+
+[node name="Chips" type="CPUParticles2D" parent="."]
+position = Vector2(6.5, -19.2)
+emitting = false
+amount = 9
+lifetime = 0.55
+one_shot = true
+explosiveness = 1.0
+direction = Vector2(0.35, -1)
+spread = 65.0
+gravity = Vector2(0, 220)
+initial_velocity_min = 26.0
+initial_velocity_max = 62.0
+scale_amount_min = 1.5
+scale_amount_max = 2.5
+color_ramp = SubResource("Gradient_chips")
+
+[node name="Dust" type="CPUParticles2D" parent="."]
+position = Vector2(6.5, -19.2)
+emitting = false
+amount = 5
+lifetime = 0.9
+one_shot = true
+explosiveness = 0.85
+texture = ExtResource("6_puff")
+direction = Vector2(0, -1)
+spread = 80.0
+gravity = Vector2(0, -8)
+initial_velocity_min = 4.0
+initial_velocity_max = 10.0
+scale_amount_min = 0.35
+scale_amount_max = 0.6
+color_ramp = SubResource("Gradient_dust")

@@ -80,14 +80,14 @@ public partial class ProvinceEconomyPanel : VBoxContainer
 			return;
 		}
 
-		int available = _economy.AvailableWorkers(_balance) - _economy.AllocatedWorkers;
+		int available = _economy.Workers - _economy.AllocatedWorkers;
 		_availableLabel.Text = $"Available Workers: {available}";
 
 		foreach ((string _, ResourceType type) in Industries)
 		{
 			int workers = GetWorkers(type);
 			_countLabels[type].Text = workers.ToString();
-			int yield = EconomySimulation.ProjectedYield(type, workers, GetStock(type), _definition, _balance, _season);
+			int yield = EconomySimulation.ProjectedYield(type, workers, _economy, _definition, _balance, _season);
 			_previewLabels[type].Text = $"→ +{yield} next turn";
 		}
 	}
@@ -100,7 +100,7 @@ public partial class ProvinceEconomyPanel : VBoxContainer
 			return;
 		}
 
-		if (delta > 0 && _economy.AllocatedWorkers >= _economy.AvailableWorkers(_balance))
+		if (delta > 0 && _economy.AllocatedWorkers >= _economy.Workers)
 		{
 			return;
 		}
@@ -143,5 +143,4 @@ public partial class ProvinceEconomyPanel : VBoxContainer
 	};
 
 	// Only Cattle's projection needs the current stock (base regrowth is a % of what's already there).
-	private int GetStock(ResourceType type) => type == ResourceType.Cattle ? _economy.Cattle : 0;
 }

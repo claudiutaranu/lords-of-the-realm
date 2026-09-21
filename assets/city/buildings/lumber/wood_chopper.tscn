@@ -1,0 +1,81 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://assets/city/buildings/tool_strike_worker.gd" id="1_script"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/lumber/chopper_body.png" id="2_body"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/lumber/chopper_arms.png" id="3_axe"]
+[ext_resource type="Texture2D" path="res://assets/city/buildings/lumber/chopper_axe_rig.png" id="4_axe_rig"]
+[ext_resource type="Shader" path="res://assets/city/buildings/bend.gdshader" id="5_bend"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_axe"]
+shader = ExtResource("5_bend")
+shader_parameter/bend_weights = ExtResource("4_axe_rig")
+shader_parameter/pivot_px = Vector2(201, 167)
+shader_parameter/angle = 0.0
+
+[sub_resource type="Gradient" id="Gradient_chips"]
+offsets = PackedFloat32Array(0, 0.75, 1)
+colors = PackedColorArray(0.95, 0.84, 0.62, 1, 0.9, 0.78, 0.55, 1, 0.9, 0.78, 0.55, 0)
+
+[sub_resource type="Gradient" id="Gradient_bits"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.55, 0.4, 0.25, 0.9, 0.55, 0.4, 0.25, 0)
+
+[node name="WoodChopper" type="Node2D"]
+script = ExtResource("1_script")
+wind_up_degrees = -28.0
+strike_degrees = 0.0
+wind_up_seconds = 0.6
+strike_seconds = 0.11
+hold_seconds = 0.3
+recover_seconds = 0.05
+min_strikes_in_a_row = 4
+max_strikes_in_a_row = 8
+min_rest_seconds = 1.5
+max_rest_seconds = 3.5
+
+[node name="Body" type="Sprite2D" parent="."]
+texture = ExtResource("2_body")
+centered = false
+offset = Vector2(-186.4, -326.1)
+scale = Vector2(0.25, 0.25)
+
+[node name="Tool" type="Sprite2D" parent="."]
+material = SubResource("ShaderMaterial_axe")
+texture = ExtResource("3_axe")
+centered = false
+offset = Vector2(-186.4, -326.1)
+scale = Vector2(0.25, 0.25)
+
+[node name="Chips" type="CPUParticles2D" parent="."]
+position = Vector2(24.2, -25.0)
+emitting = false
+amount = 8
+lifetime = 0.6
+one_shot = true
+explosiveness = 1.0
+direction = Vector2(0.6, -1)
+spread = 55.0
+gravity = Vector2(0, 230)
+initial_velocity_min = 30.0
+initial_velocity_max = 70.0
+angular_velocity_min = -400.0
+angular_velocity_max = 400.0
+scale_amount_min = 2.2
+scale_amount_max = 3.4
+color_ramp = SubResource("Gradient_chips")
+
+[node name="Dust" type="CPUParticles2D" parent="."]
+position = Vector2(24.2, -25.0)
+emitting = false
+amount = 5
+lifetime = 0.45
+one_shot = true
+explosiveness = 1.0
+direction = Vector2(-0.3, -1)
+spread = 70.0
+gravity = Vector2(0, 150)
+initial_velocity_min = 15.0
+initial_velocity_max = 35.0
+scale_amount_min = 1.0
+scale_amount_max = 1.6
+color_ramp = SubResource("Gradient_bits")

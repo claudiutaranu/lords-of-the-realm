@@ -53,6 +53,12 @@ public abstract partial class RoomPage : Control
 	/// <summary>A line under the room's name, where it has one.</summary>
 	protected virtual string Tagline => null;
 
+	/// <summary>Whether the room wears the big gilded title across the top. Most do: a room is a
+	/// place you have stepped into and it says so. A screen that is mostly a picture to be read —
+	/// the province and everything standing on it — says its name in the corner instead, because a
+	/// title across the middle of the land is a title across the land.</summary>
+	protected virtual bool ShowsTitle => true;
+
 	/// <summary>Where each sign hangs, in the video frame's own proportions — over the thing it
 	/// names. Read off a still of the film rather than laid out by a container: the player is
 	/// choosing off the room itself, not off a list beside it.</summary>
@@ -141,7 +147,11 @@ public abstract partial class RoomPage : Control
 		scrim.AnchorBottom = 0.36f;
 		AddChild(scrim);
 
-		var margin = new MarginContainer();
+		// The chrome is laid out over the whole page, so every box it is laid out in would otherwise
+		// swallow presses meant for what the room has painted underneath — a building on the land,
+		// a sign on a wall. The boxes let presses through; what is actually drawn in them, the
+		// panels and the buttons, still takes its own.
+		var margin = new MarginContainer { MouseFilter = MouseFilterEnum.Ignore };
 		margin.SetAnchorsPreset(LayoutPreset.FullRect);
 		foreach (string side in new[] { "left", "right", "bottom" })
 		{
@@ -152,14 +162,23 @@ public abstract partial class RoomPage : Control
 
 		AddChild(margin);
 
-		var page = new VBoxContainer();
+		var page = new VBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
 		page.AddThemeConstantOverride("separation", 4);
 		margin.AddChild(page);
 
 		page.AddChild(BuildTopRow());
-		page.AddChild(BuildTitle());
 
-		var body = new HBoxContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
+		// Built either way: the province's own name lives inside it, and a page that hides the block
+		// still expects to be able to set that. A hidden control takes no room in the column.
+		Control titles = BuildTitle();
+		titles.Visible = ShowsTitle;
+		page.AddChild(titles);
+
+		var body = new HBoxContainer
+		{
+			SizeFlagsVertical = SizeFlags.ExpandFill,
+			MouseFilter = MouseFilterEnum.Ignore,
+		};
 		body.AddThemeConstantOverride("separation", 20);
 		body.Alignment = BoxContainer.AlignmentMode.End;
 		page.AddChild(body);
@@ -339,10 +358,14 @@ public abstract partial class RoomPage : Control
 	/// slider running to what the room will allow — men the province can raise, sacks the purse can
 	/// pay for. <paramref name="settled"/> is called with the new number once it has stopped moving,
 	/// and a page rebuilds its panel from there.</summary>
-	protected Control Stepper(string label, int value, int step, int ceiling, Action<int> settled)
+	/// <param name="floor">The lowest the number may go. It defaults to one step, because an order
+	/// for nothing is not an order — but an allocation of nobody is a real answer, so a room that
+	/// hands out its own people passes zero.</param>
+	protected Control Stepper(string label, int value, int step, int ceiling, Action<int> settled, int floor = -1)
 	{
-		ceiling = Mathf.Max(step, ceiling);
-		value = Mathf.Clamp(value, step, ceiling);
+		floor = floor < 0 ? step : floor;
+		ceiling = Mathf.Max(floor, ceiling);
+		value = Mathf.Clamp(value, floor, ceiling);
 
 		var row = new HBoxContainer();
 		row.AddThemeConstantOverride("separation", 10);
@@ -355,7 +378,8 @@ public abstract partial class RoomPage : Control
 
 		int current = value;
 		int bound = ceiling;
-		row.AddChild(Plate("−", 44, () => settled(Mathf.Clamp(current - step, step, bound))));
+		int bottom = floor;
+		row.AddChild(Plate("−", 44, () => settled(Mathf.Clamp(current - step, bottom, bound))));
 
 		Label reading = Line(value.ToString("N0"), 23, Bright);
 		reading.HorizontalAlignment = HorizontalAlignment.Center;
@@ -363,15 +387,15 @@ public abstract partial class RoomPage : Control
 		reading.VerticalAlignment = VerticalAlignment.Center;
 		row.AddChild(reading);
 
-		row.AddChild(Plate("+", 44, () => settled(Mathf.Clamp(current + step, step, bound))));
+		row.AddChild(Plate("+", 44, () => settled(Mathf.Clamp(current + step, bottom, bound))));
 
 		var slider = new HSlider
 		{
-			MinValue = step,
+			MinValue = floor,
 			MaxValue = ceiling,
 			Step = step,
 			Value = value,
-			Editable = ceiling > step,
+			Editable = ceiling > floor,
 			TooltipText = $"Up to {ceiling:N0}",
 			SizeFlagsHorizontal = SizeFlags.ExpandFill,
 			SizeFlagsVertical = SizeFlags.ShrinkCenter,

@@ -18,6 +18,12 @@ public static class Campaign
 	/// <summary>What the campaign is called on screen and in a save's header.</summary>
 	public static string Name = "The Royal Crown";
 
+	/// <summary>How well the lords who are not the player will play it. Chosen on the briefing page,
+	/// the same way the folder is, and handed to the TurnManager when the map builds — after which
+	/// the campaign's own copy of it is what counts, so that a loaded save is played at the
+	/// difficulty it was started on.</summary>
+	public static Difficulty Difficulty = Difficulty.Medium;
+
 	public static string Data(string file) => DataOf(Folder, file);
 
 	public static string Asset(string file) => AssetOf(Folder, file);
