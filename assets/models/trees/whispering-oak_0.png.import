@@ -2,14 +2,14 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bm3pebl856xgy"
+uid="uid://bl2wxvqfbqumc"
 path.s3tc="res://.godot/imported/whispering-oak_0.png-055a7b75afd8b44bdd88bcf0823df9ac.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 generator_parameters={
-"md5": "7b72ae0f1d6ea41170ddd8ec4fdb2da2"
+"md5": "983e189df37e91bca2a7d6381cea3a45"
 }
 
 [deps]

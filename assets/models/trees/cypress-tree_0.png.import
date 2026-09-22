@@ -2,14 +2,14 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b5kxrkskfs8yd"
+uid="uid://bp3eoa86shlwp"
 path.s3tc="res://.godot/imported/cypress-tree_0.png-b421a6edb03197627ec6f16239d31c87.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 generator_parameters={
-"md5": "336d2d44baf3e4393c300a91ad0ea09d"
+"md5": "366183f98215fba6cdc818beebcc56be"
 }
 
 [deps]

@@ -2,14 +2,14 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bms5eocg4oywv"
+uid="uid://c730w2igf2idc"
 path.s3tc="res://.godot/imported/evergreen-pine_0.png-d432514e681f716523c3dbf90aa63aea.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 generator_parameters={
-"md5": "d7eec1045b8607d4c80080dbf8a16a77"
+"md5": "cc4da1abaaae9484ed7f4400100e5c23"
 }
 
 [deps]

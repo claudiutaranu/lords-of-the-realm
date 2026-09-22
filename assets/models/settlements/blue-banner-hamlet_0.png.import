@@ -2,14 +2,14 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c0sdicsaiv82c"
+uid="uid://cyjj2ahapa614"
 path.s3tc="res://.godot/imported/blue-banner-hamlet_0.png-80ee04fce61b8327d9ce7c4e0d7b84d4.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 generator_parameters={
-"md5": "2d639c8965cdb29ef08c4b216cb67764"
+"md5": "847bcfe8b6bc00035d340e10fa806f05"
 }
 
 [deps]

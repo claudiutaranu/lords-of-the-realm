@@ -16,29 +16,32 @@ makes a distant LOD:
 
   1. the whole thing is SHRINK-WRAPPED — an alpha wrap, a closed surface fitted round the leaves
      and the trunk — which turns a cloud of fragments into one solid canopy;
-  2. that surface is collapsed to TARGET_FACES, which a closed surface survives gracefully;
-  3. it gets a fresh UV layout of its own — every triangle a half-cell of a grid;
-  4. every texel of that new texture is traced back to the nearest point of the original
-     multi-million-vertex surface, and takes the colour the original texture has there.
+  2. that surface is collapsed to TARGET_FACES, which a closed surface survives gracefully.
 
 BUILDINGS — anything whose name is not a tree — are the other way round. They are solid, with hard
 edges that a shrink-wrap would round off, so:
 
   1. the surface is collapsed directly, with its UV seams welded first so the atlas does not pin
      every island's border in place;
-  2. it is shaded smooth only within BUILDING_CREASE degrees, so a roof ridge and a wall corner stay
-     sharp;
-  3. it gets a proper unwrap (xatlas), charts sized by their area — a grid would give the yard, a
-     handful of large triangles after the collapse, as little texture as a fence post;
-  4. every texel is traced to the nearest point on the original's surface (not its nearest vertex:
-     a flat yard has few vertices, and taking theirs painted it in a mosaic of cells) and reads the
-     original texture there, from a vertex facing the same way so a wall does not take the colour
-     of its other side;
-  5. the flag is found — the blue cloth flying above the banners, grown across the mesh onto its
+  2. it is shaded smooth only within BUILDING_CREASE degrees, so a roof ridge and a wall corner
+     stay sharp.
+
+BOTH are then unwrapped and baked the same way:
+
+  3. a proper unwrap (xatlas), its charts sized by their area — a grid layout, which is what the
+     trees had, gives a whole crown as much texture as one twig;
+  4. every texel is traced to the nearest point on the ORIGINAL's surface (not to its nearest
+     vertex, which painted broad flat pieces in a mosaic of cells) and reads the original texture
+     there, from a vertex facing the same way so a wall does not take the colour of its other side;
+  5. the original's own normal at that point is baked beside the colour, in the model's own space,
+     so a few thousand triangles are shaded with the relief of the eight million they came from —
+     bark, thatch, roof tiles, the shape of a leaf cluster. tree-foliage.gdshader and
+     settlement.gdshader read it (see NORMAL_MAP_SUFFIX);
+  6. for a building, the flag is found — the blue cloth flying above the banners, grown across the mesh onto its
      trim, not onto its pole — and how far each of its vertices lies from the pole, 0 at the pole
-     and 1 at the fly end, is baked into the texture's alpha. settlement.gdshader waves the cloth
-     by it, so the flag flutters and stays fastened to its pole. Flags are painted blue on these
-     models for the same reason the shader can recolour them: nothing else on them is.
+     and 1 at the fly end, is baked into the colour texture's alpha. settlement.gdshader waves the
+     cloth by it, so the flag flutters and stays fastened to its pole. Flags are painted blue on
+     these models for the same reason the shader can recolour them: nothing else on them is.
 
 Also, per model: stood on its own origin, base at y = 0 and centred, the way the map expects a prop
 to stand.
@@ -65,30 +68,39 @@ OUT_DIR = PROJECT_DIR / "assets" / "models" / "trees"
 BUILDING_DIR = PROJECT_DIR / "assets" / "models" / "settlements"
 TREE_WORDS = ("tree", "pine", "oak", "guardian", "cypress")
 
-# Triangles per tree. A pine is a simpler silhouette than a spreading oak and gets fewer.
-TARGET_FACES = 1800
-TARGET_FACES_CONIFER = 1400
+# Triangles per tree, and the texture it carries. A pine is a simpler silhouette than a spreading
+# oak and gets fewer. Thousands of trees stand on the map at once, so this is the one budget on the
+# map that is really paid by the frame — measure before raising it.
+TARGET_FACES = 3200
+TARGET_FACES_CONIFER = 2400
+TREE_TEXTURE = 2048
 CONIFERS = ("pine", "cypress", "evergreen")
 
 # The wrap: how small a gap it may follow into, and how far outside the leaves it sits, both as a
 # percentage of the model's diagonal. Smaller follows the branches more closely and costs more faces
 # to hold; larger is a lollipop. A trunk is a few per cent of a tree's height, so this keeps one.
-WRAP_ALPHA = 1.2
-WRAP_OFFSET = 0.5
+WRAP_ALPHA = 0.8
+WRAP_OFFSET = 0.35
 
-# How far the shading normals lean out from the middle of the crown, 0..1. See reduce().
+# How far the shading normals lean out from the middle of the crown, 0..1, under the baked normals.
 NORMAL_BEND = 0.55
 
-# The baked colour texture. A tree is a few dozen pixels tall on the map; this is ample.
-TEXTURE_SIZE = 1024
-# Texels of padding round each triangle in the atlas, filled by dilation, so mipmapping never
-# pulls the colour of the next triangle over into this one.
-GUTTER = 2
+# Texels of padding round each chart in the atlas, filled by dilation, so mipmapping never pulls
+# the colour of the next chart over into this one.
+GUTTER = 3
+# The baked normals ride in their own file beside the model: <name>-normal.png, in the model's own
+# space (not tangent space), which is what the shaders read.
+NORMAL_MAP_SUFFIX = "-normal.png"
+# How far the baked charts are grown into the atlas's empty space, in texels.
+DILATION = 20
+# The trees' normals are saved at half their colour's size: the relief they carry is leaf-sized and
+# there are five of them in the repository.
+TREE_NORMAL_TEXTURE = TREE_TEXTURE // 2
 
 # A building: its triangles, its texture, the angle past which two faces meet at an edge rather than
 # round a curve, and how close two vertices must be (per cent of the diagonal) to be welded across
 # an atlas seam before the collapse.
-BUILDING_FACES = 24000
+BUILDING_FACES = 40000
 BUILDING_TEXTURE = 2048
 BUILDING_CREASE = 40.0
 BUILDING_WELD = 0.02
@@ -102,84 +114,6 @@ FACING_CANDIDATES = 6
 FLAG_FLOOR = 0.29
 FLAG_RINGS = 3
 POLE_RADIUS = 0.03
-
-
-def atlas(faces_count):
-    """A UV layout that gives every triangle half of one square cell of a grid. Crude next to a
-    real unwrap, but it cannot overlap, it wastes little, and for a baked texture that is all a UV
-    layout is for."""
-    cells = int(np.ceil(np.sqrt(np.ceil(faces_count / 2))))
-    cell = 1.0 / cells
-    inset = GUTTER / TEXTURE_SIZE
-    uv = np.zeros((faces_count, 3, 2))
-    for face in range(faces_count):
-        slot, upper = divmod(face, 2)
-        cx, cy = (slot % cells) * cell, (slot // cells) * cell
-        lo, hi = inset, cell - inset
-        if upper:
-            uv[face] = [(cx + hi, cy + lo), (cx + hi, cy + hi), (cx + lo, cy + hi)]
-        else:
-            uv[face] = [(cx + lo, cy + lo), (cx + hi, cy + lo), (cx + lo, cy + hi)]
-    return uv
-
-
-def bake(vertices, faces, face_uv, source_points, source_uv, source_texture):
-    """Colours every texel of the new atlas from the nearest point of the original surface."""
-    size = TEXTURE_SIZE
-    texture = np.asarray(source_texture.convert("RGB"), dtype=np.float32)
-    th, tw = texture.shape[:2]
-    tree = cKDTree(source_points)
-
-    out = np.zeros((size, size, 3), dtype=np.float32)
-    filled = np.zeros((size, size), dtype=bool)
-
-    ys, xs = np.mgrid[0:size, 0:size]
-    centres = np.stack([(xs + 0.5) / size, (ys + 0.5) / size], axis=-1)
-
-    for face in range(len(faces)):
-        a, b, c = face_uv[face]
-        x0, x1 = int(np.floor(min(a[0], b[0], c[0]) * size)), int(np.ceil(max(a[0], b[0], c[0]) * size))
-        y0, y1 = int(np.floor(min(a[1], b[1], c[1]) * size)), int(np.ceil(max(a[1], b[1], c[1]) * size))
-        block = centres[y0:y1, x0:x1].reshape(-1, 2)
-        # Barycentric coordinates of each texel in the triangle.
-        v0, v1 = b - a, c - a
-        d = v0[0] * v1[1] - v1[0] * v0[1]
-        if abs(d) < 1e-12:
-            continue
-        rel = block - a
-        w1 = (rel[:, 0] * v1[1] - v1[0] * rel[:, 1]) / d
-        w2 = (v0[0] * rel[:, 1] - rel[:, 0] * v0[1]) / d
-        w0 = 1.0 - w1 - w2
-        inside = (w0 >= -0.02) & (w1 >= -0.02) & (w2 >= -0.02)
-        if not inside.any():
-            continue
-        corners = vertices[faces[face]]
-        points = (w0[inside, None] * corners[0] + w1[inside, None] * corners[1]
-                  + w2[inside, None] * corners[2])
-        _, nearest = tree.query(points)
-        suv = source_uv[nearest]
-        px = np.clip((suv[:, 0] % 1.0) * tw, 0, tw - 1).astype(int)
-        py = np.clip((1.0 - suv[:, 1] % 1.0) * th, 0, th - 1).astype(int)
-        colours = texture[py, px]
-        tx = (block[inside, 0] * size).astype(int)
-        ty = (block[inside, 1] * size).astype(int)
-        out[ty, tx] = colours
-        filled[ty, tx] = True
-
-    # Dilate into the gutters so a mipmapped lookup at a triangle's edge still finds its own colour.
-    for _ in range(GUTTER + 2):
-        grown = out.copy()
-        grown_filled = filled.copy()
-        for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-            shifted = np.roll(np.roll(out, dy, 0), dx, 1)
-            shifted_filled = np.roll(np.roll(filled, dy, 0), dx, 1)
-            take = ~grown_filled & shifted_filled
-            grown[take] = shifted[take]
-            grown_filled |= take
-        out, filled = grown, grown_filled
-
-    # glTF's V runs top to bottom in the image.
-    return Image.fromarray(np.clip(out[::-1], 0, 255).astype(np.uint8), "RGB")
 
 
 def model_name(path):
@@ -196,17 +130,13 @@ def reduce(path):
 
 def reduce_tree(path):
     started = time.time()
-    scene = trimesh.load(path, force="scene")
-    mesh = trimesh.util.concatenate([g for g in scene.dump() if isinstance(g, trimesh.Trimesh)])
-    source_texture = mesh.visual.material.baseColorTexture
-    source_uv = np.asarray(mesh.visual.uv, dtype=np.float64)
-    source_points = np.asarray(mesh.vertices, dtype=np.float64)
-
+    mesh = trimesh.load(path, force="mesh", process=False)
+    surface = OriginalSurface(mesh)
     name = model_name(path)
     target = TARGET_FACES_CONIFER if any(word in name for word in CONIFERS) else TARGET_FACES
 
     ms = pymeshlab.MeshSet()
-    ms.add_mesh(pymeshlab.Mesh(vertex_matrix=source_points, face_matrix=np.asarray(mesh.faces, dtype=np.int32)))
+    ms.add_mesh(pymeshlab.Mesh(vertex_matrix=surface.points, face_matrix=surface.faces.astype(np.int32)))
     ms.generate_alpha_wrap(alpha=pymeshlab.PercentageValue(WRAP_ALPHA),
                            offset=pymeshlab.PercentageValue(WRAP_OFFSET))
     wrapped = ms.current_mesh().face_number()
@@ -214,55 +144,32 @@ def reduce_tree(path):
                                                 planarquadric=True, optimalplacement=True,
                                                 preservenormal=True)
     reduced = ms.current_mesh()
-    vertices = reduced.vertex_matrix()
-    faces = reduced.face_matrix()
+    remap, faces, uv = unwrap(reduced.vertex_matrix(), reduced.face_matrix(), TREE_TEXTURE)
+    vertices = reduced.vertex_matrix()[remap]
 
-    face_uv = atlas(len(faces))
-    # The wrap sits a little outside the real surface, so the nearest point of the original to it
-    # is whatever sticks out furthest — round a trunk, that is the needles hanging beside it, and
-    # the trunk came out green. So the colour is looked up from a point pulled back inside by the
-    # wrap's own offset, along the surface normal, where the bark actually is.
-    diagonal = float(np.linalg.norm(source_points.max(axis=0) - source_points.min(axis=0)))
-    inward = trimesh.Trimesh(vertices=vertices, faces=faces, process=False).vertex_normals
-    sample_at = vertices - inward * diagonal * WRAP_OFFSET / 100.0 * 1.6
-    texture = bake(sample_at, faces, face_uv, source_points, source_uv, source_texture)
-
-    # Smooth normals, bent outward from the middle of the tree. A canopy shaded by its true facets
-    # comes out as a pile of dark shards wherever a face tips away from the light; bent toward the
-    # direction out of the crown, it shades as one soft mass, which is how a tree reads from afar.
+    # Shading normals bent outward from the middle of the crown. The baked normals carry the leaves'
+    # own relief on top of these; under them, a canopy shaded by its true facets is a pile of dark
+    # shards wherever a face tips away from the light, and bent out of the crown it reads as one
+    # soft mass, which is what a tree looks like from any distance at all.
     welded = trimesh.Trimesh(vertices=vertices, faces=faces, process=False)
-    smooth = welded.vertex_normals
     centre = np.array([(vertices[:, 0].min() + vertices[:, 0].max()) / 2,
                        vertices[:, 1].min() + (vertices[:, 1].max() - vertices[:, 1].min()) * 0.55,
                        (vertices[:, 2].min() + vertices[:, 2].max()) / 2])
     outward = vertices - centre
     outward /= np.maximum(np.linalg.norm(outward, axis=1, keepdims=True), 1e-9)
-    bent = smooth * (1.0 - NORMAL_BEND) + outward * NORMAL_BEND
-    bent /= np.maximum(np.linalg.norm(bent, axis=1, keepdims=True), 1e-9)
+    normals = welded.vertex_normals * (1.0 - NORMAL_BEND) + outward * NORMAL_BEND
+    normals /= np.maximum(np.linalg.norm(normals, axis=1, keepdims=True), 1e-9)
 
-    # Every corner becomes its own vertex: each triangle has its own patch of the atlas.
-    corners = vertices[faces.reshape(-1)]
-    corner_normals = bent[faces.reshape(-1)]
-    low = corners.min(axis=0)
-    high = corners.max(axis=0)
-    corners = corners - np.array([(low[0] + high[0]) / 2, low[1], (low[2] + high[2]) / 2])
-    # trimesh holds UVs the OpenGL way, V up from the bottom, and flips them itself on the way out
-    # to glTF. Flipping them here as well mirrored every triangle's lookup: the ones that landed in
-    # the unused cells came out black, and the bark was drawn on the crown.
-    uv = face_uv.reshape(-1, 2).copy()
-    tri_faces = np.arange(len(corners)).reshape(-1, 3)
-
-    material = trimesh.visual.material.PBRMaterial(name=name, baseColorTexture=texture,
-                                                  metallicFactor=0.0, roughnessFactor=0.92)
-    out = trimesh.Trimesh(vertices=corners, faces=tri_faces, vertex_normals=corner_normals,
-                          visual=trimesh.visual.TextureVisuals(uv=uv, material=material), process=False)
-
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
-    target_path = OUT_DIR / f"{name}.glb"
-    out.export(target_path)
-    print(f"  {name:20s} {len(mesh.faces):>10,} -> wrap {wrapped:>6,} -> {len(faces):>5,} triangles   "
-          f"{path.stat().st_size / 1048576:7.1f} MB -> {target_path.stat().st_size / 1024:5.0f} KB   "
-          f"height {high[1] - low[1]:.2f}   ({time.time() - started:.0f}s)")
+    diagonal = float(np.linalg.norm(surface.points.max(axis=0) - surface.points.min(axis=0)))
+    colour, relief, _ = bake(vertices, faces, uv, surface, TREE_TEXTURE,
+                             inset=diagonal * WRAP_OFFSET / 100.0 * 1.6)
+    model, height = export(name, OUT_DIR, vertices, faces, uv, normals,
+                           Image.fromarray(np.clip(colour, 0, 255).astype(np.uint8), "RGB"),
+                           Image.fromarray(np.clip(relief, 0, 255).astype(np.uint8), "RGB"), roughness=0.92,
+                           relief_size=TREE_NORMAL_TEXTURE)
+    print(f"  {name:20s} {len(surface.faces):>10,} -> wrap {wrapped:>6,} -> {len(faces):>5,} triangles   "
+          f"{path.stat().st_size / 1048576:7.1f} MB -> {model.stat().st_size / 1024:5.0f} KB   "
+          f"height {height:.2f}   ({time.time() - started:.0f}s)")
 
 
 class OriginalSurface:
@@ -285,18 +192,26 @@ class OriginalSurface:
             has = counts > k
             self.around[has, k] = owner[starts[has] + k]
 
-    def colour(self, points, facing):
-        """The original's colour at the surface nearest each point, from a vertex facing `facing` —
-        one direction for them all, or one per point."""
+    def shade(self, points, facing):
+        """The original's colour AND its own normal at the surface nearest each point, looked for
+        from a vertex facing `facing` — one direction for them all, or one per point."""
         _, candidates = self.tree.query(points, k=FACING_CANDIDATES)
         facing = np.broadcast_to(facing, points.shape)
         agree = (self.normals[candidates] * facing[:, None, :]).sum(-1) > 0.2
         pick = np.where(agree.any(1), np.argmax(agree, 1), 0)
         vertex = candidates[np.arange(len(points)), pick]
-        return self._sample(self._uv_at(points, vertex))
+        face, weights = self._nearest(points, vertex)
+        corners = self.faces[face]
+        uv = (self.uv[corners[:, 0]] * weights[:, 0, None] + self.uv[corners[:, 1]] * weights[:, 1, None]
+              + self.uv[corners[:, 2]] * weights[:, 2, None])
+        normal = (self.normals[corners[:, 0]] * weights[:, 0, None]
+                  + self.normals[corners[:, 1]] * weights[:, 1, None]
+                  + self.normals[corners[:, 2]] * weights[:, 2, None])
+        normal /= np.maximum(np.linalg.norm(normal, axis=1, keepdims=True), 1e-12)
+        return self._sample(uv), normal
 
-    def _uv_at(self, points, vertex):
-        """Texture coordinate at the nearest point of the faces round each vertex."""
+    def _nearest(self, points, vertex):
+        """The face nearest each point among those round its vertex, and where on it the point lies."""
         faces = self.around[vertex]
         valid = faces >= 0
         faces = np.where(valid, faces, 0)
@@ -317,10 +232,7 @@ class OriginalSurface:
         distance = np.where(valid, np.linalg.norm(nearest - p, axis=-1), np.inf)
         best = np.argmin(distance, 1)
         rows = np.arange(len(points))
-        face = faces[rows, best]
-        return (self.uv[self.faces[face, 0]] * bu[rows, best, None]
-                + self.uv[self.faces[face, 1]] * bv[rows, best, None]
-                + self.uv[self.faces[face, 2]] * bw[rows, best, None])
+        return faces[rows, best], np.stack([bu[rows, best], bv[rows, best], bw[rows, best]], axis=1)
 
     def _sample(self, uv):
         """Bilinear, V up from the bottom as glTF-through-trimesh holds it."""
@@ -394,9 +306,11 @@ def flag_weights(vertices, faces, uv, colour):
 
 
 def dilated(image, filled):
-    """Grown out past the charts' padding, so a mipmapped lookup at a chart's edge — or a vertex
-    shader reading exactly on a corner — finds the chart's own value and not the empty atlas."""
-    for _ in range(6):
+    """Grown out well past the charts' padding, so a mipmapped lookup at a chart's edge — or a
+    vertex shader reading exactly on a corner — finds the chart's own value and not the empty
+    atlas. Far more than the padding, because the coarse mip levels average whole neighbourhoods
+    together: unfilled gutters read as black, and a wood seen from across the map darkened."""
+    for _ in range(DILATION):
         grown, grown_filled = image.copy(), filled.copy()
         for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)):
             shifted = np.roll(np.roll(image, dy, 0), dx, 1)
@@ -408,27 +322,69 @@ def dilated(image, filled):
     return image
 
 
-def bake_building(vertices, faces, uv, surface):
-    """The new atlas: every texel coloured from the original's surface, and the flag's sway in the
-    alpha."""
-    size = BUILDING_TEXTURE
+def bake(vertices, faces, uv, surface, size, inset=0.0):
+    """Every texel of the new atlas, taking the colour AND the normal the original has at the point
+    of its surface nearest to it.
+
+    `inset` pulls the sampled point back along the low surface's own normal before the lookup. A
+    wrapped tree sits a little outside the leaves it was fitted round, and the nearest thing to it
+    out there is whatever sticks out furthest — round a trunk, the needles hanging beside it, and
+    the trunk came out green."""
     colour = np.zeros((size, size, 3), np.float32)
-    sway_map = np.zeros((size, size, 1), np.float32)
+    relief = np.zeros((size, size, 3), np.float32)
     filled = np.zeros((size, size), bool)
-    normals = np.cross(vertices[faces[:, 1]] - vertices[faces[:, 0]], vertices[faces[:, 2]] - vertices[faces[:, 0]])
-    normals /= np.maximum(np.linalg.norm(normals, axis=1, keepdims=True), 1e-12)
+    facets = np.cross(vertices[faces[:, 1]] - vertices[faces[:, 0]], vertices[faces[:, 2]] - vertices[faces[:, 0]])
+    facets /= np.maximum(np.linalg.norm(facets, axis=1, keepdims=True), 1e-12)
     for face, tx, ty, weights in texels(faces, uv, size):
-        colour[ty, tx] = surface.colour(weights @ vertices[faces[face]], normals[face])
+        points = weights @ vertices[faces[face]] - facets[face] * inset
+        painted, normal = surface.shade(points, facets[face])
+        colour[ty, tx] = painted
+        relief[ty, tx] = (normal * 0.5 + 0.5) * 255.0
         filled[ty, tx] = True
-    colour = dilated(colour, filled)
 
+    return dilated(colour, filled), dilated(relief, filled), filled
+
+
+def sway_alpha(vertices, faces, uv, colour, size, filled):
+    """The flag's sway, in the colour texture's alpha — see flag_weights."""
     sway = flag_weights(vertices, faces, uv, colour)
+    alpha = np.zeros((size, size, 1), np.float32)
     for face, tx, ty, weights in texels(faces, uv, size):
-        sway_map[ty, tx, 0] = 255.0 * (weights @ sway[faces[face]])
-    sway_map = dilated(sway_map, filled)
+        alpha[ty, tx, 0] = 255.0 * (weights @ sway[faces[face]])
+    return dilated(alpha, filled), sway
 
-    rgba = np.concatenate([colour, sway_map], axis=2)
-    return Image.fromarray(np.clip(rgba, 0, 255).astype(np.uint8), "RGBA"), sway
+
+def unwrap(vertices, faces, size):
+    """A UV layout whose charts are sized by their area, packed into one `size` square."""
+    atlas = xatlas.Atlas()
+    atlas.add_mesh(vertices.astype(np.float32), faces.astype(np.uint32))
+    packing = xatlas.PackOptions()
+    packing.resolution = size
+    packing.padding = GUTTER
+    packing.bilinear = True
+    atlas.generate(pack_options=packing)
+    return atlas[0]
+
+
+def export(name, out_dir, vertices, faces, uv, normals, colour, relief, roughness, relief_size=None):
+    """The model, stood on its own base and centred, with its baked colour inside it and its baked
+    normals in a file beside it."""
+    low, high = vertices.min(axis=0), vertices.max(axis=0)
+    vertices = vertices - np.array([(low[0] + high[0]) / 2, low[1], (low[2] + high[2]) / 2])
+    material = trimesh.visual.material.PBRMaterial(name=name, baseColorTexture=colour,
+                                                   metallicFactor=0.0, roughnessFactor=roughness)
+    # xatlas's V runs down the image, the way it was baked; trimesh holds V up and flips it on export.
+    out = trimesh.Trimesh(vertices=vertices, faces=faces, vertex_normals=normals, process=False,
+                          visual=trimesh.visual.TextureVisuals(uv=np.column_stack([uv[:, 0], 1.0 - uv[:, 1]]),
+                                                               material=material))
+    out_dir.mkdir(parents=True, exist_ok=True)
+    model = out_dir / f"{name}.glb"
+    out.export(model)
+    if relief_size is not None and relief_size != relief.width:
+        relief = relief.resize((relief_size, relief_size), Image.LANCZOS)
+
+    relief.save(out_dir / f"{name}{NORMAL_MAP_SUFFIX}")
+    return model, high[1] - low[1]
 
 
 def reduce_building(path):
@@ -444,40 +400,22 @@ def reduce_building(path):
                                                 planarquadric=True, optimalplacement=True,
                                                 preservenormal=True, autoclean=True)
     reduced = ms.current_mesh()
+    # Smooth within a face's own plane, sharp across a ridge or a corner.
     shaded = trimesh.graph.smooth_shade(
         trimesh.Trimesh(vertices=reduced.vertex_matrix(), faces=reduced.face_matrix(), process=False),
         angle=np.radians(BUILDING_CREASE))
-    vertices, faces, normals = (np.asarray(shaded.vertices), np.asarray(shaded.faces),
-                                np.asarray(shaded.vertex_normals))
+    remap, faces, uv = unwrap(np.asarray(shaded.vertices), np.asarray(shaded.faces), BUILDING_TEXTURE)
+    vertices = np.asarray(shaded.vertices)[remap]
+    normals = np.asarray(shaded.vertex_normals)[remap]
 
-    atlas = xatlas.Atlas()
-    atlas.add_mesh(vertices.astype(np.float32), faces.astype(np.uint32))
-    packing = xatlas.PackOptions()
-    packing.resolution = BUILDING_TEXTURE
-    packing.padding = 3
-    packing.bilinear = True
-    atlas.generate(pack_options=packing)
-    remap, faces, uv = atlas[0]
-    vertices, normals = vertices[remap], normals[remap]
-
-    texture, sway = bake_building(vertices, faces, uv, surface)
-
-    low = vertices.min(axis=0)
-    high = vertices.max(axis=0)
-    vertices = vertices - np.array([(low[0] + high[0]) / 2, low[1], (low[2] + high[2]) / 2])
-    name = model_name(path)
-    material = trimesh.visual.material.PBRMaterial(name=name, baseColorTexture=texture,
-                                                  metallicFactor=0.0, roughnessFactor=0.9)
-    # xatlas's V runs down the image, the way it was baked; trimesh holds V up and flips it on export.
-    out = trimesh.Trimesh(vertices=vertices, faces=faces, vertex_normals=normals, process=False,
-                          visual=trimesh.visual.TextureVisuals(uv=np.column_stack([uv[:, 0], 1.0 - uv[:, 1]]),
-                                                               material=material))
-    BUILDING_DIR.mkdir(parents=True, exist_ok=True)
-    target_path = BUILDING_DIR / f"{name}.glb"
-    out.export(target_path)
-    print(f"  {name:20s} {len(surface.faces):>10,} -> {len(faces):>6,} triangles   "
-          f"{path.stat().st_size / 1048576:7.1f} MB -> {target_path.stat().st_size / 1048576:5.1f} MB   "
-          f"flag {int((sway > 0).sum())} vertices   ({time.time() - started:.0f}s)")
+    colour, relief, filled = bake(vertices, faces, uv, surface, BUILDING_TEXTURE)
+    alpha, sway = sway_alpha(vertices, faces, uv, colour, BUILDING_TEXTURE, filled)
+    painted = Image.fromarray(np.clip(np.concatenate([colour, alpha], axis=2), 0, 255).astype(np.uint8), "RGBA")
+    model, height = export(model_name(path), BUILDING_DIR, vertices, faces, uv, normals, painted,
+                           Image.fromarray(np.clip(relief, 0, 255).astype(np.uint8), "RGB"), roughness=0.9)
+    print(f"  {model.stem:20s} {len(surface.faces):>10,} -> {len(faces):>6,} triangles   "
+          f"{path.stat().st_size / 1048576:7.1f} MB -> {model.stat().st_size / 1048576:5.1f} MB   "
+          f"flag {int((sway > 0).sum())} vertices   height {height:.2f}   ({time.time() - started:.0f}s)")
 
 
 def main():

@@ -4,6 +4,12 @@ shader_type spatial;
 render_mode cull_back;
 
 uniform sampler2D albedo_texture : source_color, filter_linear_mipmap_anisotropic;
+// The normals of the original two-million-triangle model, baked into the forty thousand this one has
+// (tools/decimate_meshy.py). In the model's own space, not the surface's: the unwrap that carries
+// them is cut into charts wherever the packer found room, and a tangent-space map would have to
+// agree with every one of those seams.
+uniform sampler2D relief_texture : filter_linear_mipmap_anisotropic;
+uniform float relief_strength = 0.8;
 
 // 0 spring, 1 summer, 2 autumn, 3 winter — MapDecoration.SetSeason.
 uniform float season = 1.0;
@@ -57,6 +63,13 @@ void vertex() {
 
 void fragment() {
 	vec3 colour = texture(albedo_texture, UV).rgb;
+
+	// The thatch, the roof tiles, the courses of stone: the relief the collapse could not keep.
+	vec3 relief = texture(relief_texture, UV).rgb * 2.0 - 1.0;
+	if (dot(relief, relief) > 0.01) {
+		vec3 modelled = normalize((VIEW_MATRIX * MODEL_MATRIX * vec4(relief, 0.0)).xyz);
+		NORMAL = normalize(mix(NORMAL, modelled, relief_strength));
+	}
 
 	// The cloth. Meshy painted every flag and banner the one pure blue, and nothing else in the
 	// village comes near it — measured on the bake, the count of blue texels barely moves between a
