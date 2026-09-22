@@ -54,9 +54,12 @@ public static class LordAI
 	/// they both have a bad harvest.</summary>
 	private static void Feed(ProvinceEconomy p, GameBalance b, Difficulty skill)
 	{
+		// Double only when the barn can pay for the feast and still hold the reserve afterwards. It
+		// was laid on a season's ordinary bread of slack, which a double table eats twice over: the
+		// feast came out of the reserve, and the market bought it back.
 		int reserve = Reserve(p, b, skill);
 		p.Ration = p.Grain * 2 < reserve ? RationLevel.Half
-			: p.Grain >= reserve + Need(p, b) ? RationLevel.Double
+			: p.Grain >= reserve + Meal(p, b, RationLevel.Double) ? RationLevel.Double
 			: RationLevel.Normal;
 	}
 
@@ -80,7 +83,7 @@ public static class LordAI
 			return;
 		}
 
-		int carried = Mathf.Clamp(p.Grain - Reserve(p, b, skill), 0, room - p.CastleStores);
+		int carried = Mathf.Clamp(p.Grain - Kept(p, b, skill), 0, room - p.CastleStores);
 		p.CastleStores += carried;
 		p.Grain -= carried;
 	}
@@ -151,12 +154,14 @@ public static class LordAI
 	/// number in a file nobody can feel.</summary>
 	private static void Trade(ProvinceEconomy p, GameBalance b, Market market, Difficulty skill)
 	{
-		int reserve = Reserve(p, b, skill);
-		if (p.Grain < reserve)
+		int kept = Kept(p, b, skill);
+		if (p.Grain < kept)
 		{
 			// Bread first and at any price. A county that is short does not haggle, and the purse is
-			// the only ceiling — the market will not sell him what he cannot pay for.
-			market.Buy(p, "grain", Mathf.Min(reserve - p.Grain, market.Affordable(p, "grain")));
+			// the only ceiling — the market will not sell him what he cannot pay for — so he fills
+			// the purse first out of whatever his county makes and does not eat.
+			RaiseSilver(p, market, market.Worth("grain", kept - p.Grain, buying: true));
+			market.Buy(p, "grain", Mathf.Min(kept - p.Grain, market.Affordable(p, "grain")));
 			return;
 		}
 
@@ -169,7 +174,7 @@ public static class LordAI
 		// dug with the front of it. So he sells the largest lot that still clears — which is what a
 		// man with grain to sell actually does, and it is also what keeps one lord's good harvest
 		// from flattening the realm's grain price, the player's included, every spring.
-		int lot = p.Grain - reserve;
+		int lot = p.Grain - kept;
 		int least = Mathf.CeilToInt(market.Base("grain") * b.LordSellsAbove[(int)skill]);
 		while (lot > 0 && market.Worth("grain", lot, buying: false) < lot * least)
 		{
@@ -179,12 +184,57 @@ public static class LordAI
 		market.Sell(p, "grain", lot);
 	}
 
+	/// <summary>Sells what the county makes and does not eat — its iron, its timber, its stone, down
+	/// to a working stock — until the purse holds <paramref name="bill"/>, and not a sack further.
+	/// Valmere's fields feed about three fifths of its people and its mines are the richest on the
+	/// island: its lord traded grain and nothing else, and starved on top of five hundred ingots.
+	/// Only as much as the bread costs, because every lot sold pushes the price down under the next,
+	/// and a lord who dumps his whole yard to buy one season's bread is poorer every season after.</summary>
+	private static void RaiseSilver(ProvinceEconomy p, Market market, int bill)
+	{
+		foreach (string store in Wares)
+		{
+			int spare = p.Stored(store) - WorkingStock;
+			if (p.Gold >= bill)
+			{
+				return;
+			}
+
+			if (spare <= 0 || !market.Trades(store))
+			{
+				continue;
+			}
+
+			int lot = Mathf.Min(spare, Mathf.CeilToInt((bill - p.Gold) / (float)Mathf.Max(1, market.Offered(store))));
+			market.Sell(p, store, lot);
+		}
+	}
+
+	/// <summary>What a lord sells for bread, dearest first, and how much of each he keeps back to work
+	/// with.</summary>
+	private static readonly string[] Wares = { "iron", "stone", "wood" };
+	private const int WorkingStock = 60;
+
 	/// <summary>The bread he means to keep in the barn: so many seasons of it, counted for the people
 	/// he has and the men he keeps under arms. Everything above it he will sell and everything below
 	/// it he will buy, so this one number is his whole food policy — and how many seasons ahead he
 	/// counts is most of what separates a lord who survives a bad year from one who does not.</summary>
 	private static int Reserve(ProvinceEconomy p, GameBalance b, Difficulty skill) =>
 		Mathf.CeilToInt(Need(p, b) * b.LordGrainSeasons[(int)skill]);
+
+	/// <summary>What stays in the barn whatever the market offers: the reserve, and on top of it the
+	/// meal the county is about to eat on the ration he has just set. He used to sell everything
+	/// above the reserve and then feed his people out of the reserve itself — a lord with a double
+	/// table laid emptied his own barn in a season and bought it back the next at any price, and
+	/// the Northern Watch starved to death in twenty years without a blow being struck.</summary>
+	private static int Kept(ProvinceEconomy p, GameBalance b, Difficulty skill) =>
+		Reserve(p, b, skill) + Meal(p, b, p.Ration);
+
+	/// <summary>What the county eats in a season on a given ration, the garrison with it — the same
+	/// arithmetic the meal itself is served by (EconomySimulation.Eat).</summary>
+	private static int Meal(ProvinceEconomy p, GameBalance b, RationLevel ration) =>
+		Mathf.CeilToInt(p.Population / b.PeoplePerGrain * b.RationFoodMultiplier[(int)ration])
+		+ Mathf.CeilToInt(p.Fed / b.PeoplePerGrain * b.SoldierAppetite);
 
 	/// <summary>One season's bread at the ordinary ration: the people on it, and the garrison, which
 	/// is not on it. Read off the same constants the simulation actually eats by rather than a second
