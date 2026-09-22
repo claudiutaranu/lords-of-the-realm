@@ -294,7 +294,7 @@ public partial class EventCheck : Node
 			rng.Seed = 1; // pinned: this caller is testing what happens, not how often
 		}
 
-		List<FiredEvent> news = EventEngine.AfterTurn(province, Definition(), balance, Season.Winter,
+		List<FiredEvent> news = EventEngine.AfterTurn(province, balance, Season.Winter,
 			turn, Calm(province), rng);
 		return news.Count == 0 ? "" : news[0].Said.Id;
 	}
@@ -304,7 +304,7 @@ public partial class EventCheck : Node
 		var rng = new RandomNumberGenerator();
 		rng.Seed = 1; // the rolls are pinned; chance is not what any of this is testing
 		// Well past the opening year the world is spared, so a case that wants an event can have one.
-		List<FiredEvent> news = EventEngine.AfterTurn(province, Definition(), balance, Season.Winter, 20, summary, rng);
+		List<FiredEvent> news = EventEngine.AfterTurn(province, balance, Season.Winter, 20, summary, rng);
 		return news.Count == 0 ? "" : news[0].Said.Id;
 	}
 

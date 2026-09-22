@@ -93,35 +93,6 @@ public static class Models
 		return Mathf.Max(size.X, size.Z);
 	}
 
-	/// <summary>The model's mesh with one of its surfaces repainted, for the two things on this map
-	/// that turn with the year. The surface is found by the pack's own material name — "Green" for
-	/// foliage, "Wheat" for a standing crop — which survives a re-export where a surface index
-	/// would not.
-	///
-	/// The mesh is duplicated first: the cached one is shared by every instance on the map, and
-	/// painting that would repaint every wood on the island at once.</summary>
-	public static Mesh Repainted(string name, string materialName, StandardMaterial3D paint)
-	{
-		Mesh source = MeshOf(name);
-		if (source == null)
-		{
-			return null;
-		}
-
-		var mesh = (ArrayMesh)source.Duplicate(true);
-		for (int surface = 0; surface < mesh.GetSurfaceCount(); surface++)
-		{
-			if (mesh.SurfaceGetMaterial(surface)?.ResourceName == materialName)
-			{
-				mesh.SurfaceSetMaterial(surface, paint);
-				return mesh;
-			}
-		}
-
-		GD.PushError($"Models: {name} has no material called {materialName}");
-		return mesh;
-	}
-
 	private static Mesh FirstMesh(Node node)
 	{
 		if (node is MeshInstance3D instance)

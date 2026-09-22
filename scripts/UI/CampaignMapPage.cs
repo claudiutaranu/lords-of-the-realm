@@ -44,6 +44,7 @@ public partial class CampaignMapPage : Control
 	/// to make the roads legible also flattened every mountain out of an army's way, and this came
 	/// down with it. A lord should still have to go round the spine of the island.</summary>
 	private const float ShoreClearance = 0.35f;
+	private const string DitchFile = "map-ditch.png";
 	private const float MarchableRise = 0.9f;
 
 	/// <summary>Where freshly raised men stand, from their county's seat: north-west of the town,
@@ -295,7 +296,15 @@ public partial class CampaignMapPage : Control
 
 		_turnTransition = GetNode<Control>("%TurnTransition");
 		GoldTitle.Apply(GetNode<Label>("%TransitionSeason"));
-		GetNode<Button>("%EndTurnButton").Pressed += AdvanceTurn;
+		var endTurn = GetNode<Button>("%EndTurnButton");
+		// Fires on the press, not the release. The turn curtain covers the whole screen and comes down
+		// under a cursor that has not moved, which takes the button's hover away; when the curtain
+		// lifts, Godot does not hand the hover back until the mouse moves again. A button that fires
+		// on release checks it is still hovered as it lets go, finds it is not, and does nothing — so
+		// a lord who ended his turn and pressed again without touching the mouse pressed a dead button,
+		// as many times as he liked. AdvanceTurn already refuses a second turn while one is running.
+		endTurn.ActionMode = BaseButton.ActionModeEnum.Press;
+		endTurn.Pressed += AdvanceTurn;
 		_sectionPanel = GetNode<Control>("%SectionPanel");
 		_sectionTitle = GetNode<Label>("%SectionTitle");
 		_sectionBody = GetNode<Label>("%SectionBody");
@@ -347,14 +356,17 @@ public partial class CampaignMapPage : Control
 		// height of the land, the roads drawn on it, and which counties are already somebody's.
 		LayGround();
 
-		// The first thing to go back onto the stripped map: what the counties are actually growing.
-		// A field is not decoration — it is the one thing out here a lord changes from a screen and
-		// then sees from the road, ploughed in spring and standing gold in autumn.
+		// What the counties are growing — the first thing back on the ground, because a field is not
+		// decoration: it is the one thing out here a lord changes from a screen and then sees from the
+		// road. The generator levels the ground round every seat for them (level_seats).
 		ShowFields();
 
-		// The frontiers, in stone. Last of what is set on the ground, so a march stone is never put
-		// down where a field or a wall has already claimed the spot.
-		_world.SowBorderStones();
+		// The woods: the baked trees (tools/decimate_trees.py), sown last of the things that grow so
+		// none is planted on a field.
+		_world.Sow();
+
+		// The rest of what stands on the map comes back one piece at a time, once each looks right:
+		// ShowSettlements and ShowProvinceTrade are still here and still work.
 
 		// A save can be loaded into a season that already has men standing about for hire.
 		ShowMercenaries();
@@ -882,6 +894,10 @@ public partial class CampaignMapPage : Control
 		LoadRoads();
 
 		Vector2I pixels = _world.MapPixels;
+		// The ditches along the borders, and the gaps left in them. Read, not worked out here: the
+		// map generator digs the ditch and writes down where it dug it, so the trench a player sees
+		// and the line an army cannot cross are the same line.
+		Image ditch = GD.Load<Image>(Campaign.Asset(DitchFile));
 		_ground = new MarchGrid(pixels.X, pixels.Y);
 		_ground.Describe(pixel =>
 		{
@@ -889,6 +905,13 @@ public partial class CampaignMapPage : Control
 			if (height <= _world.WaterLine + ShoreClearance)
 			{
 				return (false, 0f, -1); // the sea, and the sand it breaks on
+			}
+
+			if (ditch != null && ditch.GetPixel(
+				Mathf.Clamp((int)pixel.X, 0, ditch.GetWidth() - 1),
+				Mathf.Clamp((int)pixel.Y, 0, ditch.GetHeight() - 1)).R > 0.5f)
+			{
+				return (false, 0f, _world.CountyAt(pixel)); // a border ditch; cross at a ford or a road
 			}
 
 			// How hard the ground climbs across one cell. A wall of rock is not a road with a price

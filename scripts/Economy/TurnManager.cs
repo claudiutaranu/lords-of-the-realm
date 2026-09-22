@@ -683,7 +683,7 @@ public class TurnManager
 			// It comes for a rival's granary on the same terms: an AI lord the plague cannot touch is
 			// a cheat, and it would be one the player never sees and could never account for.
 			List<FiredEvent> happened =
-				EventEngine.AfterTurn(province, definition, _balance, season, Turn, summary, _rng);
+				EventEngine.AfterTurn(province, _balance, season, Turn, summary, _rng);
 
 			// Soldiers for hire walk in on their own errand, and only where the lord could actually
 			// take them up on it: nobody is offering a company to a county he does not hold.

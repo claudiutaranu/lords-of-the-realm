@@ -1,11 +1,12 @@
 using System.Collections.Generic;
 using Godot;
 
-/// <summary>Everything standing on the terrain: woods, boulders, ploughed fields, the roads
-/// between neighbouring seats, and the working sites that show what a province actually produces.
+/// <summary>Everything standing on the terrain: woods, ploughed fields, and the working sites that
+/// show what a province actually produces. (The roads are part of the ground itself — the
+/// generator paints them into the surface map.)
 ///
 /// Scattered props are drawn as MultiMesh instances — thousands of trees cost a handful of draw
-/// calls — and placed from the campaign's map-props.png (R woodland, G boulders, B open farmland),
+/// calls — and placed from the campaign's map-props.png (R woodland, B open farmland),
 /// generated alongside the terrain so vegetation lands where the ground supports it: not on cliffs,
 /// not on the beach, thicker along province borders. The seed is fixed, so the same realm grows
 /// the same forest every run.
@@ -16,61 +17,54 @@ public partial class MapDecoration : Node3D
 {
 	// Both belong to the played campaign, generated alongside its map images.
 	private const string PropsFile = "map-props.png";
-	private const string RoadsFile = "map-roads.json";
 
 	// Attempts, not instances: each one rolls against the density at a random pixel, so the count
-	// that lands is whatever the mask supports — ~3,800 trees and ~9,300 boulders on this map. The
+	// that lands is whatever the mask supports — ~3,800 trees on this map. The
 	// woods have been thinned twice from where they started: a forest that covers the ground reads
 	// as a texture, and what the map wants is stands of trees with country between them.
 	private const int ScatterAttempts = 345000;
-	private const float TreeChance = 0.234f;
-	private const float BoulderChance = 0.22f;
+	private const float TreeChance = 0.150f;
 
-	/// <summary>How the march stones are set: how coarsely the frontier is walked looking for them,
-	/// and how far apart they are allowed to stand. Close enough that the eye joins them into a
-	/// line — a hundred and forty stones spread over every frontier on the island read as two
-	/// stones and a coincidence — and still far enough apart to be markers and not masonry.</summary>
-	private const int BorderStoneStep = 3;
-	private const float BorderStoneSpacing = 9f;
 	// How big the two kinds of tree stand, and the largest chance makes one of them. Named rather
 	// than written into the scatter, because the fields have to be able to ask: ground cleared to
 	// the width of a trunk is still ground with a crown hanging over it.
-	private const string ConiferModel = "Resource_PineTree";
-	private const string BroadleafModel = "Resource_Tree1";
-	private const float ConiferSize = 4.2f;
-	private const float BroadleafSize = 2.6f;
+	// The pack ships five trees and this map used two of them, which is how a wood comes out as one
+	// trunk printed four thousand times. The "Group" models are a whole stand on a single mesh —
+	// five or six trees for the price of one instance — so they carry the bulk of the canopy and
+	// the single trees fill in around them.
+	// The baked trees (tools/decimate_trees.py): each a few thousand triangles cut down from a
+	// multi-million-triangle original, with its look baked into its own texture. Evergreens keep
+	// their own material; the broadleaves are drawn through tree-foliage.gdshader so their leaves
+	// turn with the year.
+	private static readonly string[] Conifers = { "trees/evergreen-pine", "trees/evergreen-pine", "trees/cypress-tree" };
+	private static readonly string[] Broadleaves = { "trees/oak-tree", "trees/whispering-oak", "trees/verdant-guardian" };
+	private const string FoliageShaderPath = "res://assets/shaders/tree-foliage.gdshader";
+	// How many of the trees that land are a whole stand rather than one trunk.
+	private const float StandShare = 0.24f;
+	// The baked trees stand about 1.9 units tall in their own space; these bring them to the height
+	// the old pack's trees stood at on this map. A "stand" is an old, big tree rather than a clump.
+	private const float ConiferSize = 1.45f;
+	private const float BroadleafSize = 1.35f;
+	private const float StandSize = 1.3f;
+
+	// The scatter is drawn in square chunks of this many world units rather than as one piece per
+	// kind of thing. One MultiMesh over the whole island is culled and given its level of detail as
+	// a single object — by its nearest point, so every tree on the map was drawn at full detail even
+	// when the camera was across the sea from it. In chunks, the far woods drop to their coarse LODs
+	// and the woods off the edge of the screen are not drawn at all.
+	private const float ChunkSize = 24f;
 	private const float TreeSpread = 1.4f;
 	// Above this share of the map's relief conifers take over from broadleaf, the way a real
 	// treeline works. A share and not a height: the map can be flattened or raised without the
 	// treeline staying behind at an altitude nothing reaches any more.
 	private const float ConiferLine = 0.375f;
-	// The trunk road between the two capitals is paved; everything else is a dirt track.
-	private const string PavedTexturePath = "res://assets/terrain/road-diffuse.jpg";
-	private const string PavedNormalPath = "res://assets/terrain/road-normal.jpg";
-	// Gravel rather than the woodland mud it used to be: a track worn to the stone reads on grass
-	// and on snow alike, where red-brown mud looked painted on above the treeline.
-	private const string TrackTexturePath = "res://assets/terrain/sand-diffuse.jpg";
-	private const string TrackNormalPath = "res://assets/terrain/sand-normal.jpg";
-	private const float PavedWidth = 0.8f;
-	private const float DirtWidth = 0.5f;
-	private const float RoadTileLength = 3.2f; // world units per repeat of the cobbles
-	// Clear of the terrain without floating visibly. It was three tenths when the relief stood at
-	// twenty-four; on country a third that height the same lift turned every track into a causeway
-	// with a ditch either side of it.
-	private const float RoadLift = 0.09f;
 
 	/// <summary>What a province digs out of its ground. Grain and the herd are not in here: those
 	/// are worked on fields, and a field is a plot on the map rather than a scattered prop.</summary>
 	public enum SiteKind { Wood, Stone, Iron }
 
-	// Broadleaf woods and standing crops are the two things on the ground that a season changes;
-	// conifers are evergreen, and stone doesn't care. Each entry is one material and its colour in
-	// Spring/Summer/Autumn/Winter order — the Season enum's own order, so it indexes straight in.
-	// Winter is snow on the branches, not bare wood. The dark brown that used to sit here was right
-	// for a crown built as a bare sphere; on a model with its foliage modelled in, it reads as a
-	// black blot on a white hillside.
-	private static readonly Color[] BroadleafBySeason =
-		{ new("6d8f3c"), new("4a6b34"), new("a86a28"), new("ccd4d8") };
+	// A standing crop's colour in Spring/Summer/Autumn/Winter order — the Season enum's own order, so
+	// it indexes straight in. (The broadleaves turn through tree-foliage.gdshader instead.)
 	private static readonly Color[] GrainBySeason =
 		{ new("7fa049"), new("dcbb63"), new("e3bf5a"), new("8f8b84") };
 
@@ -79,11 +73,27 @@ public partial class MapDecoration : Node3D
 	// strip a family works, not an estate, and two of them side by side should read as two fields
 	// rather than as two counties. The gap is the hedge between neighbours, so it is nearly nothing:
 	// what makes a patchwork is plots that touch.
-	private const float PlotSize = 2.6f;
+	// A field's side, in world units. Smaller than it was: at 2.6 a county's ten fields were a
+	// patchwork a fifth of the way across the island, and the plots read as tiles laid on the map
+	// rather than as fields in it.
+	private const float PlotSize = 2.0f;
 	private const float PlotGap = 0.25f;
 	private const float PlotBorder = 0.07f;  // share of the plot its hedge band takes, each side
-	private const float PlotLift = 0.12f;    // clear of the terrain, the way the roads are
-	private const int PlotRings = 6;         // lattice cells searched either way of the seat
+	private const float PlotLift = 0.12f;    // clear of the terrain
+	private const int PlotRings = 7;         // lattice cells searched either way of the seat
+
+	/// <summary>The ground a seat keeps for itself, in map pixels. The town's houses stand in a
+	/// ring out to TownRing (AddSettlement), and the castle is raised CastleDistance off the seat at
+	/// CastleBearing with CastleReach of ground round it (SetFortification). The fields are laid out
+	/// from the seat outwards and used to start half a cell from the pin — in the middle of the town
+	/// — because the only thing keeping them off it was the clearing the town registers when it is
+	/// built, and that is built after the fields and may not be built at all. So the fields read the
+	/// same figures and keep off that ground themselves, whatever else has run.</summary>
+	private const float TownRing = 38f;
+	private const float TownGap = 6f;        // a lane between the last house and the first furrow
+	private const float CastleBearing = Mathf.Pi * 0.25f;
+	private const float CastleDistance = 62f;
+	private const float CastleReach = 26f;
 	private const float PlotMaxDrop = 1.7f;  // fall across a plot before the ground is too steep
 	/// <summary>How long a beast is drawn, nose to tail, in world units. Held as a LENGTH and not as
 	/// a scale factor because a model brought in from outside arrives in whatever units it was
@@ -143,6 +153,8 @@ public partial class MapDecoration : Node3D
 	private Image _props;
 	private RandomNumberGenerator _rng;
 	private readonly List<(StandardMaterial3D Material, Color[] BySeason)> _seasonal = new();
+	// The broadleaves' leaves, which take the season as a shader parameter rather than a colour.
+	private readonly List<ShaderMaterial> _seasonalLeaves = new();
 	/// <summary>One node per province's walls, so a finished build can replace them on their own.</summary>
 	private readonly Dictionary<string, Node3D> _forts = new();
 	private readonly Dictionary<string, Node3D> _armies = new();
@@ -157,95 +169,34 @@ public partial class MapDecoration : Node3D
 	/// <summary>Ground somebody has built on, which the woods are sown around.</summary>
 	private readonly List<(Vector2 Centre, float Radius)> _clearings = new();
 
-	/// <summary>Opens the map and lays its roads. The woods are not sown here: a settlement has to
+	/// <summary>Opens the map. The roads are not laid here: they are painted into the ground itself,
+	/// by the generator's surface map. The woods are not sown here either: a settlement has to
 	/// be standing before them, or the trees grow through its roofs. The page calls
-	/// <see cref="SowWoods"/> once it has put every province on the ground.</summary>
+	/// <see cref="Sow"/> once it has put every province on the ground.</summary>
 	public void Build(CampaignMap3D map)
 	{
 		_map = map;
 		_props = GD.Load<Image>(Campaign.Asset(PropsFile));
 		_rng = new RandomNumberGenerator();
 		_rng.Seed = 20260917; // fixed: the map must look the same every time it loads
-
-		BuildRoads();
 	}
 
-	/// <summary>Sets a line of stones along every frontier between two counties.
-	///
-	/// A border drawn only as a line on the ground is a line on a map, not a thing standing in the
-	/// country. Marches were marked with stones, and a lord riding out should be able to see where
-	/// his land stops without the map having to tell him in ink.
-	///
-	/// Walked at a stride and thinned to a spacing, because a stone on every border pixel is a wall
-	/// — and a wall is a different thing from a boundary.</summary>
-	public void SowBorderStones()
+	/// <summary>Sows every wood on the map, keeping clear of whatever has already been built. Called
+	/// after the settlements, which is the whole point of it being its own call — a forest sown first
+	/// grows straight through the villages.</summary>
+	public void Sow()
 	{
-		var stones = new List<Transform3D>();
-		var placed = new List<Vector2>();
-		Vector2I size = _map.MapPixels;
-
-		for (int y = BorderStoneStep; y < size.Y - BorderStoneStep; y += BorderStoneStep)
+		var conifers = new List<Transform3D>[Conifers.Length];
+		var broadleaves = new List<Transform3D>[Broadleaves.Length];
+		for (int kind = 0; kind < Conifers.Length; kind++)
 		{
-			for (int x = BorderStoneStep; x < size.X - BorderStoneStep; x += BorderStoneStep)
-			{
-				var here = new Vector2(x, y);
-				int county = _map.CountyAt(here);
-				if (county < 0)
-				{
-					continue; // the sea is nobody's, and a coast is not a frontier
-				}
-
-				bool frontier = false;
-				foreach (Vector2 side in new[]
-					{ Vector2.Right, Vector2.Down, Vector2.Left, Vector2.Up })
-				{
-					int there = _map.CountyAt(here + side * BorderStoneStep);
-					if (there >= 0 && there != county)
-					{
-						frontier = true;
-						break;
-					}
-				}
-
-				if (!frontier)
-				{
-					continue;
-				}
-
-				// Far enough apart to read as markers rather than as masonry, and off the line itself
-				// by a pace or two: stones were set beside a boundary, not balanced on it.
-				Vector2 at = here + new Vector2(_rng.RandfRange(-2.5f, 2.5f), _rng.RandfRange(-2.5f, 2.5f));
-				bool crowded = false;
-				foreach (Vector2 already in placed)
-				{
-					if (already.DistanceSquaredTo(at) < BorderStoneSpacing * BorderStoneSpacing)
-					{
-						crowded = true;
-						break;
-					}
-				}
-
-				if (crowded || IsBuiltOn(at, 4f))
-				{
-					continue;
-				}
-
-				placed.Add(at);
-				stones.Add(PropTransform(at, _rng.RandfRange(0.9f, 1.7f), tiltDegrees: 7f));
-			}
+			conifers[kind] = new List<Transform3D>();
 		}
 
-		AddScatter(Models.MeshOf("Rock"), null, stones, castsShadow: false);
-	}
-
-	/// <summary>Sows every wood and boulder field on the map, keeping clear of whatever has already
-	/// been built. Called after the settlements, which is the whole point of it being its own
-	/// call — a forest sown first grows straight through the villages.</summary>
-	public void SowWoods()
-	{
-		var conifers = new List<Transform3D>();
-		var broadleaves = new List<Transform3D>();
-		var boulders = new List<Transform3D>();
+		for (int kind = 0; kind < Broadleaves.Length; kind++)
+		{
+			broadleaves[kind] = new List<Transform3D>();
+		}
 
 		for (int i = 0; i < ScatterAttempts; i++)
 		{
@@ -261,18 +212,23 @@ public partial class MapDecoration : Node3D
 				Transform3D tree = PropTransform(pixel, _rng.RandfRange(TreeSpread * 0.5f, TreeSpread), tiltDegrees: 4f);
 				bool isHigh = _map.HeightAt(pixel) > _map.Relief * ConiferLine;
 				// Mixed woods, weighted by altitude, rather than one species per region.
-				if (isHigh ? _rng.Randf() < 0.92f : _rng.Randf() < 0.55f)
+				bool conifer = isHigh ? _rng.Randf() < 0.92f : _rng.Randf() < 0.55f;
+				// Now and then an old tree, bigger than the ones round it: a wood of one size of tree
+				// reads as a plantation.
+				if (_rng.Randf() < StandShare)
 				{
-					conifers.Add(tree);
+					tree = tree.ScaledLocal(Vector3.One * StandSize);
+				}
+
+				// Three silhouettes of each, so no two neighbouring trees are the same drawing.
+				if (conifer)
+				{
+					conifers[_rng.RandiRange(0, Conifers.Length - 1)].Add(tree);
 				}
 				else
 				{
-					broadleaves.Add(tree);
+					broadleaves[_rng.RandiRange(0, Broadleaves.Length - 1)].Add(tree);
 				}
-			}
-			else if (density.G > 0.05f && _rng.Randf() < density.G * BoulderChance)
-			{
-				boulders.Add(PropTransform(pixel, _rng.RandfRange(0.5f, 1.3f)));
 			}
 		}
 
@@ -281,19 +237,26 @@ public partial class MapDecoration : Node3D
 		// own colour, which one merged mesh could not have.
 		// One mesh per tree now, where each used to take three: the model carries its own trunk and
 		// crown as two surfaces of one drawing, so a wood costs a third of the draw calls it did.
-		AddScatter(Models.MeshOf(ConiferModel), null, Grown(conifers, ConiferSize));
-
-		// A broadleaf still turns with the year, so its crown surface is repainted on the way in and
-		// that material is handed to SetSeason like the hand-built one was.
-		var crown = new StandardMaterial3D
+		// A pine keeps its needles, so an evergreen is drawn with its own baked material.
+		for (int kind = 0; kind < Conifers.Length; kind++)
 		{
-			AlbedoColor = BroadleafBySeason[(int)Season.Summer],
-			Roughness = 0.95f,
-		};
-		_seasonal.Add((crown, BroadleafBySeason));
-		AddScatter(Models.Repainted(BroadleafModel, "Green", crown), null, Grown(broadleaves, BroadleafSize));
+			AddScatter(Models.MeshOf(Conifers[kind]), null, Grown(conifers[kind], ConiferSize));
+		}
 
-		AddScatter(Models.MeshOf("Rock"), null, Grown(boulders, 3.4f), castsShadow: false);
+		// A broadleaf turns with the year: its baked texture goes through the foliage shader, which
+		// picks the leaves out by their colour and gives them the season, and leaves the bark alone.
+		for (int kind = 0; kind < Broadleaves.Length; kind++)
+		{
+			Mesh mesh = Models.MeshOf(Broadleaves[kind]);
+			var leaves = new ShaderMaterial { Shader = GD.Load<Shader>(FoliageShaderPath) };
+			if (mesh?.SurfaceGetMaterial(0) is BaseMaterial3D baked)
+			{
+				leaves.SetShaderParameter("albedo_texture", baked.AlbedoTexture);
+			}
+
+			_seasonalLeaves.Add(leaves);
+			AddScatter(mesh, null, Grown(broadleaves[kind], BroadleafSize), overrideMaterial: leaves);
+		}
 	}
 
 	/// <summary>Whether a spot has been taken by something built — a village, a castle, a working
@@ -603,6 +566,7 @@ public partial class MapDecoration : Node3D
 					// next one beside it whatever the map thinks of the ground.
 					bool seeding = square == first;
 					if (Mathf.Abs(square.X) > PlotRings || Mathf.Abs(square.Y) > PlotRings
+						|| OnSeatGround(seat, Centre(square))
 						|| !CanPlough(Centre(square), yaw, openGroundOnly: pass == 0 && seeding, county))
 					{
 						refused.Add(square);
@@ -626,6 +590,19 @@ public partial class MapDecoration : Node3D
 		}
 
 		return sites;
+	}
+
+	/// <summary>Whether a plot would touch the ground the seat keeps for its town or its castle.
+	/// Judged on the plot's reach, half its diagonal, so no corner of a field clips a roof.</summary>
+	private bool OnSeatGround(Vector2 seat, Vector2 plot)
+	{
+		float reach = PlotSize * 0.71f * _map.PixelsPerUnit;
+		if (plot.DistanceTo(seat) < TownRing + TownGap + reach)
+		{
+			return true;
+		}
+
+		return plot.DistanceTo(Clamped(seat, CastleBearing, CastleDistance)) < CastleReach + reach;
 	}
 
 	/// <summary>Whether a plot can be laid here: on the map, off everything already built, out of
@@ -885,9 +862,25 @@ public partial class MapDecoration : Node3D
 	/// <summary>How far the crown of the widest tree this map sows reaches from its trunk, in map
 	/// pixels. Measured off the models and the scatter's own sizes rather than guessed, so retuning
 	/// how big the woods stand cannot quietly leave the fields under them again.</summary>
-	private float CrownReach => 0.5f * _map.PixelsPerUnit * TreeSpread * Mathf.Max(
-		Models.FootprintOf(ConiferModel) * ConiferSize,
-		Models.FootprintOf(BroadleafModel) * BroadleafSize);
+	private float CrownReach
+	{
+		get
+		{
+			float widest = 0f;
+			foreach (string tree in Conifers)
+			{
+				widest = Mathf.Max(widest, Models.FootprintOf(tree) * ConiferSize);
+			}
+
+			foreach (string tree in Broadleaves)
+			{
+				widest = Mathf.Max(widest, Models.FootprintOf(tree) * BroadleafSize);
+			}
+
+			// An old tree is grown past the rest; its crown is the one that reaches furthest.
+			return 0.5f * _map.PixelsPerUnit * TreeSpread * widest * StandSize;
+		}
+	}
 
 	/// <summary>A fixed angle per province, so its fields lie square to each other but not to the
 	/// map — and the same angle every run, which a string's own hash code does not promise.</summary>
@@ -950,7 +943,7 @@ public partial class MapDecoration : Node3D
 	{
 		int houses = kind == Settlement.Hamlet ? 5 : 8;
 		float inner = kind == Settlement.Hamlet ? 16f : 18f;
-		float outer = kind == Settlement.Hamlet ? 30f : 38f;
+		float outer = kind == Settlement.Hamlet ? 30f : TownRing;
 
 		// Measured off the widest cottage rather than guessed: its own footprint, grown by the scale
 		// it is placed at, converted into map pixels, and given a third again so the walls have
@@ -1121,13 +1114,13 @@ public partial class MapDecoration : Node3D
 
 		// South-east of the town and clear of its houses: near enough to read as this place's
 		// castle, far enough that the two are not one heap under the province's pin.
-		Vector2 site = Clamped(seatPixel, Mathf.Pi * 0.25f, 62f);
+		Vector2 site = Clamped(seatPixel, CastleBearing, CastleDistance);
 		if (_map.HeightAt(site) <= _map.WaterLine + 0.3f)
 		{
 			return; // nowhere to stand
 		}
 
-		_clearings.Add((site, 26f));
+		_clearings.Add((site, CastleReach));
 
 		Node3D castle = Models.Instance(plan.Model);
 		if (castle == null)
@@ -1188,6 +1181,11 @@ public partial class MapDecoration : Node3D
 		{
 			material.AlbedoColor = bySeason[(int)season];
 		}
+
+		foreach (ShaderMaterial leaves in _seasonalLeaves)
+		{
+			leaves.SetShaderParameter("season", (float)(int)season);
+		}
 	}
 
 	// --- placement ---------------------------------------------------------------------------
@@ -1216,37 +1214,21 @@ public partial class MapDecoration : Node3D
 	/// <paramref name="seasonColors"/>, when given, is the four seasons' colours for this piece.</summary>
 	private void AddScatter(Mesh mesh, Color? color, List<Transform3D> transforms, float liftY = 0f,
 		float colorJitter = 0f, Color[] seasonColors = null, bool castsShadow = true,
-		Node3D parent = null)
+		Node3D parent = null, Material overrideMaterial = null)
 	{
-		if (transforms.Count == 0)
+		if (transforms.Count == 0 || mesh == null)
 		{
 			return;
 		}
 
-		var multiMesh = new MultiMesh
-		{
-			TransformFormat = MultiMesh.TransformFormatEnum.Transform3D,
-			Mesh = mesh,
-			UseColors = colorJitter > 0f,
-			InstanceCount = transforms.Count,
-		};
-		for (int i = 0; i < transforms.Count; i++)
-		{
-			multiMesh.SetInstanceTransform(i, transforms[i].TranslatedLocal(Vector3.Up * liftY));
-			if (colorJitter > 0f)
-			{
-				float shade = _rng.RandfRange(1f - colorJitter, 1f + colorJitter);
-				multiMesh.SetInstanceColor(i, new Color(shade, shade, shade));
-			}
-		}
-
 		// A model brought in from the pack paints itself — its walls and its roof are different
 		// materials on the one mesh, and an override would flatten both to one colour. Only the
-		// shapes built here in code need telling what colour to be.
-		StandardMaterial3D material = null;
-		if (color.HasValue)
+		// shapes built here in code need telling what colour to be, and the few models whose
+		// material is swapped for a shader of their own.
+		Material material = overrideMaterial;
+		if (material == null && color.HasValue)
 		{
-			material = new StandardMaterial3D
+			var painted = new StandardMaterial3D
 			{
 				AlbedoColor = color.Value,
 				Roughness = 0.95f,
@@ -1254,170 +1236,53 @@ public partial class MapDecoration : Node3D
 			};
 			if (seasonColors != null)
 			{
-				_seasonal.Add((material, seasonColors));
-			}
-		}
-
-		(parent ?? this).AddChild(new MultiMeshInstance3D
-		{
-			Multimesh = multiMesh,
-			MaterialOverride = material,
-			CastShadow = castsShadow
-				? GeometryInstance3D.ShadowCastingSetting.On
-				: GeometryInstance3D.ShadowCastingSetting.Off,
-		});
-	}
-
-	// --- roads -------------------------------------------------------------------------------
-
-	private void BuildRoads()
-	{
-		var file = GD.Load<Json>(Campaign.Data(RoadsFile));
-		if (file?.Data.VariantType != Variant.Type.Array)
-		{
-			GD.PushWarning("MapDecoration: no roads data; run tools/generate_campaign_map.py");
-			return;
-		}
-
-		var dirt = new StandardMaterial3D
-		{
-			AlbedoTexture = GD.Load<Texture2D>(TrackTexturePath),
-			NormalEnabled = true,
-			NormalTexture = GD.Load<Texture2D>(TrackNormalPath),
-			AlbedoColor = new Color("9d968a"), // dusty grey-tan, a shade under whatever it crosses
-			Roughness = 1.0f,
-		};
-		foreach (Variant entry in file.Data.AsGodotArray())
-		{
-			Godot.Collections.Array points = entry.AsGodotDictionary()["points"].AsGodotArray();
-			var line = new List<Vector2>();
-			foreach (Variant point in points)
-			{
-				Godot.Collections.Array pair = point.AsGodotArray();
-				line.Add(new Vector2((float)pair[0], (float)pair[1]));
+				_seasonal.Add((painted, seasonColors));
 			}
 
-			// Every road is a dirt track while the map is being stripped back to the ground it stands
-			// on. The paved trunk between the capitals reads as a motorway across an empty island.
-			MeshInstance3D road = BuildRoadRibbon(line, dirt, DirtWidth);
-			if (road != null)
+			material = painted;
+		}
+
+		// Sorted into chunks of the map, each its own MultiMesh — see ChunkSize.
+		var chunks = new Dictionary<Vector2I, List<Transform3D>>();
+		foreach (Transform3D one in transforms)
+		{
+			var key = new Vector2I(Mathf.FloorToInt(one.Origin.X / ChunkSize), Mathf.FloorToInt(one.Origin.Z / ChunkSize));
+			if (!chunks.TryGetValue(key, out List<Transform3D> chunk))
 			{
-				AddChild(road);
+				chunk = new List<Transform3D>();
+				chunks[key] = chunk;
 			}
-		}
-	}
 
-	/// <summary>Turns a road's centre line into a ribbon that follows the ground. Each point is
-	/// re-sampled against the heightmap, because a road drawn between two sampled ends would sink
-	/// into every valley it crosses.</summary>
-	private MeshInstance3D BuildRoadRibbon(List<Vector2> line, Material material, float width)
-	{
-		if (line.Count < 2)
-		{
-			return null;
+			chunk.Add(one);
 		}
 
-		var dense = new List<Vector2>();
-		for (int i = 0; i < line.Count - 1; i++)
+		foreach (List<Transform3D> chunk in chunks.Values)
 		{
-			int steps = Mathf.Max(1, (int)(line[i].DistanceTo(line[i + 1]) / 4f));
-			for (int s = 0; s < steps; s++)
+			var multiMesh = new MultiMesh
 			{
-				dense.Add(line[i].Lerp(line[i + 1], (float)s / steps));
-			}
-		}
-
-		dense.Add(line[^1]);
-
-		// Half the road's width, in map pixels: the edges are draped separately, so the offset has to
-		// be taken in the map's own coordinates before the ground is sampled.
-		float halfWidthPixels = width * 0.5f * _map.PixelsPerUnit;
-
-		// One pair of edge points per station, shared by the quads on both sides of it. Building each
-		// segment its own four corners left a seam wherever the road turned, which is what broke the
-		// ribbon into patches.
-		var left = new Vector3[dense.Count];
-		var right = new Vector3[dense.Count];
-		for (int i = 0; i < dense.Count; i++)
-		{
-			// The tangent comes from both neighbours, so the width stays square to the road through
-			// a bend instead of pivoting at each station.
-			Vector2 ahead = dense[Mathf.Min(i + 1, dense.Count - 1)];
-			Vector2 behind = dense[Mathf.Max(i - 1, 0)];
-			Vector2 tangent = ahead - behind;
-			Vector2 side = (tangent.LengthSquared() < 0.0001f ? Vector2.Right : tangent.Normalized().Orthogonal()) * halfWidthPixels;
-			left[i] = _map.WorldAt(dense[i] - side);
-			right[i] = _map.WorldAt(dense[i] + side);
-		}
-
-		// A road is graded: it cuts the small humps rather than riding over every one of them.
-		// Smoothing the draped heights is what keeps the surface from sinking into each wrinkle.
-		SmoothHeights(left);
-		SmoothHeights(right);
-
-		var surface = new SurfaceTool();
-		surface.Begin(Mesh.PrimitiveType.Triangles);
-		float travelled = 0f;
-		for (int i = 0; i < dense.Count - 1; i++)
-		{
-			Vector3 leftA = left[i] + Vector3.Up * RoadLift;
-			Vector3 rightA = right[i] + Vector3.Up * RoadLift;
-			Vector3 leftB = left[i + 1] + Vector3.Up * RoadLift;
-			Vector3 rightB = right[i + 1] + Vector3.Up * RoadLift;
-
-			// UVs run along the road, so the paving repeats down its length instead of the whole
-			// texture being stretched over one ribbon.
-			float nextTravelled = travelled + leftA.DistanceTo(leftB) / RoadTileLength;
-			AddQuad(surface,
-				(leftA, new Vector2(0f, travelled)), (rightA, new Vector2(1f, travelled)),
-				(rightB, new Vector2(1f, nextTravelled)), (leftB, new Vector2(0f, nextTravelled)));
-			travelled = nextTravelled;
-		}
-
-		surface.GenerateNormals();
-		return new MeshInstance3D
-		{
-			Mesh = surface.Commit(),
-			MaterialOverride = material,
-			CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
-		};
-	}
-
-	/// <summary>Runs a short moving average over a draped edge's heights, so the road reads as a made
-	/// thing crossing the ground rather than a sheet shrink-wrapped onto it.</summary>
-	private static void SmoothHeights(Vector3[] points)
-	{
-		var heights = new float[points.Length];
-		for (int pass = 0; pass < 2; pass++)
-		{
-			for (int i = 0; i < points.Length; i++)
+				TransformFormat = MultiMesh.TransformFormatEnum.Transform3D,
+				Mesh = mesh,
+				UseColors = colorJitter > 0f,
+				InstanceCount = chunk.Count,
+			};
+			for (int i = 0; i < chunk.Count; i++)
 			{
-				int from = Mathf.Max(i - 2, 0);
-				int to = Mathf.Min(i + 2, points.Length - 1);
-				float total = 0f;
-				for (int j = from; j <= to; j++)
+				multiMesh.SetInstanceTransform(i, chunk[i].TranslatedLocal(Vector3.Up * liftY));
+				if (colorJitter > 0f)
 				{
-					total += points[j].Y;
+					float shade = _rng.RandfRange(1f - colorJitter, 1f + colorJitter);
+					multiMesh.SetInstanceColor(i, new Color(shade, shade, shade));
 				}
-
-				heights[i] = total / (to - from + 1);
 			}
 
-			for (int i = 0; i < points.Length; i++)
+			(parent ?? this).AddChild(new MultiMeshInstance3D
 			{
-				points[i].Y = heights[i];
-			}
-		}
-	}
-
-	private static void AddQuad(SurfaceTool surface,
-		(Vector3 Position, Vector2 Uv) a, (Vector3 Position, Vector2 Uv) b,
-		(Vector3 Position, Vector2 Uv) c, (Vector3 Position, Vector2 Uv) d)
-	{
-		foreach ((Vector3 position, Vector2 uv) in new[] { a, b, c, a, c, d })
-		{
-			surface.SetUV(uv);
-			surface.AddVertex(position);
+				Multimesh = multiMesh,
+				MaterialOverride = material,
+				CastShadow = castsShadow
+					? GeometryInstance3D.ShadowCastingSetting.On
+					: GeometryInstance3D.ShadowCastingSetting.Off,
+			});
 		}
 	}
 

@@ -141,10 +141,6 @@ public class Market
 		return least;
 	}
 
-	/// <summary>How many units the province could put on the counter.</summary>
-	public int Sellable(ProvinceEconomy province, string store) =>
-		!Trades(store) || province == null ? 0 : province.Stored(store);
-
 	/// <summary>Gold out, goods in. False — and nothing moved — if the province cannot pay for all
 	/// of it: a trade is one thing or nothing, never as much as the purse happened to cover.</summary>
 	public bool Buy(ProvinceEconomy province, string store, int amount)
@@ -222,9 +218,4 @@ public class Market
 		"cattle" => _balance.CattleSeasonPrice[(int)_season],
 		_ => 1f,
 	};
-
-	/// <summary>The engine's own prices, not a campaign's: every realm trades on the same terms.
-	/// A market made this way carries no trading history, so it is for a check or a one-off
-	/// valuation — a campaign's own market lives on its <see cref="TurnManager"/>.</summary>
-	public static Market FromBalance() => new(GameBalance.Engine);
 }

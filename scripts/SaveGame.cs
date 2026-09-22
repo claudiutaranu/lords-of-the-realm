@@ -111,6 +111,12 @@ public class SaveGame
 		Prices = prices,
 	};
 
+	/// <summary>Takes a save off disk. For the checks, which write real files to prove the round trip
+	/// and must take them away again: they share this folder with the player's own campaigns, and a
+	/// check that tidied up by clearing the folder took the player's saves with it.</summary>
+	public static void Forget(SaveGame save) =>
+		DirAccess.RemoveAbsolute(ProjectSettings.GlobalizePath($"{SaveDirectory}/{save.SavedAtUnix}.json"));
+
 	public static void Write(string campaignName, int turn, List<ProvinceEconomy> provinces,
 		Dictionary<string, float> prices, Difficulty difficulty)
 	{

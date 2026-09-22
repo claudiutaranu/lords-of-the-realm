@@ -1,0 +1,14 @@
+[remap]
+
+importer="image"
+type="Image"
+uid="uid://jpihmn2g18ld"
+path="res://.godot/imported/map-ditch.png-fded4e477c9e585365baaeab75c34df6.image"
+
+[deps]
+
+source_file="res://assets/campaigns/royal-crown/map-ditch.png"
+dest_files=["res://.godot/imported/map-ditch.png-fded4e477c9e585365baaeab75c34df6.image"]
+
+[params]
+

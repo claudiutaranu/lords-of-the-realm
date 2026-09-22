@@ -3,8 +3,8 @@
 /android/
 
 # .NET build output
-bin/
-obj/
+/bin/
+/obj/
 
 .DS_Store
 

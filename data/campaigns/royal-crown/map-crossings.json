@@ -1,0 +1,164 @@
+[
+ {
+  "x": 456.0,
+  "y": 452.0,
+  "between": [
+   "Ashenvale",
+   "Kingsreach"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 1260.0,
+  "y": 372.0,
+  "between": [
+   "Frostgate",
+   "Icemere Reach"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 580.0,
+  "y": 540.0,
+  "between": [
+   "Ashenvale",
+   "Thornwatch"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 312.0,
+  "y": 280.0,
+  "between": [
+   "Kingsreach",
+   "Redmoor Hold"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 717.3,
+  "y": 776.0,
+  "between": [
+   "Farrowmere",
+   "Thornwatch"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 1182.4,
+  "y": 196.0,
+  "between": [
+   "Frostgate",
+   "Valmere"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 992.0,
+  "y": 639.0,
+  "between": [
+   "Farrowmere",
+   "Icemere Reach"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 552.0,
+  "y": 568.0,
+  "between": [
+   "Kingsreach",
+   "Thornwatch"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 431.2,
+  "y": 272.9,
+  "between": [
+   "Ashenvale",
+   "Redmoor Hold"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 574.0,
+  "y": 35.0,
+  "between": [
+   "Ashenvale",
+   "Redmoor Hold"
+  ],
+  "kind": "ford"
+ },
+ {
+  "x": 896.0,
+  "y": 454.0,
+  "between": [
+   "Ashenvale",
+   "Thornwatch"
+  ],
+  "kind": "ford"
+ },
+ {
+  "x": 849.0,
+  "y": 231.0,
+  "between": [
+   "Ashenvale",
+   "Valmere"
+  ],
+  "kind": "ford"
+ },
+ {
+  "x": 901.0,
+  "y": 444.0,
+  "between": [
+   "Ashenvale",
+   "Icemere Reach"
+  ],
+  "kind": "ford"
+ },
+ {
+  "x": 904.0,
+  "y": 567.0,
+  "between": [
+   "Farrowmere",
+   "Thornwatch"
+  ],
+  "kind": "ford"
+ },
+ {
+  "x": 904.0,
+  "y": 567.0,
+  "between": [
+   "Icemere Reach",
+   "Thornwatch"
+  ],
+  "kind": "ford"
+ },
+ {
+  "x": 1242.0,
+  "y": 796.0,
+  "between": [
+   "Farrowmere",
+   "Icemere Reach"
+  ],
+  "kind": "ford"
+ },
+ {
+  "x": 1075.0,
+  "y": 353.0,
+  "between": [
+   "Icemere Reach",
+   "Valmere"
+  ],
+  "kind": "ford"
+ },
+ {
+  "x": 1504.0,
+  "y": 497.0,
+  "between": [
+   "Frostgate",
+   "Icemere Reach"
+  ],
+  "kind": "ford"
+ }
+]

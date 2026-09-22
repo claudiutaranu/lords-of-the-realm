@@ -88,10 +88,12 @@ public partial class MapClouds : Node3D
 	{
 		(_targetCover, _tint) = season switch
 		{
-			Season.Spring => (0.45f, new Color("f4f6f8")),
-			Season.Summer => (0.24f, new Color("fffdf6")),
-			Season.Autumn => (0.6f, new Color("e8e6e2")),
-			_ => (0.85f, new Color("dfe3e8")),
+			Season.Spring => (0.58f, new Color("f4f6f8")),
+			// Not a bare sky. A clear summer still has weather in it, and a map with nothing at all
+			// over it reads as a diorama under glass rather than as country seen from a height.
+			Season.Summer => (0.42f, new Color("fffdf6")),
+			Season.Autumn => (0.7f, new Color("e8e6e2")),
+			_ => (0.9f, new Color("dfe3e8")),
 		};
 	}
 

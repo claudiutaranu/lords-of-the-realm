@@ -75,13 +75,6 @@ public sealed class MarchGrid
 		}
 	}
 
-	/// <summary>Whether an army could stand here at all.</summary>
-	public bool Walkable(Vector2 pixel)
-	{
-		int cell = CellOf(pixel);
-		return cell >= 0 && _cost[cell] > 0f;
-	}
-
 	/// <summary>Whose county the ground under a point belongs to, or -1 for nobody's.</summary>
 	public int CountyAt(Vector2 pixel)
 	{
@@ -186,6 +179,16 @@ public sealed class MarchGrid
 
 				int next = (y * _across) + x;
 				if (_cost[next] <= 0f)
+				{
+					continue;
+				}
+
+				// No slipping between two corners. A diagonal step passes the two cells either side of
+				// it, and if either of those is ground an army cannot stand on, the step squeezes
+				// through a gap that is not there — which let a line of rock, or a border ditch, one
+				// cell thick be walked straight through on the slant.
+				if (dx != 0 && dy != 0
+					&& (_cost[(down * _across) + x] <= 0f || _cost[(y * _across) + across] <= 0f))
 				{
 					continue;
 				}

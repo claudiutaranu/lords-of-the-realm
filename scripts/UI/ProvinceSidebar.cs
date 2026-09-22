@@ -183,15 +183,21 @@ public partial class ProvinceSidebar : VBoxContainer
 		// What next season will leave the province with, net: the harvest less what the people eat,
 		// the seed that goes back into the ground, the herd that goes under the knife in a bad
 		// winter. A row that only ever counted up would show a granary gaining every season of a
-		// year it is quietly being emptied.
-		TurnSummary next = EconomySimulation.Preview(_economy, _definition, _balance, _season);
-		foreach ((ResourceType type, string _) in Resources)
+		// year it is quietly being emptied. A county nobody here runs has no season to play out: the
+		// loop above has already blanked its row. Previewing it anyway threw, and since the turn
+		// reselects whatever county is in hand, a lord who had last looked at a neighbour's land lost
+		// the rest of every turn after it — the fields, the walls and the season on the map.
+		if (held)
 		{
-			int change = ChangeIn(next, type);
-			Label reading = _yield[type];
-			// Nothing at all rather than a zero: a column of zeroes is noise under the numbers.
-			reading.Text = change == 0 ? "" : change > 0 ? $"+{change:N0}" : $"−{-change:N0}";
-			reading.AddThemeColorOverride("font_color", change < 0 ? Lack : Gain);
+			TurnSummary next = EconomySimulation.Preview(_economy, _definition, _balance, _season);
+			foreach ((ResourceType type, string _) in Resources)
+			{
+				int change = ChangeIn(next, type);
+				Label reading = _yield[type];
+				// Nothing at all rather than a zero: a column of zeroes is noise under the numbers.
+				reading.Text = change == 0 ? "" : change > 0 ? $"+{change:N0}" : $"−{-change:N0}";
+				reading.AddThemeColorOverride("font_color", change < 0 ? Lack : Gain);
+			}
 		}
 
 		_labour.Show(held ? _economy : null, _definition, _balance, _season);

@@ -52,13 +52,17 @@ public partial class FortificationCheck : Node
 		Is("and so do the years it remembers", back.HappinessByYear.Count, 2);
 		Is("  with what they were worth", back.HappinessByYear[1], 64f);
 		Is("and the campaign at the difficulty it was played at", read.Difficulty == Difficulty.Hard, true);
+		// Out of the player's folder the moment it has been read: see SaveGame.Forget.
+		SaveGame.Forget(read);
 
 		// A province that has never built anything must read as open, not as null.
 		SaveGame.Write("Check", turn: 1, provinces: new() { new ProvinceEconomy { ProvinceName = "Thornwatch" } },
 			new Dictionary<string, float>(), Difficulty.Medium);
-		ProvinceEconomy openBack = Newest().Provinces[0];
+		SaveGame open = Newest();
+		ProvinceEconomy openBack = open.Provinces[0];
 		Is("an unbuilt province has no wall", openBack.Fortification, "");
 		Is("an unbuilt province is raising nothing", openBack.Building, "");
+		SaveGame.Forget(open);
 
 		// And the turn is what finishes it: four seasons on, the new wall replaces the old.
 		province.BuildSeasonsLeft = 1;

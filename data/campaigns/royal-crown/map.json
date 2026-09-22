@@ -96,20 +96,27 @@
  ],
  "terrain": {
   "sea_floor_byte": 46.0,
-  "ridge_height": 100.0,
-  "ridge_detail": 67.0,
-  "inland_height": 44.0,
+  "ridge_height": 215.0,
+  "ridge_detail": 112.0,
+  "inland_height": 52.0,
   "north_lift": 26.0,
   "seat_height": 16.0,
-  "noise_height": 26.0,
-  "lowland_detail": 0.08
+  "noise_height": 9.0,
+  "lowland_detail": 0.05,
+  "outcrop_height": 24.0,
+  "outcrop_cover": 0.11,
+  "border_warp": 55.0,
+  "coast_rock_height": 30.0,
+  "coast_rock_width": 3.4,
+  "coast_bays": 48.0
  },
  "islands": {
   "islet_height": 14.0,
   "stack_height": 24.0,
   "emergent_shape": 0.55,
   "base_reach": 6,
-  "stack_count": 15
+  "stack_count": 0,
+  "islets_per_province": 0.0
  },
  "forest": {
   "southern_density": 0.72,

@@ -1,0 +1,14 @@
+The Terrain3D surfaces, in the order Terrain3DGround gives them to the control map.
+
+From the Terrain3D demo — ambientCG assets, Creative Commons CC0 1.0 Universal:
+https://docs.ambientcg.com/license/
+
+  ground037_* (0 Grass): https://ambientcg.com/view?id=Ground037
+  rock023_*   (1 Cliff): https://ambientcg.com/view?id=Rock023
+
+Packed by tools/pack_terrain_textures.py from the Poly Haven sources in the folder above
+(CC0, see ../LICENSE.txt):
+
+  snow_*      (2 Snow)
+  sand_*      (3 Sand)
+  path_*      (4 Path, the roads)

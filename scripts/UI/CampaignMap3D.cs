@@ -17,15 +17,21 @@ public partial class CampaignMap3D : Node3D
 	// textures below are the engine's, shared by every campaign.
 	private const string HeightFile = "map-height.png";
 	private const string AlbedoFile = "map-albedo.png";
+	private const string SurfaceFile = "map-surface.png";
+	private const string CoastFile = "map-coast.png";
 	private const string IdFile = "map-ids.png";
-	private const string TerrainShaderPath = "res://assets/shaders/terrain.gdshader";
-	private const string TerrainTextureDirectory = "res://assets/terrain";
 
 	// The map image's pixels laid out in world units, and how tall a full-white height pixel is.
 	// Grown 20% over the original 153.6x102.4: props keep their real size, so the realm reads as
 	// bigger ground rather than the same map zoomed. Height goes with it or the relief flattens.
-	private const float MapWidth = 184.3f;
-	private const float MapDepth = 122.9f;
+	//
+	// The exact figures are no longer free: the ground is drawn by Terrain3D, which will not lay
+	// vertices closer than a quarter of a world unit, so the world is however wide the height map
+	// makes it at that spacing. 1536 pixels at one vertex per two of them is 192. Everything placed
+	// on the map goes through MapToWorld and follows these two, so this is a four per cent stretch
+	// of the old figures and nothing else moves.
+	private static readonly float MapWidth = Terrain3DGround.WorldWidth(1536);
+	private static readonly float MapDepth = Terrain3DGround.WorldWidth(1024);
 	// How tall the relief stands. The height map says where the ground rises and by how much
 	// relative to itself; this alone says how much of that the player sees, so it is the one number
 	// that makes the realm rolling country or a mountain range. Down from 24, and down again: a lord
@@ -33,10 +39,8 @@ public partial class CampaignMap3D : Node3D
 	// their length behind hills. Flatter is not prettier, it is legible — the old game this one is
 	// copied from drew almost no relief at all and never lost a road. Lower still would flatten the
 	// snow line into a painted stripe, because snow is decided on the height map rather than here.
-	private const float HeightScale = 8.0f;
+	private const float HeightScale = 26.0f;
 
-	/// <summary>How coarsely the ID map is read when looking for borders, in pixels.</summary>
-	private const int BorderStep = 3;
 	// The height map stores the seabed too: this byte value is the waterline, and everything below
 	// it is under water (tools/generate_campaign_map.py: SEA_FLOOR_BYTE).
 	private const float SeaFloorByte = 46.0f;
@@ -46,8 +50,12 @@ public partial class CampaignMap3D : Node3D
 	// where the player expects. Free orbit can come later if armies ever need to be seen behind
 	// a mountain.
 	private const float CameraPitchDegrees = -52.0f;
-	private const float MinDistance = 54.0f;
+	// A fifth closer than it was (54): near enough to see a field's rows and a village's roofs.
+	private const float MinDistance = 45.0f;
 	private const float MaxDistance = 152.0f;
+	/// <summary>How far the shadows reach, as a multiple of the camera's distance. From this pitch
+	/// and field of view the far edge of the screen lies about 1.53 camera distances deep.</summary>
+	private const float ShadowReach = 1.6f;
 	private const float ZoomStep = 9.5f;
 	// Trackpad gestures carry continuous deltas, not the wheel's discrete clicks, so they need their
 	// own scale: how many world units one unit of two-finger scroll, and one of pinch, are worth.
@@ -72,7 +80,7 @@ public partial class CampaignMap3D : Node3D
 	};
 
 	private Camera3D _camera;
-	private ShaderMaterial _terrainMaterial;
+	private Terrain3DGround _ground;
 	private Image _heightImage;
 	private Image _idImage;
 	private MapDecoration _decoration;
@@ -105,6 +113,9 @@ public partial class CampaignMap3D : Node3D
 
 		_camera = new Camera3D { Fov = 48.0f, Far = 800.0f, Current = true };
 		AddChild(_camera);
+		// The clipmap is laid out around the camera, so the ground has to be told which one it
+		// follows — without it Terrain3D stops processing and never draws.
+		_ground?.Watch(_camera);
 		UpdateCamera();
 	}
 
@@ -133,41 +144,6 @@ public partial class CampaignMap3D : Node3D
 		Vector2I pixel = WorldToPixel(hit);
 		mapPixel = new Vector2(pixel.X, pixel.Y);
 		return true;
-	}
-
-	/// <summary>Which counties share a border, by province index. Read off the ID map itself, which
-	/// is the only thing that actually knows: seats a short way apart can be separated by a bay, and
-	/// two counties that look far apart on the pins can run a hundred miles of frontier together.
-	///
-	/// Sampled rather than walked pixel by pixel. A million and a half GetPixel calls to answer a
-	/// question about where borders are is a second of loading for an answer a third of the pixels
-	/// gives exactly as well — a border long enough for an army to cross is many pixels wide.</summary>
-	public List<(int A, int B)> Borders()
-	{
-		var found = new HashSet<(int, int)>();
-		int width = _idImage.GetWidth();
-		int height = _idImage.GetHeight();
-		for (int y = 0; y < height - BorderStep; y += BorderStep)
-		{
-			for (int x = 0; x < width - BorderStep; x += BorderStep)
-			{
-				int here = IdAt(x, y);
-				if (here < 0)
-				{
-					continue;
-				}
-
-				foreach (int there in new[] { IdAt(x + BorderStep, y), IdAt(x, y + BorderStep) })
-				{
-					if (there >= 0 && there != here)
-					{
-						found.Add((Mathf.Min(here, there), Mathf.Max(here, there)));
-					}
-				}
-			}
-		}
-
-		return new List<(int, int)>(found);
 	}
 
 	private int IdAt(int x, int y) => Mathf.RoundToInt(_idImage.GetPixel(x, y).R * 255f) - 1;
@@ -222,8 +198,8 @@ public partial class CampaignMap3D : Node3D
 
 		// The shader compares against the ID map's raw red channel, which is index + 1 so that
 		// 0 can mean water.
-		_terrainMaterial.SetShaderParameter("selected_index", selectedIndex + 1);
-		_terrainMaterial.SetShaderParameter("hovered_index", hoveredIndex + 1);
+		_ground?.SetShaderParameter("selected_index", selectedIndex + 1);
+		_ground?.SetShaderParameter("hovered_index", hoveredIndex + 1);
 	}
 
 	// Physical key positions, not letters, so WASD stays under the same fingers on a non-QWERTY
@@ -292,7 +268,7 @@ public partial class CampaignMap3D : Node3D
 	/// change is never seen happening.</summary>
 	public void SetSeason(Season season)
 	{
-		_terrainMaterial.SetShaderParameter("season", (float)(int)season);
+		_ground?.SetShaderParameter("season", (float)(int)season);
 		_water.SetSeason(season);
 		_decoration.SetSeason(season);
 		_clouds.SetSeason(season);
@@ -333,10 +309,10 @@ public partial class CampaignMap3D : Node3D
 		_decoration.SetFields(name, seatPixel, province, season);
 
 	/// <summary>Sows the woods, once everything built is standing. Last, so they grow around it.</summary>
-	public void SowWoods() => _decoration.SowWoods();
+	public void Sow() => _decoration.Sow();
 
-	/// <summary>Sets the march stones along every frontier between two counties.</summary>
-	public void SowBorderStones() => _decoration.SowBorderStones();
+
+
 
 	/// <summary>How close the camera is standing, as a multiple of how close it stands when pulled
 	/// all the way out: 1 at the far end and near three at the near one. What is pinned to the
@@ -382,6 +358,12 @@ public partial class CampaignMap3D : Node3D
 			SsaoEnabled = true,
 			SsaoRadius = 1.8f,
 			SsaoIntensity = 1.2f,
+			// The island reflected in the sea round it. Only reaches opaque surfaces, which is why the
+			// water gave up its transparency for it.
+			SsrEnabled = true,
+			SsrMaxSteps = 64,
+			SsrFadeIn = 0.15f,
+			SsrFadeOut = 2.0f,
 		};
 		AddChild(new WorldEnvironment { Environment = _environment });
 
@@ -391,15 +373,22 @@ public partial class CampaignMap3D : Node3D
 			LightEnergy = 1.55f,
 			LightColor = new Color("fff0cf"),
 			ShadowEnabled = true,
+			// How far the shadows reach is set with the zoom, in UpdateCamera. The four cascades are
+			// laid over the stretch of ground the camera can actually see — the default splits spent
+			// three of them on the air between the lens and the land, drew every shadow on screen from
+			// the coarsest, and let them stop at a fixed distance, which from the default height was
+			// two thirds of the way up the screen: a line with shadow on one side and none on the
+			// other, dragged across the island by every pan. The cascades are blended into each other
+			// for the same reason, and the shadows fade out past the top of the screen, not on it.
 			DirectionalShadowMode = DirectionalLight3D.ShadowMode.Parallel4Splits,
-			DirectionalShadowMaxDistance = 190.0f,
+			DirectionalShadowSplit1 = 0.55f,
+			DirectionalShadowSplit2 = 0.70f,
+			DirectionalShadowSplit3 = 0.85f,
+			DirectionalShadowBlendSplits = true,
+			DirectionalShadowFadeStart = 0.97f,
 			ShadowBlur = 1.4f,
-			// The seabed is a single near-flat sheet the size of the map, seen almost edge-on: at the
-			// default bias it shadows itself, and the streaks that come off every islet run halfway to
-			// the horizon across the water. Nothing on land needs a bias this generous; the flat sea
-			// does, and it is the same light over both.
-			ShadowBias = 0.6f,
-			ShadowNormalBias = 4.0f,
+			ShadowBias = 0.15f,
+			ShadowNormalBias = 1.5f,
 		};
 		_sun.RotationDegrees = new Vector3(-42, -38, 0);
 		AddChild(_sun);
@@ -407,53 +396,35 @@ public partial class CampaignMap3D : Node3D
 
 	private void BuildTerrain()
 	{
-		_terrainMaterial = new ShaderMaterial { Shader = GD.Load<Shader>(TerrainShaderPath) };
-		_terrainMaterial.SetShaderParameter("height_map", ImageTexture.CreateFromImage(_heightImage));
-		_terrainMaterial.SetShaderParameter("albedo_map", GD.Load<Texture2D>(Campaign.Asset(AlbedoFile)));
-		_terrainMaterial.SetShaderParameter("id_map", ImageTexture.CreateFromImage(_idImage));
-		_terrainMaterial.SetShaderParameter("height_scale", HeightScale);
-		_terrainMaterial.SetShaderParameter("sea_level_normalized", SeaFloorByte / 255.0f);
-		_terrainMaterial.SetShaderParameter("map_size_x", MapWidth);
-		// Ground texture density stays fixed to world units, so growing the map does not stretch it.
-		_terrainMaterial.SetShaderParameter("detail_tiling", MapWidth * 0.586f);
-		_terrainMaterial.SetShaderParameter("world_texel",
-			new Vector2(MapWidth / _heightImage.GetWidth(), MapDepth / _heightImage.GetHeight()));
-
-		// CC0 ground textures (assets/terrain/LICENSE.txt), tiled far tighter than the map so the
-		// surface has grain of its own instead of reading as painted clay.
-		foreach (string surface in new[] { "grass", "rock", "snow", "sand" })
+		if (!Terrain3DGround.Available)
 		{
-			_terrainMaterial.SetShaderParameter($"{surface}_texture",
-				GD.Load<Texture2D>($"{TerrainTextureDirectory}/{surface}-diffuse.jpg"));
-			_terrainMaterial.SetShaderParameter($"{surface}_normal",
-				GD.Load<Texture2D>($"{TerrainTextureDirectory}/{surface}-normal.jpg"));
+			GD.PushError("CampaignMap3D: the Terrain3D plugin is not loaded, so there is no ground to "
+				+ "stand on. On macOS its library arrives quarantined: "
+				+ "xattr -dr com.apple.quarantine addons/terrain_3d");
+			return;
 		}
 
-		var mesh = new PlaneMesh
-		{
-			Size = new Vector2(MapWidth, MapDepth),
-			// One vertex per 3 height pixels: enough that an islet is a shape rather than a few flat
-			// facets, without the 790k triangles that one vertex per 2 pixels cost.
-			SubdivideWidth = _heightImage.GetWidth() / 3,
-			SubdivideDepth = _heightImage.GetHeight() / 3,
-			Material = _terrainMaterial,
-		};
-		AddChild(new MeshInstance3D
-		{
-			Mesh = mesh,
-			// The plane's own bounds are flat, so displaced peaks get culled at the screen edge
-			// unless the AABB is grown to cover where the vertex shader actually puts them.
-			CustomAabb = new Aabb(new Vector3(-MapWidth / 2, 0, -MapDepth / 2),
-				new Vector3(MapWidth, HeightScale, MapDepth)),
-			CastShadow = GeometryInstance3D.ShadowCastingSetting.On,
-		});
+		Image tint = Terrain3DGround.AsTint(GD.Load<Texture2D>(Campaign.Asset(AlbedoFile)).GetImage());
+		Image surface = GD.Load<Texture2D>(Campaign.Asset(SurfaceFile)).GetImage();
+		_ground = Terrain3DGround.Build(this, _heightImage, tint, surface, _idImage,
+			MapWidth, MapDepth, HeightScale);
+
+		// The waterline, in world units, so the shader does not have to know how the height is
+		// scaled. Where the snow and the rock and the beach are is the control map's business now.
+		_ground.SetShaderParameter("campaign_sea_level", SeaLevel);
+		_ground.SetShaderParameter("blend_sharpness", 0.87f);
+		// Where a face is steep enough that its texture is laid on from the side instead of from
+		// above. From above, a cliff gets one row of the texture stretched the full height of the
+		// wall — which is the streaking the sea cliffs showed. The plugin's 0.8 left most of this
+		// coast just on the wrong side of the line.
+		_ground.SetShaderParameter("projection_threshold", 0.92f);
 	}
 
 	private void BuildWater()
 	{
 		_water = new MapWater();
 		AddChild(_water);
-		_water.Build(_heightImage, new Vector2(MapWidth, MapDepth), HeightScale, SeaLevel);
+		_water.Build(_heightImage, GD.Load<Texture2D>(Campaign.Asset(CoastFile)), new Vector2(MapWidth, MapDepth), HeightScale, SeaLevel);
 	}
 
 	// --- camera ---------------------------------------------------------------------------
@@ -475,6 +446,7 @@ public partial class CampaignMap3D : Node3D
 		float pitch = Mathf.DegToRad(CameraPitchDegrees);
 		_camera.Position = _focus + new Vector3(0, -Mathf.Sin(pitch) * _distance, Mathf.Cos(pitch) * _distance);
 		_camera.RotationDegrees = new Vector3(CameraPitchDegrees, 0, 0);
+		_sun.DirectionalShadowMaxDistance = _distance * ShadowReach;
 		_clouds?.SetFocus(_focus);
 	}
 

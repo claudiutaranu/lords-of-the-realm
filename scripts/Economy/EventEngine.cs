@@ -54,8 +54,8 @@ public static class EventEngine
 
 	/// <summary>Everything worth telling the lord about this province, after its turn has been run.
 	/// The world's half may change the province; the people's half only reports it.</summary>
-	public static List<FiredEvent> AfterTurn(ProvinceEconomy province, ProvinceDefinition definition,
-		GameBalance balance, Season season, int turn, TurnSummary summary, RandomNumberGenerator rng)
+	public static List<FiredEvent> AfterTurn(ProvinceEconomy province, GameBalance balance, Season season,
+		int turn, TurnSummary summary, RandomNumberGenerator rng)
 	{
 		var news = new List<FiredEvent>();
 		Quieten(province);
