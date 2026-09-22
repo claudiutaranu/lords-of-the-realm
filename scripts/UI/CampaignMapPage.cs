@@ -53,6 +53,15 @@ public partial class CampaignMapPage : Control
 	/// <summary>Where freshly raised men stand, from their county's seat: north-west of the town,
 	/// opposite the corner the castle is built on.</summary>
 	private static readonly Vector2 MusterGround = new(-37f, -37f);
+
+	/// <summary>How far round the town each company after the first musters, in radians, so two
+	/// banners raised in the same county are two things to point at.</summary>
+	private const float MusterApart = 0.9f;
+
+	/// <summary>How close two of a lord's companies have to halt before he is asked whether they are
+	/// one army, in map pixels. A field, not a county: men who cannot see each other are not
+	/// standing together.</summary>
+	private const float JoinReach = 70f;
 	private const string RecruitsScenePath = "res://scene/campaign-map/recruits.tscn";
 	private const string BlacksmithScenePath = "res://scene/campaign-map/blacksmith.tscn";
 	private const string MarketScenePath = "res://scene/campaign-map/market.tscn";
@@ -80,10 +89,10 @@ public partial class CampaignMapPage : Control
 
 	/// <summary>One province of the played campaign. <paramref name="Realm"/> is who holds it when
 	/// the campaign opens, which for most of them is nobody. <paramref name="EconomyFile"/> names the
-	/// ProvinceDefinition describing its land, and is empty where none is authored yet.</summary>
-	/// <summary>A county as the campaign file draws it. MapPosition is its seat — the pin, the end of
-	/// its roads, where its army stands; TownPosition is where its village, fields and castle are laid
-	/// out, which is the seat itself unless the generator had to move the village clear of a cliff.</summary>
+	/// ProvinceDefinition describing its land, and is empty where none is authored yet.
+	/// <paramref name="MapPosition"/> is its seat — the pin, the end of its roads, where its army
+	/// stands; <paramref name="TownPosition"/> is where its village, fields and castle are laid out,
+	/// which is the seat itself unless the generator had to move the village clear of a cliff.</summary>
 	private record ProvinceData(string Name, Vector2 MapPosition, string Realm, bool IsCapital, string EconomyFile,
 		Vector2 TownPosition);
 
@@ -134,9 +143,10 @@ public partial class CampaignMapPage : Control
 	/// to say is where — a click anywhere else means he thought better of it.</summary>
 	private bool _marching;
 
-	/// <summary>The army in hand while an order is being given. Thrown away the moment it is given or
-	/// abandoned.</summary>
-	private string _marchingFrom = "";
+	/// <summary>The company in hand while an order is being given — that company and not its county,
+	/// because a county can have several and the order is for the one the lord took hold of. Thrown
+	/// away the moment it is given or abandoned.</summary>
+	private FieldArmy _marchingArmy;
 	private readonly Dictionary<(string From, string To), List<Vector2>> _roadLines = new();
 	private MarchGrid _ground;
 
@@ -145,7 +155,9 @@ public partial class CampaignMapPage : Control
 	/// every frame, the same as the province pins, so it stays on the ground while the lord pans.</summary>
 	private readonly List<(Vector2 At, bool County, bool Reachable)> _trailSteps = new();
 	private MarchTrail _trail;
-	private ArmyBadges _badges;
+	private ArmyPanel _army;
+	private JoinPanel _join;
+	private BattlePanel _battle;
 	private Label _marchLabel;
 	private string _leaveTarget;
 	private Control _turnTransition;
@@ -251,7 +263,9 @@ public partial class CampaignMapPage : Control
 		{
 			if (_selected != null)
 			{
-				TakeUpArmy(_provinces[_markers.IndexOf(_selected)].Name);
+				// The county's button means the company it would send. Which one that is, the county
+				// answers — every other company is taken hold of by its own banner on the map.
+				TakeUpArmy(_turnManager.GetProvince(_provinces[_markers.IndexOf(_selected)].Name)?.Readiest());
 			}
 		};
 
@@ -272,12 +286,66 @@ public partial class CampaignMapPage : Control
 		Control markerLayer = GetNode<Control>("%Markers");
 		markerLayer.AddChild(_trail);
 
-		// Under the trail, so a road being laid out passes over the armies it is being laid out for.
-		_badges = new ArmyBadges();
-		markerLayer.AddChild(_badges);
-		markerLayer.MoveChild(_badges, _trail.GetIndex());
-
 		AddChild(_marchLabel);
+
+		// Over the map and over the rail: a company is looked at where it stands.
+		_army = new ArmyPanel();
+		AddChild(_army);
+		_army.MarchPressed += TakeUpArmy;
+
+		// Two of the lord's companies standing in the same field raise one question, and this is
+		// where it is asked: one army now, or two?
+		_join = new JoinPanel();
+		AddChild(_join);
+
+		// And what happens when the men standing there are somebody else's.
+		_battle = new BattlePanel();
+		AddChild(_battle);
+		_battle.Settled += () =>
+		{
+			// A day's fighting moves men, walls and sometimes a border: everything drawn out there
+			// is stale, and so is the county in the sidebar.
+			ShowArmies();
+			ShowFortifications();
+			ShowSettlements();
+			LayGround();
+			if (_selected != null)
+			{
+				SelectProvince(_markers.IndexOf(_selected));
+			}
+		};
+
+		_army.SplitPressed += army =>
+		{
+			FieldArmy half = _turnManager.GetProvince(army.Home)?.Split(army);
+			if (half == null)
+			{
+				return;
+			}
+
+			ShowArmies();
+			ShowSaveToast($"{half.Strength:N0} men of {army.Home} now march under their own banner");
+		};
+		_army.DisbandPressed += army =>
+		{
+			ProvinceEconomy home = _turnManager.GetProvince(army.Home);
+			if (home == null)
+			{
+				return;
+			}
+
+			// Sent home is sent HOME. They were taken out of the county's people the day they were
+			// raised, so a lord who lets an army go gets his hands back into the fields — otherwise
+			// disbanding would quietly be the most expensive thing on the panel.
+			// ponytail: hired men walk into the county's people with everybody else — the band is
+			// counted on the county and not on the company, so there is nothing here to tell them
+			// apart by.
+			home.Population += army.Strength;
+			home.Disband(army);
+			ShowArmies();
+			_sidebar.Refresh();
+			ShowSaveToast($"{army.Strength:N0} men of {army.Home} have gone back to the fields");
+		};
 
 		_fields = new FieldPanel();
 		AddChild(_fields);
@@ -437,32 +505,6 @@ public partial class CampaignMapPage : Control
 		}
 	}
 
-	/// <summary>Puts every army's ring and count where the camera currently has it. Every frame, with
-	/// the pins, for the same reason: the map moves under them.</summary>
-	private void ProjectArmies()
-	{
-		var standing = new List<(Vector2, int, Color)>();
-		foreach (ProvinceData province in _provinces)
-		{
-			ProvinceEconomy economy = _turnManager.AnyProvince(province.Name);
-			if (economy is not { Soldiers: > 0 })
-			{
-				continue;
-			}
-
-			if (_world.TryScreenPosition(ArmyPixel(economy), out Vector2 onScreen))
-			{
-				Color colour = _realms.TryGetValue(economy.Realm, out RealmData realm)
-					? realm.Accent
-					: Chrome.Dim;
-
-				standing.Add((onScreen, economy.Soldiers, colour));
-			}
-		}
-
-		_badges.Show(standing.ToArray());
-	}
-
 	/// <summary>Puts the trail where the camera currently has it. Done every frame with the pins, for
 	/// the same reason: the map moves under them.</summary>
 	private void ProjectTrail()
@@ -505,7 +547,7 @@ public partial class CampaignMapPage : Control
 		_marchLabel.Position = where + new Vector2(18, 14);
 		_marchLabel.Visible = true;
 
-		ProvinceEconomy army = _turnManager.GetProvince(_marchingFrom);
+		FieldArmy army = _marchingArmy;
 		if (army == null || !_world.TryMapPixel(where, out Vector2 ground))
 		{
 			_marchLabel.Text = "Nowhere to march";
@@ -542,17 +584,18 @@ public partial class CampaignMapPage : Control
 
 	/// <summary>Takes an army in hand: from here until it is sent or let go, the map is asking one
 	/// question — where do these men go — and every movement of the mouse answers it.</summary>
-	private void TakeUpArmy(string province)
+	private void TakeUpArmy(FieldArmy army)
 	{
-		ProvinceEconomy army = _turnManager.GetProvince(province);
-		if (army == null || army.Soldiers == 0 || army.MarchLeft <= 0f)
+		if (army == null || army.Strength == 0 || army.MarchLeft <= 0f)
 		{
-			ShowSaveToast($"The men of {province} have no ground left this season");
+			ShowSaveToast(army == null
+				? "There is nobody here with a season left in their legs"
+				: $"The men of {army.Home} have no ground left this season");
 			return;
 		}
 
 		_marching = true;
-		_marchingFrom = province;
+		_marchingArmy = army;
 	}
 
 	/// <summary>Puts the army down again, however that came about — sent, refused, or thought better
@@ -560,7 +603,7 @@ public partial class CampaignMapPage : Control
 	private void LayDownArmy()
 	{
 		_marching = false;
-		_marchingFrom = "";
+		_marchingArmy = null;
 		_marchLabel.Visible = false;
 		LayTrail(new List<(Vector2, float)>(), 0f);
 	}
@@ -568,7 +611,7 @@ public partial class CampaignMapPage : Control
 	/// <summary>How far past this season's legs a road is still worth working out, so the lord can be
 	/// shown where it goes and how far along it he would get. Not unbounded: a search told to find
 	/// the far side of the world will walk the whole map to say no.</summary>
-	private float Beyond(ProvinceEconomy army) => army.MarchLeft * 4f;
+	private float Beyond(FieldArmy army) => army.MarchLeft * 4f;
 
 	/// <summary>The last step of a road the army can actually pay for, or -1 when it cannot take a
 	/// single one.</summary>
@@ -586,23 +629,61 @@ public partial class CampaignMapPage : Control
 		return halt;
 	}
 
-	/// <summary>Where a county's men are standing. Men just raised have never been put anywhere, and
-	/// they are at their own county's seat — which is where they were raised.</summary>
-	private Vector2 ArmyPixel(ProvinceEconomy army)
+	/// <summary>Where a company is standing. Men just raised have never been put anywhere, and they
+	/// are at their own county's seat — which is where they were raised.</summary>
+	private Vector2 ArmyPixel(FieldArmy army)
 	{
-		var at = new Vector2(army.ArmyX, army.ArmyY);
+		var at = new Vector2(army.X, army.Y);
+		if (at != Vector2.Zero)
+		{
+			return at;
+		}
 
 		// Men who have never been sent anywhere are mustered beside their own town rather than on top
 		// of its pin — the pin is what the lord clicks to read the county, and a banner standing in
-		// it would be in the way of the one thing that square of ground is already for.
-		return at == Vector2.Zero ? SeatOf(army.ProvinceName) + MusterGround : at;
+		// it would be in the way of the one thing that square of ground is already for. Each company
+		// takes its own ground around the town, so a second one raised there is a second banner the
+		// lord can point at rather than a figure hidden inside the first.
+		return SeatOf(army.Home) + MusterGround.Rotated((army.Id - 1) * MusterApart);
+	}
+
+	/// <summary>Whether halting here means a fight: the lord's own men, standing on the seat of a
+	/// county that is not his. Its town and its castle are the same square of ground — the walls are
+	/// raised on the seat — so one question covers both, and everything else in the county is ground
+	/// to be walked over.</summary>
+	private bool Contested(FieldArmy army, string county, Vector2 at)
+	{
+		if (county.Length == 0 || army.Strength == 0 || _turnManager.RealmOf(army) != _playerRealm
+			|| _world.TownAt(at) != county)
+		{
+			return false;
+		}
+
+		ProvinceEconomy theirs = _turnManager.AnyProvince(county);
+		return theirs == null || theirs.Realm != _playerRealm;
+	}
+
+	/// <summary>The other company of the lord's standing where this one has just halted, or null.
+	/// What the join is offered over: men who could see each other across the same field.</summary>
+	private FieldArmy Beside(FieldArmy army)
+	{
+		foreach (FieldArmy other in _turnManager.Armies())
+		{
+			if (other != army && other.Strength > 0 && other.County == army.County
+				&& _turnManager.RealmOf(other) == _playerRealm
+				&& ArmyPixel(other).DistanceTo(ArmyPixel(army)) <= JoinReach)
+			{
+				return other;
+			}
+		}
+
+		return null;
 	}
 
 	/// <summary>Sends the men where the cursor was pointing. Everything about the ground was settled
 	/// when the trail was drawn; this pays for it and walks it.</summary>
-	private bool March(string from, Vector2 where)
+	private bool March(FieldArmy army, Vector2 where)
 	{
-		ProvinceEconomy army = _turnManager.GetProvince(from);
 		if (army == null || !_world.TryMapPixel(where, out Vector2 ground))
 		{
 			return false;
@@ -622,9 +703,13 @@ public partial class CampaignMapPage : Control
 		road = road.GetRange(0, halt + 1);
 		int county = _world.CountyAt(road[^1].At);
 		string into = county >= 0 && county < _provinces.Count ? _provinces[county].Name : "";
-		if (into.Length == 0 || !_turnManager.March(from, into, road[^1].At, road[^1].Spent))
+		if (into.Length == 0 || !_turnManager.March(army, into, road[^1].At, road[^1].Spent))
 		{
-			ShowSaveToast(into.Length == 0 ? "Nobody's land lies that way" : $"{into} is not yours to enter");
+			// A rival's border is no longer what stops a march — his ground is walked into like
+			// anybody's — so what is left to refuse is the sea, and men with nothing in their legs.
+			ShowSaveToast(into.Length == 0
+				? "Nobody's land lies that way"
+				: $"The men of {army.Home} cannot make that march");
 			return false;
 		}
 
@@ -637,7 +722,7 @@ public partial class CampaignMapPage : Control
 			strides.Add(step);
 		}
 
-		_world.WalkArmy(from, strides, () =>
+		_world.WalkArmy(army.Key, strides, () =>
 		{
 			ShowArmies();
 			ShowFortifications();
@@ -645,6 +730,28 @@ public partial class CampaignMapPage : Control
 			ShowFields(_provinces[county]);
 			SelectProvince(county);
 			LayGround(); // a county taken is a county open to walk through
+
+			// A county is taken at its own gate and nowhere else. Men who have halted on another
+			// lord's seat — his town, or the walls raised on it — are standing where the thing worth
+			// taking is, and that is the one place the fighting happens.
+			if (Contested(army, into, strides[^1]))
+			{
+				_battle.Open(_turnManager, _balance, army, into, strides[^1]);
+				return;
+			}
+
+			// Where they have halted beside another of the lord's companies, the two of them are one
+			// army only if he says so. Nothing has joined by the time this is asked.
+			FieldArmy beside = Beside(army);
+			if (beside != null)
+			{
+				_join.Ask(army, beside, () =>
+				{
+					_turnManager.Merge(beside, army);
+					ShowArmies();
+					_sidebar.Refresh();
+				});
+			}
 		});
 
 		return true;
@@ -939,14 +1046,10 @@ public partial class CampaignMapPage : Control
 			_ground.LayRoad(road, _balance.MarchCostByRoad);
 		}
 
-		for (int county = 0; county < _provinces.Count; county++)
-		{
-			ProvinceEconomy economy = _turnManager.AnyProvince(_provinces[county].Name);
-			if (economy != null && economy.Realm != _playerRealm)
-			{
-				_ground.Close(county);
-			}
-		}
+		// A rival's county used to be shut to an army — there was no way to fight for it, so there
+		// was no reason to let anybody walk into it. There is one now: the men cross his border, and
+		// what happens when they reach his town happens at his town. His ditches still stop them
+		// everywhere but at a ford or a road, which is what a ditch is for.
 	}
 
 	private void LoadCampaignProvinces()
@@ -1220,20 +1323,27 @@ public partial class CampaignMapPage : Control
 	/// most of all.</summary>
 	private void ShowArmies()
 	{
-		foreach (ProvinceData province in _provinces)
+		var standing = new HashSet<string>();
+		foreach (FieldArmy army in _turnManager.Armies())
 		{
-			ProvinceEconomy economy = _turnManager.AnyProvince(province.Name);
-			bool standing = economy is { Soldiers: > 0 };
+			if (army.Strength == 0)
+			{
+				continue;
+			}
+
+			string realm = _turnManager.RealmOf(army);
+			standing.Add(army.Key);
 
 			// Where the men actually are, which after a march is a hillside and not a market square.
-			Vector2 at = standing ? ArmyPixel(economy) : province.MapPosition;
-			_world.SetArmy(province.Name, at, standing);
+			_world.SetArmy(army.Key, ArmyPixel(army), true,
+				_realms.TryGetValue(realm, out RealmData lord) ? lord.Accent : Colors.White, army.Strength);
 		}
+
+		// A company merged into another, disbanded or killed to the last man leaves a banner behind
+		// otherwise, and a banner with nobody under it is one the lord will try to give orders to.
+		_world.RetireArmies(standing);
 	}
 
-	/// <summary>Puts every province's walls on the map as the ledger has them. Called once the world
-	/// is built and again after each turn, because a build that finished this season has to show up
-	/// on the ground the moment it does.</summary>
 	/// <summary>Hangs the hire-mark over every county with a company standing in it this season.
 	/// This is the whole announcement: no panel, no voice, nothing to dismiss — a lord glancing at
 	/// his realm sees where there are men to be had, and goes there if he wants them.</summary>
@@ -1249,6 +1359,9 @@ public partial class CampaignMapPage : Control
 		}
 	}
 
+	/// <summary>Puts every province's walls on the map as the ledger has them. Called once the world
+	/// is built and again after each turn, because a build that finished this season has to show up
+	/// on the ground the moment it does.</summary>
 	private void ShowFortifications()
 	{
 		foreach (ProvinceData province in _provinces)
@@ -1428,14 +1541,31 @@ public partial class CampaignMapPage : Control
 			return;
 		}
 
+		// The right button asks about a thing rather than doing something with it: a company under
+		// the pointer is opened and told in full, whoever it belongs to.
+		if (@event is InputEventMouseButton { ButtonIndex: MouseButton.Right, Pressed: false } asked
+			&& !_marching && _world.TryMapPixel(asked.Position, out Vector2 under))
+		{
+			FieldArmy company = _turnManager.ArmyOf(_world.ArmyAt(under));
+			if (company is { Strength: > 0 })
+			{
+				string realmKey = _turnManager.RealmOf(company);
+				_army.Show(company, _turnManager.AnyProvince(company.Home), _balance,
+					_realms.TryGetValue(realmKey, out RealmData lord) ? lord.Name : realmKey, realmKey,
+					realmKey == _playerRealm);
+			}
+
+			return;
+		}
+
 		if (@event is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: false } click)
 		{
 			int index = _world.ProvinceAt(click.Position);
 			if (_marching)
 			{
-				string from = _marchingFrom;
+				FieldArmy sent = _marchingArmy;
 				LayDownArmy();
-				if (March(from, click.Position))
+				if (March(sent, click.Position))
 				{
 					return;
 				}
@@ -1445,10 +1575,13 @@ public partial class CampaignMapPage : Control
 			// means the army, not the ground it happens to be standing on.
 			if (!_marching && _world.TryMapPixel(click.Position, out Vector2 ground))
 			{
-				string banner = _world.ArmyAt(ground);
-				if (banner.Length > 0 && _turnManager.GetProvince(banner) != null)
+				FieldArmy banner = _turnManager.ArmyOf(_world.ArmyAt(ground));
+				if (banner != null && _turnManager.RealmOf(banner) == _playerRealm)
 				{
-					SelectProvince(_provinces.FindIndex(province => province.Name == banner));
+					int stands = _provinces.FindIndex(province => province.Name == banner.County);
+					SelectProvince(stands >= 0
+						? stands
+						: _provinces.FindIndex(province => province.Name == banner.Home));
 					TakeUpArmy(banner);
 					return;
 				}
@@ -1456,13 +1589,14 @@ public partial class CampaignMapPage : Control
 
 			if (index >= 0 && index < _provinces.Count)
 			{
-				// The first press is how you look a province over; a second press on the one already
-				// in hand is how you walk into its town — unless it landed on one of that county's
-				// own fields, which is a smaller question about a smaller piece of ground and is
-				// answered where the ground is, rather than three rooms away.
+				// The first press is how you look a province over. After that the ground answers for
+				// itself: a press on one of the county's own fields opens that field, and a press on
+				// the village opens the town. Everywhere else — its woods, its hills, the road between
+				// them — is ground, and a lord pointing at it is not asking to be taken indoors.
 				if (_selected != null && _markers.IndexOf(_selected) == index)
 				{
-					if (!OpenField(index, click.Position))
+					if (!OpenField(index, click.Position) && _world.TryMapPixel(click.Position, out Vector2 streets)
+						&& _world.TownAt(streets) == _provinces[index].Name)
 					{
 						OpenCity();
 					}
@@ -1512,8 +1646,6 @@ public partial class CampaignMapPage : Control
 		{
 			ProjectTrail();
 		}
-
-		ProjectArmies();
 
 		for (int i = 0; i < _provinces.Count; i++)
 		{

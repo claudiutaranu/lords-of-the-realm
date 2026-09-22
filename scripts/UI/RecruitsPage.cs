@@ -304,6 +304,10 @@ public partial class RecruitsPage : ProductionPage
 			Pay(purse, owed);
 		}
 
+		// One muster, one company: everything raised together falls in under one banner, and it is a
+		// NEW banner. What the yard turns out does not walk into whatever army the county already
+		// has standing — the lord decides whether the two become one (see the map's join).
+		_raised = null;
 		foreach ((string key, int men) in _muster)
 		{
 			Item item = Items.Find(card => card.Key == key);
@@ -313,12 +317,18 @@ public partial class RecruitsPage : ProductionPage
 			}
 		}
 
+		_raised = null;
 		_muster.Clear();
 		ShowDetail();
 		Refresh();
 	}
 
 	private readonly Dictionary<string, int> _muster = new();
+
+	/// <summary>The company this muster is falling in under, made by the first card that raises
+	/// anybody and let go the moment the muster is over. Forty spears and twenty bows ordered
+	/// together are one army, not two.</summary>
+	private FieldArmy _raised;
 
 	protected override void Begin(Item item, int count)
 	{
@@ -327,7 +337,8 @@ public partial class RecruitsPage : ProductionPage
 		// in nationalities.
 		bool hired = item.Key == _band?.Key;
 		string unit = hired ? _band.Unit : item.Key;
-		Province.Garrison[unit] = Province.Garrison.GetValueOrDefault(unit) + count;
+		_raised ??= Province.Raise(GameBalance.Engine.MarchReach);
+		_raised.Men[unit] = _raised.Men.GetValueOrDefault(unit) + count;
 		if (hired)
 		{
 			Mercenaries.Hire(Province, count);

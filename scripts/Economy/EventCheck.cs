@@ -358,7 +358,7 @@ public partial class EventCheck : Node
 		ProvinceEconomy province = ProvinceEconomy.FromDefinition(Definition());
 		province.Loyalty = 70f;
 		province.Cattle = 10;
-		province.Garrison["militia"] = 20;
+		province.Muster("militia", 20);
 		return province;
 	}
 

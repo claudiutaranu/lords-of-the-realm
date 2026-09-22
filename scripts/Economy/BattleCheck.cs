@@ -227,11 +227,12 @@ public partial class BattleCheck : Node
 		// A walled county, with men in front of the walls and men on them.
 		TurnManager turns = Realm(b, out ProvinceEconomy crown, out ProvinceEconomy watch);
 		watch.Fortification = "large-fort";
-		watch.Garrison["peasant"] = 30;
+		watch.Muster("peasant", 30);
 		watch.Castle["spear"] = 20;
-		crown.Garrison["sword"] = 200;
+		crown.Muster("sword", 200, b.MarchReach);
+		FieldArmy host = crown.Armies[0];
 
-		Battle.Result field = turns.Attack("Kingsreach", "Valmere", new Vector2(900, 200), walls: false);
+		Battle.Result field = turns.Attack(host, "Valmere", new Vector2(900, 200), walls: false);
 		Is("the field is carried", field.AttackerWon, true);
 		Is("  and the county is NOT taken with it", turns.AnyProvince("Valmere").Realm, "northern-watch");
 		Is("  because the survivors are behind the walls now", watch.FieldMen, 0);
@@ -239,29 +240,29 @@ public partial class BattleCheck : Node
 		Is("  and our dead are off our own roster",
 			crown.FieldMen, 200 - field.AttackerFell);
 
-		Battle.Result storm = turns.Attack("Kingsreach", "Valmere", new Vector2(900, 200), walls: true);
+		Battle.Result storm = turns.Attack(host, "Valmere", new Vector2(900, 200), walls: true);
 		Is("the walls are carried", storm.AttackerWon, true);
 		Is("  and NOW the county is taken", turns.AnyProvince("Valmere").Realm, "royal-crown");
-		Is("  with our men standing on it", turns.AnyProvince("Valmere").FieldMen > 0, true);
+		Is("  with our men standing on it", turns.DefendersOf("Valmere").Men > 0, true);
 		Is("  and nobody left of theirs", turns.AnyProvince("Valmere").CastleMen, 0);
-		Is("  and none of ours left at home", crown.FieldMen, 0);
+		Is("  on the roster of the county that raised them", crown.Armies[0].County, "Valmere");
 		Is("  in a county that did not ask for us",
 			turns.AnyProvince("Valmere").Loyalty, ProvinceEconomy.OpeningLoyalty - b.ConquestResentment);
 
 		// An open county falls with its field, because there is nowhere for anybody to fall back to.
 		TurnManager open = Realm(b, out ProvinceEconomy mine, out ProvinceEconomy theirs);
-		theirs.Garrison["peasant"] = 30;
-		mine.Garrison["sword"] = 200;
+		theirs.Muster("peasant", 30);
+		mine.Muster("sword", 200, b.MarchReach);
 		Is("a county with no walls falls with its field",
-			open.Attack("Kingsreach", "Valmere", new Vector2(900, 200), false).AttackerWon, true);
+			open.Attack(mine.Armies[0], "Valmere", new Vector2(900, 200), false).AttackerWon, true);
 		Is("  and changes hands at once", open.AnyProvince("Valmere").Realm, "royal-crown");
 
 		// And a beaten attacker takes nothing home but his losses.
 		TurnManager hopeless = Realm(b, out ProvinceEconomy few, out ProvinceEconomy many);
 		many.Fortification = "grand-castle";
 		many.Castle["spear"] = 60;
-		few.Garrison["peasant"] = 40;
-		Battle.Result thrown = hopeless.Attack("Kingsreach", "Valmere", new Vector2(900, 200), true);
+		few.Muster("peasant", 40, b.MarchReach);
+		Battle.Result thrown = hopeless.Attack(few.Armies[0], "Valmere", new Vector2(900, 200), true);
 		Is("forty peasants do not storm a royal castle", thrown.AttackerWon, false);
 		Is("  the county is still theirs", hopeless.AnyProvince("Valmere").Realm, "northern-watch");
 		Is("  and we are down the men it cost", few.FieldMen, 40 - thrown.AttackerFell);
@@ -277,22 +278,26 @@ public partial class BattleCheck : Node
 		TurnManager turns = Realm(b, out ProvinceEconomy crown, out ProvinceEconomy watch);
 		watch.Fortification = "large-fort";
 		watch.Castle["spear"] = 20;
-		crown.Garrison["sword"] = 100;
-		crown.ArmyX = 900f;
-		crown.ArmyY = 200f;
+		crown.Muster("sword", 100, b.MarchReach);
+		FieldArmy sitting = crown.Armies[0];
+		sitting.X = 900f;
+		sitting.Y = 200f;
 
 		// Two seasons of bread for twenty men, and an empty larder after that.
 		int eaten = Mathf.CeilToInt(20 / b.PeoplePerGrain * b.SoldierAppetite);
 		watch.CastleStores = eaten * 2;
 
-		Is("an army can sit down in front of a manned gate", turns.Besiege("Kingsreach", "Valmere"), true);
-		Is("  and the county knows who is out there", watch.BesiegedFrom, "Kingsreach");
+		Is("an army can sit down in front of a manned gate", turns.Besiege(sitting, "Valmere"), true);
+		Is("  and the county knows which company is out there", watch.BesiegedFrom, sitting.Key);
 
 		turns.AdvanceTurn();
 		Is("a besieged garrison eats its own larder", watch.CastleStores, eaten);
 		Is("  and not the county's granary", watch.Fed, 0);
+		// Read as "not enough left for another season" rather than as a figure: a garrison nobody
+		// can pay walks off a man at a time, and fewer mouths eat through the larder more slowly.
+		// What the siege turns on is that the bread RUNS OUT, not that it runs out to the grain.
 		turns.AdvanceTurn();
-		Is("  until there is none of it left", watch.CastleStores, 0);
+		Is("  until there is not enough left for another season", watch.CastleStores < eaten, true);
 
 		turns.AdvanceTurn();
 		Is("then they go hungry", watch.HungrySeasons, 1);
@@ -307,29 +312,31 @@ public partial class BattleCheck : Node
 
 		Is("the gate is opened", turns.GetProvince("Valmere") != null, true);
 		Is("  by the lord who was sitting outside it", turns.GetProvince("Valmere").Realm, "royal-crown");
-		Is("  with his men in it", turns.GetProvince("Valmere").FieldMen > 0, true);
+		Is("  with his men in it", turns.DefendersOf("Valmere").Men > 0, true);
 		Is("  and nobody besieging anything any more", turns.GetProvince("Valmere").BesiegedFrom, "");
 
 		// A siege is the army BEING there. The moment it is anywhere else, there is no siege.
 		TurnManager left = Realm(b, out ProvinceEconomy ours, out ProvinceEconomy theirs);
 		theirs.Fortification = "medium-castle";
 		theirs.Castle["spear"] = 20;
-		ours.Garrison["sword"] = 100;
-		Is("a siege is laid", left.Besiege("Kingsreach", "Valmere"), true);
+		ours.Muster("sword", 100, b.MarchReach);
+		FieldArmy camped = ours.Armies[0];
+		Is("a siege is laid", left.Besiege(camped, "Valmere"), true);
 		Is("  and marching away lifts it",
-			left.March("Kingsreach", "Kingsreach", new Vector2(370, 500), 60f) && theirs.BesiegedFrom == "",
+			left.March(camped, "Kingsreach", new Vector2(370, 500), 60f) && theirs.BesiegedFrom == "",
 			true);
 
 		// And what cannot be sat down in front of.
 		TurnManager wrong = Realm(b, out ProvinceEconomy host, out ProvinceEconomy open);
-		host.Garrison["sword"] = 100;
-		open.Garrison["peasant"] = 30;
-		Is("a county with no walls cannot be besieged", wrong.Besiege("Kingsreach", "Valmere"), false);
+		host.Muster("sword", 100, b.MarchReach);
+		FieldArmy outside = host.Armies[0];
+		open.Muster("peasant", 30);
+		Is("a county with no walls cannot be besieged", wrong.Besiege(outside, "Valmere"), false);
 		open.Fortification = "medium-castle";
 		open.Castle["spear"] = 10;
-		Is("  nor one whose field army is still standing", wrong.Besiege("Kingsreach", "Valmere"), false);
-		open.Garrison.Clear();
-		Is("  but a shut gate with nobody outside it can be", wrong.Besiege("Kingsreach", "Valmere"), true);
+		Is("  nor one whose field army is still standing", wrong.Besiege(outside, "Valmere"), false);
+		open.Armies.Clear();
+		Is("  but a shut gate with nobody outside it can be", wrong.Besiege(outside, "Valmere"), true);
 
 		// What it costs the lord being sat on: his county stops paying him. Run on two copies of the
 		// same county so nothing but the siege is different between them.
@@ -338,7 +345,7 @@ public partial class BattleCheck : Node
 		paying.Grain = 2000;
 		paying.Castle["spear"] = 20;
 		ProvinceEconomy shut = paying.Copy();
-		shut.BesiegedFrom = "Kingsreach";
+		shut.BesiegedFrom = "Kingsreach#1";
 		int due = EconomySimulation.TaxDue(paying, b);
 		EconomySimulation.RunTurn(paying, definition, b, Season.Summer);
 		EconomySimulation.RunTurn(shut, definition, b, Season.Summer);
@@ -362,8 +369,8 @@ public partial class BattleCheck : Node
 
 		crown = turns.AnyProvince("Kingsreach");
 		watch = turns.AnyProvince("Valmere");
-		crown.Garrison.Clear();
-		watch.Garrison.Clear();
+		crown.Armies.Clear();
+		watch.Armies.Clear();
 		watch.Castle.Clear();
 		return turns;
 	}

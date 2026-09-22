@@ -135,10 +135,185 @@ public class ProvinceEconomy
 	/// <summary>What the training yard is raising, and how many turns are left on the intake. Paid
 	/// for when it is ordered, in people and in arms out of the armoury.</summary>
 
-	/// <summary>The men standing in the field, by unit key. They ARE the army piece the map draws on
-	/// this county — a company is here or it is on the walls, never in two places at once — and
-	/// whoever holds the ground feeds them.</summary>
-	public Dictionary<string, int> Garrison = new();
+	/// <summary>The companies this county raised and still pays, each standing wherever it was last
+	/// sent. A list and not one roster, because a lord has to be able to raise a second company
+	/// without it walking into the first — see <see cref="FieldArmy"/>.
+	///
+	/// They are the county's for pay, food and desertion however far they have marched; where they
+	/// are standing is each army's own business.</summary>
+	public List<FieldArmy> Armies = new();
+
+	/// <summary>Musters a new company at the county's seat, with the ground the caller says it has
+	/// in its legs. Ids are never reused: an order given to a banner cannot land on a different
+	/// company later.</summary>
+	public FieldArmy Raise(float marchLeft = 0f)
+	{
+		int id = 1;
+		foreach (FieldArmy standing in Armies)
+		{
+			id = standing.Id >= id ? standing.Id + 1 : id;
+		}
+
+		var raised = new FieldArmy
+		{
+			Home = ProvinceName,
+			Id = id,
+			County = ProvinceName,
+			MarchLeft = marchLeft,
+		};
+
+		Armies.Add(raised);
+		return raised;
+	}
+
+	/// <summary>The army of that id, or null. Saves and screens hold on to armies by name and id
+	/// rather than by reference, because the object can be gone by the time they ask again.</summary>
+	public FieldArmy Army(int id) => Armies.Find(standing => standing.Id == id);
+
+	/// <summary>Takes an army off the county — wiped out, disbanded, or merged into another.</summary>
+	public void Disband(FieldArmy army) => Armies.Remove(army);
+
+	/// <summary>Cuts a company in two: half of every kind falls in under a new banner on the same
+	/// ground, with the same legs left under it. The new company is never left empty — a pair splits
+	/// into one and one — and a company of one man does not split at all, which is what null means.
+	///
+	/// Where the halves then go is the map's business. What is decided here is only who is whose,
+	/// because that is the part a save has to carry.</summary>
+	public FieldArmy Split(FieldArmy army)
+	{
+		if (!Armies.Contains(army) || army.Strength < 2)
+		{
+			return null;
+		}
+
+		FieldArmy half = Raise(army.MarchLeft);
+		half.County = army.County;
+		half.X = army.X;
+		half.Y = army.Y;
+
+		// Counted out of the company as a whole rather than kind by kind, so the rounding cannot
+		// hand over two of one kind and none of another and call it half.
+		int owed = army.Strength / 2;
+		foreach (string kind in new List<string>(army.Men.Keys))
+		{
+			int goes = Mathf.Min(owed, (army.Men[kind] + 1) / 2);
+			if (goes == 0)
+			{
+				continue;
+			}
+
+			half.Men[kind] = goes;
+			owed -= goes;
+			// A kind nobody is left carrying is gone from the roster rather than left at nought.
+			if ((army.Men[kind] -= goes) == 0)
+			{
+				army.Men.Remove(kind);
+			}
+		}
+
+		return half;
+	}
+
+	/// <summary>Drops every company with nobody left in it. Called after anything that can kill men,
+	/// so a banner is never left standing over an empty field.</summary>
+	public void Bury()
+	{
+		for (int index = Armies.Count - 1; index >= 0; index--)
+		{
+			if (Armies[index].Strength == 0)
+			{
+				Armies.RemoveAt(index);
+			}
+		}
+	}
+
+	/// <summary>How many of a kind the county has standing in the field, whichever of its armies
+	/// they are in.</summary>
+	public int Mustered(string unit)
+	{
+		int men = 0;
+		foreach (FieldArmy standing in Armies)
+		{
+			men += standing.Men.GetValueOrDefault(unit);
+		}
+
+		return men;
+	}
+
+	/// <summary>The company a county-wide order falls to: the biggest one it still has ground for,
+	/// or null when every man it has is spent or on the walls. The sidebar's March is a county's
+	/// button rather than an army's, and this is what it means by "the army".</summary>
+	public FieldArmy Readiest()
+	{
+		FieldArmy best = null;
+		foreach (FieldArmy standing in Armies)
+		{
+			if (standing.MarchLeft > 0f && standing.Strength > 0
+				&& (best == null || standing.Strength > best.Strength))
+			{
+				best = standing;
+			}
+		}
+
+		return best;
+	}
+
+	/// <summary>Every kind of soldier the county has anywhere — standing in the field with one of
+	/// its companies, or on the gate. What the walls are manned off.</summary>
+	public List<string> Companies()
+	{
+		var kinds = new List<string>();
+		foreach (FieldArmy standing in Armies)
+		{
+			foreach (string unit in standing.Men.Keys)
+			{
+				if (!kinds.Contains(unit))
+				{
+					kinds.Add(unit);
+				}
+			}
+		}
+
+		foreach (string unit in Castle.Keys)
+		{
+			if (!kinds.Contains(unit))
+			{
+				kinds.Add(unit);
+			}
+		}
+
+		return kinds;
+	}
+
+	/// <summary>Sets how many of a kind stand in the field — what the walls take and give back.
+	/// Men coming down off the gate fall in with the company at the seat, and men going up are taken
+	/// off the companies raised last, so a lord manning his walls empties his newest levy before he
+	/// touches the army he has standing in the field.</summary>
+	public void Muster(string unit, int men, float marchLeft = 0f)
+	{
+		for (int index = Armies.Count - 1; index >= 0 && Mustered(unit) > men; index--)
+		{
+			int has = Armies[index].Men.GetValueOrDefault(unit);
+			int keeps = Mathf.Max(0, has - (Mustered(unit) - men));
+			if (keeps > 0)
+			{
+				Armies[index].Men[unit] = keeps;
+			}
+			else
+			{
+				Armies[index].Men.Remove(unit);
+			}
+		}
+
+		int short_ = men - Mustered(unit);
+		if (short_ > 0)
+		{
+			FieldArmy seat = Armies.Count > 0 ? Armies[0] : Raise(marchLeft);
+			seat.Men[unit] = seat.Men.GetValueOrDefault(unit) + short_;
+		}
+
+		Bury();
+	}
 
 	/// <summary>The men held inside the walls, by the same keys. A second roster and not a flag on
 	/// the first, because a lord has to be able to do both things at once: leave men on the gate and
@@ -173,19 +348,35 @@ public class ProvinceEconomy
 	/// them twice would feed a besieged castle out of the fields its besiegers are standing on.</summary>
 	public int Fed => BesiegedFrom.Length > 0 ? FieldMen : Soldiers;
 
-	/// <summary>How much ground this county's men have left in them this season, in map pixels of
-	/// road. Open country costs more of it per pixel than a road does, so the same budget carries an
-	/// army a long way along the stone and a short way over the hills — which is the whole of what a
-	/// road is for.
+	/// <summary>What a save written before a county could have more than one army carries: one
+	/// roster, one budget of ground and one place its men were standing. Read into the one company
+	/// that file describes, so a campaign saved then opens with its army where it left it.
 	///
-	/// On the province and not on a separate army object because the men are the province's: one
-	/// roster, one place it lives, and a save that cannot disagree with itself about where an army
-	/// is standing.</summary>
-	public float MarchLeft;
+	/// Set-only on purpose — this is how the old shape is READ, and nothing writes it again.</summary>
+	[System.Text.Json.Serialization.JsonInclude]
+	[System.Text.Json.Serialization.JsonIgnore(
+		Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+	public Dictionary<string, int> Garrison
+	{
+		// Reads as nothing and is never written: a file in the new shape carries companies instead,
+		// and the getter is here only because System.Text.Json will not fill a collection it cannot
+		// also read — without it the old roster was quietly skipped and a saved army came back empty.
+		get => null;
+		set => Older().Men = value ?? new Dictionary<string, int>();
+	}
 
-	/// <summary>Where on the map the men are standing, in map pixels. Zero means they have not been
-	/// put anywhere yet and belong at their county's seat — which is where they are raised.</summary>
-	public float ArmyX, ArmyY;
+	[System.Text.Json.Serialization.JsonInclude]
+	public float MarchLeft { set => Older().MarchLeft = value; }
+
+	[System.Text.Json.Serialization.JsonInclude]
+	public float ArmyX { set => Older().X = value; }
+
+	[System.Text.Json.Serialization.JsonInclude]
+	public float ArmyY { set => Older().Y = value; }
+
+	/// <summary>The company an old save is being read into, made on the first line that needs it.
+	/// One with nobody in it is dropped when the save is restored (see TurnManager.Restore).</summary>
+	private FieldArmy Older() => Armies.Count > 0 ? Armies[0] : Raise();
 
 	/// <summary>The band of foreign soldiers standing in the county this season: which company they
 	/// are, how many of them are still unspoken for, and how many more seasons they will wait
@@ -285,8 +476,21 @@ public class ProvinceEconomy
 	/// has to come through here.</summary>
 	public int Soldiers => FieldMen + CastleMen;
 
-	/// <summary>The men who can be marched: the field army, and not the watch on the gate.</summary>
-	public int FieldMen => Men(Garrison);
+	/// <summary>The men who can be marched: every company the county has in the field, and not the
+	/// watch on the gate.</summary>
+	public int FieldMen
+	{
+		get
+		{
+			int men = 0;
+			foreach (FieldArmy standing in Armies)
+			{
+				men += standing.Strength;
+			}
+
+			return men;
+		}
+	}
 
 	/// <summary>The men on the walls, who go nowhere.</summary>
 	public int CastleMen => Men(Castle);
@@ -327,7 +531,21 @@ public class ProvinceEconomy
 		copy.Fields = (FieldUse[])Fields.Clone();
 		copy.Fertility = (float[])Fertility.Clone();
 		copy.Armoury = new Dictionary<string, int>(Armoury);
-		copy.Garrison = new Dictionary<string, int>(Garrison);
+		copy.Armies = new List<FieldArmy>(Armies.Count);
+		foreach (FieldArmy standing in Armies)
+		{
+			copy.Armies.Add(new FieldArmy
+			{
+				Home = standing.Home,
+				Id = standing.Id,
+				County = standing.County,
+				Men = new Dictionary<string, int>(standing.Men),
+				MarchLeft = standing.MarchLeft,
+				X = standing.X,
+				Y = standing.Y,
+			});
+		}
+
 		copy.Castle = new Dictionary<string, int>(Castle);
 		copy.EventQuiet = new Dictionary<string, int>(EventQuiet);
 		copy.HappinessByYear = new List<float>(HappinessByYear);
@@ -355,11 +573,14 @@ public class ProvinceEconomy
 		// and in front of the town if it has not. A castle authored with nobody in it is a castle the
 		// first army over the border walks into.
 		Dictionary<string, int> opening =
-			province.Fortification.Length > 0 ? province.Castle : province.Garrison;
+			province.Fortification.Length > 0 ? province.Castle : province.Raise().Men;
 		foreach (System.Collections.Generic.KeyValuePair<Variant, Variant> company in definition.InitialGarrison)
 		{
 			opening[company.Key.AsString()] = company.Value.AsInt32();
 		}
+
+		// A county authored with nobody in the field is not given an empty banner to stand over.
+		province.Bury();
 
 		for (int field = 0; field < province.Fields.Length; field++)
 		{

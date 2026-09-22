@@ -30,7 +30,7 @@ public partial class BattlePanel : CountyPanel
 
 	private TurnManager _turns;
 	private GameBalance _balance;
-	private string _from = "";
+	private FieldArmy _attacker;
 	private string _county = "";
 	private Vector2 _at;
 
@@ -55,11 +55,11 @@ public partial class BattlePanel : CountyPanel
 
 	/// <summary>Puts two armies in front of the lord. <paramref name="at"/> is where his men are
 	/// standing, which is where they will be standing if the county falls.</summary>
-	public void Open(TurnManager turns, GameBalance balance, string from, string county, Vector2 at)
+	public void Open(TurnManager turns, GameBalance balance, FieldArmy from, string county, Vector2 at)
 	{
 		_turns = turns;
 		_balance = balance;
-		_from = from;
+		_attacker = from;
 		_county = county;
 		_at = at;
 		Lay();
@@ -143,7 +143,7 @@ public partial class BattlePanel : CountyPanel
 	/// again between the two fights, because the second one is asked of a different army.</summary>
 	private void Lay()
 	{
-		ProvinceEconomy ours = _turns.GetProvince(_from);
+		FieldArmy ours = _attacker;
 		Defenders against = _turns.DefendersOf(_county);
 		if (ours == null)
 		{
@@ -155,14 +155,14 @@ public partial class BattlePanel : CountyPanel
 		Dictionary<string, int> holding = _walls ? against.Castle : against.Field;
 		bool spent = ours.MarchLeft <= 0f;
 
-		Fill(_ourHost, _ourCount, _from, ours.Garrison);
+		Fill(_ourHost, _ourCount, ours.Home, ours.Men);
 		Fill(_theirHost, _theirCount, _county, holding);
 
-		(float mine, float theirs) = Battle.Weighed(ours.Garrison, against, _walls, spent, _balance);
+		(float mine, float theirs) = Battle.Weighed(ours.Men, against, _walls, spent, _balance);
 		_ourWeight.SizeFlagsStretchRatio = Mathf.Max(0.02f, mine);
 		_theirWeight.SizeFlagsStretchRatio = Mathf.Max(0.02f, theirs);
 
-		ShowTerms(against, ours.Garrison, spent);
+		ShowTerms(against, ours.Men, spent);
 		_verdict.Text = Reckoned(mine, theirs);
 		_verdict.AddThemeColorOverride("font_color", Chrome.Cream);
 		_attack.Visible = true;
@@ -291,7 +291,7 @@ public partial class BattlePanel : CountyPanel
 	/// today — that is the point of it — so the panel says so and closes.</summary>
 	private void Sit()
 	{
-		if (!_turns.Besiege(_from, _county))
+		if (!_turns.Besiege(_attacker, _county))
 		{
 			return;
 		}
@@ -316,7 +316,7 @@ public partial class BattlePanel : CountyPanel
 	/// be wrong.</summary>
 	private void Strike()
 	{
-		Battle.Result day = _turns.Attack(_from, _county, _at, _walls);
+		Battle.Result day = _turns.Attack(_attacker, _county, _at, _walls);
 		Settled?.Invoke();
 
 		bool taken = _turns.GetProvince(_county) != null;
@@ -327,10 +327,15 @@ public partial class BattlePanel : CountyPanel
 			old.QueueFree();
 		}
 
-		ProvinceEconomy ours = _turns.GetProvince(taken ? _county : _from);
-		Fill(_ourHost, _ourCount, taken ? _county : _from,
-			ours?.Garrison ?? new Dictionary<string, int>());
-		Defenders left = _turns.DefendersOf(_county);
+		Fill(_ourHost, _ourCount, _attacker.Home, _attacker.Men);
+
+		// A county that has just fallen answers with OUR men — they are the ones standing on it now
+		// — so asking it who is defending it would report our own army a second time, in the enemy's
+		// column. Taken is taken: there is nobody left on that side of the table.
+		Defenders left = taken
+			? new Defenders(new Dictionary<string, int>(), new Dictionary<string, int>(), "", 0f)
+			: _turns.DefendersOf(_county);
+
 		Fill(_theirHost, _theirCount, _county,
 			ProvinceEconomy.Men(left.Field) > 0 ? left.Field : left.Castle);
 

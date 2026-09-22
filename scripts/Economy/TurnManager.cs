@@ -98,7 +98,11 @@ public class TurnManager
 		{
 			ProvinceEconomy province = ProvinceEconomy.FromDefinition(definition);
 			province.Realm = realmByProvince.GetValueOrDefault(definition.ProvinceName, "");
-			province.MarchLeft = balance.MarchReach;
+			foreach (FieldArmy standing in province.Armies)
+			{
+				standing.MarchLeft = balance.MarchReach;
+			}
+
 			// A province opens with its people already at work. Nobody would hand a lord a county
 			// where every field is sown and not one man is in it.
 			EconomySimulation.Deploy(province, definition, balance, CurrentSeason);
@@ -151,10 +155,10 @@ public class TurnManager
 	/// A march is a march and not a conquest. Crossing into another lord's county puts the men on his
 	/// ground and nothing more — see <see cref="Claim"/> for the only thing that moves a border, and
 	/// <see cref="DefendersOf"/> for what has to be beaten first.</summary>
-	public bool March(string from, string toCounty, Vector2 at, float cost)
+	public bool March(FieldArmy army, string toCounty, Vector2 at, float cost)
 	{
-		ProvinceEconomy here = _provincesByName.GetValueOrDefault(from);
-		if (here == null || here.FieldMen == 0 || cost <= 0f || cost > here.MarchLeft)
+		ProvinceEconomy here = army == null ? null : _provincesByName.GetValueOrDefault(army.Home);
+		if (here == null || army.Strength == 0 || cost <= 0f || cost > army.MarchLeft)
 		{
 			return false;
 		}
@@ -162,39 +166,122 @@ public class TurnManager
 		// Men who are marching are not sitting in front of anybody's gate. A siege is the army being
 		// THERE, so the moment it is somewhere else there is no siege — no order to cancel and no way
 		// to forget to.
-		Lift(from);
+		Lift(army);
 
 		// Wherever they were sent, they are standing there now and the season is that much shorter.
 		// Everything below is about whether anything CHANGED HANDS by their standing there, which is
 		// a different question and mostly answered no.
-		here.ArmyX = at.X;
-		here.ArmyY = at.Y;
-		here.MarchLeft -= cost;
+		army.X = at.X;
+		army.Y = at.Y;
+		army.County = toCounty;
+		army.MarchLeft -= cost;
 
 		ProvinceEconomy there = _provincesByName.GetValueOrDefault(toCounty);
 
-		// Their own county, or another lord's they are only crossing. Walking over a county has never
-		// taken it and does not take it now: that is settled at the seat, against whoever is standing
-		// on it. The men stay on the roster of the county that raised them — the one still feeding
-		// and paying them — however far from home they have got.
-		if (toCounty == from || (there != null && there.Realm != here.Realm))
+		// Their own county, another of the same lord's, or a rival's they are only crossing. Walking
+		// over a county has never taken it and does not take it now: that is settled at the seat,
+		// against whoever is standing on it. Two of a lord's own companies standing in the same field
+		// stay two companies — putting them under one banner is an order he gives (see
+		// <see cref="Merge"/>), not something the ground does to them.
+		if (there != null || toCounty == army.Home)
 		{
 			return true;
 		}
 
-		if (there == null)
+		// Nobody holds it. If its own people have taken up what hangs in the barn, they have to be
+		// beaten before anything changes hands, and the march simply ends on their ground. An empty
+		// county is walked into, the way it always was.
+		return DefendersOf(toCounty).Men > 0 || Claim(army, toCounty, at);
+	}
+
+	/// <summary>Puts one company's men under another's banner, where the lord wants one army instead
+	/// of two standing in the same field. What the season has left is the slower of the two: a
+	/// company does not get its legs back by falling in with men who have walked less far.</summary>
+	public bool Merge(FieldArmy into, FieldArmy from)
+	{
+		if (into == null || from == null || into == from || into.County != from.County
+			|| RealmOf(into) != RealmOf(from))
 		{
-			// Nobody holds it. If its own people have taken up what hangs in the barn, they have to
-			// be beaten before anything changes hands, and the march simply ends on their ground.
-			// An empty county is walked into, the way it always was.
-			return DefendersOf(toCounty).Men > 0 || Claim(from, toCounty, at);
+			return false;
 		}
 
-		// A county of his own realm: the men join whoever is already standing there, so two counties'
-		// companies can be brought together into one army instead of standing in the same field under
-		// two banners.
-		Join(here, there, at);
+		foreach ((string unit, int men) in from.Men)
+		{
+			into.Men[unit] = into.Men.GetValueOrDefault(unit) + men;
+		}
+
+		into.MarchLeft = Mathf.Min(into.MarchLeft, from.MarchLeft);
+		Lift(from);
+		_provincesByName.GetValueOrDefault(from.Home)?.Disband(from);
 		return true;
+	}
+
+	/// <summary>Whose men these are: the realm of the county that raised them, wherever they have
+	/// marched to since.</summary>
+	public string RealmOf(FieldArmy army) =>
+		army == null ? "" : _provincesByName.GetValueOrDefault(army.Home)?.Realm ?? "";
+
+	/// <summary>The company that key names, or null when it has been wiped out, disbanded or merged
+	/// away. Screens hold armies by key across a turn, and a turn can take one off the board.</summary>
+	public FieldArmy ArmyOf(string key)
+	{
+		int mark = key?.LastIndexOf('#') ?? -1;
+		if (mark <= 0 || !int.TryParse(key[(mark + 1)..], out int id))
+		{
+			return null;
+		}
+
+		return _provincesByName.GetValueOrDefault(key[..mark])?.Army(id);
+	}
+
+	/// <summary>Every company standing on the board, whoever raised it. The map draws off this: one
+	/// banner per army, wherever the season has left it.</summary>
+	public List<FieldArmy> Armies()
+	{
+		var standing = new List<FieldArmy>();
+		foreach (ProvinceDefinition definition in _definitions)
+		{
+			standing.AddRange(_provincesByName[definition.ProvinceName].Armies);
+		}
+
+		return standing;
+	}
+
+	/// <summary>The companies of the realm that holds a county, standing in that county. Who would
+	/// have to be beaten to take it, and who a lord's men find waiting when they get there.</summary>
+	private List<FieldArmy> StandingIn(string county)
+	{
+		string realm = _provincesByName.GetValueOrDefault(county)?.Realm ?? "";
+		var there = new List<FieldArmy>();
+		foreach (FieldArmy army in Armies())
+		{
+			if (army.County == county && army.Strength > 0 && RealmOf(army) == realm)
+			{
+				there.Add(army);
+			}
+		}
+
+		return there;
+	}
+
+	/// <summary>Puts every company the holder has in a county under one banner, because a battle for
+	/// a county is one battle: men caught in the same field fight it together or they are beaten in
+	/// detail by the same enemy on the same afternoon. Called before anything that can kill them, so
+	/// what the fighting takes off comes off men who are really there.</summary>
+	private FieldArmy Rally(string county)
+	{
+		List<FieldArmy> there = StandingIn(county);
+		if (there.Count == 0)
+		{
+			return null;
+		}
+
+		for (int index = there.Count - 1; index > 0; index--)
+		{
+			Merge(there[0], there[index]);
+		}
+
+		return there[0];
 	}
 
 	/// <summary>Hands a county to the realm whose men are standing on its seat, with those men on it.
@@ -204,10 +291,10 @@ public class TurnManager
 	/// The county keeps everything but its lord: its stores, its fields, its walls and its people are
 	/// exactly what they were the moment before, because they are the reason anybody wanted it. What
 	/// it loses is whoever was holding it, and whatever they still had standing.</summary>
-	public bool Claim(string from, string toCounty, Vector2 at)
+	public bool Claim(FieldArmy army, string toCounty, Vector2 at)
 	{
-		ProvinceEconomy here = _provincesByName.GetValueOrDefault(from);
-		if (here == null || toCounty == from)
+		ProvinceEconomy here = army == null ? null : _provincesByName.GetValueOrDefault(army.Home);
+		if (here == null || toCounty == army.Home)
 		{
 			return false;
 		}
@@ -241,7 +328,7 @@ public class TurnManager
 
 		// Whoever was holding it is not holding it any more, and neither are his men: they are dead,
 		// scattered or walked off by the time anybody is claiming anything.
-		there.Garrison.Clear();
+		there.Armies.Clear();
 		there.Castle.Clear();
 		there.Realm = here.Realm;
 		there.Purse = here.Purse;
@@ -249,7 +336,13 @@ public class TurnManager
 		// Nobody is glad to be conquered. A county taken has to be held before it is worth having,
 		// which is what stops a lord taking everything he can walk to.
 		there.Loyalty = Mathf.Max(0f, there.Loyalty - _balance.ConquestResentment);
-		Join(here, there, at);
+
+		// The men who took it are standing on it, and they are still the company that walked in:
+		// their own county pays and feeds them however far they have got. What they hold, they hold
+		// by being there.
+		army.County = toCounty;
+		army.X = at.X;
+		army.Y = at.Y;
 		return true;
 	}
 
@@ -263,24 +356,29 @@ public class TurnManager
 	/// The county changes hands the moment there is nobody left to stop it and not before, which is
 	/// what a castle is for: a lord can lose every man he had outside his walls and still hold his
 	/// county, as long as somebody is standing on them.</summary>
-	public Battle.Result Attack(string from, string county, Vector2 at, bool walls)
+	public Battle.Result Attack(FieldArmy army, string county, Vector2 at, bool walls)
 	{
-		ProvinceEconomy here = _provincesByName.GetValueOrDefault(from);
-		if (here == null || here.FieldMen == 0)
+		ProvinceEconomy here = army == null ? null : _provincesByName.GetValueOrDefault(army.Home);
+		if (here == null || army.Strength == 0)
 		{
 			return new Battle.Result(false, new Dictionary<string, int>(),
 				new Dictionary<string, int>(), 0);
 		}
 
+		// Whoever is holding the county holds it together: his companies are put under one banner
+		// before a blow is struck, so what the day kills comes off men who are really standing there.
+		Rally(county);
+
 		// Men who have nothing left in their legs are attacking on the last of them. The map charged
 		// them for the road on the way here, so this is simply read off what is left of the season.
-		bool spent = here.MarchLeft <= 0f;
+		bool spent = army.MarchLeft <= 0f;
 		Defenders against = DefendersOf(county);
 		Battle.Result day = walls
-			? Battle.OnTheWalls(here.Garrison, against, spent, _balance, _rng)
-			: Battle.InTheField(here.Garrison, against, spent, _balance, _rng);
+			? Battle.OnTheWalls(army.Men, against, spent, _balance, _rng)
+			: Battle.InTheField(army.Men, against, spent, _balance, _rng);
 
-		Bury(here.Garrison, day.AttackerLosses);
+		Bury(army.Men, day.AttackerLosses);
+		here.Bury();
 		Bury(walls ? against.Castle : against.Field, day.DefenderLosses);
 
 		// Beaten in the open with walls at their back, the survivors do not stand in the field to be
@@ -295,9 +393,9 @@ public class TurnManager
 		// taken with them, and Claim clears them off. Carrying the FIELD only takes it where there
 		// was nowhere left to fall back to — a lord can lose every man he had outside his walls and
 		// still hold the place, which is the entire argument for quarrying stone.
-		if (day.AttackerWon && (walls || !DefendersOf(county).Held))
+		if (day.AttackerWon && army.Strength > 0 && (walls || !DefendersOf(county).Held))
 		{
-			Claim(from, county, at);
+			Claim(army, county, at);
 		}
 
 		return day;
@@ -312,29 +410,29 @@ public class TurnManager
 	///
 	/// Refused where there is anybody still standing in the open: a castle cannot be shut in while
 	/// its lord's field army is at large behind the siege lines.</summary>
-	public bool Besiege(string from, string county)
+	public bool Besiege(FieldArmy army, string county)
 	{
-		ProvinceEconomy here = _provincesByName.GetValueOrDefault(from);
+		ProvinceEconomy here = army == null ? null : _provincesByName.GetValueOrDefault(army.Home);
 		ProvinceEconomy there = _provincesByName.GetValueOrDefault(county);
 		Defenders against = DefendersOf(county);
-		if (here == null || there == null || here.FieldMen == 0 || here.Realm == there.Realm
+		if (here == null || there == null || army.Strength == 0 || here.Realm == there.Realm
 			|| !against.Held || ProvinceEconomy.Men(against.Field) > 0)
 		{
 			return false;
 		}
 
-		there.BesiegedFrom = from;
+		there.BesiegedFrom = army.Key;
 		there.SiegeSeasons = 0;
 		there.HungrySeasons = 0;
 		return true;
 	}
 
-	/// <summary>Takes a county's army out of every siege it was keeping.</summary>
-	private void Lift(string besieger)
+	/// <summary>Takes one company out of every siege it was keeping.</summary>
+	private void Lift(FieldArmy besieger)
 	{
 		foreach (ProvinceEconomy province in _provincesByName.Values)
 		{
-			if (province.BesiegedFrom == besieger)
+			if (besieger != null && province.BesiegedFrom == besieger.Key)
 			{
 				province.BesiegedFrom = "";
 				province.SiegeSeasons = 0;
@@ -353,9 +451,9 @@ public class TurnManager
 		foreach (ProvinceDefinition definition in _definitions)
 		{
 			ProvinceEconomy province = _provincesByName[definition.ProvinceName];
-			ProvinceEconomy besieger = province.BesiegedFrom.Length == 0
+			FieldArmy besieger = province.BesiegedFrom.Length == 0
 				? null
-				: _provincesByName.GetValueOrDefault(province.BesiegedFrom);
+				: ArmyOf(province.BesiegedFrom);
 
 			if (province.BesiegedFrom.Length == 0)
 			{
@@ -363,9 +461,11 @@ public class TurnManager
 			}
 
 			// Nobody out there any more — the besiegers starved, deserted or were beaten off.
-			if (besieger == null || besieger.FieldMen == 0)
+			if (besieger == null || besieger.Strength == 0)
 			{
-				Lift(province.BesiegedFrom);
+				province.BesiegedFrom = "";
+				province.SiegeSeasons = 0;
+				province.HungrySeasons = 0;
 				continue;
 			}
 
@@ -397,9 +497,9 @@ public class TurnManager
 				continue;
 			}
 
-			bool ours = besieger.Realm == _playerRealm;
+			bool ours = RealmOf(besieger) == _playerRealm;
 			string county = province.ProvinceName;
-			Claim(province.BesiegedFrom, county, new Vector2(besieger.ArmyX, besieger.ArmyY));
+			Claim(besieger, county, new Vector2(besieger.X, besieger.Y));
 
 			// Written here rather than authored into events.json with the rest: this line has to
 			// name a county and a number, and a static line cannot.
@@ -442,34 +542,18 @@ public class TurnManager
 			return;
 		}
 
-		foreach ((string unit, int men) in holding.Garrison)
+		FieldArmy beaten = Rally(county);
+		if (beaten == null)
+		{
+			return;
+		}
+
+		foreach ((string unit, int men) in beaten.Men)
 		{
 			holding.Castle[unit] = holding.Castle.GetValueOrDefault(unit) + men;
 		}
 
-		holding.Garrison.Clear();
-	}
-
-	/// <summary>Moves a county's field army onto another county of the same realm, with whatever the
-	/// season has left in it. The men move, not a copy of them: the county they left has none and the
-	/// county they entered has them all.
-	///
-	/// What the season has left goes with the men rather than with the county they walked out of —
-	/// an army that crossed one border can cross another before the snow.</summary>
-	private static void Join(ProvinceEconomy here, ProvinceEconomy there, Vector2 at)
-	{
-		foreach ((string unit, int men) in here.Garrison)
-		{
-			there.Garrison[unit] = there.Garrison.GetValueOrDefault(unit) + men;
-		}
-
-		float left = here.MarchLeft;
-		here.Garrison.Clear();
-		here.MarchLeft = 0f;
-
-		there.ArmyX = at.X;
-		there.ArmyY = at.Y;
-		there.MarchLeft = Mathf.Max(0f, left);
+		_provincesByName.GetValueOrDefault(beaten.Home)?.Disband(beaten);
 	}
 
 	/// <summary>Who would have to be beaten to take a county: the men a lord has standing in it, or
@@ -490,7 +574,23 @@ public class TurnManager
 		ProvinceEconomy held = _provincesByName.GetValueOrDefault(county);
 		if (held != null)
 		{
-			return new Defenders(held.Garrison, held.Castle, held.Fortification, held.Loyalty);
+			// One company's own roster where there is one company, so a battle takes its dead off
+			// the men who died. Where a lord has several standing there it is a reading and not a
+			// roster — Attack and Besiege put them under one banner first, and then there is one.
+			List<FieldArmy> there = StandingIn(county);
+			Dictionary<string, int> field = there.Count == 1 ? there[0].Men : new Dictionary<string, int>();
+			if (there.Count > 1)
+			{
+				foreach (FieldArmy army in there)
+				{
+					foreach ((string unit, int men) in army.Men)
+					{
+						field[unit] = field.GetValueOrDefault(unit) + men;
+					}
+				}
+			}
+
+			return new Defenders(field, held.Castle, held.Fortification, held.Loyalty);
 		}
 
 		ProvinceDefinition free = _unheld.GetValueOrDefault(county);
@@ -627,6 +727,17 @@ public class TurnManager
 				province.Realm = _provincesByName[province.ProvinceName].Realm;
 			}
 
+			// A save written before a county could have more than one army carries one roster, which
+			// ProvinceEconomy read into one company. It has no name for the county it stands in and
+			// no home, and a county that had no men at all is carrying an empty banner.
+			foreach (FieldArmy army in province.Armies)
+			{
+				army.Home = army.Home.Length > 0 ? army.Home : province.ProvinceName;
+				army.County = army.County.Length > 0 ? army.County : province.ProvinceName;
+				army.Id = army.Id > 0 ? army.Id : 1;
+			}
+
+			province.Bury();
 			_provincesByName[province.ProvinceName] = province;
 		}
 
@@ -662,7 +773,10 @@ public class TurnManager
 		// county taken this turn can be marched out of next turn and not the turn after that.
 		foreach (ProvinceEconomy province in _provincesByName.Values)
 		{
-			province.MarchLeft = _balance.MarchReach;
+			foreach (FieldArmy standing in province.Armies)
+			{
+				standing.MarchLeft = _balance.MarchReach;
+			}
 		}
 
 		foreach (ProvinceDefinition definition in _definitions)

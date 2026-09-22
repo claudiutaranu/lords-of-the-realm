@@ -82,19 +82,6 @@ public sealed class MarchGrid
 		return cell < 0 ? -1 : _county[cell];
 	}
 
-	/// <summary>Shuts a county's ground to an army — a rival's land, which cannot be crossed until
-	/// there is a way to fight for it.</summary>
-	public void Close(int county)
-	{
-		for (int cell = 0; cell < _cost.Length; cell++)
-		{
-			if (_county[cell] == county)
-			{
-				_cost[cell] = 0f;
-			}
-		}
-	}
-
 	/// <summary>The cheapest way from one point to another: each step of it with what has been spent
 	/// by the time the army stands there. Empty when there is no way at all.
 	///

@@ -157,13 +157,15 @@ public partial class ProvinceSidebar : VBoxContainer
 		_loyalty.Text = held ? Mathf.RoundToInt(_economy.Loyalty).ToString() : "—";
 		_tax.Text = held ? $"{_economy.Tax}%" : "—";
 
-		bool marchable = held && _economy.Soldiers > 0 && _economy.MarchLeft > 0f;
-		_march.Visible = marchable;
-		if (marchable)
+		// A county's button means the company it would send: the biggest one with a season left in
+		// its legs. Everything else is ordered about by its own banner on the map.
+		FieldArmy ready = held ? _economy.Readiest() : null;
+		_march.Visible = ready != null;
+		if (ready != null)
 		{
 			// In paces of good road, which is the only unit a lord can hold in his head: the map
 			// charges more than a pace for a pace of hillside, and it says so as he points at it.
-			_march.Text = $"March  ({Mathf.RoundToInt(_economy.MarchLeft / _balance.MarchCostByRoad):N0} paces)";
+			_march.Text = $"March  ({Mathf.RoundToInt(ready.MarchLeft / _balance.MarchCostByRoad):N0} paces)";
 		}
 
 		_ration.Text = held ? _economy.Ration.ToString() : "—";

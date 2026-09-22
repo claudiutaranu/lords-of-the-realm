@@ -51,15 +51,15 @@ public static class EconomySimulation
 
 	// --- labour ----------------------------------------------------------------------------------
 
-	/// <summary>How many hands a task can absorb this season. Past this, another body on the job
-	/// does nothing: a quarry has only so many faces to cut, a herd only so many beasts to milk,
-	/// and a field in winter has nothing for anybody to do.</summary>
 	/// <summary>What the masons are asking for: enough to finish the wall this season, and nobody at
 	/// all when there is nothing being built. Kept apart from the resources because a wall is not a
 	/// store — it is the one task whose appetite shrinks as it is fed.</summary>
 	public static int Masons(ProvinceEconomy province) =>
 		province.Building.Length == 0 ? 0 : province.BuildLeft;
 
+	/// <summary>How many hands a task can absorb this season. Past this, another body on the job
+	/// does nothing: a quarry has only so many faces to cut, a herd only so many beasts to milk,
+	/// and a field in winter has nothing for anybody to do.</summary>
 	public static int Demand(ResourceType type, ProvinceEconomy province, ProvinceDefinition definition, GameBalance balance, Season season) => type switch
 	{
 		ResourceType.Grain => GrainWork(province, balance, season) + province.FieldRepair,
@@ -293,9 +293,14 @@ public static class EconomySimulation
 		// what its lord ordered. Everything that follows from the ration follows from THIS: a county
 		// promised double and served half knows perfectly well which of the two it ate, and an
 		// order nobody could fill has never made anybody grateful.
+		//
+		// Judged against the people's exact appetite, the same one the order was measured in, and not
+		// against their mouths rounded up to a whole sack: 233 portions served to 1,165 people is
+		// double, but over 117 mouths it came out at 1.99 of a ration, and about half the counties
+		// on the map were fed double and thanked their lord for an ordinary meal.
 		int mouths = Mathf.Max(1, Mathf.CeilToInt(p.Population / b.PeoplePerGrain));
 		int served = Mathf.Max(0, dairy + bread + beef - summary.SoldierFood);
-		summary.Achieved = Achieved((float)served / mouths, b);
+		summary.Achieved = Achieved(served / Mathf.Max(1f, p.Population / b.PeoplePerGrain), b);
 
 		// And hunger is measured against what a man NEEDS, never against what he was promised. A
 		// county ordered triple and served double has gone short of nothing at all; if the shortfall
@@ -387,8 +392,19 @@ public static class EconomySimulation
 	/// <summary>Thins every company by the same share and gives back how many left. Rounded up, so
 	/// a company that is owed anything at all loses somebody — a desertion of nought men is a
 	/// consequence the player cannot see.</summary>
-	private static int Disband(ProvinceEconomy p, float share) =>
-		Thin(p.Garrison, share) + Thin(p.Castle, share);
+	private static int Disband(ProvinceEconomy p, float share)
+	{
+		int gone = Thin(p.Castle, share);
+		foreach (FieldArmy standing in p.Armies)
+		{
+			gone += Thin(standing.Men, share);
+		}
+
+		// A company nobody is left in is a company that is not there any more, rather than a banner
+		// standing over an empty field.
+		p.Bury();
+		return gone;
+	}
 
 	/// <summary>Thins one roster. The walls go on the same terms as the field: a man on the gate who
 	/// is not paid walks home like anybody else, and a castle that quietly kept its garrison for

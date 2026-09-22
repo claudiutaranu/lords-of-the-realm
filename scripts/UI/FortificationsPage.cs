@@ -245,15 +245,7 @@ public partial class FortificationsPage : RoomPage
 		heading.AddChild(title);
 		_garrison.AddChild(heading);
 
-		var companies = new List<string>(Province.Garrison.Keys);
-		foreach (string unit in Province.Castle.Keys)
-		{
-			if (!companies.Contains(unit))
-			{
-				companies.Add(unit);
-			}
-		}
-
+		List<string> companies = Province.Companies();
 		companies.Sort(System.StringComparer.Ordinal);
 
 		if (Province.Fortification.Length == 0)
@@ -271,7 +263,7 @@ public partial class FortificationsPage : RoomPage
 		foreach (string unit in companies)
 		{
 			int held = Province.Castle.GetValueOrDefault(unit);
-			int all = held + Province.Garrison.GetValueOrDefault(unit);
+			int all = held + Province.Mustered(unit);
 			string name = unit;
 			_garrison.AddChild(Stepper(Units.Of(unit).Name, held, 5, all, men => Man(name, men), floor: 0));
 		}
@@ -300,20 +292,12 @@ public partial class FortificationsPage : RoomPage
 	{
 		var mark = new System.Text.StringBuilder(Province.Fortification);
 		mark.Append('|').Append(Province.CastleStores + Province.Grain);
-		var companies = new List<string>(Province.Garrison.Keys);
-		foreach (string unit in Province.Castle.Keys)
-		{
-			if (!companies.Contains(unit))
-			{
-				companies.Add(unit);
-			}
-		}
-
+		List<string> companies = Province.Companies();
 		companies.Sort(System.StringComparer.Ordinal);
 		foreach (string unit in companies)
 		{
 			mark.Append('|').Append(unit).Append(':')
-				.Append(Province.Garrison.GetValueOrDefault(unit) + Province.Castle.GetValueOrDefault(unit));
+				.Append(Province.Mustered(unit) + Province.Castle.GetValueOrDefault(unit));
 		}
 
 		return mark.ToString();
@@ -342,10 +326,14 @@ public partial class FortificationsPage : RoomPage
 	/// <see cref="_standing"/> — but the count under it and the larder's reading both move.</summary>
 	private void Man(string unit, int onTheWalls)
 	{
-		int all = Province.Castle.GetValueOrDefault(unit) + Province.Garrison.GetValueOrDefault(unit);
+		int all = Province.Castle.GetValueOrDefault(unit) + Province.Mustered(unit);
 		onTheWalls = Mathf.Clamp(onTheWalls, 0, all);
 		Post(Province.Castle, unit, onTheWalls);
-		Post(Province.Garrison, unit, all - onTheWalls);
+
+		// Men coming down off the gate fall in with the county's own company — raised for them if
+		// every one of its companies has marched off — and they have the season's ground in their
+		// legs like anybody who has not walked anywhere yet.
+		Province.Muster(unit, all - onTheWalls, GameBalance.Engine.MarchReach);
 		Refresh();
 	}
 

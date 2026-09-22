@@ -462,6 +462,20 @@ public partial class EconomyCheck : Node
 			got.LoyaltyFromRations, b.RationLoyaltyDelta[(int)RationLevel.Normal]);
 		Is("  while a full meal is not a famine, whatever was promised", got.FoodShort, 0);
 
+		// Double, served in full, to a county whose size does not divide by ten. It was judged against
+		// its mouths rounded up to a whole sack — 233 portions for 117 mouths is 1.99 of a ration — so
+		// about half the counties on the map were fed double, thanked their lord for an ordinary meal,
+		// and grew at the ordinary rate.
+		ProvinceEconomy uneven = Province();
+		uneven.Population = 1165;
+		uneven.Ration = RationLevel.Double;
+		uneven.Cattle = 0;
+		uneven.Grain = 4000;
+		uneven.StandingCrop = 0;
+		EconomySimulation.Deploy(uneven, def, b, Season.Winter);
+		Is("double served in full is double, whatever the county's size",
+			EconomySimulation.RunTurn(uneven, def, b, Season.Winter).Achieved, RationLevel.Double);
+
 		// The other way round: promised nothing and served nothing.
 		ProvinceEconomy none = Province();
 		none.Ration = RationLevel.None;
@@ -505,7 +519,7 @@ public partial class EconomyCheck : Node
 
 		ProvinceEconomy war = Fed();
 		war.Population = 700;
-		war.Garrison["spear"] = 100;
+		war.Muster("spear", 100);
 		TurnSummary raised = EconomySimulation.RunTurn(war, def, b, Season.Winter);
 
 		Is("the garrison eats", raised.SoldierFood, Mathf.CeilToInt(100 / b.PeoplePerGrain * b.SoldierAppetite));
@@ -516,7 +530,7 @@ public partial class EconomyCheck : Node
 		ProvinceEconomy starved = Fed();
 		starved.Population = 700;
 		starved.Ration = RationLevel.Half;
-		starved.Garrison["spear"] = 100;
+		starved.Muster("spear", 100);
 		Is("and does not go on short rations with them",
 			EconomySimulation.RunTurn(starved, def, b, Season.Winter).SoldierFood, raised.SoldierFood);
 
@@ -530,7 +544,7 @@ public partial class EconomyCheck : Node
 		broke.Population = 700;
 		broke.Gold = 0;
 		broke.Tax = 0; // nothing comes in, so nothing can be paid out
-		broke.Garrison["spear"] = 100;
+		broke.Muster("spear", 100);
 		TurnSummary unpaid = EconomySimulation.RunTurn(broke, def, b, Season.Winter);
 
 		Is("unpaid men walk away", unpaid.Deserted, Mathf.CeilToInt(100 * b.DesertionRate));
@@ -543,13 +557,13 @@ public partial class EconomyCheck : Node
 		// first man.
 		ProvinceEconomy watched = Fed();
 		watched.Population = 1000;
-		watched.Garrison["spear"] = 40; // under the twentieth the county takes for granted
+		watched.Muster("spear", 40); // under the twentieth the county takes for granted
 		Is("a watch on the gate costs no goodwill",
 			EconomySimulation.RunTurn(watched, def, b, Season.Winter).LoyaltyFromGarrison, 0f);
 
 		ProvinceEconomy occupied = Fed();
 		occupied.Population = 1000;
-		occupied.Garrison["spear"] = 150; // a tenth of the county past it
+		occupied.Muster("spear", 150); // a tenth of the county past it
 		Is("a garrison it cannot ignore is an occupation",
 			EconomySimulation.RunTurn(occupied, def, b, Season.Winter).LoyaltyFromGarrison,
 			-b.GarrisonLoyaltyPerTenth);
@@ -557,9 +571,32 @@ public partial class EconomyCheck : Node
 		// The same hundred and fifty men in a county five times the size are nobody's business.
 		ProvinceEconomy wide = Fed();
 		wide.Population = 5000;
-		wide.Garrison["spear"] = 150;
+		wide.Muster("spear", 150);
 		Is("  and the same men in a larger county are not",
 			EconomySimulation.RunTurn(wide, def, b, Season.Winter).LoyaltyFromGarrison, 0f);
+
+		// A company cut in two, which is how a lord leaves men holding a ford and goes on with the
+		// rest. Nobody may be lost or conjured in the halving, and both halves stand where the whole
+		// one did with the same season left in their legs.
+		ProvinceEconomy cut = Fed();
+		cut.Muster("spear", 25, 40f);
+		cut.Muster("bow", 15);
+		FieldArmy whole = cut.Armies[0];
+		whole.County = "Elsewhere";
+		FieldArmy half = cut.Split(whole);
+		Is("a company splits in two", cut.Armies.Count, 2);
+		Is("half the men go", half.Strength, 20);
+		Is("  and half stay", whole.Strength, 20);
+		Is("  on the same ground", half.County, whole.County);
+		Is("  with the same legs left", half.MarchLeft, whole.MarchLeft);
+
+		// The rounding, where it is tightest: a pair splits into one and one rather than into two and
+		// nobody, and the man left over has nothing to split.
+		ProvinceEconomy pair = Fed();
+		pair.Muster("spear", 1);
+		pair.Muster("bow", 1);
+		Is("a pair splits one and one", pair.Split(pair.Armies[0]).Strength, 1);
+		Is("  and a lone man does not split at all", pair.Split(pair.Armies[0]) == null, true);
 	}
 
 	/// <summary>A province with bread in the barn, no herd to milk and nobody at work: whatever
@@ -621,7 +658,7 @@ public partial class EconomyCheck : Node
 		p.Ration = RationLevel.Half;
 		p.Grain = 4000;
 		p.ConscriptedRecently = 200;
-		p.Garrison["spear"] = 150;
+		p.Muster("spear", 150);
 		EconomySimulation.Deploy(p, def, b, Season.Winter);
 		TurnSummary season = EconomySimulation.RunTurn(p, def, b, Season.Winter);
 

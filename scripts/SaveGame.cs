@@ -80,7 +80,10 @@ public class SaveGame
 	/// it now: a version stamp is the one field that cannot be added retroactively. The day a save
 	/// has to be migrated — a store renamed, a number rescaled — every file written before that day
 	/// either says what it is or is unreadable guesswork.</summary>
-	public int Version { get; set; } = 3;
+	/// <summary>4: a county's men live in companies of their own (<see cref="FieldArmy"/>) rather
+	/// than in one roster with one budget of ground. A file written at 3 still loads — ProvinceEconomy
+	/// reads its old roster, march and position into the one company it describes.</summary>
+	public int Version { get; set; } = 4;
 
 	public string CampaignName { get; set; } = "";
 

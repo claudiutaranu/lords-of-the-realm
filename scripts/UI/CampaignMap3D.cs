@@ -163,12 +163,20 @@ public partial class CampaignMap3D : Node3D
 	public string ArmyAt(Vector2 mapPixel) => _decoration.ArmyAt(mapPixel);
 
 	/// <summary>Walks a county's banner along a road, and says when it has arrived.</summary>
-	public void WalkArmy(string province, List<Vector2> road, System.Action arrived) =>
-		_decoration.WalkArmy(province, road, arrived);
+	public void WalkArmy(string army, List<Vector2> road, System.Action arrived) =>
+		_decoration.WalkArmy(army, road, arrived);
 
-	/// <summary>Puts a county's men on the ground, or takes them off it.</summary>
-	public void SetArmy(string province, Vector2 seatPixel, bool standing) =>
-		_decoration.SetArmy(province, seatPixel, standing);
+	/// <summary>Takes down the banners of companies that are not standing any more.</summary>
+	public void RetireArmies(System.Collections.Generic.ICollection<string> standing) =>
+		_decoration.RetireArmies(standing);
+
+	/// <summary>Puts a county's men on the ground under their lord's colour, or takes them off it.
+	/// How many of them there are decides how many figures stand for them.</summary>
+	public void SetArmy(string army, Vector2 seatPixel, bool standing, Color lord, int men) =>
+		_decoration.SetArmy(army, seatPixel, standing, lord, men);
+
+	/// <summary>Whose village stands under a map pixel, or nothing.</summary>
+	public string TownAt(Vector2 mapPixel) => _decoration.TownAt(mapPixel);
 
 	/// <summary>Which of a county's fields sits under a map pixel, or -1.</summary>
 	public int PlotAt(string province, Vector2 mapPixel) => _decoration.PlotAt(province, mapPixel);
