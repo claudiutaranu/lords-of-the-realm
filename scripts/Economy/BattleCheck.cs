@@ -34,6 +34,7 @@ public partial class BattleCheck : Node
 		WhatTheLordCanSee(b);
 		TheButchersBill(b);
 		TheReckoning(b);
+		TheOrphans(b);
 		TheSiege(b);
 
 		GD.Print(_failed == 0
@@ -235,8 +236,13 @@ public partial class BattleCheck : Node
 		Battle.Result field = turns.Attack(host, "Valmere", new Vector2(900, 200), walls: false);
 		Is("the field is carried", field.AttackerWon, true);
 		Is("  and the county is NOT taken with it", turns.AnyProvince("Valmere").Realm, "northern-watch");
-		Is("  because the survivors are behind the walls now", watch.FieldMen, 0);
-		Is("  standing with the gate watch", watch.CastleMen > 20, true);
+		// A side that broke is finished: what the fighting did not kill has run, been taken or gone
+		// home, and none of it stands under that banner again. So the field is not emptied INTO the
+		// castle — the watch on the gate is the men who were always on it, and it is the only thing
+		// still between the county and the man outside.
+		Is("  because nothing is left of what stood in the open", watch.FieldMen, 0);
+		Is("  and it cost them everything they had there", field.DefenderFell, 30);
+		Is("  while the gate watch is what it always was", watch.CastleMen, 20);
 		Is("  and our dead are off our own roster",
 			crown.FieldMen, 200 - field.AttackerFell);
 
@@ -265,8 +271,9 @@ public partial class BattleCheck : Node
 		Battle.Result thrown = hopeless.Attack(few.Armies[0], "Valmere", new Vector2(900, 200), true);
 		Is("forty peasants do not storm a royal castle", thrown.AttackerWon, false);
 		Is("  the county is still theirs", hopeless.AnyProvince("Valmere").Realm, "northern-watch");
-		Is("  and we are down the men it cost", few.FieldMen, 40 - thrown.AttackerFell);
-		Is("  which was not nothing", thrown.AttackerFell > 0, true);
+		Is("  and the army that broke on it is gone", thrown.AttackerFell, 40);
+		Is("  with nothing left to send back", few.FieldMen, 0);
+		Is("  nor a banner standing over nobody", few.Armies.Count, 0);
 	}
 
 	/// <summary>The other way a castle falls, and the one the stone rungs actually fall to. What is
@@ -373,6 +380,46 @@ public partial class BattleCheck : Node
 		watch.Armies.Clear();
 		watch.Castle.Clear();
 		return turns;
+	}
+
+	/// <summary>What happens to a lord's other companies when the county that raised them falls.
+	/// They are not in the battle — they are three counties away — and a campaign that killed them
+	/// off with their home would make taking one seat worth more than beating an army.</summary>
+	private void TheOrphans(GameBalance b)
+	{
+		// A lord with two counties, so that losing one is not losing everything.
+		var turns = new TurnManager(b,
+			new List<ProvinceDefinition> { Definition("Kingsreach"), Definition("Valmere"), Definition("Frostgate") },
+			new Dictionary<string, string>
+			{
+				["Kingsreach"] = "royal-crown",
+				["Valmere"] = "northern-watch",
+				["Frostgate"] = "northern-watch",
+			},
+			"royal-crown", Difficulty.Medium);
+
+		ProvinceEconomy crown = turns.AnyProvince("Kingsreach");
+		ProvinceEconomy watch = turns.AnyProvince("Valmere");
+		crown.Armies.Clear();
+		watch.Armies.Clear();
+		watch.Castle.Clear();
+		turns.AnyProvince("Frostgate").Armies.Clear();
+
+		// Two of the Watch's companies: one standing at home, one off in our country.
+		watch.Muster("peasant", 30);
+		FieldArmy abroad = watch.Raise(b.MarchReach);
+		abroad.Men["spear"] = 25;
+		abroad.County = "Kingsreach";
+
+		crown.Muster("sword", 200, b.MarchReach);
+		turns.Attack(crown.Armies[0], "Valmere", new Vector2(900, 200), walls: false);
+
+		Is("the seat falls", turns.AnyProvince("Valmere").Realm, "royal-crown");
+		Is("  and the men who were standing on it are gone with it",
+			turns.AnyProvince("Valmere").Armies.Count, 0);
+		Is("  but the company that was away is still in the field", abroad.Strength, 25);
+		Is("  on the books of another of its own lord's counties", abroad.Home, "Frostgate");
+		Is("  and it is still his", turns.RealmOf(abroad), "northern-watch");
 	}
 
 	private static ProvinceDefinition Definition(string name) => new()

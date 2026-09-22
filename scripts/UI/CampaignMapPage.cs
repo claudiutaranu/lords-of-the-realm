@@ -157,6 +157,7 @@ public partial class CampaignMapPage : Control
 	private MarchTrail _trail;
 	private ArmyPanel _army;
 	private JoinPanel _join;
+	private SplitPanel _splitting;
 	private BattlePanel _battle;
 	private Label _marchLabel;
 	private string _leaveTarget;
@@ -315,17 +316,21 @@ public partial class CampaignMapPage : Control
 			}
 		};
 
-		_army.SplitPressed += army =>
+		// Which men stay and which walk off is the lord's to say, kind by kind, before anything moves.
+		_splitting = new SplitPanel();
+		AddChild(_splitting);
+		_army.SplitPressed += army => _splitting.Ask(army, taken =>
 		{
-			FieldArmy half = _turnManager.GetProvince(army.Home)?.Split(army);
+			FieldArmy half = _turnManager.GetProvince(army.Home)?.Split(army, taken);
 			if (half == null)
 			{
 				return;
 			}
 
 			ShowArmies();
+			_sidebar.Refresh();
 			ShowSaveToast($"{half.Strength:N0} men of {army.Home} now march under their own banner");
-		};
+		});
 		_army.DisbandPressed += army =>
 		{
 			ProvinceEconomy home = _turnManager.GetProvince(army.Home);

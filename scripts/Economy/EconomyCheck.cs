@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Godot;
 
 /// <summary>The one runnable check behind the province economy. Everything a player does for the
@@ -575,28 +576,32 @@ public partial class EconomyCheck : Node
 		Is("  and the same men in a larger county are not",
 			EconomySimulation.RunTurn(wide, def, b, Season.Winter).LoyaltyFromGarrison, 0f);
 
-		// A company cut in two, which is how a lord leaves men holding a ford and goes on with the
-		// rest. Nobody may be lost or conjured in the halving, and both halves stand where the whole
-		// one did with the same season left in their legs.
+		// A company cut in two, which is how a lord leaves a ford held and goes on with the rest. He
+		// says which men walk off, kind by kind; nobody may be lost or conjured in the cut, and both
+		// halves stand where the whole one did with the same season left in their legs.
 		ProvinceEconomy cut = Fed();
 		cut.Muster("spear", 25, 40f);
 		cut.Muster("bow", 15);
 		FieldArmy whole = cut.Armies[0];
 		whole.County = "Elsewhere";
-		FieldArmy half = cut.Split(whole);
-		Is("a company splits in two", cut.Armies.Count, 2);
-		Is("half the men go", half.Strength, 20);
-		Is("  and half stay", whole.Strength, 20);
+		FieldArmy half = cut.Split(whole, new Dictionary<string, int> { ["spear"] = 5, ["bow"] = 15 });
+		Is("a company splits as the lord cut it", cut.Armies.Count, 2);
+		Is("the men he sent are the ones that went", half.Men.GetValueOrDefault("bow"), 15);
+		Is("  and the rest are still his", whole.Strength, 20);
+		Is("  nobody is lost in the cut", half.Strength + whole.Strength, 40);
+		Is("  a kind emptied is off the roster", whole.Men.ContainsKey("bow"), false);
 		Is("  on the same ground", half.County, whole.County);
 		Is("  with the same legs left", half.MarchLeft, whole.MarchLeft);
 
-		// The rounding, where it is tightest: a pair splits into one and one rather than into two and
-		// nobody, and the man left over has nothing to split.
-		ProvinceEconomy pair = Fed();
-		pair.Muster("spear", 1);
-		pair.Muster("bow", 1);
-		Is("a pair splits one and one", pair.Split(pair.Armies[0]).Strength, 1);
-		Is("  and a lone man does not split at all", pair.Split(pair.Armies[0]) == null, true);
+		// And the one rule, whatever the screen asks for: neither banner may be raised over nobody.
+		ProvinceEconomy all = Fed();
+		all.Muster("spear", 10);
+		FieldArmy only = all.Armies[0];
+		Is("a company cannot walk off entire", all.Split(only, new Dictionary<string, int> { ["spear"] = 10 }) == null, true);
+		Is("  nor cut into nobody", all.Split(only, new Dictionary<string, int> { ["spear"] = 0 }) == null, true);
+		Is("  and more than he has is only what he has",
+			all.Split(only, new Dictionary<string, int> { ["spear"] = 99 }) == null, true);
+		Is("  so his company is untouched", all.Armies.Count, 1);
 	}
 
 	/// <summary>A province with bread in the barn, no herd to milk and nobody at work: whatever

@@ -326,9 +326,25 @@ public class TurnManager
 		there.SiegeSeasons = 0;
 		there.HungrySeasons = 0;
 
-		// Whoever was holding it is not holding it any more, and neither are his men: they are dead,
-		// scattered or walked off by the time anybody is claiming anything.
-		there.Armies.Clear();
+		// Whoever was holding it is not holding it any more, and neither are the men who were
+		// standing in it: they are dead, scattered or walked off by the time anybody is claiming
+		// anything.
+		//
+		// The companies it raised that are somewhere ELSE are a different matter. They are still an
+		// army in the field, three counties away, and nothing has happened to them today — so they
+		// pass to another county of their own lord, which pays and feeds them from now on. Only a
+		// lord with nothing left at all loses them with his last seat.
+		ProvinceEconomy refuge = Refuge(there.Realm, toCounty);
+		for (int index = there.Armies.Count - 1; index >= 0; index--)
+		{
+			FieldArmy company = there.Armies[index];
+			there.Armies.RemoveAt(index);
+			if (refuge != null && company.County != toCounty && company.Strength > 0)
+			{
+				refuge.Adopt(company);
+			}
+		}
+
 		there.Castle.Clear();
 		there.Realm = here.Realm;
 		there.Purse = here.Purse;
@@ -344,6 +360,22 @@ public class TurnManager
 		army.X = at.X;
 		army.Y = at.Y;
 		return true;
+	}
+
+	/// <summary>Another county of the same realm, to take in the companies of one that has just
+	/// fallen. Null where the lord has none left — which is the end of him.</summary>
+	private ProvinceEconomy Refuge(string realm, string lost)
+	{
+		foreach (ProvinceDefinition definition in _definitions)
+		{
+			ProvinceEconomy county = _provincesByName[definition.ProvinceName];
+			if (county.Realm == realm && county.ProvinceName != lost)
+			{
+				return county;
+			}
+		}
+
+		return null;
 	}
 
 	/// <summary>Fights for a county, and writes what the day cost into the ledger.
@@ -381,14 +413,9 @@ public class TurnManager
 		here.Bury();
 		Bury(walls ? against.Castle : against.Field, day.DefenderLosses);
 
-		// Beaten in the open with walls at their back, the survivors do not stand in the field to be
-		// ridden down. This is what turns one battle into two, and what a lord who keeps a garrison
-		// is paying for.
-		if (!walls && day.AttackerWon)
-		{
-			FallBack(county);
-		}
-
+		// Nobody falls back behind the walls any more: a field army that broke is not an army. What
+		// still turns one battle into two is the watch on the gate — men who were never in the first
+		// fight — and that is what a lord who keeps a garrison is paying for.
 		// Carrying the walls IS taking the county: whoever is left on them when they are carried is
 		// taken with them, and Claim clears them off. Carrying the FIELD only takes it where there
 		// was nowhere left to fall back to — a lord can lose every man he had outside his walls and
@@ -530,30 +557,6 @@ public class TurnManager
 				roster.Remove(unit);
 			}
 		}
-	}
-
-	/// <summary>Puts what is left of a beaten field army behind its own walls, where it has any. A
-	/// county with none has nowhere to fall back to and loses everything with the field.</summary>
-	private void FallBack(string county)
-	{
-		ProvinceEconomy holding = _provincesByName.GetValueOrDefault(county);
-		if (holding == null || holding.Fortification.Length == 0)
-		{
-			return;
-		}
-
-		FieldArmy beaten = Rally(county);
-		if (beaten == null)
-		{
-			return;
-		}
-
-		foreach ((string unit, int men) in beaten.Men)
-		{
-			holding.Castle[unit] = holding.Castle.GetValueOrDefault(unit) + men;
-		}
-
-		_provincesByName.GetValueOrDefault(beaten.Home)?.Disband(beaten);
 	}
 
 	/// <summary>Who would have to be beaten to take a county: the men a lord has standing in it, or

@@ -142,10 +142,38 @@ public static class Battle
 		bool attackBroke = Broken(stormingLost, broughtUp, b) || ProvinceEconomy.Men(storming) == 0;
 		bool defenceBroke = Broken(holdingLost, stoodThere, b) || ProvinceEconomy.Men(holding) == 0;
 
+		// A side that breaks is finished as an army. The share of it that fell is what the fighting
+		// killed; the rest are run, taken or walked home, and none of them is standing under that
+		// banner tomorrow. They go onto the same casualty list because everything downstream — the
+		// roster they come off, the line the panel prints — has to agree about what the day cost.
+		//
+		// A day that ends with neither side broken is not a rout for anybody: the men are still
+		// standing where they stood, and the attacker simply has an evening to withdraw in.
+		if (attackBroke)
+		{
+			Rout(storming, stormingLost);
+		}
+
+		if (defenceBroke)
+		{
+			Rout(holding, holdingLost);
+		}
+
 		// The ground stays with whoever was standing on it unless he was actually driven off it.
-		// Both sides breaking at once, or neither breaking in the time there was, is not a victory
-		// for the man who arrived — it is the evening he has to withdraw in.
+		// Both sides breaking at once is not a victory for the man who arrived.
 		return new Result(defenceBroke && !attackBroke, stormingLost, holdingLost, round);
+	}
+
+	/// <summary>Writes off what is left of a side that came apart. Called only for the side that
+	/// broke — a roster still in the field keeps its men.</summary>
+	private static void Rout(Dictionary<string, int> side, Dictionary<string, int> lost)
+	{
+		foreach ((string unit, int men) in side)
+		{
+			lost[unit] = lost.GetValueOrDefault(unit) + men;
+		}
+
+		side.Clear();
 	}
 
 	private static float Day(RandomNumberGenerator rng, GameBalance b) =>

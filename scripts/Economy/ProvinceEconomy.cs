@@ -148,22 +148,39 @@ public class ProvinceEconomy
 	/// company later.</summary>
 	public FieldArmy Raise(float marchLeft = 0f)
 	{
-		int id = 1;
-		foreach (FieldArmy standing in Armies)
-		{
-			id = standing.Id >= id ? standing.Id + 1 : id;
-		}
-
 		var raised = new FieldArmy
 		{
 			Home = ProvinceName,
-			Id = id,
+			Id = NextId(),
 			County = ProvinceName,
 			MarchLeft = marchLeft,
 		};
 
 		Armies.Add(raised);
 		return raised;
+	}
+
+	/// <summary>Takes another county's company onto this county's books — what happens to a company
+	/// in the field when the county that raised it falls: somebody else has to pay and feed it. It
+	/// keeps its men and its legs and takes a place in its new county's line.</summary>
+	public void Adopt(FieldArmy company)
+	{
+		company.Home = ProvinceName;
+		company.Id = NextId();
+		Armies.Add(company);
+	}
+
+	/// <summary>The next number this county has not used. Never reused, so an order given to a
+	/// banner cannot land on a different company later.</summary>
+	private int NextId()
+	{
+		int id = 1;
+		foreach (FieldArmy standing in Armies)
+		{
+			id = standing.Id >= id ? standing.Id + 1 : id;
+		}
+
+		return id;
 	}
 
 	/// <summary>The army of that id, or null. Saves and screens hold on to armies by name and id
@@ -173,15 +190,36 @@ public class ProvinceEconomy
 	/// <summary>Takes an army off the county — wiped out, disbanded, or merged into another.</summary>
 	public void Disband(FieldArmy army) => Armies.Remove(army);
 
-	/// <summary>Cuts a company in two: half of every kind falls in under a new banner on the same
-	/// ground, with the same legs left under it. The new company is never left empty — a pair splits
-	/// into one and one — and a company of one man does not split at all, which is what null means.
+	/// <summary>Cuts a company in two: the men named in <paramref name="taken"/> fall in under a new
+	/// banner on the same ground, with the same legs left under it, and the rest stay where they
+	/// were. Null when that would leave a banner standing over nobody — neither side of a split may
+	/// be empty, and a company that walks off entire has been renamed rather than cut.
 	///
-	/// Where the halves then go is the map's business. What is decided here is only who is whose,
-	/// because that is the part a save has to carry.</summary>
-	public FieldArmy Split(FieldArmy army)
+	/// What is asked for is clamped to what is there rather than trusted: a screen is a screen, and
+	/// the roster is what actually decides how many of a kind there are to give away.
+	///
+	/// Where the two halves then go is the map's business. What is settled here is only who is
+	/// whose, because that is the part a save has to carry.</summary>
+	public FieldArmy Split(FieldArmy army, Dictionary<string, int> taken)
 	{
-		if (!Armies.Contains(army) || army.Strength < 2)
+		if (!Armies.Contains(army))
+		{
+			return null;
+		}
+
+		var goes = new Dictionary<string, int>();
+		int marching = 0;
+		foreach ((string kind, int asked) in taken)
+		{
+			int men = Mathf.Clamp(asked, 0, army.Men.GetValueOrDefault(kind));
+			if (men > 0)
+			{
+				goes[kind] = men;
+				marching += men;
+			}
+		}
+
+		if (marching == 0 || marching == army.Strength)
 		{
 			return null;
 		}
@@ -190,22 +228,11 @@ public class ProvinceEconomy
 		half.County = army.County;
 		half.X = army.X;
 		half.Y = army.Y;
-
-		// Counted out of the company as a whole rather than kind by kind, so the rounding cannot
-		// hand over two of one kind and none of another and call it half.
-		int owed = army.Strength / 2;
-		foreach (string kind in new List<string>(army.Men.Keys))
+		foreach ((string kind, int men) in goes)
 		{
-			int goes = Mathf.Min(owed, (army.Men[kind] + 1) / 2);
-			if (goes == 0)
-			{
-				continue;
-			}
-
-			half.Men[kind] = goes;
-			owed -= goes;
+			half.Men[kind] = men;
 			// A kind nobody is left carrying is gone from the roster rather than left at nought.
-			if ((army.Men[kind] -= goes) == 0)
+			if ((army.Men[kind] -= men) == 0)
 			{
 				army.Men.Remove(kind);
 			}
