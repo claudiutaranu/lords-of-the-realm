@@ -293,9 +293,10 @@ public partial class CampaignMap3D : Node3D
 	public void AddSite(Vector2 seatPixel, MapDecoration.SiteKind kind, float weight) =>
 		_decoration.AddSite(seatPixel, kind, weight);
 
-	/// <summary>Raises a province's settlement on its seat — what the map pin points at.</summary>
-	public void AddSettlement(Vector2 seatPixel, MapDecoration.Settlement kind) =>
-		_decoration.AddSettlement(seatPixel, kind);
+	/// <summary>Raises a province's village on its seat — what the map pin points at — flying its
+	/// lord's colour, or hands an existing one's banners to a new lord.</summary>
+	public void AddSettlement(string province, Vector2 seatPixel, MapDecoration.Settlement kind, Color lord) =>
+		_decoration.AddSettlement(province, seatPixel, kind, lord);
 
 	/// <summary>Puts a province's walls on the ground beside its town, taking down whatever stood
 	/// there before. Called again whenever a build finishes, so the map keeps up with the ledger.</summary>
@@ -373,17 +374,18 @@ public partial class CampaignMap3D : Node3D
 			LightEnergy = 1.55f,
 			LightColor = new Color("fff0cf"),
 			ShadowEnabled = true,
-			// How far the shadows reach is set with the zoom, in UpdateCamera. The four cascades are
-			// laid over the stretch of ground the camera can actually see — the default splits spent
-			// three of them on the air between the lens and the land, drew every shadow on screen from
+			// How far the shadows reach is set with the zoom, in UpdateCamera, and the cascades are laid
+			// over the stretch of ground the camera can actually see. The default splits spent most of
+			// their cascades on the air between the lens and the land, drew every shadow on screen from
 			// the coarsest, and let them stop at a fixed distance, which from the default height was
 			// two thirds of the way up the screen: a line with shadow on one side and none on the
 			// other, dragged across the island by every pan. The cascades are blended into each other
 			// for the same reason, and the shadows fade out past the top of the screen, not on it.
-			DirectionalShadowMode = DirectionalLight3D.ShadowMode.Parallel4Splits,
-			DirectionalShadowSplit1 = 0.55f,
-			DirectionalShadowSplit2 = 0.70f,
-			DirectionalShadowSplit3 = 0.85f,
+			// Two, not four: every cascade over this ground draws the woods into it again, and four
+			// cost 2.2 ms a frame more than two (measured at 1920x1080) for sharper shadows nobody can
+			// tell apart at map height. Two still give the view twice the old resolution.
+			DirectionalShadowMode = DirectionalLight3D.ShadowMode.Parallel2Splits,
+			DirectionalShadowSplit1 = 0.72f,
 			DirectionalShadowBlendSplits = true,
 			DirectionalShadowFadeStart = 0.97f,
 			ShadowBlur = 1.4f,

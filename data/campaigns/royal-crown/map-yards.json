@@ -1,0 +1,42 @@
+[
+ {
+  "province": "Kingsreach",
+  "x": 365.0,
+  "y": 485.0
+ },
+ {
+  "province": "Redmoor Hold",
+  "x": 295.0,
+  "y": 175.0
+ },
+ {
+  "province": "Ashenvale",
+  "x": 565.0,
+  "y": 385.0
+ },
+ {
+  "province": "Thornwatch",
+  "x": 625.0,
+  "y": 655.0
+ },
+ {
+  "province": "Farrowmere",
+  "x": 898.4,
+  "y": 875.1
+ },
+ {
+  "province": "Valmere",
+  "x": 1106.3,
+  "y": 143.4
+ },
+ {
+  "province": "Frostgate",
+  "x": 1260.0,
+  "y": 290.0
+ },
+ {
+  "province": "Icemere Reach",
+  "x": 1200.0,
+  "y": 485.0
+ }
+]

@@ -32,7 +32,7 @@ public partial class MapDecoration : Node3D
 	// trunk printed four thousand times. The "Group" models are a whole stand on a single mesh —
 	// five or six trees for the price of one instance — so they carry the bulk of the canopy and
 	// the single trees fill in around them.
-	// The baked trees (tools/decimate_trees.py): each a few thousand triangles cut down from a
+	// The baked trees (tools/decimate_meshy.py): each a few thousand triangles cut down from a
 	// multi-million-triangle original, with its look baked into its own texture. Evergreens keep
 	// their own material; the broadleaves are drawn through tree-foliage.gdshader so their leaves
 	// turn with the year.
@@ -157,6 +157,11 @@ public partial class MapDecoration : Node3D
 	private readonly List<ShaderMaterial> _seasonalLeaves = new();
 	/// <summary>One node per province's walls, so a finished build can replace them on their own.</summary>
 	private readonly Dictionary<string, Node3D> _forts = new();
+	/// <summary>Each seat's village, by province, so a conquest can hand its banners over.</summary>
+	private readonly Dictionary<string, GeometryInstance3D> _settlements = new();
+	private ShaderMaterial _settlementMaterial;
+	/// <summary>Which way the village model's flag flies as it was made, on its own ground plane.</summary>
+	private float _flagRest;
 	private readonly Dictionary<string, Node3D> _armies = new();
 	private readonly Dictionary<string, Vector2> _armySites = new();
 	/// <summary>One node per province's fields, so turning a field over — or a season turning —
@@ -905,17 +910,22 @@ public partial class MapDecoration : Node3D
 	/// the map shows and what the ledger holds are the same fact.</summary>
 	private record Works(string Model, float Size);
 
-	/// <summary>The three cottages a village is dealt from, and how far the pack's own units have to
-	/// be stretched to stand beside this map's trees — its buildings are modelled about a metre
-	/// tall, where a conifer here is nearly three.</summary>
-	private static readonly string[] Cottages =
-		{ "Houses_SecondAge_1_Level1", "Houses_SecondAge_2_Level1", "Houses_SecondAge_3_Level1" };
-
-	private const float HouseScale = 2.1f;
-
-	// A town is more cottages than a hamlet and nothing else. The pack's hall is a walled compound
-	// with ponds and gardens in it, which from map height reads as a blue smear rather than as a
-	// building, and its church stood taller than anything a village of this size would raise.
+	/// <summary>The village every seat stands in: a Meshy hamlet cut down by tools/decimate_meshy.py,
+	/// drawn through settlement.gdshader so its banners fly the owner's colour and it takes the season.
+	/// Its yard is sized to fill the town's ring — the fields start a lane beyond it (TownGap) and the
+	/// castle stands off to one side (CastleBearing) — and a hamlet stands a size down from a town.
+	/// It is sunk a hair into the ground, so the thin sheet it stands on reads as the ground itself and
+	/// not as a tray laid on it.</summary>
+	private const string HamletModel = "settlements/blue-banner-hamlet";
+	private const string SettlementShaderPath = "res://assets/shaders/settlement.gdshader";
+	private const float HamletShare = 0.85f;
+	private const float SettlementSink = 0.04f;
+	/// <summary>How far a village may stand off the wind. Every banner flies with the prevailing
+	/// wind, so the village is turned to put its flag in it — but eight villages all turned the one
+	/// way read as one stamp, so each is set up to this far off, and the shader turns the cloth the
+	/// rest of the way round its pole. Kept small because the flag, turned far enough, flies through
+	/// the church tower.</summary>
+	private static readonly float FlagJitter = Mathf.DegToRad(20f);
 
 	private static Works PlanFor(string fort) => fort switch
 	{
@@ -929,74 +939,98 @@ public partial class MapDecoration : Node3D
 		_ => null,
 	};
 
-	/// <summary>Raises a settlement on a province's seat — the thing the map pin points at, built
-	/// out of the same primitives as the woods and the quarries rather than an imported model.
-	///
-	/// Houses are laid in a loose ring around the seat with a clear middle, because a cluster with
-	/// a square in it reads as a place people live and an even scatter reads as debris. The ring
-	/// starts wide of the seat, not on it: a province's pin is drawn over that spot, and a
-	/// settlement tucked underneath it is a settlement nobody ever sees.
-	///
-	/// Everything here stands plumb and unstretched: a leaning tree is character, a leaning house
-	/// is a bug, and a roof only sits on its walls if both took the same transform.</summary>
-	public void AddSettlement(Vector2 seatPixel, Settlement kind)
+	/// <summary>Raises the village on a province's seat, flying its lord's colour — or, for a seat
+	/// that already has one, hands the banners to whoever holds it now. One node per seat rather than
+	/// a scatter, since each flies its own colour; they share one material, and the colour is a
+	/// per-instance parameter on it.</summary>
+	public void AddSettlement(string province, Vector2 seatPixel, Settlement kind, Color lord)
 	{
-		int houses = kind == Settlement.Hamlet ? 5 : 8;
-		float inner = kind == Settlement.Hamlet ? 16f : 18f;
-		float outer = kind == Settlement.Hamlet ? 30f : TownRing;
-
-		// Measured off the widest cottage rather than guessed: its own footprint, grown by the scale
-		// it is placed at, converted into map pixels, and given a third again so the walls have
-		// daylight between them. Guessed at thirteen pixels, this was narrower than a house.
-		float clearance = 1.34f * HouseScale * _map.PixelsPerUnit
-			* Mathf.Max(Models.FootprintOf(Cottages[0]),
-				Mathf.Max(Models.FootprintOf(Cottages[1]), Models.FootprintOf(Cottages[2])));
-
-		// Wide of the last roof, so a village sits in a clearing rather than in a thicket.
-		_clearings.Add((seatPixel, outer + 14f));
-
-		var taken = new List<Vector2>();
-		var homes = new List<Transform3D>();
-		for (int attempt = 0; attempt < houses * 40 && homes.Count < houses; attempt++)
+		if (_settlements.TryGetValue(province, out GeometryInstance3D standing))
 		{
-			float angle = _rng.RandfRange(0, Mathf.Tau);
-			float radius = _rng.RandfRange(inner, outer);
-			Vector2 pixel = Clamped(seatPixel, angle, radius);
-			if (_map.HeightAt(pixel) <= _map.WaterLine + 0.3f || Crowds(taken, clearance, pixel))
-			{
-				continue; // below the tideline, or on top of somebody's roof
-			}
-
-			taken.Add(pixel);
-			homes.Add(BuildingTransform(pixel, HouseScale * _rng.RandfRange(0.92f, 1.12f)));
+			standing.SetInstanceShaderParameter("lord_color", lord);
+			return;
 		}
 
-		// Dealt round-robin rather than at random: three kinds shuffled by chance leaves a village
-		// with four of one and none of another often enough to look wrong.
-		for (int cottage = 0; cottage < Cottages.Length; cottage++)
+		Mesh mesh = Models.MeshOf(HamletModel);
+		if (mesh == null)
 		{
-			var mine = new List<Transform3D>();
-			for (int i = cottage; i < homes.Count; i += Cottages.Length)
-			{
-				mine.Add(homes[i]);
-			}
-
-			AddScatter(Models.MeshOf(Cottages[cottage]), null, mine);
+			return;
 		}
 
+		if (_settlementMaterial == null)
+		{
+			_settlementMaterial = new ShaderMaterial { Shader = GD.Load<Shader>(SettlementShaderPath) };
+			if (mesh.SurfaceGetMaterial(0) is BaseMaterial3D baked)
+			{
+				_settlementMaterial.SetShaderParameter("albedo_texture", baked.AlbedoTexture);
+			}
+
+			// The flag flies from the pole, and the pole is the model's highest point — its finial.
+			Vector3 pole = Vector3.Down * float.MaxValue;
+			foreach (Vector3 vertex in mesh.SurfaceGetArrays(0)[(int)Mesh.ArrayType.Vertex].AsVector3Array())
+			{
+				pole = vertex.Y > pole.Y ? vertex : pole;
+			}
+
+			_settlementMaterial.SetShaderParameter("flag_pole", new Vector2(pole.X, pole.Z));
+			_flagRest = FlagRest(mesh, pole);
+		}
+
+		float yard = 2f * TownRing / _map.PixelsPerUnit * (kind == Settlement.Hamlet ? HamletShare : 1f);
+		float scale = yard / Models.FootprintOf(HamletModel);
+		// Turned so its flag flies with the wind, give or take its own few degrees (FlagJitter). A turn
+		// about y takes a direction at angle a on the ground (atan2 of z over x) to a - yaw.
+		Vector2 wind = MapClouds.PrevailingWind;
+		float jitter = (PlotYaw(province) / Mathf.Tau - 0.5f) * 2f * FlagJitter;
+		float yaw = _flagRest - Mathf.Atan2(wind.Y, wind.X) + jitter;
+		var village = new MeshInstance3D
+		{
+			Mesh = mesh,
+			MaterialOverride = _settlementMaterial,
+			Transform = new Transform3D(Basis.Identity.Rotated(Vector3.Up, yaw).Scaled(Vector3.One * scale),
+				_map.WorldAt(seatPixel) + (Vector3.Down * SettlementSink)),
+		};
+		AddChild(village);
+		village.SetInstanceShaderParameter("lord_color", lord);
+		village.SetInstanceShaderParameter("flag_turn", jitter);
+		_settlements[province] = village;
+
+		// Wide of the yard, so a village sits in a clearing rather than in a thicket.
+		_clearings.Add((seatPixel, TownRing + 14f));
 	}
-	/// <summary>Puts a province's castle on the ground beside its town, and takes down whatever
-	/// stood there before. Its whole job is to say, from the map and without a click, that this
-	/// place has a castle and roughly how much of one — so it is the building itself and no curtain
-	/// wall around it: a ring of blocks at map scale reads as a smudge, and the keep is what carries
-	/// the fact.
-	///
-	/// A castle is the one thing on this map the player builds, so it is the one thing that has to
-	/// change without the map being rebuilt around it — hence a node of its own per province rather
-	/// than another scatter folded in with the trees.
-	///
-	/// An empty key takes it down and leaves an open village, which is what a province that has
-	/// never built looks like.</summary>
+
+	/// <summary>Which way a village model's flag flies as it was made: the angle on its ground plane
+	/// (atan2 of z over x) from the pole to the middle of the cloth. The cloth is read off the texture's
+	/// alpha, where tools/decimate_meshy.py baked how far along the flag each vertex lies, and each
+	/// vertex counts for as much as it sways, so the fly end decides it more than the hoist.</summary>
+	private static float FlagRest(Mesh mesh, Vector3 pole)
+	{
+		if (mesh.SurfaceGetMaterial(0) is not BaseMaterial3D { AlbedoTexture: Texture2D texture })
+		{
+			return 0f;
+		}
+
+		Image picture = texture.GetImage();
+		if (picture.IsCompressed())
+		{
+			picture.Decompress();
+		}
+
+		Godot.Collections.Array arrays = mesh.SurfaceGetArrays(0);
+		Vector3[] vertices = arrays[(int)Mesh.ArrayType.Vertex].AsVector3Array();
+		Vector2[] uvs = arrays[(int)Mesh.ArrayType.TexUV].AsVector2Array();
+		Vector2 fly = Vector2.Zero;
+		for (int i = 0; i < vertices.Length; i++)
+		{
+			float sway = picture.GetPixel(
+				Mathf.Clamp((int)(uvs[i].X * picture.GetWidth()), 0, picture.GetWidth() - 1),
+				Mathf.Clamp((int)(uvs[i].Y * picture.GetHeight()), 0, picture.GetHeight() - 1)).A;
+			fly += new Vector2(vertices[i].X - pole.X, vertices[i].Z - pole.Z) * sway;
+		}
+
+		return Mathf.Atan2(fly.Y, fly.X);
+	}
+
 	/// <summary>Walks a county's banner along a road to where it was sent, and says when it has got
 	/// there. The piece is not moved and then the map redrawn — it is the same figure, carried along
 	/// the same line of beads the lord was shown, so what he ordered and what he watches are plainly
@@ -1093,6 +1127,18 @@ public partial class MapDecoration : Node3D
 			.Translated(Vector3.Up * (-bounds.Position.Y * scale));
 	}
 
+	/// <summary>Puts a province's castle on the ground beside its town, and takes down whatever
+	/// stood there before. Its whole job is to say, from the map and without a click, that this
+	/// place has a castle and roughly how much of one — so it is the building itself and no curtain
+	/// wall around it: a ring of blocks at map scale reads as a smudge, and the keep is what carries
+	/// the fact.
+	///
+	/// A castle is the one thing on this map the player builds, so it is the one thing that has to
+	/// change without the map being rebuilt around it — hence a node of its own per province rather
+	/// than another scatter folded in with the trees.
+	///
+	/// An empty key takes it down and leaves an open village, which is what a province that has
+	/// never built looks like.</summary>
 	public void SetFortification(string province, Vector2 seatPixel, string fort)
 	{
 		if (_forts.TryGetValue(province, out Node3D standing))
@@ -1146,21 +1192,7 @@ public partial class MapDecoration : Node3D
 		return grown;
 	}
 
-	/// <summary>Whether a spot is too near a house already standing.</summary>
-	private static bool Crowds(List<Vector2> taken, float clearance, Vector2 pixel)
-	{
-		foreach (Vector2 built in taken)
-		{
-			if (pixel.DistanceSquaredTo(built) < clearance * clearance)
-			{
-				return true;
-			}
-		}
-
-		return false;
-	}
-
-	/// <summary>A point that many pixels from the seat, kept inside the map.</summary>	/// <summary>A point that many pixels from the seat, kept inside the map.</summary>
+	/// <summary>A point that many pixels from the seat, kept inside the map.</summary>
 	private Vector2 Clamped(Vector2 seat, float angle, float radius) => new(
 		Mathf.Clamp(seat.X + Mathf.Cos(angle) * radius, 0, _props.GetWidth() - 1),
 		Mathf.Clamp(seat.Y + Mathf.Sin(angle) * radius, 0, _props.GetHeight() - 1));
@@ -1186,6 +1218,8 @@ public partial class MapDecoration : Node3D
 		{
 			leaves.SetShaderParameter("season", (float)(int)season);
 		}
+
+		_settlementMaterial?.SetShaderParameter("season", (float)(int)season);
 	}
 
 	// --- placement ---------------------------------------------------------------------------

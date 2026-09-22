@@ -8,6 +8,15 @@ using Godot;
 public partial class MapClouds : Node3D
 {
 	private const string CloudShaderPath = "res://assets/shaders/cloud.gdshader";
+	// How fast a cloud is carried along the wind and across it, in world units a second.
+	private const float DriftAlongMin = 0.35f;
+	private const float DriftAlongMax = 0.9f;
+	private const float DriftAcrossMin = -0.25f;
+	private const float DriftAcrossMax = 0.15f;
+
+	/// <summary>The prevailing wind over the island, on the ground plane (x, z): the way every cloud
+	/// drifts, and the way every banner on the map flies.</summary>
+	public static Vector2 PrevailingWind => new Vector2(DriftAlongMin + DriftAlongMax, DriftAcrossMin + DriftAcrossMax).Normalized();
 	private const float CoverChangeRate = 0.25f; // how fast the sky answers a change of season
 	// Everything below is a fraction of the map it is drawn over, so the same weather works on a
 	// small campaign map and a large one without a number being retuned.
@@ -75,7 +84,8 @@ public partial class MapClouds : Node3D
 					altitude + _rng.RandfRange(-2f, 7f),
 					_rng.RandfRange(-1f, 1f) * _fieldRadius),
 				// Everything drifts the same way — that is the prevailing wind — but at its own pace.
-				Drift = new Vector3(_rng.RandfRange(0.35f, 0.9f), 0f, _rng.RandfRange(-0.25f, 0.15f)),
+				Drift = new Vector3(_rng.RandfRange(DriftAlongMin, DriftAlongMax), 0f,
+					_rng.RandfRange(DriftAcrossMin, DriftAcrossMax)),
 				FadeRate = _rng.RandfRange(0.02f, 0.055f),
 				Phase = _rng.RandfRange(0f, Mathf.Tau),
 			};

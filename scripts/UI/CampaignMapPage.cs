@@ -32,6 +32,9 @@ public partial class CampaignMapPage : Control
 	private const string MercenaryBadgePath = "res://assets/ui/icons/mercenaries.png";
 	private const string ProvincesDataFile = "provinces.json";
 	private const string RoadsDataFile = "map-roads.json";
+	// Where each village stands, written by the map generator: its seat, unless the level ground its
+	// village needs would not fit there — see flatten_yards in tools/generate_campaign_map.py.
+	private const string YardsDataFile = "map-yards.json";
 
 	/// <summary>How far apart the steps of a march are laid, in map pixels. Close enough to read as a
 	/// road being walked, far enough that a long march is a trail and not a stripe.</summary>
@@ -78,7 +81,11 @@ public partial class CampaignMapPage : Control
 	/// <summary>One province of the played campaign. <paramref name="Realm"/> is who holds it when
 	/// the campaign opens, which for most of them is nobody. <paramref name="EconomyFile"/> names the
 	/// ProvinceDefinition describing its land, and is empty where none is authored yet.</summary>
-	private record ProvinceData(string Name, Vector2 MapPosition, string Realm, bool IsCapital, string EconomyFile);
+	/// <summary>A county as the campaign file draws it. MapPosition is its seat — the pin, the end of
+	/// its roads, where its army stands; TownPosition is where its village, fields and castle are laid
+	/// out, which is the seat itself unless the generator had to move the village clear of a cliff.</summary>
+	private record ProvinceData(string Name, Vector2 MapPosition, string Realm, bool IsCapital, string EconomyFile,
+		Vector2 TownPosition);
 
 	private readonly Dictionary<string, RealmData> _realms = new();
 	// Which realm is yours. The others' provinces, and the unclaimed ones, run on nobody's orders yet.
@@ -350,6 +357,7 @@ public partial class CampaignMapPage : Control
 		// After the sites, and after any save has been restored: a loaded game's walls are whatever
 		// that save built, not whatever the campaign started with. The same goes for its armies.
 		ShowFortifications();
+		ShowSettlements();
 		ShowArmies();
 
 		// The ground an army may cross, cut once the map and the ledger both exist: it needs the
@@ -361,12 +369,12 @@ public partial class CampaignMapPage : Control
 		// road. The generator levels the ground round every seat for them (level_seats).
 		ShowFields();
 
-		// The woods: the baked trees (tools/decimate_trees.py), sown last of the things that grow so
+		// The woods: the baked trees (tools/decimate_meshy.py), sown last of the things that grow so
 		// none is planted on a field.
 		_world.Sow();
 
 		// The rest of what stands on the map comes back one piece at a time, once each looks right:
-		// ShowSettlements and ShowProvinceTrade are still here and still work.
+		// ShowProvinceTrade is still here and still works.
 
 		// A save can be loaded into a season that already has men standing about for hire.
 		ShowMercenaries();
@@ -633,6 +641,7 @@ public partial class CampaignMapPage : Control
 		{
 			ShowArmies();
 			ShowFortifications();
+			ShowSettlements();
 			ShowFields(_provinces[county]);
 			SelectProvince(county);
 			LayGround(); // a county taken is a county open to walk through
@@ -959,16 +968,40 @@ public partial class CampaignMapPage : Control
 				new RealmData(fields["name"].AsString(), new Color(fields["accent"].AsString()));
 		}
 
+		Dictionary<string, Vector2> yards = LoadYards();
 		foreach (Variant entry in data["provinces"].AsGodotArray())
 		{
 			Godot.Collections.Dictionary fields = entry.AsGodotDictionary();
+			string name = fields["name"].AsString();
+			var seat = new Vector2(fields["x"].AsSingle(), fields["y"].AsSingle());
 			_provinces.Add(new ProvinceData(
-				fields["name"].AsString(),
-				new Vector2(fields["x"].AsSingle(), fields["y"].AsSingle()),
+				name,
+				seat,
 				fields["realm"].AsString(),
 				fields.ContainsKey("capital") && fields["capital"].AsBool(),
-				fields.TryGetValue("economy", out Variant economyFile) ? economyFile.AsString() : ""));
+				fields.TryGetValue("economy", out Variant economyFile) ? economyFile.AsString() : "",
+				yards.GetValueOrDefault(name, seat)));
 		}
+	}
+
+	/// <summary>Where the generator stood each village. Missing — a map generated before it wrote
+	/// them — every village simply stands on its seat.</summary>
+	private static Dictionary<string, Vector2> LoadYards()
+	{
+		var yards = new Dictionary<string, Vector2>();
+		var file = GD.Load<Json>(Campaign.Data(YardsDataFile));
+		if (file?.Data.VariantType != Variant.Type.Array)
+		{
+			return yards;
+		}
+
+		foreach (Variant entry in file.Data.AsGodotArray())
+		{
+			Godot.Collections.Dictionary yard = entry.AsGodotDictionary();
+			yards[yard["province"].AsString()] = new Vector2(yard["x"].AsSingle(), yard["y"].AsSingle());
+		}
+
+		return yards;
 	}
 
 	// Both ways out of a campaign drop everything since the last save, so neither goes through
@@ -1006,6 +1039,7 @@ public partial class CampaignMapPage : Control
 			// and it is hidden behind the transition while this happens. The fields turn over with
 			// it: what was standing gold in autumn is ploughed earth by winter.
 			ShowFortifications();
+			ShowSettlements(); // a rival may have taken a county: its banners change hands
 
 			// The fields turn over with the season: what was standing gold in autumn is ploughed
 			// earth by winter, and it is redrawn behind the curtain so nobody watches it change.
@@ -1070,7 +1104,7 @@ public partial class CampaignMapPage : Control
 		{
 			if (province.Name == definition.ProvinceName)
 			{
-				seat = province.MapPosition;
+				seat = province.TownPosition;
 			}
 		}
 
@@ -1109,7 +1143,10 @@ public partial class CampaignMapPage : Control
 	{
 		if (!_definitionsByName.TryGetValue(province.Name, out ProvinceDefinition definition))
 		{
-			return;
+			// A county the campaign has not written an economy for yet (Frostgate, Icemere Reach). Its
+			// people still farm: it is drawn as an ordinary county — the definition's own defaults —
+			// until the campaign writes it one. It left those seats with a village and no fields.
+			definition = new ProvinceDefinition { ProvinceName = province.Name };
 		}
 
 		ProvinceEconomy economy = _turnManager.AnyProvince(province.Name);
@@ -1123,17 +1160,27 @@ public partial class CampaignMapPage : Control
 			economy.StandingCrop = definition.InitialGrain;
 		}
 
-		_world.SetFields(province.Name, province.MapPosition, economy, _turnManager.CurrentSeason);
+		_world.SetFields(province.Name, province.TownPosition, economy, _turnManager.CurrentSeason);
 	}
 
-	/// <summary>Puts a town on every province's seat, yours and everyone else's.</summary>
+	/// <summary>Every county's village, yours and everyone else's, flying the colour of whoever holds
+	/// it now. Safe to call again: a village already standing only has its banners changed.</summary>
 	private void ShowSettlements()
 	{
 		foreach (ProvinceData province in _provinces)
 		{
 			_definitionsByName.TryGetValue(province.Name, out ProvinceDefinition definition);
-			_world.AddSettlement(province.MapPosition, SettlementFor(definition, province.IsCapital));
+			_world.AddSettlement(province.Name, province.TownPosition, SettlementFor(definition, province.IsCapital),
+				_realms[HolderOf(province)].Accent);
 		}
+	}
+
+	/// <summary>Who holds a county now, which after a march is not who the campaign file says. The
+	/// authored realm is only the opening position; the runtime one is the answer to "whose is this".</summary>
+	private string HolderOf(ProvinceData province)
+	{
+		string realmKey = _turnManager.AnyProvince(province.Name)?.Realm ?? province.Realm;
+		return _realms.ContainsKey(realmKey) ? realmKey : province.Realm;
 	}
 
 	/// <summary>How big a place stands on a province's seat: a realm's capital is a town whatever
@@ -1209,7 +1256,7 @@ public partial class CampaignMapPage : Control
 			// Everyone's walls, not just the player's: a rival raising a castle is the one thing about
 			// his county a lord could hardly miss from the next valley over.
 			ProvinceEconomy economy = _turnManager.AnyProvince(province.Name);
-			_world.SetFortification(province.Name, province.MapPosition, economy?.Fortification ?? "");
+			_world.SetFortification(province.Name, province.TownPosition, economy?.Fortification ?? "");
 		}
 	}
 
@@ -1439,13 +1486,7 @@ public partial class CampaignMapPage : Control
 
 		ProvinceData province = _provinces[index];
 
-		// Who holds it now, which after a march is not who the campaign file says. The authored realm
-		// is only the opening position; the runtime one is the answer to "whose is this".
-		string realmKey = _turnManager.AnyProvince(province.Name)?.Realm ?? province.Realm;
-		if (!_realms.ContainsKey(realmKey))
-		{
-			realmKey = province.Realm;
-		}
+		string realmKey = HolderOf(province);
 
 		string realmName = _realms[realmKey].Name;
 		_markers[index].Configure(_realms[realmKey].Accent, province.IsCapital);

@@ -139,6 +139,13 @@ ROAD_FEATHER = 2.5
 ROAD_TRACE = 0.04
 # The colour map under a road: neutral, so the dirt keeps its own colour (it only sets the hue).
 ROAD_TINT = (140.0, 140.0, 138.0)
+# The level yard under each village: MapDecoration.TownRing (38 px, the widest a village stands)
+# and a margin, eased back into the ground round it over YARD_BLEND. Its level is the ground within
+# YARD_LEVEL_SAMPLE of its middle; near the sea it may be moved up to YARD_SHIFT pixels inland.
+YARD_RADIUS = 44.0
+YARD_BLEND = 14.0
+YARD_LEVEL_SAMPLE = 10.0
+YARD_SHIFT = 90
 # How far above the water a beach may climb, in bytes, before it has gone back to turf.
 BEACH_RISE = 7.0
 # How far in from the edge of the image the land has to have given way to sea, in map pixels. The
@@ -840,7 +847,13 @@ def cliffs_not_walls(height, land):
     to the water and stopped as a wall a cliff high and one pixel thick. Terrain3D cannot texture
     that — a face one vertex wide has no slope of its own to project the rock along — so it came
     out as grass smeared down the wall. Spread over a dozen pixels it is a cliff, and draws as one."""
-    distance = np.zeros(height.shape, dtype=np.float32)
+    return np.where(land, np.minimum(height, coastal_ceiling(land)), height)
+
+
+def coastal_ceiling(land):
+    """How high the land may stand at each pixel: COAST_SLOPE bytes per pixel of distance from the
+    sea, and no limit at all beyond the reach of that slope."""
+    distance = np.zeros(land.shape, dtype=np.float32)
     inside = land.copy()
     reach = int(np.ceil(255.0 / COAST_SLOPE))
     for step in range(1, reach + 1):
@@ -849,8 +862,48 @@ def cliffs_not_walls(height, land):
                   & np.roll(inside, 1, 1) & np.roll(inside, -1, 1))
         if not inside.any():
             break
-    ceiling = SEA_FLOOR_BYTE + FREEBOARD + COAST_SLOPE * (distance - 1.0)
-    return np.where(land & inside, height, np.where(land, np.minimum(height, ceiling), height))
+    return np.where(inside, np.inf, SEA_FLOOR_BYTE + FREEBOARD + COAST_SLOPE * (distance - 1.0))
+
+
+def flatten_yards(height, land, province_id):
+    """Makes the ground under every village dead level, and says where each village stands.
+
+    The village is one rigid model on a sheet of ground of its own (MapDecoration.AddSettlement);
+    set on ground that is not level, one side of the sheet floats and the other is buried. The
+    terracing round a seat (level_seats) leaves a tenth of the slope on purpose, for the fields —
+    this takes the rest out, under the village only, and eases it back into the terrace round it.
+
+    Near the sea the village is moved in from its seat until the level yard fits behind the cliff
+    (coastal_ceiling): Valmere's seat is a cliff top, and the village laid on it overhung the sea.
+    The yard stays inside its own county. Where each yard ends up is written to map-yards.json, and
+    the village, its fields and its castle are laid out round that point, not the seat."""
+    ceiling = coastal_ceiling(land)
+    ys, xs = np.mgrid[0:H, 0:W]
+    sea_y, sea_x = np.nonzero(~land)
+    yards = []
+    for index, (name, sx, sy, _, _, _) in enumerate(PROVINCES):
+        nearest = np.argmin((sea_x - sx) ** 2 + (sea_y - sy) ** 2)
+        inland = np.array([sx - sea_x[nearest], sy - sea_y[nearest]], dtype=np.float64)
+        inland /= max(np.linalg.norm(inland), 1e-6)
+        for step in range(0, YARD_SHIFT + 1, 2):
+            cx, cy = sx + inland[0] * step, sy + inland[1] * step
+            distance = np.hypot(xs - cx, ys - cy)
+            yard = distance <= YARD_RADIUS
+            level = float(np.median(height[distance <= YARD_LEVEL_SAMPLE]))
+            if land[yard].all() and (ceiling[yard] >= level).all() and (province_id[yard] == index).mean() > 0.97:
+                break
+        else:
+            print(f"  warning: no level yard fits within {YARD_SHIFT}px of {name}; left on its seat")
+            cx, cy = sx, sy
+            distance = np.hypot(xs - cx, ys - cy)
+            level = float(np.median(height[distance <= YARD_LEVEL_SAMPLE]))
+        weight = np.clip((YARD_RADIUS + YARD_BLEND - distance) / YARD_BLEND, 0, 1)
+        weight = weight * weight * (3.0 - 2.0 * weight)
+        height = height * (1.0 - weight) + level * weight
+        yards.append({"province": name, "x": round(float(cx), 1), "y": round(float(cy), 1)})
+        if step > 0:
+            print(f"  {name}: village moved {step}px in from its seat, clear of the cliff")
+    return height, yards
 
 
 def sheer_faces(height):
@@ -1216,6 +1269,7 @@ def main():
     roads = build_roads(height, land, province_id, adjacency)
     height = carve_roads(height, roads, land)
     height, ditch, blocked, crossings = dig_borders(height, land, province_id, roads, adjacency)
+    height, yards = flatten_yards(height, land, province_id)
     terrain_fields["ditch"] = ditch
 
     # A clean step at the waterline. Measured, the land along the coast stood one to three bytes
@@ -1275,6 +1329,7 @@ def main():
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     (DATA_DIR / "map-roads.json").write_text(json.dumps(roads, indent=1))
     (DATA_DIR / "map-crossings.json").write_text(json.dumps(crossings, indent=1))
+    (DATA_DIR / "map-yards.json").write_text(json.dumps(yards, indent=1))
     # What an army cannot cross, as the game reads it: white is ditch, black is open ground.
     Image.fromarray((blocked * 255).astype(np.uint8), "L").save(OUT_DIR / "map-ditch.png")
     print(f"Borders: {sum(1 for c in crossings if c['kind'] == 'road')} road crossings, "
