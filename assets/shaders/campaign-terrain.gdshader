@@ -106,6 +106,16 @@ uniform float noise1_angle : hint_range(0, 6.283) = 0.;
 uniform vec2 noise1_offset = vec2(0.5);
 uniform float noise2_scale : hint_range(0.001, 1.) = 0.076;	// Used for macro variation 2. Scaled up 10x
 
+// The control map names one texture per vertex, and with the blend as sharp as this map wants it
+// the boundary between grass and stone ran straight along the vertex grid: at close zoom the
+// mountains came out in squares. So the point the control map is read at is pushed about by a
+// smooth noise, a fraction of a vertex either way, before it is split into cell and fraction. The
+// read stays continuous — bilinear across cells, of a position that moves smoothly — so no seam
+// appears; the boundary just stops being a straight line. Amount in vertices; scale in noise cells
+// per vertex.
+uniform float campaign_blend_warp : hint_range(0., 1.) = 0.45;
+uniform float campaign_blend_warp_scale : hint_range(0.05, 2.) = 0.6;
+
 // Varyings & Types
 
 struct material {
@@ -241,6 +251,15 @@ void vertex() {
 
 float random(in vec2 xy) {
 	return fract(sin(dot(xy, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
+// Smooth value noise, 0..1, one lattice point per unit of p.
+float campaign_value_noise(vec2 p) {
+	vec2 i = floor(p);
+	vec2 f = fract(p);
+	f = f * f * (3.0 - 2.0 * f);
+	return mix(mix(random(i), random(i + vec2(1.0, 0.0)), f.x),
+		mix(random(i + vec2(0.0, 1.0)), random(i + vec2(1.0, 1.0)), f.x), f.y);
 }
 
 vec2 rotate_vec2(const vec2 v, const vec2 cs) {
@@ -379,6 +398,9 @@ void accumulate_material(const vec3 base_ddx, const vec3 base_ddy, const float w
 void fragment() {
 	// Recover UVs
 	vec2 uv = UV;
+	vec2 warp_at = uv * campaign_blend_warp_scale;
+	uv += (vec2(campaign_value_noise(warp_at), campaign_value_noise(warp_at + vec2(17.31, 5.77))) - 0.5)
+		* (2.0 * campaign_blend_warp);
 	vec2 uv2 = UV2;
 	
 	// Lookup offsets, ID and blend weight
