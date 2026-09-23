@@ -47,6 +47,24 @@ public class TurnManager
 	/// <summary>The realm the player is, for whoever has to tell his men from everybody else's.</summary>
 	public string PlayerRealm => _playerRealm;
 
+	/// <summary>True once the player holds no county at all — the end of his reign. His companies
+	/// in the field went with his last seat: there was nowhere left for them to fall back to.</summary>
+	public bool PlayerFallen
+	{
+		get
+		{
+			foreach (ProvinceEconomy province in _provincesByName.Values)
+			{
+				if (province.Realm == _playerRealm)
+				{
+					return false;
+				}
+			}
+
+			return true;
+		}
+	}
+
 	/// <summary>The rival lords' war. Null until the map has handed over its ground (see
 	/// <see cref="Survey"/>): without a road to walk, nobody marches — which is also how the checks
 	/// run a turn without a map.</summary>

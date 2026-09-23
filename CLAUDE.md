@@ -84,6 +84,8 @@ The men live in **companies** (`FieldArmy`), not in one roster per county:
   roads they took, and only then does the season turn over (`AdvanceTurn`, which runs `RivalsTurn`
   itself if nobody watched). Map input is shut while they walk (`_rivalsMarching`), with a deadline
   in case a banner never reports in.
+- Losing the last county is the end: `TurnManager.PlayerFallen`, asked after the rivals march and
+  after the season, puts `FallenPanel` over the map (load a save, or the main menu).
 - Nobody opens with a field army: the player raises his first company himself. Walls keep their
   authored watch. A neutral county's militia is `MilitiaShare` of its people, by difficulty.
 

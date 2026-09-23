@@ -248,6 +248,11 @@ public partial class CampaignMapPage : Control
 		_advisor = new AdvisorPanel();
 		AddChild(_advisor);
 
+		// And over the advisor, the end of it all, when there is nothing left to be advised about.
+		_fallen = new FallenPanel();
+		AddChild(_fallen);
+		_fallen.Chosen += load => SceneRouter.GoTo(this, load ? LoadGameScenePath : MainMenuScenePath);
+
 		_taxes = new TaxPanel();
 		AddChild(_taxes);
 		// The rate is the county's the moment the arrow is pressed, so the readout beside it is out
@@ -1147,15 +1152,31 @@ public partial class CampaignMapPage : Control
 	/// the map can be looked around but not given orders.</summary>
 	private bool _rivalsMarching;
 
+	private FallenPanel _fallen;
+
+	/// <summary>Whether the player has lost his last county, and if so the end of the reign said
+	/// over the map. Asked after the other lords have marched and after the season, the two moments
+	/// a county can change hands without the player lifting a finger.</summary>
+	private bool Fell()
+	{
+		if (!_turnManager.PlayerFallen)
+		{
+			return false;
+		}
+
+		_fallen.Announce(_turnManager.CurrentSeason, _turnManager.CurrentYear, _turnManager.Turn);
+		return true;
+	}
+
 	/// <summary>End Turn, the way Lords of the Realm plays it: the other lords take their turn in
 	/// front of the player — their banners walk the roads they chose, all at once — and only when
 	/// the last of them has halted does the season turn over behind the curtain. What their marches
 	/// won or lost is already settled; the banners are redrawn once they have all arrived.</summary>
 	private void AdvanceTurn()
 	{
-		if (_turnTransition.Visible || _rivalsMarching)
+		if (_turnTransition.Visible || _rivalsMarching || _fallen.Visible)
 		{
-			return; // already mid-turn; a second click must not queue another season
+			return; // already mid-turn, or the reign is over; a second click must not queue another season
 		}
 
 		ShowArmies(); // everybody where they stand, before anybody moves
@@ -1181,7 +1202,10 @@ public partial class CampaignMapPage : Control
 			ShowFortifications();
 			ShowSettlements();
 			LayGround(); // a county they took is somebody else's ground now
-			TurnTheSeason();
+			if (!Fell())
+			{
+				TurnTheSeason();
+			}
 		}
 
 		foreach (LordsCampaign.RivalMarch march in marches)
@@ -1261,8 +1285,12 @@ public partial class CampaignMapPage : Control
 
 			// After the curtain, never through it: the lord is told what happened to his county with
 			// the county in front of him, so he can see the flooded fields the advisor is describing.
-			// A season where nothing happened tells nothing and the panel is never seen.
-			_advisor.Tell(_turnManager.News);
+			// A season where nothing happened tells nothing and the panel is never seen. A reign that
+			// ended this season is told that, and nothing else.
+			if (!Fell())
+			{
+				_advisor.Tell(_turnManager.News);
+			}
 		}));
 	}
 

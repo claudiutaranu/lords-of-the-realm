@@ -549,6 +549,7 @@ public partial class LordCheck : Node
 		Is("  and leaves the player's alone", gentle.AnyProvince("South")?.Realm, "crown");
 
 		(TurnManager hard, FieldArmy _) = Board(Difficulty.Hard, surveyed: true, menInHost: 400);
+		Is("a lord with a county to his name has not fallen", hard.PlayerFallen, false);
 		bool told = false;
 		for (int season = 0; season < 8 && hard.AnyProvince("South")?.Realm == "crown"; season++)
 		{
@@ -558,6 +559,7 @@ public partial class LordCheck : Node
 
 		Is("a hard lord comes for the player's county and takes it", hard.AnyProvince("South")?.Realm, "north");
 		Is("  and the player is told", told, true);
+		Is("  and with his only county gone, his reign is over", hard.PlayerFallen, true);
 	}
 
 	/// <summary>A road that runs straight, a step every twelve pixels, a pixel of march a pixel.</summary>
