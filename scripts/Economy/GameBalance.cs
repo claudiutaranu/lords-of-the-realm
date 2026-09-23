@@ -314,8 +314,11 @@ public partial class GameBalance : Resource
 	///
 	/// Peasants to a man, and that is not a shortcut: a county with no lord has no smithy filling an
 	/// armoury and nobody drilling anybody, so what it fields is how many of them there are and
-	/// nothing else.</summary>
-	[Export] public float MilitiaShare = 0.14f;
+	/// nothing else.
+	///
+	/// By difficulty, and it binds the rival lords as much as the player: the harder the game, the
+	/// more of a county turns out for it, and the dearer every piece of empty country is to anybody.</summary>
+	[Export] public float[] MilitiaShare = { 0.14f, 0.17f, 0.21f };
 
 	[Export] public float GarrisonTolerated = 0.05f;
 	[Export] public float GarrisonLoyaltyPerTenth = 4f;

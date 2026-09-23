@@ -136,7 +136,7 @@ public partial class MapDecoration : Node3D
 	/// <summary>How long the banner takes to cover one bead of the road it was sent along. Slow
 	/// enough to be a march and not a jump, quick enough that a lord who has ordered four of them is
 	/// not waiting on the map.</summary>
-	private const float StrideSeconds = 0.16f;
+	public const float StrideSeconds = 0.16f;
 
 	private const float CattleLength = 1.25f;
 

@@ -79,6 +79,13 @@ The men live in **companies** (`FieldArmy`), not in one roster per county:
   `Lord*` difficulty table in `GameBalance`. Companies of different counties merge only at the gate
   they attack — a merged company is fed by one county — and a county over its share sends the
   surplus home.
+- The rivals take their turn after the player's, in front of him, as in Lords of the Realm: End Turn
+  calls `TurnManager.RivalsTurn()` (orders, muster, marches), the map walks their banners along the
+  roads they took, and only then does the season turn over (`AdvanceTurn`, which runs `RivalsTurn`
+  itself if nobody watched). Map input is shut while they walk (`_rivalsMarching`), with a deadline
+  in case a banner never reports in.
+- Nobody opens with a field army: the player raises his first company himself. Walls keep their
+  authored watch. A neutral county's militia is `MilitiaShare` of its people, by difficulty.
 
 ## The map
 

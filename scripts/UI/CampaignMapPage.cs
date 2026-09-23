@@ -40,6 +40,9 @@ public partial class CampaignMapPage : Control
 	/// road being walked, far enough that a long march is a trail and not a stripe.</summary>
 	private const float StepSpacing = 34f;
 
+	/// <summary>How long past the longest rival march the turn waits before it stops waiting.</summary>
+	private const float DeadlineSlack = 1f;
+
 	/// <summary>How far above the waterline the ground has to stand before an army will set foot on
 	/// it, and how steeply it may climb across one cell before it is a wall rather than a hill.
 	///
@@ -706,7 +709,7 @@ public partial class CampaignMapPage : Control
 	/// when the trail was drawn; this pays for it and walks it.</summary>
 	private bool March(FieldArmy army, Vector2 where)
 	{
-		if (army == null || !_world.TryMapPixel(where, out Vector2 ground))
+		if (army == null || _rivalsMarching || !_world.TryMapPixel(where, out Vector2 ground))
 		{
 			return false;
 		}
@@ -1140,16 +1143,80 @@ public partial class CampaignMapPage : Control
 		Narrator.Say(LeaveFarewellPath);
 	}
 
-	/// <summary>A turn passes behind a curtain: the screen fades out, the season turns over while
-	/// nothing is visible, and the new season is named before the map comes back. The simulation
-	/// runs at the darkest point, so the numbers never visibly jump under the player's eyes.</summary>
+	/// <summary>True while the other lords' men are walking, after End Turn and before the season:
+	/// the map can be looked around but not given orders.</summary>
+	private bool _rivalsMarching;
+
+	/// <summary>End Turn, the way Lords of the Realm plays it: the other lords take their turn in
+	/// front of the player — their banners walk the roads they chose, all at once — and only when
+	/// the last of them has halted does the season turn over behind the curtain. What their marches
+	/// won or lost is already settled; the banners are redrawn once they have all arrived.</summary>
 	private void AdvanceTurn()
 	{
-		if (_turnTransition.Visible)
+		if (_turnTransition.Visible || _rivalsMarching)
 		{
 			return; // already mid-turn; a second click must not queue another season
 		}
 
+		ShowArmies(); // everybody where they stand, before anybody moves
+		List<LordsCampaign.RivalMarch> marches = _turnManager.RivalsTurn();
+		if (marches.Count == 0)
+		{
+			TurnTheSeason();
+			return;
+		}
+
+		_rivalsMarching = true;
+		int walking = marches.Count;
+		int longest = 0;
+		void Halted()
+		{
+			if (!_rivalsMarching)
+			{
+				return; // already settled — by the last banner, or by the deadline below
+			}
+
+			_rivalsMarching = false;
+			ShowArmies();
+			ShowFortifications();
+			ShowSettlements();
+			LayGround(); // a county they took is somebody else's ground now
+			TurnTheSeason();
+		}
+
+		foreach (LordsCampaign.RivalMarch march in marches)
+		{
+			// Stood where they set out from — a company raised this season has no banner yet — and
+			// walked from there.
+			FieldArmy army = _turnManager.ArmyOf(march.Army);
+			if (army != null && army.Strength > 0)
+			{
+				_world.SetArmy(march.Army, march.From, true,
+					_realms.TryGetValue(_turnManager.RealmOf(army), out RealmData lord) ? lord.Accent : Colors.White,
+					army.Strength);
+			}
+
+			longest = Mathf.Max(longest, march.Road.Count);
+			_world.WalkArmy(march.Army, march.Road, () =>
+			{
+				if (--walking == 0)
+				{
+					Halted();
+				}
+			});
+		}
+
+		// And settled by the clock if a banner never reports in. One whose figure was taken off the
+		// board mid-stride — merged, beaten, retired — takes its walk and its word with it, and the
+		// turn sat waiting for a man who no longer existed.
+		GetTree().CreateTimer(longest * MapDecoration.StrideSeconds + DeadlineSlack).Timeout += Halted;
+	}
+
+	/// <summary>A turn passes behind a curtain: the screen fades out, the season turns over while
+	/// nothing is visible, and the new season is named before the map comes back. The simulation
+	/// runs at the darkest point, so the numbers never visibly jump under the player's eyes.</summary>
+	private void TurnTheSeason()
+	{
 		_turnTransition.Visible = true;
 
 		Tween tween = CreateTween();
@@ -1545,6 +1612,10 @@ public partial class CampaignMapPage : Control
 	private void OnMapGuiInput(InputEvent @event)
 	{
 		_world.HandleInput(@event); // pan and zoom; selection is the left button, below
+		if (_rivalsMarching)
+		{
+			return; // the other lords are moving: look, but give no orders until they have
+		}
 
 		if (@event is InputEventMouseMotion motion)
 		{

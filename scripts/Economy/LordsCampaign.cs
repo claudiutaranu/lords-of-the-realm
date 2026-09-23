@@ -16,6 +16,10 @@ public sealed class LordsCampaign
 	/// or empty where there is none — MarchGrid.Way, as the map has it.</summary>
 	public delegate List<(Vector2 At, float Spent)> Way(Vector2 from, Vector2 to);
 
+	/// <summary>One company's march this season: where it set out from and every step it took, for
+	/// the map to walk its banner along.</summary>
+	public record RivalMarch(string Army, Vector2 From, List<Vector2> Road);
+
 	private readonly Way _way;
 	private readonly System.Func<Vector2, string> _countyAt;
 	private readonly Dictionary<string, Vector2> _towns;
@@ -36,7 +40,8 @@ public sealed class LordsCampaign
 
 	/// <summary>Moves every rival company for the season. Returns what the player has to hear: his
 	/// counties attacked, besieged or lost.</summary>
-	public List<FiredEvent> March(TurnManager turns, GameBalance b)
+	/// <param name="walked">Every march made, in the order made, for the map to show.</param>
+	public List<FiredEvent> March(TurnManager turns, GameBalance b, List<RivalMarch> walked)
 	{
 		var news = new List<FiredEvent>();
 		int skill = (int)turns.Difficulty;
@@ -102,7 +107,7 @@ public sealed class LordsCampaign
 
 			foreach (FieldArmy company in host)
 			{
-				Walk(turns, company, target);
+				Walk(turns, company, target, walked);
 			}
 
 			if (army.County == target && Pixel(army).DistanceTo(_towns[target]) <= _reach)
@@ -200,9 +205,10 @@ public sealed class LordsCampaign
 	}
 
 	/// <summary>As far along the road as this season's legs carry them.</summary>
-	private void Walk(TurnManager turns, FieldArmy army, string target)
+	private void Walk(TurnManager turns, FieldArmy army, string target, List<RivalMarch> walked)
 	{
-		List<(Vector2 At, float Spent)> road = _way(Pixel(army), _towns[target]);
+		Vector2 from = Pixel(army);
+		List<(Vector2 At, float Spent)> road = _way(from, _towns[target]);
 		int halt = -1;
 		for (int step = 0; step < road.Count; step++)
 		{
@@ -219,9 +225,15 @@ public sealed class LordsCampaign
 
 		(Vector2 at, float spent) = road[halt];
 		string county = _countyAt(at);
-		if (county.Length > 0)
+		if (county.Length > 0 && turns.March(army, county, at, spent))
 		{
-			turns.March(army, county, at, spent);
+			var steps = new List<Vector2>(halt + 1);
+			for (int step = 0; step <= halt; step++)
+			{
+				steps.Add(road[step].At);
+			}
+
+			walked.Add(new RivalMarch(army.Key, from, steps));
 		}
 	}
 

@@ -344,7 +344,13 @@ public partial class LordCheck : Node
 		walkers.Men["spear"] = 40;
 		Is("an unheld county is nobody's until somebody takes it", free.AnyProvince("Ashenvale") == null, true);
 		Is("  and its own people are what stands in the way", free.DefendersOf("Ashenvale").Men,
-			Mathf.FloorToInt(Definition("Ashenvale").InitialPopulation * b.MilitiaShare));
+			Mathf.FloorToInt(Definition("Ashenvale").InitialPopulation * b.MilitiaShare[(int)Difficulty.Medium]));
+
+		int Militia(Difficulty skill) => new TurnManager(b, new List<ProvinceDefinition> { Definition("Kingsreach") },
+			new Dictionary<string, string> { ["Kingsreach"] = "royal-crown" }, "royal-crown", skill,
+			new List<ProvinceDefinition> { Definition("Ashenvale") }).DefendersOf("Ashenvale").Men;
+		Is("  and more of them turn out the harder the game",
+			Militia(Difficulty.Easy) < Militia(Difficulty.Medium) && Militia(Difficulty.Medium) < Militia(Difficulty.Hard), true);
 		Is("the men can still be walked onto it",
 			free.March(walkers, "Ashenvale", new Vector2(500, 400), 150f), true);
 		Is("  but it is nobody's still", free.AnyProvince("Ashenvale") == null, true);

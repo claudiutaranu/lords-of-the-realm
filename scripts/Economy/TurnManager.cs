@@ -625,7 +625,7 @@ public class TurnManager
 		}
 
 		var raised = new Dictionary<string, int>();
-		int militia = Mathf.FloorToInt(free.InitialPopulation * _balance.MilitiaShare);
+		int militia = Mathf.FloorToInt(free.InitialPopulation * _balance.MilitiaShare[(int)Difficulty]);
 		if (militia > 0)
 		{
 			raised[MilitiaUnit] = militia;
@@ -810,11 +810,28 @@ public class TurnManager
 		return stirs;
 	}
 
-	public List<TurnSummary> AdvanceTurn()
+	/// <summary>The turn the other lords last took theirs, so they take it once a season whoever
+	/// asks: the map, to watch their men walk, or AdvanceTurn itself when nobody is watching.</summary>
+	private int _rivalsTookTurn = -1;
+
+	/// <summary>What the other lords' war did to the player this season, held until the season is
+	/// reckoned and its news told.</summary>
+	private readonly List<FiredEvent> _rivalNews = new();
+
+	/// <summary>The other lords' half of the season, the way Lords of the Realm plays it: the player
+	/// ends his turn, and then they give their orders, raise their men and march them, while he
+	/// watches. Returns every march they made, so the map can walk the banners along the roads they
+	/// took before the season is reckoned. Once a turn; a second call is nothing.</summary>
+	public List<LordsCampaign.RivalMarch> RivalsTurn()
 	{
+		var walked = new List<LordsCampaign.RivalMarch>();
+		if (_rivalsTookTurn == Turn)
+		{
+			return walked;
+		}
+
+		_rivalsTookTurn = Turn;
 		Season season = CurrentSeason;
-		var summaries = new List<TurnSummary>(_definitions.Count);
-		var news = new List<FiredEvent>();
 
 		// Every rival gives his orders before ANY county is run. Two passes rather than one, because
 		// a lord's tax is felt in his neighbours' counties as well as his own: run them one at a
@@ -848,8 +865,21 @@ public class TurnManager
 		// take this turn is run by them this turn. What it costs the player is news he hears first.
 		if (_campaign != null)
 		{
-			news.AddRange(_campaign.March(this, _balance));
+			_rivalNews.AddRange(_campaign.March(this, _balance, walked));
 		}
+
+		return walked;
+	}
+
+	public List<TurnSummary> AdvanceTurn()
+	{
+		// Nobody watched them take their turn — the checks, a harness — so they take it now.
+		RivalsTurn();
+
+		Season season = CurrentSeason;
+		var summaries = new List<TurnSummary>(_definitions.Count);
+		var news = new List<FiredEvent>(_rivalNews);
+		_rivalNews.Clear();
 
 		Dictionary<string, string> stirs = WhereTheWorldStirs();
 		foreach (ProvinceDefinition definition in _definitions)

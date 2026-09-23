@@ -43,7 +43,7 @@ public partial class ProvinceDefinition : Resource
 	/// <summary>The men the province stands up the day the campaign opens, by unit key. A lord's
 	/// county opens with his own army on it; a county nobody holds has none authored at all, because
 	/// what it fields is not an army — it is the place itself, and how many of them stand up is read
-	/// off its people (see <see cref="GameBalance.MilitiaShare"/>).
+	/// off its people (see <see cref="GameBalance.MilitiaShare"/>, by difficulty).
 	///
 	/// Authored and not derived for a lord, for the same reason his stores are: a rival meant to open
 	/// ahead should be ahead on the map, where it can be seen and planned against, rather than in a
