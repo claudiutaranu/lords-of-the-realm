@@ -50,6 +50,7 @@ public partial class CampaignMap3D : Node3D
 	// where the player expects. Free orbit can come later if armies ever need to be seen behind
 	// a mountain.
 	private const float CameraPitchDegrees = -52.0f;
+	private const float CameraFov = 48.0f;
 	// A fifth closer than it was (54): near enough to see a field's rows and a village's roofs.
 	private const float MinDistance = 45.0f;
 	private const float MaxDistance = 152.0f;
@@ -111,11 +112,12 @@ public partial class CampaignMap3D : Node3D
 		// this map can have — the sky is placed against that.
 		_clouds.Build(new Vector2(MapWidth, MapDepth), HeightScale);
 
-		_camera = new Camera3D { Fov = 48.0f, Far = 800.0f, Current = true };
+		_camera = new Camera3D { Fov = CameraFov, Far = 800.0f, Current = true };
 		AddChild(_camera);
 		// The clipmap is laid out around the camera, so the ground has to be told which one it
 		// follows — without it Terrain3D stops processing and never draws.
 		_ground?.Watch(_camera);
+		ClampFocus();
 		UpdateCamera();
 	}
 
@@ -442,14 +444,33 @@ public partial class CampaignMap3D : Node3D
 	private void Zoom(float amount)
 	{
 		_distance = Mathf.Clamp(_distance + amount, MinDistance, MaxDistance);
+		ClampFocus(); // a wider view needs more room around it
 		UpdateCamera();
 	}
 
+	/// <summary>Keeps what the camera SEES on the map, not only the point it looks at. The camera
+	/// leans in from the south, so the bottom of the screen is ground a little south of the focus and
+	/// the top is ground a long way north of it: stopping the focus at the map's edge let the whole
+	/// lower half of the screen hang out over open water. So the view's own reach — near edge, far
+	/// edge and half its width at the near edge — is measured off the camera's height and tilt, and
+	/// the focus is held where all of it stays over the map. A view bigger than the map is centred.</summary>
 	private void ClampFocus()
 	{
-		_focus.X = Mathf.Clamp(_focus.X, -MapWidth / 2, MapWidth / 2);
-		_focus.Z = Mathf.Clamp(_focus.Z, -MapDepth / 2, MapDepth / 2);
+		float pitch = Mathf.DegToRad(-CameraPitchDegrees);
+		float half = Mathf.DegToRad(_camera?.Fov ?? CameraFov) / 2f;
+		float height = Mathf.Sin(pitch) * _distance;
+		float back = Mathf.Cos(pitch) * _distance;
+		float south = back - (height / Mathf.Tan(pitch + half));
+		float north = pitch - half > 0.01f ? (height / Mathf.Tan(pitch - half)) - back : MapDepth;
+		Vector2 screen = IsInsideTree() ? GetViewport().GetVisibleRect().Size : new Vector2(16, 9);
+		float side = height / Mathf.Sin(pitch + half) * Mathf.Tan(half) * (screen.X / Mathf.Max(1f, screen.Y));
+
+		_focus.X = Fit(_focus.X, (-MapWidth / 2) + side, (MapWidth / 2) - side);
+		_focus.Z = Fit(_focus.Z, (-MapDepth / 2) + north, (MapDepth / 2) - south);
 	}
+
+	private static float Fit(float value, float least, float most) =>
+		least > most ? (least + most) / 2f : Mathf.Clamp(value, least, most);
 
 	private void UpdateCamera()
 	{
