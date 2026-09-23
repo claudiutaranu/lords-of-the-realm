@@ -191,6 +191,10 @@ public partial class GameBalance : Resource
 	[Export] public float WorldEventChance = 0.2f;
 	[Export] public int QuietOpeningTurns = 4;
 
+	/// <summary>Turns a realm is left alone after the world has done something to it. The roll above
+	/// is made once per realm per season, not once per county, and this is the breath after.</summary>
+	[Export] public int WorldEventGap = 2;
+
 	/// <summary>The size of the world's attention when it stirs. The weights below are shares of
 	/// THIS, not of each other, so a province exposed to only one thing draws mostly nothing and a
 	/// province doing everything wrong draws something nearly every time. Drop it to zero and the

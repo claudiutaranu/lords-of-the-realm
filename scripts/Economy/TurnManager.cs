@@ -67,6 +67,14 @@ public class TurnManager
 	/// and a breakdown of a season the player can no longer see is the only kind worth showing.</summary>
 	private readonly Dictionary<string, TurnSummary> _lastSeason = new();
 
+	/// <summary>The turn the world last did something to each realm. A realm is visited by at most one
+	/// disaster a season and then left alone for WorldEventGap turns: rolled county by county, a lord
+	/// of six counties heard of rats, murrain or plague nearly every season, one on top of another.
+	///
+	/// ponytail: not saved — a loaded campaign may hear from the world one season early. Put it on
+	/// the save if that ever matters.</summary>
+	private readonly Dictionary<string, int> _worldLastStirred = new();
+
 	/// <summary>How the county's goodwill was arrived at last season, or null before its first turn.
 	/// Reachable only through a province the caller already holds, which is the screens' own
 	/// gate.</summary>
@@ -753,6 +761,41 @@ public class TurnManager
 	///
 	/// Fixed iteration order (the authored definitions list), not dictionary enumeration order, so a
 	/// turn's outcome is reproducible (design doc section 34).</summary>
+	/// <summary>The one county of each realm the world may visit this season, if the realm is not
+	/// still getting over the last visit. Picked at random among the realm's counties, walked in
+	/// authored order so the same seed picks the same county.</summary>
+	private Dictionary<string, string> WhereTheWorldStirs()
+	{
+		var counties = new Dictionary<string, List<string>>();
+		var realms = new List<string>();
+		foreach (ProvinceDefinition definition in _definitions)
+		{
+			string realm = _provincesByName[definition.ProvinceName].Realm;
+			if (!counties.TryGetValue(realm, out List<string> held))
+			{
+				held = new List<string>();
+				counties[realm] = held;
+				realms.Add(realm);
+			}
+
+			held.Add(definition.ProvinceName);
+		}
+
+		var stirs = new Dictionary<string, string>();
+		foreach (string realm in realms)
+		{
+			if (_worldLastStirred.TryGetValue(realm, out int last) && Turn - last <= _balance.WorldEventGap)
+			{
+				continue;
+			}
+
+			List<string> held = counties[realm];
+			stirs[realm] = held[_rng.RandiRange(0, held.Count - 1)];
+		}
+
+		return stirs;
+	}
+
 	public List<TurnSummary> AdvanceTurn()
 	{
 		Season season = CurrentSeason;
@@ -782,6 +825,7 @@ public class TurnManager
 			}
 		}
 
+		Dictionary<string, string> stirs = WhereTheWorldStirs();
 		foreach (ProvinceDefinition definition in _definitions)
 		{
 			ProvinceEconomy province = _provincesByName[definition.ProvinceName];
@@ -799,8 +843,13 @@ public class TurnManager
 			// season that actually happened — the rats come for the granary as the harvest left it.
 			// It comes for a rival's granary on the same terms: an AI lord the plague cannot touch is
 			// a cheat, and it would be one the player never sees and could never account for.
+			bool stirred = stirs.GetValueOrDefault(province.Realm) == province.ProvinceName;
 			List<FiredEvent> happened =
-				EventEngine.AfterTurn(province, _balance, season, Turn, summary, _rng);
+				EventEngine.AfterTurn(province, _balance, season, Turn, summary, _rng, stirred);
+			if (stirred && happened.Exists(item => !item.FromThePeople))
+			{
+				_worldLastStirred[province.Realm] = Turn;
+			}
 
 			// Soldiers for hire walk in on their own errand, and only where the lord could actually
 			// take them up on it: nobody is offering a company to a county he does not hold.

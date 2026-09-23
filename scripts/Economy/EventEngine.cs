@@ -53,16 +53,20 @@ public static class EventEngine
 	private record Choice(float Weight, string Kind, string Id, Action Strike);
 
 	/// <summary>Everything worth telling the lord about this province, after its turn has been run.
-	/// The world's half may change the province; the people's half only reports it.</summary>
+	/// The world's half may change the province; the people's half only reports it.
+	///
+	/// <paramref name="worldMayStir"/> is whether this is the county the world is allowed at this
+	/// season. The realm decides that (TurnManager), because a roll per county made a lord of six
+	/// counties hear of a disaster nearly every season.</summary>
 	public static List<FiredEvent> AfterTurn(ProvinceEconomy province, GameBalance balance, Season season,
-		int turn, TurnSummary summary, RandomNumberGenerator rng)
+		int turn, TurnSummary summary, RandomNumberGenerator rng, bool worldMayStir = true)
 	{
 		var news = new List<FiredEvent>();
 		Quieten(province);
 
 		// The people's half first: it is the lord's own doing, and it is what he has to hear.
 		Add(news, province, WhatThePeopleDid(province, balance, summary), fromThePeople: true);
-		Add(news, province, WhatTheWorldDid(province, balance, season, turn, summary, rng), fromThePeople: false);
+		Add(news, province, WhatTheWorldDid(province, balance, season, turn, summary, rng, worldMayStir), fromThePeople: false);
 		return news;
 	}
 
@@ -179,7 +183,7 @@ public static class EventEngine
 	/// The opening year is spared: a lord who loses his herd to murrain in his first spring has
 	/// learnt nothing about murrain, only that the game is unfair.</summary>
 	private static GameEvent WhatTheWorldDid(ProvinceEconomy p, GameBalance b, Season season, int turn,
-		TurnSummary summary, RandomNumberGenerator rng)
+		TurnSummary summary, RandomNumberGenerator rng, bool worldMayStir)
 	{
 		// A plague already running is not a roll and not subject to any of the above: it kills every
 		// season until it burns out, and it says so when it lifts.
@@ -190,7 +194,7 @@ public static class EventEngine
 			return p.PlagueSeasonsLeft == 0 ? Find("plague-ended-01") : null;
 		}
 
-		if (turn <= b.QuietOpeningTurns || rng.Randf() >= b.WorldEventChance)
+		if (!worldMayStir || turn <= b.QuietOpeningTurns || rng.Randf() >= b.WorldEventChance)
 		{
 			return null; // the usual season: nothing happens, and the lord gets on with his year
 		}

@@ -23,6 +23,7 @@ public partial class EventCheck : Node
 		Quiet();
 		Pace();
 		World();
+		OneAtATime();
 		Hirelings();
 
 		GD.Print(_failed == 0
@@ -326,6 +327,52 @@ public partial class EventCheck : Node
 
 	/// <summary>A balance with the world held perfectly still, so a case decides for itself what may
 	/// happen in it. Left as they ship, a check would pass or fail on the weather.</summary>
+	/// <summary>A realm of six counties hears of the world one disaster at a time. Rolled county by
+	/// county, the world found somebody nearly every season and the advisor had rats on top of murrain
+	/// on top of plague; now the realm rolls once, one county is visited, and the realm is left alone
+	/// for WorldEventGap turns after. With the dice fixed to always, that is the only thing standing
+	/// between six counties and six disasters a season.</summary>
+	private void OneAtATime()
+	{
+		GameBalance b = Balance();
+		b.WorldEventChance = 1f;
+		b.QuietOpeningTurns = 0;
+		b.EventQuietTurns = 0;
+		b.BanditWeight = 1f; // no garrison anywhere, so every county is open to it
+
+		var definitions = new List<ProvinceDefinition>();
+		var realms = new Dictionary<string, string>();
+		foreach (string name in new[] { "Ash", "Birch", "Cedar", "Elm", "Fir", "Oak" })
+		{
+			ProvinceDefinition definition = Definition();
+			definition.ProvinceName = name;
+			definitions.Add(definition);
+			realms[name] = "crown";
+		}
+
+		var turns = new TurnManager(b, definitions, realms, "crown", Difficulty.Medium);
+		int most = 0;
+		int fired = 0;
+		int last = -100;
+		bool spaced = true;
+		for (int season = 0; season < 24; season++)
+		{
+			turns.AdvanceTurn();
+			int world = turns.News.FindAll(item => !item.FromThePeople).Count;
+			most = Mathf.Max(most, world);
+			if (world > 0)
+			{
+				spaced &= turns.Turn - last > b.WorldEventGap;
+				last = turns.Turn;
+				fired++;
+			}
+		}
+
+		Is("six counties, the world always willing, and one disaster a season at most", most, 1);
+		Is("  with the realm left alone for a breath after each", spaced, true);
+		Is("  but the world does still come", fired >= 4, true);
+	}
+
 	private static GameBalance Balance() => new()
 	{
 		WorldEventChance = 0f,
