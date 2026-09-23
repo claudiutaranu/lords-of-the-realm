@@ -1493,7 +1493,8 @@ public partial class CampaignMapPage : Control
 			// Everyone's walls, not just the player's: a rival raising a castle is the one thing about
 			// his county a lord could hardly miss from the next valley over.
 			ProvinceEconomy economy = _turnManager.AnyProvince(province.Name);
-			_world.SetFortification(province.Name, province.TownPosition, economy?.Fortification ?? "");
+			_world.SetFortification(province.Name, province.TownPosition, economy?.Fortification ?? "",
+				_realms[HolderOf(province)].Accent);
 		}
 	}
 
