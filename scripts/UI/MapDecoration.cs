@@ -957,6 +957,11 @@ public partial class MapDecoration : Node3D
 	private const string HamletModel = "settlements/blue-banner-hamlet";
 	private const string SettlementShaderPath = "res://assets/shaders/settlement.gdshader";
 	private const float HamletShare = 0.85f;
+
+	/// <summary>How much of the town's ring the village itself fills. The ring is the town for the rules
+	/// (where a march halts on its gate, where its fields start); the village drawn in it stands a
+	/// fifth smaller than that, so it sits on the map as a place and not as a stamp over the county.</summary>
+	private const float VillageSize = 0.8f;
 	private const float SettlementSink = 0.04f;
 	/// <summary>How far a village may stand off the wind. Every banner flies with the prevailing
 	/// wind, so the village is turned to put its flag in it — but eight villages all turned the one
@@ -1017,7 +1022,7 @@ public partial class MapDecoration : Node3D
 			_flagRest = FlagRest(mesh, pole);
 		}
 
-		float yard = 2f * TownRing / _map.PixelsPerUnit * (kind == Settlement.Hamlet ? HamletShare : 1f);
+		float yard = 2f * TownRing / _map.PixelsPerUnit * VillageSize * (kind == Settlement.Hamlet ? HamletShare : 1f);
 		float scale = yard / Models.FootprintOf(HamletModel);
 		// Turned so its flag flies with the wind, give or take its own few degrees (FlagJitter). A turn
 		// about y takes a direction at angle a on the ground (atan2 of z over x) to a - yaw.

@@ -466,7 +466,13 @@ public partial class CampaignMap3D : Node3D
 		float side = height / Mathf.Sin(pitch + half) * Mathf.Tan(half) * (screen.X / Mathf.Max(1f, screen.Y));
 
 		_focus.X = Fit(_focus.X, (-MapWidth / 2) + side, (MapWidth / 2) - side);
-		_focus.Z = Fit(_focus.Z, (-MapDepth / 2) + north, (MapDepth / 2) - south);
+
+		// Taller than the map, the view is laid on its southern coast rather than centred: the near
+		// ground fills the bottom half of the screen, so the sea past the south edge was most of what
+		// the opening view showed, while what spills past the north edge is far off and small.
+		float least = (-MapDepth / 2) + north;
+		float most = (MapDepth / 2) - south;
+		_focus.Z = least > most ? most : Mathf.Clamp(_focus.Z, least, most);
 	}
 
 	private static float Fit(float value, float least, float most) =>
