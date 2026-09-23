@@ -345,25 +345,7 @@ public partial class CampaignMapPage : Control
 			_sidebar.Refresh();
 			ShowSaveToast($"{half.Strength:N0} men of {army.Home} now march under their own banner");
 		});
-		// Into the castle of the county they stand in: straight up if the walls hold them all, and
-		// otherwise the lord says who, kind by kind, on the same panel a split is cut on.
-		_army.GarrisonPressed += army =>
-		{
-			ProvinceEconomy walls = WallsFor(army);
-			if (walls == null)
-			{
-				return;
-			}
-
-			if (army.Strength <= walls.WallRoom)
-			{
-				Garrisoned(army, new Dictionary<string, int>(army.Men));
-				return;
-			}
-
-			_splitting.Ask(army, going => Garrisoned(army, going),
-				SplitPanel.Garrisoning(walls.ProvinceName, walls.WallRoom));
-		};
+		_army.GarrisonPressed += AskWalls;
 		_army.DisbandPressed += army =>
 		{
 			ProvinceEconomy home = _turnManager.GetProvince(army.Home);
@@ -792,6 +774,14 @@ public partial class CampaignMapPage : Control
 			if (Contested(army, into, strides[^1]))
 			{
 				_battle.Open(_turnManager, _balance, army, into, strides[^1]);
+				return;
+			}
+
+			// Halted at his own walls, the question is whether they go up onto them. Asked, not done:
+			// a company marched home to the castle may only be passing through.
+			if ((_world.TownAt(strides[^1]) == into || _world.AtCastle(into, strides[^1])) && WallsFor(army) != null)
+			{
+				AskWalls(army);
 				return;
 			}
 
@@ -1517,6 +1507,18 @@ public partial class CampaignMapPage : Control
 			: null;
 	}
 
+	/// <summary>Which of this company go up onto the walls of the county it stands in, kind by kind
+	/// on the panel a split is cut on, filled up to the room there is.</summary>
+	private void AskWalls(FieldArmy army)
+	{
+		ProvinceEconomy walls = WallsFor(army);
+		if (walls != null)
+		{
+			_splitting.Ask(army, going => Garrisoned(army, going),
+				SplitPanel.Garrisoning(walls.ProvinceName, walls.WallRoom));
+		}
+	}
+
 	private void Garrisoned(FieldArmy army, Dictionary<string, int> going)
 	{
 		string county = army.County;
@@ -1534,6 +1536,7 @@ public partial class CampaignMapPage : Control
 			// his county a lord could hardly miss from the next valley over.
 			ProvinceEconomy economy = _turnManager.AnyProvince(province.Name);
 			_world.SetFortification(province.Name, province.TownPosition, economy?.Fortification ?? "",
+				economy?.Building ?? "",
 				_realms[HolderOf(province)].Accent);
 		}
 	}

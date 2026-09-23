@@ -990,6 +990,18 @@ public partial class MapDecoration : Node3D
 		_ => null,
 	};
 
+	/// <summary>A rung still in its scaffolding, the size it will be when it is done. The motte and
+	/// the timber keep go up on the same works, and the stone castle and the king's on the same.</summary>
+	private static Works UnderWay(string fort) => fort switch
+	{
+		"small-palisade" => new Works("settlements/fort-build-palisadea", PlanFor(fort).Size),
+		"medium-fort" or "large-fort" => new Works("settlements/fort-build-palisadeb", PlanFor(fort).Size),
+		"small-castle" => new Works("settlements/fort-build-keepa", PlanFor(fort).Size),
+		"medium-castle" => new Works("settlements/fort-build-keepb", PlanFor(fort).Size),
+		"large-castle" or "grand-castle" => new Works("settlements/fort-build-keepc", PlanFor(fort).Size),
+		_ => null,
+	};
+
 	/// <summary>Raises the village on a province's seat, flying its lord's colour — or, for a seat
 	/// that already has one, hands the banners to whoever holds it now. One node per seat rather than
 	/// a scatter, since each flies its own colour; they share one material, and the colour is a
@@ -1151,6 +1163,10 @@ public partial class MapDecoration : Node3D
 	/// <summary>Whose village stands under this map pixel, or nothing. The town is walked into from
 	/// its own streets: a county is a great deal of ground, and a click on the far side of its woods
 	/// used to open its market square.</summary>
+	/// <summary>Whether a map pixel is on the ground a county's castle stands on (CastleSite).</summary>
+	public bool AtCastle(string province, Vector2 pixel) =>
+		_settlementSites.TryGetValue(province, out Vector2 seat) && pixel.DistanceTo(CastleSite(seat)) <= CastleReach;
+
 	public string TownAt(Vector2 pixel)
 	{
 		foreach ((string province, Vector2 yard) in _settlementSites)
@@ -1440,8 +1456,10 @@ public partial class MapDecoration : Node3D
 	/// than another scatter folded in with the trees.
 	///
 	/// An empty key takes it down and leaves an open village, which is what a province that has
-	/// never built looks like.</summary>
-	public void SetFortification(string province, Vector2 seatPixel, string fort, Color lord)
+	/// never built looks like. While the masons are at work (<paramref name="building"/>) it is the
+	/// rung going up that stands there, half-raised in its scaffolding, and not the one it replaces:
+	/// the old wall comes down when the new one is begun.</summary>
+	public void SetFortification(string province, Vector2 seatPixel, string fort, string building, Color lord)
 	{
 		if (_forts.TryGetValue(province, out Node3D standing))
 		{
@@ -1450,7 +1468,7 @@ public partial class MapDecoration : Node3D
 			_forts.Remove(province);
 		}
 
-		Works plan = PlanFor(fort);
+		Works plan = UnderWay(building) ?? PlanFor(fort);
 		if (plan == null)
 		{
 			return; // an open village, or a key this map has no shapes for

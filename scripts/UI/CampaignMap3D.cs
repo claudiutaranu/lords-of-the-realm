@@ -180,6 +180,8 @@ public partial class CampaignMap3D : Node3D
 	/// <summary>Whose village stands under a map pixel, or nothing.</summary>
 	public string TownAt(Vector2 mapPixel) => _decoration.TownAt(mapPixel);
 
+	public bool AtCastle(string province, Vector2 mapPixel) => _decoration.AtCastle(province, mapPixel);
+
 	/// <summary>Which of a county's fields sits under a map pixel, or -1.</summary>
 	public int PlotAt(string province, Vector2 mapPixel) => _decoration.PlotAt(province, mapPixel);
 
@@ -310,8 +312,8 @@ public partial class CampaignMap3D : Node3D
 
 	/// <summary>Puts a province's walls on the ground beside its town, taking down whatever stood
 	/// there before. Called again whenever a build finishes, so the map keeps up with the ledger.</summary>
-	public void SetFortification(string province, Vector2 seatPixel, string fort, Color lord) =>
-		_decoration.SetFortification(province, seatPixel, fort, lord);
+	public void SetFortification(string province, Vector2 seatPixel, string fort, string building, Color lord) =>
+		_decoration.SetFortification(province, seatPixel, fort, building, lord);
 
 	/// <summary>Lays a province's fields on its ground — one plot per field, under what the province
 	/// has it under. Called again whenever the land or the season changes, so the map keeps up with
