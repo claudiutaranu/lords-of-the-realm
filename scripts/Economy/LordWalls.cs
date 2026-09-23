@@ -69,12 +69,13 @@ public static class LordWalls
 		return next.Length == 0 ? 0 : Fortifications.Of(next).Cost.GetValueOrDefault(store);
 	}
 
-	/// <summary>Puts men on walls that have too few: up to LordWatch of them, out of his own companies
+	/// <summary>Puts men on walls that have too few: up to LordWatch of them, or as many as the walls
+	/// hold if that is fewer, out of his own companies
 	/// standing at home, largest first. A wall is not a garrison, and a lord who built one and left it
 	/// empty had built a gate for the first army past to walk through.</summary>
 	public static void ManTheWalls(ProvinceEconomy p, GameBalance b)
 	{
-		int wanted = b.LordWatch - p.CastleMen;
+		int wanted = Mathf.Min(b.LordWatch - p.CastleMen, p.WallRoom);
 		if (p.Fortification.Length == 0 || wanted <= 0)
 		{
 			return;

@@ -62,6 +62,7 @@ public partial class ArmyPanel : Control
 	/// is the ledger's business.</summary>
 	public event System.Action<FieldArmy> MarchPressed;
 	public event System.Action<FieldArmy> SplitPressed;
+	public event System.Action<FieldArmy> GarrisonPressed;
 	public event System.Action<FieldArmy> DisbandPressed;
 
 	private Label _title;
@@ -94,6 +95,7 @@ public partial class ArmyPanel : Control
 	private Button _close;
 	private Button _march;
 	private Button _split;
+	private Button _garrison;
 	private Button _disband;
 
 	/// <summary>Whether Disband has been pressed once already. Sending a company home cannot be
@@ -404,6 +406,14 @@ public partial class ArmyPanel : Control
 		}, out Label _);
 		row.AddChild(_split);
 
+		_garrison = Order("Garrison", "castle", () =>
+		{
+			FieldArmy manning = _army;
+			Close();
+			GarrisonPressed?.Invoke(manning);
+		}, out Label _);
+		row.AddChild(_garrison);
+
 		_disband = Order("Disband", "morale", () =>
 		{
 			if (!_disbandAsked)
@@ -453,6 +463,10 @@ public partial class ArmyPanel : Control
 		said.AddChild(word);
 		return order;
 	}
+
+	/// <summary>Offers the walls of the county the company is standing in, when the map says they
+	/// will take it. Asked after Show, which does not know whose walls are whose.</summary>
+	public void OfferWalls(bool open) => _garrison.Visible = open;
 
 	/// <summary>Shows one company: these men, their own legs, and the county that pays them.
 	/// <paramref name="yours"/> decides whether the lord may order them about from here — a rival's
@@ -507,6 +521,7 @@ public partial class ArmyPanel : Control
 
 		_march.Visible = yours && army.Strength > 0 && army.MarchLeft > 0f;
 		_split.Visible = yours && army.Strength > 1;
+		_garrison.Visible = false;
 		_disband.Visible = yours;
 		_disbandAsked = false;
 

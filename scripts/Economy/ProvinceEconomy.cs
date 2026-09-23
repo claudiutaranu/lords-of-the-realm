@@ -544,6 +544,9 @@ public class ProvinceEconomy
 	/// <summary>The men on the walls, who go nowhere.</summary>
 	public int CastleMen => Men(Castle);
 
+	/// <summary>How many more men the walls have room for. Open ground has room for nobody.</summary>
+	public int WallRoom => Mathf.Max(0, Fortifications.Of(Fortification).Garrison - CastleMen);
+
 	/// <summary>How many men a roster comes to. Public because whoever is counting the defenders of
 	/// a county that nobody holds is counting a roster that belongs to no province.</summary>
 	public static int Men(Dictionary<string, int> roster)

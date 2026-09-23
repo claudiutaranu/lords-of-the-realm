@@ -345,6 +345,25 @@ public partial class CampaignMapPage : Control
 			_sidebar.Refresh();
 			ShowSaveToast($"{half.Strength:N0} men of {army.Home} now march under their own banner");
 		});
+		// Into the castle of the county they stand in: straight up if the walls hold them all, and
+		// otherwise the lord says who, kind by kind, on the same panel a split is cut on.
+		_army.GarrisonPressed += army =>
+		{
+			ProvinceEconomy walls = WallsFor(army);
+			if (walls == null)
+			{
+				return;
+			}
+
+			if (army.Strength <= walls.WallRoom)
+			{
+				Garrisoned(army, new Dictionary<string, int>(army.Men));
+				return;
+			}
+
+			_splitting.Ask(army, going => Garrisoned(army, going),
+				SplitPanel.Garrisoning(walls.ProvinceName, walls.WallRoom));
+		};
 		_army.DisbandPressed += army =>
 		{
 			ProvinceEconomy home = _turnManager.GetProvince(army.Home);
@@ -1486,6 +1505,27 @@ public partial class CampaignMapPage : Control
 	/// <summary>Puts every province's walls on the map as the ledger has them. Called once the world
 	/// is built and again after each turn, because a build that finished this season has to show up
 	/// on the ground the moment it does.</summary>
+	/// <summary>The player's walls this company could go up onto: the county it is standing in, if
+	/// that is his, walled, not under siege and not full. Null otherwise.
+	/// ponytail: anywhere in the county counts as at the gate, not only the seat's square; hold them
+	/// to TownPosition if a march to the far corner of a county starts reading as a cheat.</summary>
+	private ProvinceEconomy WallsFor(FieldArmy army)
+	{
+		ProvinceEconomy walls = _turnManager.GetProvince(army.County);
+		return _turnManager.RealmOf(army) == _playerRealm && walls is { WallRoom: > 0, BesiegedFrom.Length: 0 }
+			? walls
+			: null;
+	}
+
+	private void Garrisoned(FieldArmy army, Dictionary<string, int> going)
+	{
+		string county = army.County;
+		int up = _turnManager.Garrison(army, going);
+		ShowArmies();
+		_sidebar.Refresh();
+		ShowSaveToast($"{up:N0} men go up onto the walls of {county}");
+	}
+
 	private void ShowFortifications()
 	{
 		foreach (ProvinceData province in _provinces)
@@ -1682,6 +1722,7 @@ public partial class CampaignMapPage : Control
 				_army.Show(company, _turnManager.AnyProvince(company.Home), _balance,
 					_realms.TryGetValue(realmKey, out RealmData lord) ? lord.Name : realmKey, realmKey,
 					realmKey == _playerRealm);
+				_army.OfferWalls(WallsFor(company) != null);
 			}
 
 			return;

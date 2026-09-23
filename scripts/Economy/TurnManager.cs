@@ -262,6 +262,48 @@ public class TurnManager
 		return true;
 	}
 
+	/// <summary>Sends men off a company up onto the walls of the county it is standing in — one of
+	/// its own lord's, not besieged, and with room: whoever the walls will not hold stays in the field.
+	/// A company that goes up entire is gone from the map. Any of the lord's castles will take them,
+	/// not only the county that raised them, and from then on it is that county that feeds and pays
+	/// them, the way it does the rest of its watch. Returns how many went up.</summary>
+	public int Garrison(FieldArmy army, Dictionary<string, int> going)
+	{
+		ProvinceEconomy walls = army == null ? null : _provincesByName.GetValueOrDefault(army.County);
+		if (walls == null || walls.Realm != RealmOf(army) || walls.BesiegedFrom.Length > 0)
+		{
+			return 0;
+		}
+
+		int room = walls.WallRoom;
+		int up = 0;
+		foreach (string unit in Units.All())
+		{
+			int men = Mathf.Min(room - up, Mathf.Min(going.GetValueOrDefault(unit), army.Men.GetValueOrDefault(unit)));
+			if (men <= 0)
+			{
+				continue;
+			}
+
+			army.Men[unit] -= men;
+			if (army.Men[unit] == 0)
+			{
+				army.Men.Remove(unit);
+			}
+
+			walls.Castle[unit] = walls.Castle.GetValueOrDefault(unit) + men;
+			up += men;
+		}
+
+		if (army.Strength == 0)
+		{
+			Lift(army);
+			_provincesByName.GetValueOrDefault(army.Home)?.Disband(army);
+		}
+
+		return up;
+	}
+
 	/// <summary>Whose men these are: the realm of the county that raised them, wherever they have
 	/// marched to since.</summary>
 	public string RealmOf(FieldArmy army) =>

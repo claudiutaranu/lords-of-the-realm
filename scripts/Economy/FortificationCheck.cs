@@ -102,8 +102,38 @@ public partial class FortificationCheck : Node
 		Is("the last season raises the wall", province.Fortification, "large-castle");
 		Is("and clears the work in hand", province.Building, "");
 
+		Garrisoning(balance);
+
 		GD.Print(_failed == 0 ? "\nfortifications: all checks passed" : $"\nfortifications: {_failed} FAILED");
 		GetTree().Quit(_failed);
+	}
+
+	/// <summary>A company sent up onto the walls: all of it when there is room, and no more than the
+	/// walls hold when there is not — the rest stay in the field under their own banner.</summary>
+	private void Garrisoning(GameBalance b)
+	{
+		var seat = new ProvinceDefinition
+		{
+			ProvinceName = "Kingsreach", InitialPopulation = 400, InitialFortification = "small-palisade",
+		};
+		var turns = new TurnManager(b, new List<ProvinceDefinition> { seat },
+			new Dictionary<string, string> { ["Kingsreach"] = "royal-crown" }, "royal-crown", Difficulty.Medium);
+		ProvinceEconomy county = turns.GetProvince("Kingsreach");
+		int room = Fortifications.Of("small-palisade").Garrison;
+		Is("a palisade has room for some men and not for an army", room is > 0 and < 100, true);
+
+		FieldArmy small = county.Raise();
+		small.Men["bow"] = 10;
+		Is("a company the walls can hold goes up entire", turns.Garrison(small, new(small.Men)), 10);
+		Is("  and its banner is gone from the field", county.Armies.Contains(small), false);
+
+		FieldArmy big = county.Raise();
+		big.Men["spear"] = room;
+		big.Men["bow"] = 5;
+		int up = turns.Garrison(big, new(big.Men));
+		Is("the walls take no more than they hold", county.CastleMen, room);
+		Is("  and whoever does not fit stays in the field", big.Strength, room + 5 - up);
+		Is("full walls have no room left", county.WallRoom, 0);
 	}
 
 	/// <summary>The save just written, read back off disk.</summary>

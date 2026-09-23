@@ -30,13 +30,14 @@ public static class Fortifications
 	/// royal castle is why taking one is a matter of starving it rather than storming it.
 	/// <paramref name="Rung"/> is its place on the ladder from the first palisade up, in the order the
 	/// file lists them, which is the order a lord climbs it; <paramref name="Cost"/> is what it takes
-	/// out of the county's stores, paid in full when ordered.</summary>
+	/// out of the county's stores, paid in full when ordered. <paramref name="Garrison"/> is how many
+	/// men it has room for.</summary>
 	public readonly record struct Wall(string Name, float Tax, float Defence, int Frontage, int Stores,
-		int Rung, int Seasons, Dictionary<string, int> Cost);
+		int Garrison, int Rung, int Seasons, Dictionary<string, int> Cost);
 
 	/// <summary>Open ground: no bonus, and every man an attacker has can be brought to bear at once.
 	/// What a village with no walls answers to, and what an unreadable key answers to as well.</summary>
-	private static readonly Wall None = new("open ground", 0f, 1f, int.MaxValue, 0, -1, 0,
+	private static readonly Wall None = new("open ground", 0f, 1f, int.MaxValue, 0, 0, -1, 0,
 		new Dictionary<string, int>());
 
 	private static Dictionary<string, Wall> _walls;
@@ -99,6 +100,7 @@ public static class Fortifications
 					fort.TryGetValue("defence", out Variant defence) ? (float)defence : 1f,
 					fort.TryGetValue("frontage", out Variant frontage) ? (int)frontage : int.MaxValue,
 					fort.TryGetValue("stores", out Variant stores) ? (int)stores : 0,
+					fort.TryGetValue("garrison", out Variant garrison) ? (int)garrison : 0,
 					_ladder.Count,
 					fort.TryGetValue("seasons", out Variant seasons) ? (int)seasons : 1,
 					cost);

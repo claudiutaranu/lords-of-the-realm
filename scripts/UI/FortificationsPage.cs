@@ -61,17 +61,15 @@ public partial class FortificationsPage : RoomPage
 	private Fort _chosen;
 
 	/// <summary>The column that says who is standing on the walls, and the line under it that counts
-	/// them. The steppers themselves are built once: moving a man between the field and the gate
-	/// does not change how many of him there are, so nothing about them goes stale.</summary>
+	/// them.</summary>
 	private VBoxContainer _garrison;
 	private Label _manned;
 	private Label _larder;
 
-	/// <summary>What the column was last built for. The steppers hold a snapshot of their own
-	/// ceiling, so they are rebuilt when the ceiling could have moved and left alone when it cannot
-	/// — moving a man from the field to the gate, or a sack from the granary to the larder, changes
-	/// where a thing is and never how much of it there is. Rebuilding on every press would free the
-	/// slider out from under the finger still holding it.</summary>
+	/// <summary>What the column was last built for. The steppers hold a snapshot of their own value
+	/// and ceiling, so they are rebuilt whenever either could have moved — and a man going up onto
+	/// the walls moves both, since he takes one of their places. A slider only settles when it is
+	/// let go, so a rebuild never frees it out from under the finger still holding it.</summary>
 	private string _standing = "";
 
 	protected override string RoomName => "Fortifications";
@@ -263,9 +261,9 @@ public partial class FortificationsPage : RoomPage
 		foreach (string unit in companies)
 		{
 			int held = Province.Castle.GetValueOrDefault(unit);
-			int all = held + Province.Mustered(unit);
+			int most = held + Mathf.Min(Province.Mustered(unit), Province.WallRoom);
 			string name = unit;
-			_garrison.AddChild(Stepper(Units.Of(unit).Name, held, 5, all, men => Man(name, men), floor: 0));
+			_garrison.AddChild(Stepper(Units.Of(unit).Name, held, 5, most, men => Man(name, men), floor: 0));
 		}
 
 		_manned = Line("", 16, Soft);
@@ -291,7 +289,7 @@ public partial class FortificationsPage : RoomPage
 	private string Signature()
 	{
 		var mark = new System.Text.StringBuilder(Province.Fortification);
-		mark.Append('|').Append(Province.CastleStores + Province.Grain);
+		mark.Append('|').Append(Province.CastleStores + Province.Grain).Append('|').Append(Province.WallRoom);
 		List<string> companies = Province.Companies();
 		companies.Sort(System.StringComparer.Ordinal);
 		foreach (string unit in companies)
@@ -319,15 +317,14 @@ public partial class FortificationsPage : RoomPage
 		Refresh();
 	}
 
-	/// <summary>Moves one company between the field and the gate. Nothing is raised or spent: these
-	/// are the same men either way, and the only question is where they are standing when somebody
-	/// comes for the county.</summary>
-	/// <summary>Men moved between the field and the gate. The column is not rebuilt for it — see
-	/// <see cref="_standing"/> — but the count under it and the larder's reading both move.</summary>
+	/// <summary>Moves men of one kind between the field and the gate, no more than the walls have room
+	/// for. Nothing is raised or spent: these are the same men either way, and the only question is
+	/// where they are standing when somebody comes for the county.</summary>
 	private void Man(string unit, int onTheWalls)
 	{
 		int all = Province.Castle.GetValueOrDefault(unit) + Province.Mustered(unit);
-		onTheWalls = Mathf.Clamp(onTheWalls, 0, all);
+		int held = Province.Castle.GetValueOrDefault(unit);
+		onTheWalls = Mathf.Clamp(onTheWalls, 0, Mathf.Min(all, held + Province.WallRoom));
 		Post(Province.Castle, unit, onTheWalls);
 
 		// Men coming down off the gate fall in with the county's own company — raised for them if
@@ -356,7 +353,8 @@ public partial class FortificationsPage : RoomPage
 			return;
 		}
 
-		_manned.Text = $"{Province.CastleMen:N0} of {Province.Soldiers:N0} men on the walls";
+		_manned.Text = $"{Province.CastleMen:N0} men on the walls, room for "
+			+ $"{Fortifications.Of(Province.Fortification).Garrison:N0}";
 
 		// In seasons rather than in sacks, because seasons is the question. Sacks is how it is
 		// carried; how long they hold out is what a lord is deciding.

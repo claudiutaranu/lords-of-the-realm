@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 
 /// <summary>Where a company is cut in two: which men stay under the old banner, and which walk off
@@ -8,9 +9,25 @@ using Godot;
 /// banner is that the two bodies of men are for different work — a lord leaving a ford held leaves
 /// spearmen on it and takes his archers on with him — so the cut is made kind by kind. The one rule
 /// is that neither banner may be raised over nobody: a company of nought men is a banner the map
-/// would have to carry and the lord could never give an order to.</summary>
+/// would have to carry and the lord could never give an order to.
+///
+/// The same question, kind by kind, is what a castle asks when more men come to its gate than it has
+/// room for, so the panel asks that too (Garrisoning): who goes up, and who stays in the field.</summary>
 public partial class SplitPanel : Control
 {
+	/// <summary>What is being asked. <paramref name="Most"/> is how many may go; <paramref name="Whole"/>
+	/// lets every man go — the walls can take a company entire, a new banner cannot — and opens the
+	/// grips filled up to Most rather than halved. <paramref name="Tally"/> says the answer back,
+	/// from how many stay and how many go.</summary>
+	public sealed record Cut(string Title, string Order, string Stay, string Go, int Most, bool Whole,
+		System.Func<FieldArmy, int, int, string> Tally);
+
+	public static readonly Cut InTwo = new("Cut the company in two", "Raise the new banner", "Stay", "Go",
+		int.MaxValue, false, (army, stays, goes) => $"{stays:N0} stay under {army.Home}, {goes:N0} march off");
+
+	public static Cut Garrisoning(string county, int room) => new($"The walls of {county}", "Send them up",
+		"Field", "Walls", room, true, (_, _, goes) => $"{goes:N0} go up onto the walls, room for {room:N0}");
+
 	private const float FadeSeconds = 0.18f;
 
 	/// <summary>The fewest men either side may be left with. One, and not a round number picked to
@@ -19,9 +36,13 @@ public partial class SplitPanel : Control
 	private const int LeastCompany = 1;
 
 	private VBoxContainer _kinds;
+	private Label _title;
+	private Label _stayHead;
+	private Label _goHead;
 	private Label _tally;
 	private Button _raise;
 	private FieldArmy _army;
+	private Cut _cut = InTwo;
 	private System.Action<Dictionary<string, int>> _split;
 
 	/// <summary>How many of each kind the lord has pushed across to the new banner.</summary>
@@ -51,10 +72,10 @@ public partial class SplitPanel : Control
 		column.AddThemeConstantOverride("separation", 14);
 		centred.AddChild(Chrome.Framed(column, 28));
 
-		Label title = Chrome.Line("Cut the company in two", 30, Chrome.Cream);
-		title.HorizontalAlignment = HorizontalAlignment.Center;
-		GoldTitle.Apply(title);
-		column.AddChild(title);
+		_title = Chrome.Line("", 30, Chrome.Cream);
+		_title.HorizontalAlignment = HorizontalAlignment.Center;
+		GoldTitle.Apply(_title);
+		column.AddChild(_title);
 
 		Control rule = Chrome.Rule(0);
 		rule.SizeFlagsHorizontal = SizeFlags.ExpandFill;
@@ -75,7 +96,7 @@ public partial class SplitPanel : Control
 		orders.AddThemeConstantOverride("separation", 14);
 		column.AddChild(orders);
 
-		_raise = Order("Raise the new banner", () =>
+		_raise = Order("", () =>
 		{
 			Dictionary<string, int> going = Going();
 			System.Action<Dictionary<string, int>> cut = _split;
@@ -87,7 +108,7 @@ public partial class SplitPanel : Control
 	}
 
 	/// <summary>Which end of every row is which, said once at the top instead of on each line.</summary>
-	private static Control Heading()
+	private Control Heading()
 	{
 		var row = new HBoxContainer();
 		row.AddThemeConstantOverride("separation", 14);
@@ -96,16 +117,16 @@ public partial class SplitPanel : Control
 		kind.CustomMinimumSize = new Vector2(150, 0);
 		row.AddChild(kind);
 
-		Label stays = Chrome.Line("Stay", 16, Chrome.Dim);
-		stays.CustomMinimumSize = new Vector2(70, 0);
-		stays.HorizontalAlignment = HorizontalAlignment.Right;
-		row.AddChild(stays);
+		_stayHead = Chrome.Line("", 16, Chrome.Dim);
+		_stayHead.CustomMinimumSize = new Vector2(70, 0);
+		_stayHead.HorizontalAlignment = HorizontalAlignment.Right;
+		row.AddChild(_stayHead);
 
 		row.AddChild(new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill });
 
-		Label goes = Chrome.Line("Go", 16, Chrome.Dim);
-		goes.CustomMinimumSize = new Vector2(70, 0);
-		row.AddChild(goes);
+		_goHead = Chrome.Line("", 16, Chrome.Dim);
+		_goHead.CustomMinimumSize = new Vector2(70, 0);
+		row.AddChild(_goHead);
 		return row;
 	}
 
@@ -124,25 +145,43 @@ public partial class SplitPanel : Control
 
 	/// <summary>Asks it, over this company. <paramref name="split"/> is what the lord saying yes
 	/// means — how many of each kind go — because what a split does to the ledger is the ledger's
-	/// business and not a panel's.</summary>
-	public void Ask(FieldArmy army, System.Action<Dictionary<string, int>> split)
+	/// business and not a panel's. <paramref name="cut"/> is which question; a split in two when
+	/// left out.</summary>
+	public void Ask(FieldArmy army, System.Action<Dictionary<string, int>> split, Cut cut = null)
 	{
 		_army = army;
 		_split = split;
+		_cut = cut ?? InTwo;
+		_title.Text = _cut.Title;
+		_stayHead.Text = _cut.Stay;
+		_goHead.Text = _cut.Go;
+		_raise.Text = _cut.Order;
 		_going.Clear();
 		foreach (Node row in _kinds.GetChildren())
 		{
 			row.QueueFree();
 		}
 
-		// The kinds he actually has, in the order the yard lists them, so this reads like the roster
-		// he was looking at a moment ago.
-		foreach (string kind in Units.All())
+		// Walls are filled bows first: a man who shoots is worth twice as much behind a parapet as in
+		// front of one, and a lord who wants his spearmen up there instead can say so.
+		var kinds = new List<string>(Units.All());
+		var going = new Dictionary<string, int>();
+		int room = _cut.Most;
+		foreach (string kind in kinds.OrderByDescending(kind => Units.Of(kind).Range))
+		{
+			int men = army.Men.GetValueOrDefault(kind);
+			going[kind] = _cut.Whole ? Mathf.Min(men, room) : men / 2;
+			room -= going[kind];
+		}
+
+		// Listed in the order the yard lists them, so this reads like the roster he was looking at a
+		// moment ago.
+		foreach (string kind in kinds)
 		{
 			int men = army.Men.GetValueOrDefault(kind);
 			if (men > 0)
 			{
-				_kinds.AddChild(Kind(kind, men));
+				_kinds.AddChild(Kind(kind, men, going[kind]));
 			}
 		}
 
@@ -153,7 +192,7 @@ public partial class SplitPanel : Control
 	}
 
 	/// <summary>One kind of man, with the grip that says how many of him walk off.</summary>
-	private Control Kind(string kind, int men)
+	private Control Kind(string kind, int men, int going)
 	{
 		var row = new HBoxContainer();
 		row.AddThemeConstantOverride("separation", 14);
@@ -174,7 +213,7 @@ public partial class SplitPanel : Control
 			MinValue = 0,
 			MaxValue = men,
 			Step = 1,
-			Value = men / 2,
+			Value = going,
 			SizeFlagsHorizontal = SizeFlags.ExpandFill,
 			SizeFlagsVertical = SizeFlags.ShrinkCenter,
 			CustomMinimumSize = new Vector2(240, 0),
@@ -211,7 +250,8 @@ public partial class SplitPanel : Control
 	}
 
 	/// <summary>What the two banners come to as the grips stand, and whether that is a cut at all.
-	/// A lord who has pushed every man across has not split a company, he has renamed it.</summary>
+	/// A lord who has pushed every man across has not split a company, he has renamed it — unless
+	/// what he is sending them into is walls — and nobody goes where there is no room for them.</summary>
 	private void Reckon()
 	{
 		int goes = 0;
@@ -221,8 +261,8 @@ public partial class SplitPanel : Control
 		}
 
 		int stays = _army.Strength - goes;
-		_tally.Text = $"{stays:N0} stay under {_army.Home}, {goes:N0} march off";
-		bool cut = stays >= LeastCompany && goes >= LeastCompany;
+		_tally.Text = _cut.Tally(_army, stays, goes);
+		bool cut = (_cut.Whole || stays >= LeastCompany) && goes >= LeastCompany && goes <= _cut.Most;
 		_raise.Disabled = !cut;
 		_tally.AddThemeColorOverride("font_color", cut ? Chrome.Bright : Chrome.Short);
 	}
