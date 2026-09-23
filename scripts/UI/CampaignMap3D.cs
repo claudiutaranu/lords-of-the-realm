@@ -424,11 +424,13 @@ public partial class CampaignMap3D : Node3D
 		// The waterline, in world units, so the shader does not have to know how the height is
 		// scaled. Where the snow and the rock and the beach are is the control map's business now.
 		_ground.SetShaderParameter("campaign_sea_level", SeaLevel);
-		// How hard one surface gives way to the next. It was 0.87, and with a blend that sharp the
-		// boundary between grass and stone followed the vertex grid: close in, the mountains were
-		// squares. The shader now warps where it reads the control map (campaign_blend_warp), which
-		// breaks the grid's straight lines, and a little less sharpness lets the edges settle.
-		_ground.SetShaderParameter("blend_sharpness", 0.6f);
+		// How hard one surface gives way to the next. The plugin blends each fragment from the four
+		// vertices round it by their own height, and at 0.87 that blend was so sharp that each vertex's
+		// surface held a hard-edged square of its own: close in, the mountains were a patchwork of
+		// cells. Looked at pixel by pixel, the squares went at 0 and were all but gone at 0.25; at 0
+		// grass and stone wash into each other, so 0.2 keeps some of the stone standing proud. The
+		// shader's warp (campaign_blend_warp) keeps what edges remain off the grid's straight lines.
+		_ground.SetShaderParameter("blend_sharpness", 0.2f);
 		// Where a face is steep enough that its texture is laid on from the side instead of from
 		// above. From above, a cliff gets one row of the texture stretched the full height of the
 		// wall — which is the streaking the sea cliffs showed. The plugin's 0.8 left most of this

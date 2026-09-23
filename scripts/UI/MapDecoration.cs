@@ -960,8 +960,8 @@ public partial class MapDecoration : Node3D
 
 	/// <summary>How much of the town's ring the village itself fills. The ring is the town for the rules
 	/// (where a march halts on its gate, where its fields start); the village drawn in it stands at
-	/// two thirds of that, so it sits on the map as a place and not as a stamp over the county.</summary>
-	private const float VillageSize = 0.64f;
+	/// a little over half of that, so it sits on the map as a place and not as a stamp over the county.</summary>
+	private const float VillageSize = 0.58f;
 	private const float SettlementSink = 0.04f;
 	/// <summary>How far a village may stand off the wind. Every banner flies with the prevailing
 	/// wind, so the village is turned to put its flag in it — but eight villages all turned the one
