@@ -1,6 +1,7 @@
 {
  "player": "royal-crown",
  "unclaimed": "neutral",
+ "rivalWallsUpTo": "medium-fort",
  "realms": {
   "royal-crown": {
    "name": "The Royal Crown",

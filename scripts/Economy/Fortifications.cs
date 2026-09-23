@@ -15,8 +15,8 @@ using Godot;
 /// IS and never for what it was or what is still going up behind it.
 ///
 /// Loaded once and kept. The building screen parses the same file for the things only it needs —
-/// blurbs, costs, the order they hang in — and the two should be made to meet the day something
-/// else wants a fourth field out of it.</summary>
+/// blurbs and short names. The rival lords build too (LordAI), so the ladder's order, the cost of
+/// each rung and how long it takes are read here as well.</summary>
 public static class Fortifications
 {
 	private const string DataPath = "res://data/fortifications.json";
@@ -27,14 +27,28 @@ public static class Fortifications
 	/// <paramref name="Frontage"/> is how many attackers can be brought against it at once, which is
 	/// the figure that actually holds a castle: a multiplier can be answered by bringing more men,
 	/// and a wall that could be answered that way is not a wall. Twenty-five at a time against a
-	/// royal castle is why taking one is a matter of starving it rather than storming it.</summary>
-	public readonly record struct Wall(string Name, float Tax, float Defence, int Frontage, int Stores);
+	/// royal castle is why taking one is a matter of starving it rather than storming it.
+	/// <paramref name="Rung"/> is its place on the ladder from the first palisade up, in the order the
+	/// file lists them, which is the order a lord climbs it; <paramref name="Cost"/> is what it takes
+	/// out of the county's stores, paid in full when ordered.</summary>
+	public readonly record struct Wall(string Name, float Tax, float Defence, int Frontage, int Stores,
+		int Rung, int Seasons, Dictionary<string, int> Cost);
 
 	/// <summary>Open ground: no bonus, and every man an attacker has can be brought to bear at once.
 	/// What a village with no walls answers to, and what an unreadable key answers to as well.</summary>
-	private static readonly Wall None = new("open ground", 0f, 1f, int.MaxValue, 0);
+	private static readonly Wall None = new("open ground", 0f, 1f, int.MaxValue, 0, -1, 0,
+		new Dictionary<string, int>());
 
 	private static Dictionary<string, Wall> _walls;
+	private static List<string> _ladder;
+
+	/// <summary>The rung above this one, or empty at the top. Open ground's next is the first rung.</summary>
+	public static string Next(string fortification)
+	{
+		_walls ??= Read();
+		int next = Of(fortification).Rung + 1;
+		return next < _ladder.Count ? _ladder[next] : "";
+	}
 
 	/// <summary>What stands at a province's seat, by the key it carries. An open village, or a rung
 	/// nobody has written figures for, is open ground.</summary>
@@ -56,6 +70,7 @@ public static class Fortifications
 	private static Dictionary<string, Wall> Read()
 	{
 		var walls = new Dictionary<string, Wall>();
+		_ladder = new List<string>();
 		var file = GD.Load<Json>(DataPath);
 		if (file?.Data.VariantType != Variant.Type.Dictionary)
 		{
@@ -68,12 +83,26 @@ public static class Fortifications
 			foreach (Variant rung in material.AsGodotDictionary()["forts"].AsGodotArray())
 			{
 				Godot.Collections.Dictionary fort = rung.AsGodotDictionary();
-				walls[fort["key"].AsString()] = new Wall(
+				var cost = new Dictionary<string, int>();
+				if (fort.TryGetValue("cost", out Variant bill))
+				{
+					foreach (KeyValuePair<Variant, Variant> item in bill.AsGodotDictionary())
+					{
+						cost[item.Key.AsString()] = item.Value.AsInt32();
+					}
+				}
+
+				string key = fort["key"].AsString();
+				walls[key] = new Wall(
 					fort["name"].AsString(),
 					fort.TryGetValue("tax", out Variant tax) ? (float)tax : 0f,
 					fort.TryGetValue("defence", out Variant defence) ? (float)defence : 1f,
 					fort.TryGetValue("frontage", out Variant frontage) ? (int)frontage : int.MaxValue,
-					fort.TryGetValue("stores", out Variant stores) ? (int)stores : 0);
+					fort.TryGetValue("stores", out Variant stores) ? (int)stores : 0,
+					_ladder.Count,
+					fort.TryGetValue("seasons", out Variant seasons) ? (int)seasons : 1,
+					cost);
+				_ladder.Add(key);
 			}
 		}
 

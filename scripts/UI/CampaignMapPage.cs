@@ -105,6 +105,9 @@ public partial class CampaignMapPage : Control
 	// And which realm means nobody. A province of this realm is not simulated at all — it is not
 	// handed to the TurnManager — so it keeps its authored numbers until somebody takes it.
 	private string _unclaimedRealm = "";
+
+	/// <summary>The highest rung the other lords may build on this map (provinces.json).</summary>
+	private string _rivalWallsUpTo = "";
 	// Authored order is load-bearing: it is the ID map's index + 1 encoding, so a province's place
 	// in provinces.json is what ties it to its pixels on the map.
 	private readonly List<ProvinceData> _provinces = new();
@@ -218,7 +221,10 @@ public partial class CampaignMapPage : Control
 		}
 
 		_turnManager = new TurnManager(_balance, held, realmByProvince, _playerRealm, Campaign.Difficulty,
-			unheld);
+			unheld)
+		{
+			RivalWallsUpTo = _rivalWallsUpTo,
+		};
 		// Read before the pending save is consumed: it is the only thing that tells a campaign
 		// being started from a campaign being resumed.
 		bool opening = SaveGame.Pending == null;
@@ -1094,6 +1100,7 @@ public partial class CampaignMapPage : Control
 		Godot.Collections.Dictionary data = file.Data.AsGodotDictionary();
 		_playerRealm = data["player"].AsString();
 		_unclaimedRealm = data["unclaimed"].AsString();
+		_rivalWallsUpTo = data.TryGetValue("rivalWallsUpTo", out Variant walls) ? walls.AsString() : "";
 		foreach (System.Collections.Generic.KeyValuePair<Variant, Variant> realm in data["realms"].AsGodotDictionary())
 		{
 			Godot.Collections.Dictionary fields = realm.Value.AsGodotDictionary();

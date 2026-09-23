@@ -44,6 +44,10 @@ public class TurnManager
 	/// last had.</summary>
 	public Difficulty Difficulty { get; private set; }
 
+	/// <summary>The highest rung of the ladder the other lords may build, by key; empty for all of it.
+	/// The campaign's to say (provinces.json "rivalWallsUpTo").</summary>
+	public string RivalWallsUpTo { get; set; } = "";
+
 	/// <summary>The realm the player is, for whoever has to tell his men from everybody else's.</summary>
 	public string PlayerRealm => _playerRealm;
 
@@ -860,12 +864,13 @@ public class TurnManager
 			ProvinceEconomy province = _provincesByName[definition.ProvinceName];
 			if (province.Realm != _playerRealm)
 			{
-				LordAI.TakeTurn(province, definition, _balance, Market, season, Difficulty);
+				LordAI.TakeTurn(province, definition, _balance, Market, season, Difficulty, _rng, RivalWallsUpTo);
 
 				// And his muster, from the first season: the men he raises stand at home and defend it
 				// until LordsCampaign decides the season has come to march them.
 				LordArms.Arm(province, _balance, Difficulty,
 					county => _provincesByName.GetValueOrDefault(county)?.Realm ?? "");
+				LordWalls.ManTheWalls(province, _balance);
 			}
 		}
 

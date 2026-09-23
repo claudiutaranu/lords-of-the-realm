@@ -483,6 +483,12 @@ public partial class GameBalance : Resource
 	[Export] public int LordLeastCompany = 10;
 	[Export] public int LordLeastHost = 40;
 
+	/// <summary>The chance, each season he has the stores for it, that a lord orders the next rung of
+	/// his walls — so one county has its palisade in the second year and the next in the fifth — and
+	/// how many men he puts on a wall once it stands.</summary>
+	[Export] public float[] LordBuildChance = { 0.05f, 0.10f, 0.15f };
+	[Export] public int LordWatch = 30;
+
 	/// <summary>How many battles a lord fights in his head before deciding one in the field.</summary>
 	[Export] public int LordOddsTrials = 40;
 

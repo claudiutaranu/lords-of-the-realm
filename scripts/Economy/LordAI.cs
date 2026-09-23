@@ -30,8 +30,12 @@ public static class LordAI
 	private const int TaxRelief = 3;
 	private const int TaxGreed = 4;
 
+	/// <param name="dice">For the day he gets round to building (LordWalls). Without it he builds
+	/// nothing, which is how the checks run him when building is not what is under test.</param>
+	/// <param name="wallsUpTo">The highest rung of the ladder the campaign lets him build; empty for
+	/// all of it.</param>
 	public static void TakeTurn(ProvinceEconomy p, ProvinceDefinition def, GameBalance b, Market market,
-		Season season, Difficulty skill)
+		Season season, Difficulty skill, RandomNumberGenerator dice = null, string wallsUpTo = "")
 	{
 		Feed(p, b, skill);
 		Victual(p, b, skill);
@@ -39,7 +43,12 @@ public static class LordAI
 		Plough(p, b, season, skill);
 		Work(p, def, b, season, skill);
 		Trade(p, b, market, skill);
-		SellSurplus(p, b, market);
+		if (dice != null)
+		{
+			LordWalls.Fortify(p, b, skill, dice, wallsUpTo);
+		}
+
+		SellSurplus(p, b, market, dice == null ? null : wallsUpTo);
 	}
 
 	/// <summary>Bread is the cheapest goodwill in this game and hunger the most expensive grievance,
@@ -242,11 +251,14 @@ public static class LordAI
 	/// season the bread runs out. A county whose fields cannot feed it lives on its mines, and a lord
 	/// who sold iron only when the barn was already empty sold it all at once, into a price his own
 	/// sale had flattened, and starved anyway.</summary>
-	private static void SellSurplus(ProvinceEconomy p, GameBalance b, Market market)
+	private static void SellSurplus(ProvinceEconomy p, GameBalance b, Market market, string wallsUpTo)
 	{
 		foreach (string store in Wares)
 		{
-			int spare = p.Stored(store) - b.LordKeepsWares;
+			// Not what the masons are waiting for: a lord saving for his palisade does not sell the
+			// timber for it the season before he orders it.
+			int kept = b.LordKeepsWares + (wallsUpTo == null ? 0 : LordWalls.Saving(p, store, wallsUpTo));
+			int spare = p.Stored(store) - kept;
 			if (spare > 0 && market.Trades(store))
 			{
 				market.Sell(p, store, spare);

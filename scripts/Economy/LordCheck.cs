@@ -29,6 +29,7 @@ public partial class LordCheck : Node
 		TheMarch(b);
 		FiftyYears(b);
 		TheMuster(b);
+		TheWalls();
 		TheirWar();
 
 		GD.Print(_failed == 0
@@ -494,6 +495,53 @@ public partial class LordCheck : Node
 		campaign.County = "Southmoor";
 		LordArms.Arm(away, b, Difficulty.Medium, county => county == "Southmoor" ? "crown" : "north");
 		Is("  but never from men on campaign", away.FieldMen, 400);
+	}
+
+	/// <summary>A lord builds up his walls a rung at a time out of his own stores, no higher than the
+	/// campaign lets him, holds back the timber for the next rung instead of selling it, and puts
+	/// men on a wall once it stands.</summary>
+	private void TheWalls()
+	{
+		var b = new GameBalance { LordBuildChance = new[] { 1f, 1f, 1f } };
+		ProvinceDefinition def = Definition("Valmere");
+		var dice = new RandomNumberGenerator { Seed = 1268 };
+
+		ProvinceEconomy rich = County(def);
+		rich.Wood = 1000;
+		rich.Stone = 200;
+		LordAI.TakeTurn(rich, def, b, Counter(b, Season.Summer), Season.Summer, Difficulty.Medium, dice, "medium-fort");
+		Is("a lord with the timber orders the first palisade", rich.Building, "small-palisade");
+		Is("  and pays for it on the order", rich.Wood <= 1000 - 200, true);
+
+		ProvinceEconomy topped = County(def);
+		topped.Fortification = "medium-fort";
+		topped.Wood = 5000;
+		topped.Stone = 5000;
+		topped.Iron = 5000;
+		LordAI.TakeTurn(topped, def, b, Counter(b, Season.Summer), Season.Summer, Difficulty.Hard, dice, "medium-fort");
+		Is("  but builds no higher than the campaign lets him", topped.Building, "");
+
+		ProvinceEconomy unasked = County(def);
+		unasked.Wood = 1000;
+		LordAI.TakeTurn(unasked, def, b, Counter(b, Season.Summer), Season.Summer, Difficulty.Medium);
+		Is("  and without the dice to decide the day, never builds at all", unasked.Building, "");
+
+		// Saving for it: the timber a palisade wants stays in the yard rather than going to market.
+		var never = new GameBalance { LordBuildChance = new[] { 0f, 0f, 0f } };
+		ProvinceEconomy saving = County(def);
+		saving.Wood = 300;
+		LordAI.TakeTurn(saving, def, never, Counter(never, Season.Summer), Season.Summer, Difficulty.Medium, dice, "medium-fort");
+		ProvinceEconomy selling = County(def);
+		selling.Wood = 300;
+		LordAI.TakeTurn(selling, def, never, Counter(never, Season.Summer), Season.Summer, Difficulty.Medium);
+		Is("a lord saving for a palisade keeps the timber for it", saving.Wood > selling.Wood, true);
+
+		ProvinceEconomy manned = County(def);
+		manned.Fortification = "small-palisade";
+		manned.Raise(0f).Men["spear"] = 50;
+		LordWalls.ManTheWalls(manned, b);
+		Is("a wall that stands gets men on it", manned.CastleMen, b.LordWatch);
+		Is("  out of the company at home", manned.FieldMen, 50 - b.LordWatch);
 	}
 
 	/// <summary>The rival marches, over ground handed to him the way the map hands it over, and takes

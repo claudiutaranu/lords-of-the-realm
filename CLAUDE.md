@@ -84,6 +84,11 @@ The men live in **companies** (`FieldArmy`), not in one roster per county:
   roads they took, and only then does the season turn over (`AdvanceTurn`, which runs `RivalsTurn`
   itself if nobody watched). Map input is shut while they walk (`_rivalsMarching`), with a deadline
   in case a banner never reports in.
+- Rivals build walls too (`LordWalls`): each season a county with the stores for the next rung may
+  order it (`LordBuildChance` by difficulty, off TurnManager's dice), saving the timber for it
+  rather than selling it, and puts `LordWatch` men on a wall once it stands. How high they climb is
+  the campaign's (`provinces.json` "rivalWallsUpTo"; the first map stops at the two timber rungs).
+  Without dice `LordAI` builds nothing, which is how the older checks still run it.
 - Losing the last county is the end: `TurnManager.PlayerFallen`, asked after the rivals march and
   after the season, puts `FallenPanel` over the map (load a save, or the main menu).
 - Nobody opens with a field army: the player raises his first company himself. Walls keep their
