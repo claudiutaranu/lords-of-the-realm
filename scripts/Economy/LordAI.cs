@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Godot;
 
 /// <summary>What a lord the player is not does with his county, once a season. One province, decided
@@ -36,7 +35,6 @@ public static class LordAI
 	{
 		Feed(p, b, skill);
 		Victual(p, b, skill);
-		StandDown(p, b, skill);
 		Tax(p, b, skill);
 		Plough(p, b, season, skill);
 		Work(p, def, b, season, skill);
@@ -97,41 +95,6 @@ public static class LordAI
 	///
 	/// Three rates rather than a point at a time, because a lord who nudges his tax by one percent
 	/// every season is a lord whose county never learns what to expect of him.</summary>
-	/// <summary>A county that has turned against its lord and has more men quartered on it than it
-	/// will stand sends the surplus of the watch home. Valmere kept sixty on its walls while its
-	/// people shrank to a few hundred: the garrison it could no longer stand was the grievance that
-	/// kept it below the line where people leave, and it emptied around a full gatehouse. A watch of
-	/// LordLeastWatch always stays; the gate is still a gate.</summary>
-	private static void StandDown(ProvinceEconomy p, GameBalance b, Difficulty skill)
-	{
-		int tolerated = Mathf.Max(b.LordLeastWatch, Mathf.FloorToInt(p.Population * b.GarrisonTolerated));
-		int surplus = p.Quartered - tolerated;
-		if (p.Loyalty >= b.LordTaxFloor[(int)skill] || surplus <= 0 || p.BesiegedFrom.Length > 0)
-		{
-			return;
-		}
-
-		var units = new List<string>(p.Castle.Keys);
-		units.Sort(System.StringComparer.Ordinal);
-		foreach (string unit in units)
-		{
-			int home = Mathf.Min(surplus, Mathf.Min(p.Castle[unit], p.CastleMen - b.LordLeastWatch));
-			if (home <= 0)
-			{
-				break;
-			}
-
-			p.Castle[unit] -= home;
-			if (p.Castle[unit] <= 0)
-			{
-				p.Castle.Remove(unit);
-			}
-
-			p.Population += home;
-			surplus -= home;
-		}
-	}
-
 	private static void Tax(ProvinceEconomy p, GameBalance b, Difficulty skill)
 	{
 		float floor = b.LordTaxFloor[(int)skill];

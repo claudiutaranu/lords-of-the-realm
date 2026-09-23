@@ -437,6 +437,23 @@ public partial class CampaignMapPage : Control
 		// height of the land, the roads drawn on it, and which counties are already somebody's.
 		LayGround();
 
+		// And handed to the turn, so the other lords march over the same ground by the same rules.
+		// Through a closure on the field, because a county taken lays the ground again.
+		var towns = new Dictionary<string, Vector2>();
+		foreach (ProvinceData province in _provinces)
+		{
+			if (_definitionsByName.ContainsKey(province.Name))
+			{
+				towns[province.Name] = province.TownPosition;
+			}
+		}
+
+		_turnManager.Survey((from, to) => _ground.Way(from, to, float.MaxValue), pixel =>
+		{
+			int county = _world.CountyAt(pixel);
+			return county >= 0 && county < _provinces.Count ? _provinces[county].Name : "";
+		}, towns, MapDecoration.TownRing);
+
 		// What the counties are growing — the first thing back on the ground, because a field is not
 		// decoration: it is the one thing out here a lord changes from a screen and then sees from the
 		// road. The generator levels the ground round every seat for them (level_seats).

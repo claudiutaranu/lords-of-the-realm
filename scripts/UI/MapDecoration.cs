@@ -91,7 +91,7 @@ public partial class MapDecoration : Node3D
 	/// — because the only thing keeping them off it was the clearing the town registers when it is
 	/// built, and that is built after the fields and may not be built at all. So the fields read the
 	/// same figures and keep off that ground themselves, whatever else has run.</summary>
-	private const float TownRing = 38f;
+	public const float TownRing = 38f;
 	private const float TownGap = 6f;        // a lane between the last house and the first furrow
 	private const float CastleBearing = Mathf.Pi * 0.25f;
 	private const float CastleDistance = 62f;

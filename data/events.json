@@ -138,5 +138,17 @@
 		"heading": "Soldiers for Hire",
 		"text": "A band of Moorish mercenaries is available for hire, my lord.",
 		"voice": "merc-moorish"
+	},
+	"invaders-repelled": {
+		"heading": "They Came, and Were Thrown Back",
+		"text": "Riders at dawn, my lord, under another lord's banner. They came for the gate and they did not reach it. Our men held, and the ones who came are counting their dead on the road home."
+	},
+	"county-besieged": {
+		"heading": "The Enemy at the Gate",
+		"text": "An army has camped before the gate, my lord, and it has no mind to leave. Nothing goes in and nothing comes out. The garrison eats what was carried up before, and when that is gone, it eats nothing."
+	},
+	"county-lost": {
+		"heading": "The County Is Lost",
+		"text": "It is taken, my lord. Another lord's banner flies over the gate, and the people pay their taxes to him now. What men of ours were elsewhere have fallen back to the counties we still hold."
 	}
 }

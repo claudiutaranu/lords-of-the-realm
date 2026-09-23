@@ -36,7 +36,10 @@ somebody takes it. A realm keeps one purse; stores stay where they were reaped.
 
 Rival lords run through the same simulation, with `LordAI` giving the orders. It keeps back its
 reserve AND its next meal before selling anything, and sells what it is over-stocked in before
-buying — both learned the hard way, from a lord who starved his own county in forty turns.
+buying — both learned the hard way, from a lord who starved his own county in forty turns. It also
+rests worn fields a quarter at a time, sows no more fields than autumn has hands to reap (240 a
+field), and sells what it digs above a working stock every season; without those, every rival
+emptied its county within fifty turns. `LordCheck.FiftyYears` holds it to that.
 
 ## Armies
 
@@ -68,7 +71,14 @@ The men live in **companies** (`FieldArmy`), not in one roster per county:
 - Nothing falls back behind the walls. The gate watch is the men who were always on it.
 - A county that falls loses the men standing in it; the companies it raised that were elsewhere pass
   to another county of the same lord (`TurnManager.Refuge` → `ProvinceEconomy.Adopt`).
-- `LordAI` does not march or attack yet: the rival can be taken, but never comes for the player.
+- Rivals make war too. `LordArms` forges and raises companies for every rival county each season
+  (called by `TurnManager`, not by `LordAI`, so the harnesses can run the player's counties through
+  `LordAI` without raising armies for him). `LordsCampaign` marches them over the map's own march
+  grid, which `CampaignMapPage` hands over with `TurnManager.Survey`; with no survey (the checks),
+  nobody marches. How many, how soon, how sure and whether they come for the player is the
+  `Lord*` difficulty table in `GameBalance`. Companies of different counties merge only at the gate
+  they attack — a merged company is fed by one county — and a county over its share sends the
+  surplus home.
 
 ## The map
 

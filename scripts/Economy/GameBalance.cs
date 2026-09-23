@@ -405,7 +405,7 @@ public partial class GameBalance : Resource
 
 	/// <summary>Hands the lord never gets to the right work. Not people he does not have — people
 	/// standing in the wrong field, which is the honest way for a poor lord to be poor.</summary>
-	[Export] public float[] LordIdleHands = { 0.30f, 0.12f, 0f };
+	[Export] public float[] LordIdleHands = { 0.15f, 0.06f, 0f };
 
 	/// <summary>Seasons of bread he keeps in the barn before he will sell any, and buys back up to
 	/// when he is under it. How far ahead a lord counts is most of what makes him hard to starve.</summary>
@@ -418,8 +418,11 @@ public partial class GameBalance : Resource
 	/// field stays at about four fifths of its heart.</summary>
 	[Export] public float LordRestsBelow = 0.75f;
 
-	/// <summary>The fewest men a lord keeps on his gate however hard his county is on him.</summary>
-	[Export] public int LordLeastWatch = 20;
+	/// <summary>The goodwill under which a lord raises nobody: the sons are the last thing a
+	/// resentful county gives. The same for every lord, and just above where people start to leave
+	/// (EmigrationBelow) — any higher and an easy lord, who runs his counties close to that line,
+	/// went decades without raising a man.</summary>
+	[Export] public float LordLevyAbove = 36f;
 
 	/// <summary>The share of a county a lord counts on being in the fields at harvest, which is what
 	/// decides how many fields he sows: GrainWorkersPerField's autumn figure a field.</summary>
@@ -439,8 +442,46 @@ public partial class GameBalance : Resource
 	[Export] public float[] LordSellsAbove = { 0.55f, 0.95f, 1.05f };
 
 	/// <summary>The goodwill he eases the tax at. A poor lord reads his treasury and squeezes until
-	/// the county rises; a good one reads the county.</summary>
-	[Export] public float[] LordTaxFloor = { 25f, 40f, 55f };
+	/// the county is on the edge of leaving; a good one reads the county long before. Never under
+	/// EmigrationBelow: a floor of 25 had the easy lord sitting his county in the band where people
+	/// walk out, and it emptied under him in twenty years without a blow struck.</summary>
+	[Export] public float[] LordTaxFloor = { 37f, 42f, 55f };
+
+	// --- the lords at war (LordArms, LordsCampaign), by difficulty -------------------------------
+
+	/// <summary>The share of his people a lord keeps in the field, the watch on his gates aside. One
+	/// in ten is about what it takes to beat a neutral county's militia at all; a hard lord keeps
+	/// half as many again.</summary>
+	[Export] public float[] LordArmyShare = { 0.10f, 0.10f, 0.14f };
+
+	/// <summary>How sure a lord wants to be before he attacks, as the share of days he would carry.
+	/// A hard lord takes a real risk. The easy lord is as careful as the middling one: what makes
+	/// him easy is that he starts late, never comes for the player and never sits down before a
+	/// gate.</summary>
+	[Export] public float[] LordAttackOdds = { 0.75f, 0.75f, 0.6f };
+
+	/// <summary>The first turn a lord marches on anybody. The opening years are the player's to find
+	/// his feet in, and the harder the lord the shorter they are.</summary>
+	[Export] public int[] LordFirstMarch = { 24, 12, 6 };
+
+	/// <summary>Whether a lord comes for the player's counties at all (1) or only for the empty
+	/// country (0), and whether he will sit down before a gate he cannot storm.</summary>
+	[Export] public int[] LordWillAttackPlayer = { 0, 1, 1 };
+	[Export] public int[] LordBesieges = { 0, 1, 1 };
+
+	/// <summary>The share of his taxes a lord will spend on wages, which caps his army whatever his
+	/// difficulty; how many batches of ten his smithy takes on at once; how much of a county he
+	/// raises in one season, from how big a county at the least; and the smallest company he will
+	/// raise, and the smallest he will march.</summary>
+	[Export] public float LordWagesShare = 0.6f;
+	[Export] public int LordSmithyBatches = 3;
+	[Export] public float LordLevyShare = 0.04f;
+	[Export] public int LordLeastPeopleToLevy = 300;
+	[Export] public int LordLeastCompany = 10;
+	[Export] public int LordLeastHost = 40;
+
+	/// <summary>How many battles a lord fights in his head before deciding one in the field.</summary>
+	[Export] public int LordOddsTrials = 40;
 
 	// [None, Half, Normal, Double, Triple] — the multiples themselves, so the food a county eats is
 	// literally the ration its lord set. A county fed double eats twice the bread; there is no

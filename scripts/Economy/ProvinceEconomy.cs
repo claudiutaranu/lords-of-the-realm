@@ -519,9 +519,11 @@ public class ProvinceEconomy
 		}
 	}
 
-	/// <summary>The men the county actually has to look at every morning: the watch on its gate and
-	/// its own companies standing on its ground. A company three counties away is paid and fed from
-	/// here, but it is billeted on somebody else.
+	/// <summary>The men the county actually has billeted on it: its own companies standing on its
+	/// ground. The watch lives behind its own walls and eats from the castle's own larder when it
+	/// has to; a company three counties away is paid and fed from here but billeted on somebody
+	/// else. Counting the watch had a lord with a proper garrison resented for it every season, which
+	/// left him no goodwill to raise a single company with.
 	///
 	/// ponytail: another county's companies standing here are not counted — they are in that
 	/// county's roster. Count them through TurnManager if an occupying army should be resented.</summary>
@@ -529,7 +531,7 @@ public class ProvinceEconomy
 	{
 		get
 		{
-			int men = CastleMen;
+			int men = 0;
 			foreach (FieldArmy standing in Armies)
 			{
 				men += standing.County == ProvinceName ? standing.Strength : 0;

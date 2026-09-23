@@ -44,6 +44,20 @@ public class TurnManager
 	/// last had.</summary>
 	public Difficulty Difficulty { get; private set; }
 
+	/// <summary>The realm the player is, for whoever has to tell his men from everybody else's.</summary>
+	public string PlayerRealm => _playerRealm;
+
+	/// <summary>The rival lords' war. Null until the map has handed over its ground (see
+	/// <see cref="Survey"/>): without a road to walk, nobody marches — which is also how the checks
+	/// run a turn without a map.</summary>
+	private LordsCampaign _campaign;
+
+	/// <summary>Hands the turn the ground the map lays out, so the other lords can march over it by
+	/// the player's own rules.</summary>
+	public void Survey(LordsCampaign.Way way, System.Func<Vector2, string> countyAt,
+		Dictionary<string, Vector2> towns, float reach) =>
+		_campaign = new LordsCampaign(way, countyAt, towns, reach);
+
 	/// <summary>Calendar year the campaign opens on. Four seasons make a year, so the
 	/// displayed year advances every fourth turn.</summary>
 	public const int StartYear = 1268;
@@ -812,6 +826,11 @@ public class TurnManager
 			if (province.Realm != _playerRealm)
 			{
 				LordAI.TakeTurn(province, definition, _balance, Market, season, Difficulty);
+
+				// And his muster, from the first season: the men he raises stand at home and defend it
+				// until LordsCampaign decides the season has come to march them.
+				LordArms.Arm(province, _balance, Difficulty,
+					county => _provincesByName.GetValueOrDefault(county)?.Realm ?? "");
 			}
 		}
 
@@ -823,6 +842,13 @@ public class TurnManager
 			{
 				standing.MarchLeft = _balance.MarchReach;
 			}
+		}
+
+		// Then they march: after their orders and before the season is reckoned, so a county they
+		// take this turn is run by them this turn. What it costs the player is news he hears first.
+		if (_campaign != null)
+		{
+			news.AddRange(_campaign.March(this, _balance));
 		}
 
 		Dictionary<string, string> stirs = WhereTheWorldStirs();

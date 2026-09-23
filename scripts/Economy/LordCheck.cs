@@ -28,6 +28,8 @@ public partial class LordCheck : Node
 		TheLarder(b, def);
 		TheMarch(b);
 		FiftyYears(b);
+		TheMuster(b);
+		TheirWar();
 
 		GD.Print(_failed == 0
 			? "\nthe other lords: all checks passed"
@@ -85,15 +87,15 @@ public partial class LordCheck : Node
 
 	private void TheTax(GameBalance b, ProvinceDefinition def)
 	{
-		// A county that has had about enough of its lord. The good one reads the county and eases
-		// off; the poor one reads his treasury and keeps squeezing.
+		// A county souring on its lord, still short of walking out. The good one reads the county and
+		// eases off; the poor one reads his treasury and keeps squeezing until it is at the edge.
 		ProvinceEconomy watched = County(def);
-		watched.Loyalty = 30f;
+		watched.Loyalty = 45f;
 		LordAI.TakeTurn(watched, def, b, Counter(b, Season.Summer), Season.Summer, Difficulty.Hard);
 		Is("a good lord eases the tax before the county rises", watched.Tax < b.FairTaxPercent, true);
 
 		ProvinceEconomy squeezed = County(def);
-		squeezed.Loyalty = 30f;
+		squeezed.Loyalty = 45f;
 		LordAI.TakeTurn(squeezed, def, b, Counter(b, Season.Summer), Season.Summer, Difficulty.Easy);
 		Is("a poor one keeps asking full price", squeezed.Tax, b.FairTaxPercent);
 
@@ -443,6 +445,127 @@ public partial class LordCheck : Node
 		// has a lean year is a county being run, not one being lost.
 		Is("  that has not turned on him", goodwill > b.EmigrationBelow, true);
 		Is("  and has gone hungry in fewer than one season in ten", hungry < 20, true);
+	}
+
+	/// <summary>A rival raises his own men: a company out of what is in his armoury, more of them the
+	/// harder he is, none from a county that has turned on him, and the surplus sent home when he has
+	/// more out than his county carries.</summary>
+	private void TheMuster(GameBalance b)
+	{
+		ProvinceDefinition def = Definition("Valmere");
+		ProvinceEconomy county = County(def);
+		county.Loyalty = 60f;
+		county.Armoury["spear"] = 100;
+		LordArms.Arm(county, b, Difficulty.Medium, _ => "north");
+		Is("a lord with arms in the armoury raises a company", county.Armies.Count, 1);
+		Is("  out of his own people", county.Population, def.InitialPopulation - county.FieldMen);
+		Is("  and not all of them in one season",
+			county.FieldMen <= Mathf.CeilToInt(def.InitialPopulation * b.LordLevyShare), true);
+
+		Is("a hard lord keeps more men in the field than an easy one",
+			LordArms.Room(County(def), b, Difficulty.Hard) > LordArms.Room(County(def), b, Difficulty.Easy), true);
+
+		ProvinceEconomy sullen = County(def);
+		sullen.Loyalty = b.LordLevyAbove - 1f;
+		sullen.Armoury["spear"] = 100;
+		LordArms.Arm(sullen, b, Difficulty.Hard, _ => "north");
+		Is("a county that has turned on its lord gives him no sons", sullen.Armies.Count, 0);
+
+		ProvinceEconomy swollen = County(def);
+		swollen.Realm = "north";
+		FieldArmy host = swollen.Raise(b.MarchReach);
+		host.Men["spear"] = 400;
+		int people = swollen.Population;
+		LordArms.Arm(swollen, b, Difficulty.Medium, _ => "north");
+		Is("more out than the county carries, and the surplus goes home",
+			swollen.FieldMen, Mathf.FloorToInt(people * b.LordArmyShare[(int)Difficulty.Medium]));
+		Is("  back to the fields it came from", swollen.Population, people + 400 - swollen.FieldMen);
+
+		ProvinceEconomy away = County(def);
+		away.Realm = "north";
+		FieldArmy campaign = away.Raise(b.MarchReach);
+		campaign.Men["spear"] = 400;
+		campaign.County = "Southmoor";
+		LordArms.Arm(away, b, Difficulty.Medium, county => county == "Southmoor" ? "crown" : "north");
+		Is("  but never from men on campaign", away.FieldMen, 400);
+	}
+
+	/// <summary>The rival marches, over ground handed to him the way the map hands it over, and takes
+	/// what his difficulty lets him want. A straight road here instead of the map's: three villages
+	/// in a row, a neutral one between his and the player's.</summary>
+	private void TheirWar()
+	{
+		(TurnManager turns, FieldArmy host) Board(Difficulty skill, bool surveyed, int menInHost)
+		{
+			var b = new GameBalance { WorldEventChance = 0f, MercenaryChance = 0f };
+			b.LordFirstMarch = new[] { 0, 0, 0 };
+			var definitions = new List<ProvinceDefinition> { Definition("North"), Definition("South") };
+			var middle = Definition("Middle");
+			middle.InitialPopulation = 300; // a militia of forty-odd farmhands
+			var realms = new Dictionary<string, string> { ["North"] = "north", ["South"] = "crown" };
+			var board = new TurnManager(b, definitions, realms, "crown", skill, new List<ProvinceDefinition> { middle });
+			var towns = new Dictionary<string, Vector2>
+			{
+				["North"] = new(100, 100),
+				["Middle"] = new(300, 100),
+				["South"] = new(500, 100),
+			};
+			if (surveyed)
+			{
+				board.Survey(Straight, pixel => pixel.X < 200 ? "North" : pixel.X < 400 ? "Middle" : "South",
+					towns, 38f);
+			}
+
+			FieldArmy army = board.AnyProvince("North").Raise(b.MarchReach);
+			army.Men["spear"] = menInHost;
+			return (board, army);
+		}
+
+		(TurnManager war, FieldArmy _) = Board(Difficulty.Medium, surveyed: true, menInHost: 200);
+		for (int season = 0; season < 3; season++)
+		{
+			war.AdvanceTurn();
+		}
+
+		Is("a lord marches on the empty country next to him and takes it", war.AnyProvince("Middle")?.Realm, "north");
+
+		(TurnManager mapless, FieldArmy idle) = Board(Difficulty.Medium, surveyed: false, menInHost: 200);
+		mapless.AdvanceTurn();
+		Is("  and with no ground handed to him, nobody marches", idle.County, "North");
+
+		(TurnManager gentle, FieldArmy _) = Board(Difficulty.Easy, surveyed: true, menInHost: 400);
+		for (int season = 0; season < 8; season++)
+		{
+			gentle.AdvanceTurn();
+		}
+
+		Is("an easy lord takes the neutral county", gentle.AnyProvince("Middle")?.Realm, "north");
+		Is("  and leaves the player's alone", gentle.AnyProvince("South")?.Realm, "crown");
+
+		(TurnManager hard, FieldArmy _) = Board(Difficulty.Hard, surveyed: true, menInHost: 400);
+		bool told = false;
+		for (int season = 0; season < 8 && hard.AnyProvince("South")?.Realm == "crown"; season++)
+		{
+			hard.AdvanceTurn();
+			told |= hard.News.Exists(item => item.Said.Id == "county-lost" && item.ProvinceName == "South");
+		}
+
+		Is("a hard lord comes for the player's county and takes it", hard.AnyProvince("South")?.Realm, "north");
+		Is("  and the player is told", told, true);
+	}
+
+	/// <summary>A road that runs straight, a step every twelve pixels, a pixel of march a pixel.</summary>
+	private static List<(Vector2 At, float Spent)> Straight(Vector2 from, Vector2 to)
+	{
+		var road = new List<(Vector2, float)>();
+		float far = from.DistanceTo(to);
+		for (float along = 12f; along < far + 12f; along += 12f)
+		{
+			float step = Mathf.Min(along, far);
+			road.Add((from.Lerp(to, step / Mathf.Max(far, 0.01f)), step));
+		}
+
+		return road;
 	}
 
 	private static ProvinceDefinition Definition(string name) => new()
