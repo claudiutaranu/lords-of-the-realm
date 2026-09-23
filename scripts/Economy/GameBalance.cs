@@ -77,6 +77,10 @@ public partial class GameBalance : Resource
 
 	[Export] public float PeoplePerGrain = 10f;
 	[Export] public float BasePopulationGrowthRate = 0.01f;
+
+	/// <summary>Seasons of bread a county wants in the barn before it has children at the full rate;
+	/// below it, births fall in step with the barn.</summary>
+	[Export] public float BirthsWantBarnSeasons = 1f;
 	/// <summary>What one head pays the reeve for each point of tax, a season. A county of a thousand
 	/// on the rate it calls fair brings in a hundred and fifty crowns, and every point above that is
 	/// thirty more — so the tax is the lord's main lever on his income, and a heavy one really is
@@ -402,6 +406,25 @@ public partial class GameBalance : Resource
 	/// <summary>Seasons of bread he keeps in the barn before he will sell any, and buys back up to
 	/// when he is under it. How far ahead a lord counts is most of what makes him hard to starve.</summary>
 	[Export] public float[] LordGrainSeasons = { 1f, 2f, 3f };
+
+	/// <summary>How tired a grain field has to be before a lord rests it, and how far a resting one has
+	/// to recover before he sows it again. Without them he only ever ploughed fallow up and never let
+	/// it rest: every field sank to the floor and a county that fed itself at the start was starving
+	/// in forty years with the same people on the same land. Cropped three years and rested two, a
+	/// field stays at about four fifths of its heart.</summary>
+	[Export] public float LordRestsBelow = 0.75f;
+
+	/// <summary>The fewest men a lord keeps on his gate however hard his county is on him.</summary>
+	[Export] public int LordLeastWatch = 20;
+
+	/// <summary>The share of a county a lord counts on being in the fields at harvest, which is what
+	/// decides how many fields he sows: GrainWorkersPerField's autumn figure a field.</summary>
+	[Export] public float LordReapShare = 0.9f;
+
+	/// <summary>Iron, stone and timber a lord keeps in the yard; everything above it he sells each
+	/// season.</summary>
+	[Export] public int LordKeepsWares = 150;
+	[Export] public float LordSowsAbove = 0.95f;
 
 	/// <summary>The share of base that a sack has to fetch him, after the merchant's cut, before he
 	/// will let it go. Read against what the seasons actually pay: about six tenths in autumn when

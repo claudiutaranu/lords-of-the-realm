@@ -27,6 +27,7 @@ public partial class LordCheck : Node
 		WordGetsAround(b);
 		TheLarder(b, def);
 		TheMarch(b);
+		FiftyYears(b);
 
 		GD.Print(_failed == 0
 			? "\nthe other lords: all checks passed"
@@ -39,11 +40,13 @@ public partial class LordCheck : Node
 	/// setting on the briefing page has quietly become decoration.</summary>
 	private void Hands(GameBalance b, ProvinceDefinition def)
 	{
-		ProvinceEconomy best = County(def);
-		EconomySimulation.Deploy(best, def, b, Season.Spring);
-
 		ProvinceEconomy good = County(def);
 		LordAI.TakeTurn(good, def, b, Counter(b, Season.Spring), Season.Spring, Difficulty.Hard);
+
+		// Measured against the fields he chose: a spring lord rests some ground, and the work there
+		// is to do is the work on what he left sown.
+		ProvinceEconomy best = good.Copy();
+		EconomySimulation.Deploy(best, def, b, Season.Spring);
 		Is("a good lord works his county as hard as it can be worked", good.AllocatedWorkers, best.AllocatedWorkers);
 
 		ProvinceEconomy poor = County(def);
@@ -396,6 +399,51 @@ public partial class LordCheck : Node
 	}
 
 	// --- scaffolding -------------------------------------------------------------------------------
+
+	/// <summary>A lord left alone with a poor county for fifty years has to still have a county at
+	/// the end of them. Every rival used to starve his own land to death without a blow struck: he
+	/// never rested a field, ploughed up more than he could reap, sold his iron only once the barn
+	/// was empty and kept a garrison his shrinking people would not stand. No weather and no plague
+	/// here — only his own running of it, which is the part this check is about.</summary>
+	private void FiftyYears(GameBalance b)
+	{
+		var def = new ProvinceDefinition
+		{
+			ProvinceName = "Valmere",
+			InitialPopulation = 850,
+			Fields = 9,
+			InitialGrainFields = 4,
+			InitialPastureFields = 2,
+			InitialGrain = 360,
+			InitialCattle = 50,
+			GrainModifier = 0.85f,
+			IronWorkerCapacity = 160,
+			IronModifier = 1.4f,
+			InitialFortification = "large-fort",
+		};
+		ProvinceEconomy county = County(def);
+		county.Castle["spear"] = 60;
+		EconomySimulation.Deploy(county, def, b, Season.Spring);
+		var market = new Market(b);
+		int hungry = 0;
+		float goodwill = 0f;
+		for (int turn = 0; turn < 200; turn++)
+		{
+			var season = (Season)(turn % 4);
+			market.Turned(season);
+			LordAI.TakeTurn(county, def, b, market, season, Difficulty.Medium);
+			hungry += EconomySimulation.RunTurn(county, def, b, season).FoodShort > 0 ? 1 : 0;
+			EconomySimulation.FitWorkforce(county);
+			goodwill += county.Loyalty / 200f;
+		}
+
+		Is("fifty years of a poor county under a middling lord, and it is still a county",
+			county.Population >= def.InitialPopulation / 2, true);
+		// Over the fifty years and not on the last day of them: a county that outgrows its fields and
+		// has a lean year is a county being run, not one being lost.
+		Is("  that has not turned on him", goodwill > b.EmigrationBelow, true);
+		Is("  and has gone hungry in fewer than one season in ten", hungry < 20, true);
+	}
 
 	private static ProvinceDefinition Definition(string name) => new()
 	{

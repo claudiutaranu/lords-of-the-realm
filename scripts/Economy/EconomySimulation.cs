@@ -474,7 +474,7 @@ public static class EconomySimulation
 			return 0f;
 		}
 
-		float resented = (float)p.Soldiers / p.Population - b.GarrisonTolerated;
+		float resented = (float)p.Quartered / p.Population - b.GarrisonTolerated;
 		return resented <= 0f ? 0f : resented * 10f * b.GarrisonLoyaltyPerTenth;
 	}
 
@@ -493,7 +493,12 @@ public static class EconomySimulation
 		bool leaving = p.Loyalty <= b.EmigrationBelow;
 		if (!p.StarvedThisTurn && !leaving)
 		{
-			float growth = b.BasePopulationGrowthRate * b.RationGrowthMultiplier[(int)summary.Achieved];
+			// And not in a county with nothing in the barn. Births ran at full rate right up to the
+			// famine, so every county grew past what its land fed, starved, turned on its lord and
+			// emptied: an empty barn has to slow the weddings BEFORE the hunger does it.
+			int seasonsBread = Mathf.Max(1, Mathf.CeilToInt(p.Population / b.PeoplePerGrain));
+			float barn = Mathf.Clamp(p.Grain / (seasonsBread * b.BirthsWantBarnSeasons), 0f, 1f);
+			float growth = b.BasePopulationGrowthRate * b.RationGrowthMultiplier[(int)summary.Achieved] * barn;
 			p.Population += Mathf.RoundToInt(p.Population * growth);
 		}
 

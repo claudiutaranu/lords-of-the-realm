@@ -519,6 +519,26 @@ public class ProvinceEconomy
 		}
 	}
 
+	/// <summary>The men the county actually has to look at every morning: the watch on its gate and
+	/// its own companies standing on its ground. A company three counties away is paid and fed from
+	/// here, but it is billeted on somebody else.
+	///
+	/// ponytail: another county's companies standing here are not counted — they are in that
+	/// county's roster. Count them through TurnManager if an occupying army should be resented.</summary>
+	public int Quartered
+	{
+		get
+		{
+			int men = CastleMen;
+			foreach (FieldArmy standing in Armies)
+			{
+				men += standing.County == ProvinceName ? standing.Strength : 0;
+			}
+
+			return men;
+		}
+	}
+
 	/// <summary>The men on the walls, who go nowhere.</summary>
 	public int CastleMen => Men(Castle);
 

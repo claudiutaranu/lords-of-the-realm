@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Godot;
 
 /// <summary>What a lord the player is not does with his county, once a season. One province, decided
@@ -35,10 +36,12 @@ public static class LordAI
 	{
 		Feed(p, b, skill);
 		Victual(p, b, skill);
+		StandDown(p, b, skill);
 		Tax(p, b, skill);
 		Plough(p, b, season, skill);
 		Work(p, def, b, season, skill);
 		Trade(p, b, market, skill);
+		SellSurplus(p, b, market);
 	}
 
 	/// <summary>Bread is the cheapest goodwill in this game and hunger the most expensive grievance,
@@ -94,6 +97,41 @@ public static class LordAI
 	///
 	/// Three rates rather than a point at a time, because a lord who nudges his tax by one percent
 	/// every season is a lord whose county never learns what to expect of him.</summary>
+	/// <summary>A county that has turned against its lord and has more men quartered on it than it
+	/// will stand sends the surplus of the watch home. Valmere kept sixty on its walls while its
+	/// people shrank to a few hundred: the garrison it could no longer stand was the grievance that
+	/// kept it below the line where people leave, and it emptied around a full gatehouse. A watch of
+	/// LordLeastWatch always stays; the gate is still a gate.</summary>
+	private static void StandDown(ProvinceEconomy p, GameBalance b, Difficulty skill)
+	{
+		int tolerated = Mathf.Max(b.LordLeastWatch, Mathf.FloorToInt(p.Population * b.GarrisonTolerated));
+		int surplus = p.Quartered - tolerated;
+		if (p.Loyalty >= b.LordTaxFloor[(int)skill] || surplus <= 0 || p.BesiegedFrom.Length > 0)
+		{
+			return;
+		}
+
+		var units = new List<string>(p.Castle.Keys);
+		units.Sort(System.StringComparer.Ordinal);
+		foreach (string unit in units)
+		{
+			int home = Mathf.Min(surplus, Mathf.Min(p.Castle[unit], p.CastleMen - b.LordLeastWatch));
+			if (home <= 0)
+			{
+				break;
+			}
+
+			p.Castle[unit] -= home;
+			if (p.Castle[unit] <= 0)
+			{
+				p.Castle.Remove(unit);
+			}
+
+			p.Population += home;
+			surplus -= home;
+		}
+	}
+
 	private static void Tax(ProvinceEconomy p, GameBalance b, Difficulty skill)
 	{
 		float floor = b.LordTaxFloor[(int)skill];
@@ -102,24 +140,77 @@ public static class LordAI
 			: b.FairTaxPercent;
 	}
 
-	/// <summary>A county that came through the winter short puts another field under grain. In
-	/// spring only, because turning a field that is already sown throws the seed away with it, and
-	/// one field a year, because the rest of the land still has to rest or there is no harvest to
-	/// have. A lord with bread in the barn leaves his land alone.</summary>
+	/// <summary>The spring rotation: worn fields rested, rested ones sown, and if the county came
+	/// through the winter short, one more field under grain. In spring only, because turning a field
+	/// that is already sown throws the seed away with it.</summary>
 	private static void Plough(ProvinceEconomy p, GameBalance b, Season season, Difficulty skill)
 	{
-		if (season != Season.Spring || p.Grain >= Reserve(p, b, skill))
+		if (season != Season.Spring)
 		{
 			return;
 		}
 
+		// No more under grain than the county can reap. A field is worth its seed only if there are
+		// hands for it in autumn; past that the same harvest comes in off more seed, and a lord who
+		// ploughed up another field every hungry spring spent his last sacks sowing ground nobody
+		// would cut — Valmere had seven fields in, hands for three, and starved on its own seed.
+		int reapable = Mathf.Max(1, Mathf.FloorToInt(
+			p.Population * b.LordReapShare / b.GrainWorkersPerField[(int)Season.Autumn]));
+
+		// The rotation first: rested fields back under grain, then the most worn to rest — but no
+		// more than a quarter of them in one spring. Every field starts the campaign equally fresh
+		// and wears at the same pace, so resting all that were tired rested all of them at once, and
+		// the county had a year with nothing in the ground.
 		for (int field = 0; field < p.Fields.Length; field++)
 		{
-			if (p.Fields[field] == FieldUse.Fallow)
+			if (p.Fields[field] == FieldUse.Fallow && p.Fertility[field] >= b.LordSowsAbove
+				&& p.FieldsUnder(FieldUse.Grain) < reapable)
 			{
 				EconomySimulation.SetField(p, field, FieldUse.Grain);
-				return;
 			}
+		}
+
+		int resting = Mathf.CeilToInt(p.FieldsUnder(FieldUse.Grain) / 4f);
+		for (int rested = 0; rested < resting || p.FieldsUnder(FieldUse.Grain) > reapable; rested++)
+		{
+			int worn = -1;
+			for (int field = 0; field < p.Fields.Length; field++)
+			{
+				bool tired = p.Fertility[field] < b.LordRestsBelow || p.FieldsUnder(FieldUse.Grain) > reapable;
+				if (p.Fields[field] == FieldUse.Grain && tired
+					&& (worn < 0 || p.Fertility[field] < p.Fertility[worn]))
+				{
+					worn = field;
+				}
+			}
+
+			if (worn < 0)
+			{
+				break;
+			}
+
+			EconomySimulation.SetField(p, worn, FieldUse.Fallow);
+		}
+
+		if (p.Grain >= Reserve(p, b, skill) || p.FieldsUnder(FieldUse.Grain) >= reapable)
+		{
+			return;
+		}
+
+		// Short of bread, one more field goes under the plough — the best-rested of what is lying
+		// fallow, since a tired one gives him little for the seed.
+		int best = -1;
+		for (int field = 0; field < p.Fields.Length; field++)
+		{
+			if (p.Fields[field] == FieldUse.Fallow && (best < 0 || p.Fertility[field] > p.Fertility[best]))
+			{
+				best = field;
+			}
+		}
+
+		if (best >= 0)
+		{
+			EconomySimulation.SetField(p, best, FieldUse.Grain);
 		}
 	}
 
@@ -182,6 +273,22 @@ public static class LordAI
 		}
 
 		market.Sell(p, "grain", lot);
+	}
+
+	/// <summary>What the county digs and does not use goes to market every season, not only in the
+	/// season the bread runs out. A county whose fields cannot feed it lives on its mines, and a lord
+	/// who sold iron only when the barn was already empty sold it all at once, into a price his own
+	/// sale had flattened, and starved anyway.</summary>
+	private static void SellSurplus(ProvinceEconomy p, GameBalance b, Market market)
+	{
+		foreach (string store in Wares)
+		{
+			int spare = p.Stored(store) - b.LordKeepsWares;
+			if (spare > 0 && market.Trades(store))
+			{
+				market.Sell(p, store, spare);
+			}
+		}
 	}
 
 	/// <summary>Sells what the county makes and does not eat — its iron, its timber, its stone, down
