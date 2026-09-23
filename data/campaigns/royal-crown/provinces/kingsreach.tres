@@ -16,6 +16,7 @@ CattleModifier = 1.0
 WoodModifier = 1.0
 StoneModifier = 1.1
 IronModifier = 0.9
+InitialFortification = "small-palisade"
 InitialGold = 800
 InitialGrain = 400
 InitialCattle = 60
