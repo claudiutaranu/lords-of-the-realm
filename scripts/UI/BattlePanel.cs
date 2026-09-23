@@ -150,8 +150,11 @@ public partial class BattlePanel : CountyPanel
 			return;
 		}
 
-		// Nothing to storm while anybody is still standing in front of the walls.
-		_walls = ProvinceEconomy.Men(against.Field) == 0;
+		// Nothing to storm while anybody is still standing in front of the walls — and nothing to
+		// storm at all where there are no walls, or nobody on them. An empty town used to be offered
+		// as "Storm the walls" behind open ground; it is walked into, the way TurnManager.Attack
+		// takes it (a county that is not Held falls to the field fight).
+		_walls = ProvinceEconomy.Men(against.Field) == 0 && against.Held;
 		Dictionary<string, int> holding = _walls ? against.Castle : against.Field;
 		bool spent = ours.MarchLeft <= 0f;
 
@@ -164,9 +167,23 @@ public partial class BattlePanel : CountyPanel
 
 		ShowTerms(against, ours.Men, spent);
 		_verdict.Text = Reckoned(mine, theirs);
+		if (ProvinceEconomy.Men(holding) == 0)
+		{
+			// Nobody to weigh the day against: the walls and the people's heart are multipliers on
+			// men who are not there, and listing them would be telling the lord about a fight that
+			// is not going to happen.
+			foreach (Node old in _terms.GetChildren())
+			{
+				old.QueueFree();
+			}
+
+			Note("Nobody stands in the way");
+			_verdict.Text = "The gate stands open, my lord.";
+		}
+
 		_verdict.AddThemeColorOverride("font_color", Chrome.Cream);
 		_attack.Visible = true;
-		_attack.Text = _walls ? "Storm the walls" : "Attack";
+		_attack.Text = _walls ? "Storm the walls" : ProvinceEconomy.Men(holding) == 0 ? "March in" : "Attack";
 
 		// Sitting down in front of it is the other way, and against the stone rungs it is the only
 		// way. It costs the army every season it lasts — they are standing here and nowhere else —
