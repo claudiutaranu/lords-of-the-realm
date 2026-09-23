@@ -168,6 +168,15 @@ CARVE_VERGE = 44        # how far the cutting's bank is graded out into the coun
 CARVE_VERGE_FULL = 24   # and how far of that is graded completely, before it starts to fade
 CARVE_VERGE_BLUR = 11.0
 GRADE_PASSES = 3
+# The march grid (CampaignMapPage.LayGround) will not let an army onto a cell whose ground rises more
+# than 0.9 of a unit across the next 12 pixels — 0.74 height bytes a pixel. A road steeper than that
+# is drawn but cannot be walked, and one such climb shut the whole north off. So every road is given
+# a bed no steeper than ROAD_GRADE, flat across ROAD_BED either side of its line (wide enough for the
+# grid's own cells, which sample a cell's ground 12 pixels on), and eased back into the country over
+# ROAD_SHOULDER. tools/check_marches.py is what proves it held.
+ROAD_GRADE = 0.4           # height bytes a pixel along the road
+ROAD_BED = 22.0
+ROAD_SHOULDER = 22.0
 # Shortcuts kept on top of the minimum network that reaches every seat.
 EXTRA_ROUTES = 2
 
@@ -632,6 +641,9 @@ def dig_borders(height, land, province_id, roads, adjacency):
     gap = np.full((H, W), 1e9, dtype=np.float32)
     for c in crossings:
         np.minimum(gap, np.sqrt((xs - c["x"]) ** 2 + (ys - c["y"]) ** 2), out=gap)
+    # A road is a crossing along the whole of its length, not only at the point it changes county: one
+    # that ran beside a border for a stretch had the ditch dug straight through its bed there.
+    np.minimum(gap, distance_to_roads(roads), out=gap)
     open_ground = np.clip((gap - CROSSING_REACH * 0.6) / (CROSSING_REACH * 0.4), 0, 1)
 
     altitude = np.clip(height / 235.0, 0, 1)
@@ -659,6 +671,52 @@ def dig_borders(height, land, province_id, roads, adjacency):
     blocked = band & land & (gap > CROSSING_REACH) & (lowland > 0.5)
 
     return dug, np.clip(ditch + bank * 0.45, 0, 1), blocked, crossings
+
+
+def grade_roads(height, roads, land):
+    """Gives every road a bed an army can march up, as the last thing done to the height.
+
+    Along each road the ground is sampled and held to ROAD_GRADE a pixel, forwards and back, so a
+    climb becomes a ramp instead of a step; that profile is laid flat across ROAD_BED either side of
+    the line and blended out to the country over ROAD_SHOULDER. Where two roads meet, their beds are
+    averaged. Only land is touched."""
+    ys, xs = np.mgrid[0:H, 0:W]
+    reach = ROAD_BED + ROAD_SHOULDER
+    nearest = np.full((H, W), reach, dtype=np.float32)
+    level = np.zeros((H, W), dtype=np.float32)
+    weight = np.zeros((H, W), dtype=np.float32)
+    for road in roads:
+        dense = []
+        for (x0, y0), (x1, y1) in zip(road["points"], road["points"][1:]):
+            steps = max(int(np.ceil(np.hypot(x1 - x0, y1 - y0))), 1)
+            dense.extend((x0 + (x1 - x0) * t / steps, y0 + (y1 - y0) * t / steps) for t in range(steps))
+        dense.append(tuple(road["points"][-1]))
+        profile = np.array([height[min(int(y), H - 1), min(int(x), W - 1)] for x, y in dense], dtype=np.float32)
+        gaps = np.array([np.hypot(bx - ax, by - ay) for (ax, ay), (bx, by) in zip(dense, dense[1:])], dtype=np.float32)
+        for _ in range(2):
+            for i in range(1, len(profile)):
+                profile[i] = np.clip(profile[i], profile[i - 1] - ROAD_GRADE * gaps[i - 1], profile[i - 1] + ROAD_GRADE * gaps[i - 1])
+            for i in range(len(profile) - 2, -1, -1):
+                profile[i] = np.clip(profile[i], profile[i + 1] - ROAD_GRADE * gaps[i], profile[i + 1] + ROAD_GRADE * gaps[i])
+
+        for (x, y), elevation in zip(dense, profile):
+            left, right = max(int(x - reach), 0), min(int(x + reach) + 1, W)
+            top, bottom = max(int(y - reach), 0), min(int(y + reach) + 1, H)
+            local = np.hypot(xs[top:bottom, left:right] - x, ys[top:bottom, left:right] - y)
+            np.minimum(nearest[top:bottom, left:right], local, out=nearest[top:bottom, left:right])
+            # Weighted, not nearest-point: taking the level of whichever point is closest cut the
+            # shoulders into a fan of terraces, one step for every point along the line.
+            share = np.clip(1.0 - local / reach, 0, 1) ** 2
+            level[top:bottom, left:right] += share * elevation
+            weight[top:bottom, left:right] += share
+
+    level = level / np.maximum(weight, 1e-6)
+    blend = np.clip((reach - nearest) / ROAD_SHOULDER, 0, 1)
+    blend = blend * blend * (3.0 - 2.0 * blend) * land
+    # Ground already within a byte or so of the bed is left exactly as it was. Blending the lowland's
+    # whole-byte plateaus with a bed a fraction off them stippled the fields with one-byte noise.
+    blend *= np.clip((np.abs(level - height) - 1.0) / 2.0, 0, 1)
+    return height * (1.0 - blend) + level * blend
 
 
 def road_strength(roads):
@@ -1281,6 +1339,8 @@ def main():
     height = cliffs_not_walls(height, land)
     height = np.where(land, np.maximum(height, SEA_FLOOR_BYTE + FREEBOARD),
                       np.minimum(height, SEA_FLOOR_BYTE - DRAFT))
+    height = grade_roads(height, roads, land)
+    height = np.where(land, np.maximum(height, SEA_FLOOR_BYTE + FREEBOARD), height)
 
     albedo = paint_albedo(height, terrain_fields, land, rng)
     # The colour map tints every texture on the ground, and under a road it was the meadow's green:

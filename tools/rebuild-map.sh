@@ -19,5 +19,8 @@ fi
 
 "$VENV/bin/python" "$TOOLS_DIR/generate_campaign_map.py"
 echo
+# A map that looks right can still have a county no army can reach; this fails the rebuild if so.
+"$VENV/bin/python" "$TOOLS_DIR/check_marches.py"
+echo
 echo "Done. Back in Godot: the images re-import when the editor regains focus."
 echo "If they do not, use Project > Reload Current Project, then F6 on scene/campaign-map/campaign_map.tscn."
