@@ -350,6 +350,11 @@ public partial class LordCheck : Node
 		int Militia(Difficulty skill) => new TurnManager(b, new List<ProvinceDefinition> { Definition("Kingsreach") },
 			new Dictionary<string, string> { ["Kingsreach"] = "royal-crown" }, "royal-crown", skill,
 			new List<ProvinceDefinition> { Definition("Ashenvale") }).DefendersOf("Ashenvale").Men;
+		Defenders town = free.DefendersOf("Ashenvale");
+		Is("  and not only farmhands: the town's watch has bows", town.Field.GetValueOrDefault("bow") > 0, true);
+		Is("  and spears", town.Field.GetValueOrDefault("spear") > 0, true);
+		Is("  with the farmhands still the most of them",
+			town.Field.GetValueOrDefault("peasant") > town.Field.GetValueOrDefault("bow") + town.Field.GetValueOrDefault("spear"), true);
 		Is("  and more of them turn out the harder the game",
 			Militia(Difficulty.Easy) < Militia(Difficulty.Medium) && Militia(Difficulty.Medium) < Militia(Difficulty.Hard), true);
 		Is("the men can still be walked onto it",

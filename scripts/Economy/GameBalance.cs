@@ -312,13 +312,17 @@ public partial class GameBalance : Resource
 	/// defending itself with whatever hangs in the barn, which is what the old game this one is
 	/// copied from put in front of every lord who went looking for easy land.
 	///
-	/// Peasants to a man, and that is not a shortcut: a county with no lord has no smithy filling an
-	/// armoury and nobody drilling anybody, so what it fields is how many of them there are and
-	/// nothing else.
+	/// Mostly farmhands with whatever hangs in the barn — but not only: a town keeps its own watch
+	/// (MilitiaArmed), bowmen on the gate and spears in the street, and a lord who marched on one
+	/// expecting pitchforks met arrows first.
 	///
 	/// By difficulty, and it binds the rival lords as much as the player: the harder the game, the
 	/// more of a county turns out for it, and the dearer every piece of empty country is to anybody.</summary>
 	[Export] public float[] MilitiaShare = { 0.14f, 0.17f, 0.21f };
+
+	/// <summary>The share of that militia that is the town's trained watch, half archers and half
+	/// spearmen, by difficulty; the rest are peasants.</summary>
+	[Export] public float[] MilitiaArmed = { 0.15f, 0.25f, 0.3f };
 
 	[Export] public float GarrisonTolerated = 0.05f;
 	[Export] public float GarrisonLoyaltyPerTenth = 4f;
@@ -452,10 +456,10 @@ public partial class GameBalance : Resource
 
 	// --- the lords at war (LordArms, LordsCampaign), by difficulty -------------------------------
 
-	/// <summary>The share of his people a lord keeps in the field, the watch on his gates aside. One
-	/// in ten is about what it takes to beat a neutral county's militia at all; a hard lord keeps
-	/// half as many again.</summary>
-	[Export] public float[] LordArmyShare = { 0.10f, 0.10f, 0.14f };
+	/// <summary>The share of his people a lord keeps in the field, the watch on his gates aside.
+	/// About one in eight is what it takes to beat a neutral county's militia once the town keeps a
+	/// watch of bows and spears (MilitiaArmed); a hard lord keeps half as many again.</summary>
+	[Export] public float[] LordArmyShare = { 0.12f, 0.14f, 0.18f };
 
 	/// <summary>How sure a lord wants to be before he attacks, as the share of days he would carry.
 	/// A hard lord takes a real risk. The easy lord is as careful as the middling one: what makes

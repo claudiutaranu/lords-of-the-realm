@@ -16,9 +16,11 @@ using Godot;
 /// the player spent his turn doing it, and <see cref="LordAI"/> does it for everybody else.</summary>
 public class TurnManager
 {
-	/// <summary>What a county with no lord puts in the way of one who wants it, by the key
-	/// recruits.json uses. Nobody drilled them and nobody armed them.</summary>
+	/// <summary>What a county with no lord puts in the way of one who wants it, by the keys
+	/// recruits.json uses: its farmhands, and the town's own watch of bowmen and spears.</summary>
 	private const string MilitiaUnit = "peasant";
+	private const string WatchBows = "bow";
+	private const string WatchSpears = "spear";
 
 	/// <summary>How much news one turn may carry, however many provinces a lord holds. Lords of the
 	/// Realm told you one thing at a time and let you get on with it; a realm of eight counties
@@ -646,11 +648,18 @@ public class TurnManager
 			return new Defenders(new Dictionary<string, int>(), new Dictionary<string, int>(), "", 0f);
 		}
 
+		// The watch first — MilitiaArmed of them, bows and spears half and half — and every other
+		// man who turns out comes with what hangs in the barn.
 		var raised = new Dictionary<string, int>();
 		int militia = Mathf.FloorToInt(free.InitialPopulation * _balance.MilitiaShare[(int)Difficulty]);
-		if (militia > 0)
+		int armed = Mathf.FloorToInt(militia * _balance.MilitiaArmed[(int)Difficulty]);
+		int bows = armed / 2;
+		foreach ((string unit, int men) in new[] { (WatchBows, bows), (WatchSpears, armed - bows), (MilitiaUnit, militia - armed) })
 		{
-			raised[MilitiaUnit] = militia;
+			if (men > 0)
+			{
+				raised[unit] = men;
+			}
 		}
 
 		return new Defenders(raised, new Dictionary<string, int>(), free.InitialFortification,
