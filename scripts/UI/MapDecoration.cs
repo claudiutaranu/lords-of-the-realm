@@ -85,8 +85,8 @@ public partial class MapDecoration : Node3D
 	private const int PlotRings = 7;         // lattice cells searched either way of the seat
 
 	/// <summary>The ground a seat keeps for itself, in map pixels. The town's houses stand in a
-	/// ring out to TownRing (AddSettlement), and the castle is raised CastleDistance off the seat at
-	/// CastleBearing with CastleReach of ground round it (SetFortification). The fields are laid out
+	/// ring out to TownRing (AddSettlement), and the castle is raised CastleDistance off the seat, on
+	/// the flattest side of it (CastleSite), with CastleReach of ground round it. The fields are laid out
 	/// from the seat outwards and used to start half a cell from the pin — in the middle of the town
 	/// — because the only thing keeping them off it was the clearing the town registers when it is
 	/// built, and that is built after the fields and may not be built at all. So the fields read the
@@ -94,8 +94,10 @@ public partial class MapDecoration : Node3D
 	public const float TownRing = 38f;
 	private const float TownGap = 6f;        // a lane between the last house and the first furrow
 	private const float CastleBearing = Mathf.Pi * 0.25f;
-	private const float CastleDistance = 62f;
-	private const float CastleReach = 26f;
+	private const float CastleDistance = 66f;
+	private const float CastleReach = 34f;
+	private const int CastleSides = 8;
+	private const float CastleShore = 0.3f;  // height above the sea its walls' lowest corner must keep
 	private const float PlotMaxDrop = 1.7f;  // fall across a plot before the ground is too steep
 	/// <summary>How long a beast is drawn, nose to tail, in world units. Held as a LENGTH and not as
 	/// a scale factor because a model brought in from outside arrives in whatever units it was
@@ -185,6 +187,7 @@ public partial class MapDecoration : Node3D
 	/// its yard lies on the map, which is the ground a lord walks into the town from.</summary>
 	private readonly Dictionary<string, GeometryInstance3D> _settlements = new();
 	private readonly Dictionary<string, Vector2> _settlementSites = new();
+	private readonly Dictionary<Vector2, Vector2> _castleSites = new();
 	/// <summary>The look of each building model drawn through settlement.gdshader — its baked colour
 	/// and relief, where its flag pole stands — and which way its flag flies as it was made, on its own
 	/// ground plane. One per model: the village and every rung of castle share the shader, not the
@@ -647,7 +650,7 @@ public partial class MapDecoration : Node3D
 			return true;
 		}
 
-		return plot.DistanceTo(Clamped(seat, CastleBearing, CastleDistance)) < CastleReach + reach;
+		return plot.DistanceTo(CastleSite(seat)) < CastleReach + reach;
 	}
 
 	/// <summary>Whether a plot can be laid here: on the map, off everything already built, out of
@@ -948,9 +951,10 @@ public partial class MapDecoration : Node3D
 	/// <summary>Which model a rung wears, and how big it stands. The ladder runs a timber watchtower
 	/// up to a walled castle, which is the progression the fortifications page charges for — so what
 	/// the map shows and what the ledger holds are the same fact.</summary>
-	/// <param name="Footprint">How wide it stands on the ground, in world units — a village's yard is
-	/// about five and a half.</param>
-	private record Works(string Model, float Footprint);
+	/// <param name="Size">How wide it stands on the ground, against a town's village: never less than
+	/// the village, so the walls read from the map's height as the county's strength and not as a
+	/// shed beside the houses.</param>
+	private record Works(string Model, float Size);
 
 	/// <summary>The village every seat stands in: a Meshy hamlet cut down by tools/decimate_meshy.py,
 	/// drawn through settlement.gdshader so its banners fly the owner's colour and it takes the season.
@@ -976,13 +980,13 @@ public partial class MapDecoration : Node3D
 
 	private static Works PlanFor(string fort) => fort switch
 	{
-		"small-palisade" => new Works("settlements/fort-palisadea", 2.4f),
-		"medium-fort" => new Works("settlements/fort-palisadeb", 2.6f),
-		"large-fort" => new Works("settlements/fort-palisadec", 2.8f),
-		"small-castle" => new Works("settlements/fort-keepa", 2.8f),
-		"medium-castle" => new Works("settlements/fort-keepb", 3.0f),
-		"large-castle" => new Works("settlements/fort-keepc", 3.2f),
-		"grand-castle" => new Works("settlements/fort-citadel", 3.4f),
+		"small-palisade" => new Works("settlements/fort-palisadea", 1.0f),
+		"medium-fort" => new Works("settlements/fort-palisadeb", 1.05f),
+		"large-fort" => new Works("settlements/fort-palisadec", 1.1f),
+		"small-castle" => new Works("settlements/fort-keepa", 1.1f),
+		"medium-castle" => new Works("settlements/fort-keepb", 1.15f),
+		"large-castle" => new Works("settlements/fort-keepc", 1.2f),
+		"grand-castle" => new Works("settlements/fort-citadel", 1.3f),
 		_ => null,
 	};
 
@@ -1006,8 +1010,7 @@ public partial class MapDecoration : Node3D
 
 		(ShaderMaterial look, float flagRest) = Dressed(HamletModel, mesh);
 
-		float yard = 2f * TownRing / _map.PixelsPerUnit * VillageSize * (kind == Settlement.Hamlet ? HamletShare : 1f);
-		float scale = yard / Models.FootprintOf(HamletModel);
+		float scale = VillageYard(kind) / Models.FootprintOf(HamletModel);
 		// Turned so its flag flies with the wind, give or take its own few degrees (FlagJitter). A turn
 		// about y takes a direction at angle a on the ground (atan2 of z over x) to a - yaw.
 		Vector2 wind = MapClouds.PrevailingWind;
@@ -1030,7 +1033,7 @@ public partial class MapDecoration : Node3D
 		// its castle will stand on cleared as well, whether or not it has one yet: the woods are laid
 		// once, and a castle raised later in a wood came up inside the trees.
 		_clearings.Add((seatPixel, TownRing + 14f));
-		_clearings.Add((Clamped(seatPixel, CastleBearing, CastleDistance), CastleReach));
+		_clearings.Add((CastleSite(seatPixel), CastleReach));
 	}
 
 	/// <summary>A building model's look through settlement.gdshader, made once per model: the colour
@@ -1457,10 +1460,8 @@ public partial class MapDecoration : Node3D
 		AddChild(works);
 		_forts[province] = works;
 
-		// South-east of the town and clear of its houses: near enough to read as this place's
-		// castle, far enough that the two are not one heap under the province's pin.
-		Vector2 site = Clamped(seatPixel, CastleBearing, CastleDistance);
-		if (_map.HeightAt(site) <= _map.WaterLine + 0.3f)
+		Vector2 site = CastleSite(seatPixel);
+		if (_map.HeightAt(site) <= _map.WaterLine + CastleShore)
 		{
 			return; // nowhere to stand
 		}
@@ -1483,7 +1484,7 @@ public partial class MapDecoration : Node3D
 			MaterialOverride = look,
 			Transform = new Transform3D(
 				Basis.Identity.Rotated(Vector3.Up, flagRest - Mathf.Atan2(wind.Y, wind.X))
-					.Scaled(Vector3.One * (plan.Footprint / Models.FootprintOf(plan.Model))),
+					.Scaled(Vector3.One * (plan.Size * VillageYard(Settlement.Town) / Models.FootprintOf(plan.Model))),
 				_map.WorldAt(site) + (Vector3.Down * SettlementSink)),
 		};
 		works.AddChild(castle);
@@ -1505,6 +1506,47 @@ public partial class MapDecoration : Node3D
 	}
 
 	/// <summary>A point that many pixels from the seat, kept inside the map.</summary>
+	/// <summary>How wide a village stands, in world units.</summary>
+	private float VillageYard(Settlement kind) =>
+		2f * TownRing / _map.PixelsPerUnit * VillageSize * (kind == Settlement.Hamlet ? HamletShare : 1f);
+
+	/// <summary>Where a seat's castle stands: CastleDistance off the town, on whichever of CastleSides
+	/// bearings has the flattest dry ground under the whole of its walls — south-east (CastleBearing)
+	/// when that is as good as any. A fixed bearing stood one keep on the lip of a sea cliff and
+	/// another down a hillside. Worked out from the height map alone, so the woods, the fields and
+	/// the castle raised years later all agree on the spot without being told.</summary>
+	private Vector2 CastleSite(Vector2 seat)
+	{
+		if (_castleSites.TryGetValue(seat, out Vector2 known))
+		{
+			return known;
+		}
+
+		Vector2 best = Clamped(seat, CastleBearing, CastleDistance);
+		float flattest = float.MaxValue;
+		for (int side = 0; side < CastleSides; side++)
+		{
+			Vector2 site = Clamped(seat, CastleBearing + (side * Mathf.Tau / CastleSides), CastleDistance);
+			float low = float.MaxValue;
+			float high = float.MinValue;
+			for (int k = 0; k <= CastleSides; k++)
+			{
+				Vector2 at = k == 0 ? site : Clamped(site, k * Mathf.Tau / CastleSides, CastleReach);
+				float height = _map.HeightAt(at);
+				low = Mathf.Min(low, height);
+				high = Mathf.Max(high, height);
+			}
+
+			if (low > _map.WaterLine + CastleShore && high - low < flattest)
+			{
+				(best, flattest) = (site, high - low);
+			}
+		}
+
+		_castleSites[seat] = best;
+		return best;
+	}
+
 	private Vector2 Clamped(Vector2 seat, float angle, float radius) => new(
 		Mathf.Clamp(seat.X + Mathf.Cos(angle) * radius, 0, _props.GetWidth() - 1),
 		Mathf.Clamp(seat.Y + Mathf.Sin(angle) * radius, 0, _props.GetHeight() - 1));
