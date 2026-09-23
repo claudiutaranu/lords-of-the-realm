@@ -269,14 +269,24 @@ public sealed class LordsCampaign
 		}
 		else if (b.LordBesieges[skill] == 1 && turns.Besiege(army, county))
 		{
-			Tell(turns, county, "county-besieged", news);
+			Tell(turns, county, "county-besieged", news, new Dictionary<string, string>
+			{
+				["came"] = $"{army.Strength}",
+				["walls"] = $"{ProvinceEconomy.Men(turns.DefendersOf(county).Castle)}",
+			});
 		}
 	}
 
+	/// <summary>One day's fighting at somebody's gate. Where it is the player's gate he is told what
+	/// it cost him, in men and by kind: how many came, how many of his stood, how many of his fell and
+	/// how many are still standing — or, if it went the other way, how many of theirs now hold it.</summary>
 	private static void Strike(TurnManager turns, FieldArmy army, string county, Vector2 at, bool walls,
 		List<FiredEvent> news)
 	{
 		bool players = turns.AnyProvince(county)?.Realm == turns.PlayerRealm;
+		Defenders before = turns.DefendersOf(county);
+		int came = army.Strength;
+		int stood = ProvinceEconomy.Men(walls ? before.Castle : before.Field);
 		Battle.Result day = turns.Attack(army, county, at, walls);
 		if (!players)
 		{
@@ -284,16 +294,71 @@ public sealed class LordsCampaign
 		}
 
 		bool lost = turns.AnyProvince(county)?.Realm != turns.PlayerRealm;
-		Tell(turns, county, lost ? "county-lost" : day.AttackerWon ? "county-besieged" : "invaders-repelled", news);
+		Defenders after = turns.DefendersOf(county);
+		int left = lost ? 0 : ProvinceEconomy.Men(walls ? after.Castle : after.Field);
+		string id = lost ? "county-lost" : day.AttackerWon ? "field-lost" : "invaders-repelled";
+		Tell(turns, county, id, news, new Dictionary<string, string>
+		{
+			["came"] = $"{came}",
+			["stood"] = stood > 0 ? $"{stood}" : "gate",
+			["where"] = stood == 0 ? "with nobody on it" : walls ? "on the walls" : "in the field before the gate",
+			["ourlost"] = Fallen(day.DefenderLosses),
+			["ourleft"] = $"{left}",
+			["theirleft"] = $"{army.Strength}",
+			["theirfate"] = army.Strength == 0
+				? $"all {came} are dead or scattered, and not one of them went home"
+				: $"{day.AttackerFell} fell and {army.Strength} went back the way they came",
+			["walls"] = $"{ProvinceEconomy.Men(after.Castle)}",
+		});
 	}
 
-	private static void Tell(TurnManager turns, string county, string id, List<FiredEvent> news)
+	/// <summary>A roll of the dead, the way a steward reads it: how many, then how many of each.</summary>
+	private static string Fallen(Dictionary<string, int> losses)
+	{
+		int all = ProvinceEconomy.Men(losses);
+		if (all == 0)
+		{
+			return "nobody";
+		}
+
+		var kinds = new List<string>();
+		foreach (string unit in Units.All())
+		{
+			int men = losses.GetValueOrDefault(unit);
+			if (men > 0)
+			{
+				kinds.Add($"{men} {Plural(Units.Of(unit).Name, men).ToLowerInvariant()}");
+			}
+		}
+
+		string roll = kinds.Count <= 1 ? string.Join("", kinds)
+			: string.Join(", ", kinds.GetRange(0, kinds.Count - 1)) + " and " + kinds[^1];
+		return kinds.Count == 1 ? roll : $"{all} men — {roll}";
+	}
+
+	/// <summary>"Spearmen", "Archers" and "Cavalry" are already plural in the yard's own book;
+	/// "Peasant" is not.</summary>
+	private static string Plural(string name, int men) =>
+		men == 1 || name.EndsWith("men") || name.EndsWith("s") || name.EndsWith("ry") ? name : name + "s";
+
+	/// <summary>Tells the player about his county, the steward's numbers written into the line.
+	/// Only his: a rival's war with the neutral country is not news in his hall.</summary>
+	private static void Tell(TurnManager turns, string county, string id, List<FiredEvent> news,
+		Dictionary<string, string> fill)
 	{
 		GameEvent said = EventEngine.Find(id);
-		if (said != null && (turns.AnyProvince(county)?.Realm == turns.PlayerRealm || id == "county-lost"))
+		if (said == null || (turns.AnyProvince(county)?.Realm != turns.PlayerRealm && id != "county-lost"))
 		{
-			news.Add(new FiredEvent(county, said, FromThePeople: true));
+			return;
 		}
+
+		string text = said.Text;
+		foreach ((string field, string value) in fill)
+		{
+			text = text.Replace($"{{{field}}}", value);
+		}
+
+		news.Add(new FiredEvent(county, said with { Text = text }, FromThePeople: true));
 	}
 
 	/// <summary>How often he would carry the day, fought out on copies so nothing real is touched.</summary>

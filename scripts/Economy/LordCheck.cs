@@ -560,6 +560,24 @@ public partial class LordCheck : Node
 		Is("a hard lord comes for the player's county and takes it", hard.AnyProvince("South")?.Realm, "north");
 		Is("  and the player is told", told, true);
 		Is("  and with his only county gone, his reign is over", hard.PlayerFallen, true);
+
+		// Defended this time, by thirty spears of his own standing at the gate: he is told what came,
+		// what stood, and what it cost him, by kind — and no blank left in the line.
+		(TurnManager held, FieldArmy _) = Board(Difficulty.Hard, surveyed: true, menInHost: 400);
+		held.AnyProvince("South").Raise(0f).Men["spear"] = 30;
+		string report = "";
+		for (int season = 0; season < 8 && report.Length == 0; season++)
+		{
+			held.AdvanceTurn();
+			FiredEvent said = held.News.Find(item => item.ProvinceName == "South"
+				&& (item.Said.Id == "county-lost" || item.Said.Id == "invaders-repelled" || item.Said.Id == "field-lost"));
+			report = said?.Said.Text ?? "";
+		}
+
+		Is("the player hears how the fight at his gate went", report.Length > 0, true);
+		Is("  with every number written in", report.Contains('{'), false);
+		Is("  how many of his stood", report.Contains("our 30 "), true);
+		Is("  and what he lost, by kind", report.Contains("spearmen"), true);
 	}
 
 	/// <summary>A road that runs straight, a step every twelve pixels, a pixel of march a pixel.</summary>

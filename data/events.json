@@ -141,14 +141,18 @@
 	},
 	"invaders-repelled": {
 		"heading": "They Came, and Were Thrown Back",
-		"text": "Riders at dawn, my lord, under another lord's banner. They came for the gate and they did not reach it. Our men held, and the ones who came are counting their dead on the road home."
+		"text": "Riders at dawn, my lord: {came} men under another lord's banner, come for the gate. Our {stood} met them {where}, and held. We lost {ourlost}; {ourleft} of ours still stand. Of theirs, {theirfate}."
 	},
 	"county-besieged": {
 		"heading": "The Enemy at the Gate",
-		"text": "An army has camped before the gate, my lord, and it has no mind to leave. Nothing goes in and nothing comes out. The garrison eats what was carried up before, and when that is gone, it eats nothing."
+		"text": "An army of {came} has camped before the gate, my lord, and it has no mind to leave. Nothing goes in and nothing comes out. The {walls} on the walls eat what was carried up before, and when that is gone, they eat nothing."
 	},
 	"county-lost": {
 		"heading": "The County Is Lost",
-		"text": "It is taken, my lord. Another lord's banner flies over the gate, and the people pay their taxes to him now. What men of ours were elsewhere have fallen back to the counties we still hold."
+		"text": "It is taken, my lord. {came} men under another lord's banner came against our {stood} {where}, and we lost {ourlost}. {theirleft} of theirs hold the gate now, and the people pay their taxes to them. What men of ours were elsewhere have fallen back to the counties we still hold."
+	},
+	"field-lost": {
+		"heading": "Beaten in the Field, Holding at the Gate",
+		"text": "They came for us in the open, my lord: {came} men against our {stood}, and ours broke. We lost {ourlost}. The {walls} on the walls still hold the gate, and {theirleft} of theirs are camped before it."
 	}
 }
