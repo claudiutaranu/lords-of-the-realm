@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1_script")
 ProvinceName = "Redmoor Hold"
-InitialPopulation = 650
+InitialPopulation = 360
 GrainWorkerCapacity = 200
 CattleWorkerCapacity = 120
 WoodWorkerCapacity = 160

@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1_script")
 ProvinceName = "Valmere"
-InitialPopulation = 850
+InitialPopulation = 470
 Fields = 9
 InitialGrainFields = 4
 InitialPastureFields = 2

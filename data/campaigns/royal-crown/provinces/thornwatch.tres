@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1_script")
 ProvinceName = "Thornwatch"
-InitialPopulation = 620
+InitialPopulation = 340
 GrainWorkerCapacity = 220
 CattleWorkerCapacity = 180
 WoodWorkerCapacity = 180
