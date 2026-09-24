@@ -45,7 +45,7 @@ public static class LordAI
 		Trade(p, b, market, skill);
 		if (dice != null)
 		{
-			LordWalls.Fortify(p, b, skill, dice, wallsUpTo);
+			LordWalls.Fortify(p, b, skill, dice, wallsUpTo, market);
 		}
 
 		SellSurplus(p, b, market, dice == null ? null : wallsUpTo);
@@ -112,86 +112,49 @@ public static class LordAI
 			: b.FairTaxPercent;
 	}
 
-	/// <summary>The spring rotation: worn fields rested, rested ones sown, and if the county came
-	/// through the winter short, one more field under grain. In spring only, because turning a field
-	/// that is already sown throws the seed away with it.</summary>
+	/// <summary>The winter rotation, before the sowing: a field rested when the soil is tired, one sown
+	/// back when it is rich, and one more under the plough if the county is short of bread — never
+	/// more under grain than autumn has hands to reap. In winter only, because turning a field that
+	/// is already sown throws the seed away with it.</summary>
 	private static void Plough(ProvinceEconomy p, GameBalance b, Season season, Difficulty skill)
 	{
-		if (season != Season.Spring)
+		if (season != Season.Winter)
 		{
 			return;
 		}
 
 		// No more under grain than the county can reap. A field is worth its seed only if there are
-		// hands for it in autumn; past that the same harvest comes in off more seed, and a lord who
-		// ploughed up another field every hungry spring spent his last sacks sowing ground nobody
-		// would cut — Valmere had seven fields in, hands for three, and starved on its own seed.
-		int reapable = Mathf.Max(1, Mathf.FloorToInt(
-			p.Population * b.LordReapShare / b.GrainWorkersPerField[(int)Season.Autumn]));
+		// hands for it in autumn — Valmere once had seven fields in, hands for three, and starved on
+		// its own seed.
+		int reapersAField = Livelihood.DivCeil(Husbandry.MostSacksAField * Husbandry.CropPerSack * 2, 3);
+		int reapable = Mathf.Max(1, Mathf.FloorToInt(p.Population * b.LordReapShare / reapersAField));
+		bool hungry = p.Grain < Reserve(p, b, skill);
 
-		// The rotation first: rested fields back under grain, then the most worn to rest — but no
-		// more than a quarter of them in one spring. Every field starts the campaign equally fresh
-		// and wears at the same pace, so resting all that were tired rested all of them at once, and
-		// the county had a year with nothing in the ground.
-		for (int field = 0; field < p.Fields.Length; field++)
+		if (p.Soil < b.LordRestsBelow || p.FieldsUnder(FieldUse.Grain) > reapable)
 		{
-			if (p.Fields[field] == FieldUse.Fallow && p.Fertility[field] >= b.LordSowsAbove
-				&& p.FieldsUnder(FieldUse.Grain) < reapable)
-			{
-				EconomySimulation.SetField(p, field, FieldUse.Grain);
-			}
+			Turn(p, FieldUse.Grain, FieldUse.Fallow);
 		}
-
-		int resting = Mathf.CeilToInt(p.FieldsUnder(FieldUse.Grain) / 4f);
-		for (int rested = 0; rested < resting || p.FieldsUnder(FieldUse.Grain) > reapable; rested++)
+		else if ((p.Soil > b.LordSowsAbove || hungry) && p.FieldsUnder(FieldUse.Grain) < reapable)
 		{
-			int worn = -1;
-			for (int field = 0; field < p.Fields.Length; field++)
-			{
-				bool tired = p.Fertility[field] < b.LordRestsBelow || p.FieldsUnder(FieldUse.Grain) > reapable;
-				if (p.Fields[field] == FieldUse.Grain && tired
-					&& (worn < 0 || p.Fertility[field] < p.Fertility[worn]))
-				{
-					worn = field;
-				}
-			}
-
-			if (worn < 0)
-			{
-				break;
-			}
-
-			EconomySimulation.SetField(p, worn, FieldUse.Fallow);
-		}
-
-		if (p.Grain >= Reserve(p, b, skill) || p.FieldsUnder(FieldUse.Grain) >= reapable)
-		{
-			return;
-		}
-
-		// Short of bread, one more field goes under the plough — the best-rested of what is lying
-		// fallow, since a tired one gives him little for the seed.
-		int best = -1;
-		for (int field = 0; field < p.Fields.Length; field++)
-		{
-			if (p.Fields[field] == FieldUse.Fallow && (best < 0 || p.Fertility[field] > p.Fertility[best]))
-			{
-				best = field;
-			}
-		}
-
-		if (best >= 0)
-		{
-			EconomySimulation.SetField(p, best, FieldUse.Grain);
+			Turn(p, FieldUse.Fallow, FieldUse.Grain);
 		}
 	}
 
-	/// <summary>Where the county's hands go. The same deployment a province opens on — reused rather
-	/// than written twice, so the day somebody changes what a season asks for, the lords hear about
-	/// it in the same commit the player does.</summary>
+	/// <summary>Turns the first field under one use to another, if there is one.</summary>
+	private static void Turn(ProvinceEconomy p, FieldUse from, FieldUse to)
+	{
+		int field = System.Array.IndexOf(p.Fields, from);
+		if (field >= 0)
+		{
+			EconomySimulation.SetField(p, field, to);
+		}
+	}
+
+	/// <summary>Where the county's hands go: through the same deal as the player's county, with the
+	/// bar set farms first — every field and beast manned, the rest to the industry.</summary>
 	private static void Work(ProvinceEconomy p, ProvinceDefinition def, GameBalance b, Season season, Difficulty skill)
 	{
-		EconomySimulation.Deploy(p, def, b, season);
+		Labour.FarmsFirst(p, def, b, season);
 
 		float astray = b.LordIdleHands[(int)skill];
 		if (astray <= 0f)
@@ -207,6 +170,7 @@ public static class LordAI
 		p.WoodWorkers = Attending(p.WoodWorkers, astray);
 		p.StoneWorkers = Attending(p.StoneWorkers, astray);
 		p.IronWorkers = Attending(p.IronWorkers, astray);
+		p.ReclaimWorkers = Attending(p.ReclaimWorkers, astray);
 	}
 
 	private static int Attending(int hands, float astray) => Mathf.FloorToInt(hands * (1f - astray));
@@ -238,7 +202,8 @@ public static class LordAI
 		// man with grain to sell actually does, and it is also what keeps one lord's good harvest
 		// from flattening the realm's grain price, the player's included, every spring.
 		int lot = p.Grain - kept;
-		int least = Mathf.CeilToInt(market.Base("grain") * b.LordSellsAbove[(int)skill]);
+		// Measured against what a sack fetches in an ordinary season, after the merchant's cut.
+		float least = market.Base("grain") * (1f - b.MarketSpread) * b.LordSellsAbove[(int)skill];
 		while (lot > 0 && market.Worth("grain", lot, buying: false) < lot * least)
 		{
 			lot /= 2;

@@ -129,7 +129,10 @@ public sealed class BattleSide
 	/// crest where somebody has drawn one; the cloth is the realm's own colour either way, so a side
 	/// with no crest is still somebody's. Says how many kinds of man it listed, and how tall one line
 	/// of them is, so the table can be cut to the longer of its two sides.</summary>
-	public (int Kinds, float LineHigh) Show(string name, string under, string realmKey, Color accent, Dictionary<string, int> men)
+	/// <param name="lost">After the day: who of <paramref name="men"/> fell, shown beside each count in
+	/// brackets. Before it, nothing.</param>
+	public (int Kinds, float LineHigh) Show(string name, string under, string realmKey, Color accent, Dictionary<string, int> men,
+		Dictionary<string, int> lost = null)
 	{
 		_name.Text = name;
 		_under.Text = under;
@@ -145,13 +148,17 @@ public sealed class BattleSide
 		foreach ((string kind, (Control line, Label count)) in _roster)
 		{
 			int many = men.GetValueOrDefault(kind);
-			count.Text = many.ToString("N0");
+			int fell = lost?.GetValueOrDefault(kind) ?? 0;
+			count.Text = fell > 0 ? $"{many:N0} (−{fell:N0})" : many.ToString("N0");
 			line.Visible = many > 0;
 			kinds += many > 0 ? 1 : 0;
 			high = line.GetCombinedMinimumSize().Y;
 		}
 
-		_total.Text = ProvinceEconomy.Men(men).ToString("N0");
+		int fallen = lost == null ? 0 : ProvinceEconomy.Men(lost);
+		_total.Text = fallen > 0
+			? $"{ProvinceEconomy.Men(men):N0} (−{fallen:N0})"
+			: ProvinceEconomy.Men(men).ToString("N0");
 		return (kinds, high);
 	}
 }

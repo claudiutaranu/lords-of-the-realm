@@ -65,16 +65,17 @@ public partial class AdvisorPanel : Control
 
 		var column = new VBoxContainer { CustomMinimumSize = new Vector2(640, 0) };
 		column.AddThemeConstantOverride("separation", 12);
-		centred.AddChild(Chrome.Framed(column, 28));
+		centred.AddChild(Chrome.Painted(column));
 
-		_county = Chrome.Line("", 15, Chrome.Dim);
-		_county.HorizontalAlignment = HorizontalAlignment.Center;
-		column.AddChild(_county);
-
+		// The heading on the painted ribbon, the county under it.
 		_heading = Chrome.Line("", 30, Chrome.Cream);
 		_heading.HorizontalAlignment = HorizontalAlignment.Center;
 		GoldTitle.Apply(_heading);
 		column.AddChild(_heading);
+
+		_county = Chrome.Line("", 15, Chrome.Dim);
+		_county.HorizontalAlignment = HorizontalAlignment.Center;
+		column.AddChild(_county);
 
 		column.AddChild(Chrome.Rule(520));
 

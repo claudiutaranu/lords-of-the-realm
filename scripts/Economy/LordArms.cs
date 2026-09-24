@@ -13,8 +13,10 @@ using Godot;
 /// are quartered on the county and it resents them, which is its own brake on a greedy lord.</summary>
 public static class LordArms
 {
-	/// <summary>What one batch of ten of each weapon costs, the same recipe the player's smithy uses
-	/// (data/weapons.json) — spears when there is iron, bows when there is only timber.</summary>
+	/// <summary>What one batch of ten of each weapon costs him — spears when there is iron, bows when
+	/// there is only timber. ponytail: a rival buys his arms outright a season ahead instead of
+	/// staffing a smithy the way the player's county does (Smithy); the day LordAI deals smiths
+	/// their hands, this goes and he lights a forge like anyone else.</summary>
 	private const int SpearWood = 30;
 	private const int SpearIron = 8;
 	private const int BowWood = 25;
@@ -23,7 +25,10 @@ public static class LordArms
 
 	/// <param name="realmOf">Who holds a county, by name — for telling the lord's own ground from
 	/// the ground his men are campaigning on.</param>
-	public static void Arm(ProvinceEconomy p, GameBalance b, Difficulty skill, System.Func<string, string> realmOf)
+	/// <param name="market">Where he buys what his smithy cannot make fast enough; none, and he
+	/// makes do with his smithy.</param>
+	public static void Arm(ProvinceEconomy p, GameBalance b, Difficulty skill, System.Func<string, string> realmOf,
+		Market market = null)
 	{
 		int room = Room(p, b, skill);
 		if (room < 0)
@@ -37,19 +42,90 @@ public static class LordArms
 			return;
 		}
 
-		Forge(p, b, room);
+		// A band standing in the county is bought whole when the chest will stand it: men who need no
+		// arms and cost no sons.
+		room -= Hire(p, b, skill, room);
+
+		// Paid for now, racked after the levy: what he forges or buys this season arms next season's
+		// men, as it always has.
+		(string weapon, int forged) = Forge(p, b, room);
+		int bought = Buy(p, b, skill, market, room - forged);
 		Levy(p, b, skill, room);
+		if (forged > 0)
+		{
+			p.Add(weapon, forged);
+		}
+
+		if (bought > 0)
+		{
+			p.Add("spear", bought);
+		}
+	}
+
+	/// <summary>What he can spend on the war this season: a share of what is above the gold he keeps
+	/// back whatever happens.</summary>
+	private static int WarChest(ProvinceEconomy p, GameBalance b, Difficulty skill) =>
+		Mathf.FloorToInt(Mathf.Max(0, p.Gold - b.LordGoldReserve) * b.LordWarChest[(int)skill]);
+
+	/// <summary>Spears off the market for the men his smithy has not armed yet, out of the war chest.
+	/// Returns how many, for the armoury after the levy.</summary>
+	private static int Buy(ProvinceEconomy p, GameBalance b, Difficulty skill, Market market, int unarmed)
+	{
+		int armed = p.Armoury.GetValueOrDefault("spear") + p.Armoury.GetValueOrDefault("bow");
+		int wanted = unarmed - armed;
+		if (market == null || wanted <= 0)
+		{
+			return 0;
+		}
+
+		// The price climbs as he buys, so the order is cut back until the whole of it fits the chest.
+		int chest = WarChest(p, b, skill);
+		int count = Mathf.Min(wanted, chest / Mathf.Max(1, market.Asking("spear")));
+		while (count > 0 && market.Worth("spear", count, buying: true) > chest)
+		{
+			count = count * 3 / 4;
+		}
+
+		if (count <= 0 || !market.Buy(p, "spear", count))
+		{
+			return 0;
+		}
+
+		// Market.Buy racks them at once; they are taken back off and racked after the levy instead.
+		p.Add("spear", -count);
+		return count;
+	}
+
+	/// <summary>Takes a band standing in the county, whole, if the war chest pays for it and he has
+	/// room in the field for most of it. Returns how many men that was.</summary>
+	private static int Hire(ProvinceEconomy p, GameBalance b, Difficulty skill, int room)
+	{
+		MercenaryBand band = Mercenaries.Standing(p);
+		int men = p.MercenaryMen;
+		if (band == null || men <= 0 || band.Gold > WarChest(p, b, skill) || men > room * 2)
+		{
+			return 0;
+		}
+
+		p.Gold -= band.Gold;
+		FieldArmy company = p.Raise(b.MarchReach);
+		company.Men[band.Unit] = men;
+		Mercenaries.Hire(p, men);
+		return men;
 	}
 
 	/// <summary>How many more men this county will put in the field: its share of the people, less
-	/// the companies it already has out, and no more than its taxes pay for with the watch on the
-	/// gate paid first. The watch is not counted against the share — it is the county's defence, not
+	/// the companies it already has out, and no more than his taxes and a share of his treasury pay
+	/// for with the watch on the gate paid first. The watch is not counted against the share — it is the county's defence, not
 	/// its army, and counting it left Valmere, with sixty on its walls, no room to raise a man.</summary>
 	public static int Room(ProvinceEconomy p, GameBalance b, Difficulty skill)
 	{
 		int share = Mathf.FloorToInt(p.Population * b.LordArmyShare[(int)skill]) - p.FieldMen;
-		int paid = Mathf.FloorToInt(EconomySimulation.TaxDue(p, b) * b.LordWagesShare / Mathf.Max(0.01f, b.WagePerSoldier))
-			- p.Soldiers;
+		// ponytail: the realm's one purse is counted by each of his counties as if it were its own;
+		// a lord with many counties would overspend it, and the share wants dividing among them then.
+		float wages = EconomySimulation.TaxDue(p, b) * b.LordWagesShare
+			+ Mathf.Max(0, p.Gold - b.LordGoldReserve) * b.LordTreasuryShare[(int)skill];
+		int paid = Mathf.FloorToInt(wages / Mathf.Max(0.01f, b.WagePerSoldier)) - p.Soldiers;
 		return Mathf.Min(share, paid);
 	}
 
@@ -95,12 +171,12 @@ public static class LordArms
 		}
 	}
 
-	private static void Forge(ProvinceEconomy p, GameBalance b, int room)
+	private static (string Weapon, int Forged) Forge(ProvinceEconomy p, GameBalance b, int room)
 	{
 		int armed = p.Armoury.GetValueOrDefault("spear") + p.Armoury.GetValueOrDefault("bow");
-		if (p.Forging.Length > 0 || armed >= room)
+		if (armed >= room)
 		{
-			return;
+			return ("", 0);
 		}
 
 		int batches = Mathf.Min(b.LordSmithyBatches, Mathf.CeilToInt((room - armed) / (float)Batch));
@@ -109,8 +185,7 @@ public static class LordArms
 		{
 			p.Wood -= spears * SpearWood;
 			p.Iron -= spears * SpearIron;
-			(p.Forging, p.ForgeTurnsLeft, p.ForgeBatch) = ("spear", 1, spears * Batch);
-			return;
+			return ("spear", spears * Batch);
 		}
 
 		int bows = Mathf.Min(batches, Mathf.Min(p.Wood / BowWood, p.Gold / BowGold));
@@ -118,8 +193,10 @@ public static class LordArms
 		{
 			p.Wood -= bows * BowWood;
 			p.Gold -= bows * BowGold;
-			(p.Forging, p.ForgeTurnsLeft, p.ForgeBatch) = ("bow", 1, bows * Batch);
+			return ("bow", bows * Batch);
 		}
+
+		return ("", 0);
 	}
 
 	/// <summary>One new company, out of the arms in the armoury and, to fill it out, up to as many

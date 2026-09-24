@@ -144,10 +144,10 @@ uniform float season = 1.0;
 uniform float selected_index = 0.0; // province index + 1, matching the ID map's red channel
 uniform float hovered_index = 0.0;
 uniform vec3 selected_tint : source_color = vec3(1.0, 0.86, 0.45);
-// Muted on purpose: a frontier is a line drawn on the ground, not a neon strip.
-uniform vec3 realm_one_color : source_color = vec3(0.46, 0.20, 0.17);  // The Royal Crown
-uniform vec3 realm_two_color : source_color = vec3(0.22, 0.30, 0.45);  // The Northern Watch
-uniform vec3 neutral_claim_color : source_color = vec3(0.30, 0.28, 0.24);
+// Who holds each province NOW, one texel per province (CampaignMap3D.ShowHolders): the holder's
+// colour in RGB, his realm's number + 1 in alpha. The ID map's own green channel is only the
+// campaign's opening position, and a frontier drawn from it never moved when a county fell.
+uniform sampler2D campaign_owners : filter_nearest, repeat_disable;
 uniform vec3 border_color : source_color = vec3(0.16, 0.14, 0.11);
 // The road surface's slot in the control map — Terrain3DGround's "Path".
 #define CAMPAIGN_PATH_SLOT 4
@@ -393,6 +393,18 @@ void accumulate_material(const vec3 base_ddx, const vec3 base_ddy, const float w
 		mat.ao_strength = fma(_texture_ao_strength_array[id], id_weight, mat.ao_strength);
 		mat.total_weight += id_weight;
 	}
+}
+
+// The holder of the province an ID-map texel belongs to; water holds nothing.
+vec4 campaign_owner(vec4 id) {
+	int province = int(round(id.r * 255.0)) - 1;
+	return province < 0 ? vec4(0.0) : texelFetch(campaign_owners, ivec2(province, 0), 0);
+}
+
+// 1 where this neighbouring texel is land held by another realm than the one given.
+float campaign_other_realm(vec4 held, vec4 neighbour) {
+	vec4 theirs = campaign_owner(neighbour);
+	return step(0.5, theirs.a * 255.0) * step(0.5, abs(theirs.a - held.a) * 255.0);
 }
 
 void fragment() {
@@ -688,11 +700,10 @@ void fragment() {
 		+ step(0.001, abs(n_left.r - here.r)) * step(0.5, n_left.r * 255.0)
 		+ step(0.001, abs(n_down.r - here.r)) * step(0.5, n_down.r * 255.0)
 		+ step(0.001, abs(n_up.r - here.r)) * step(0.5, n_up.r * 255.0));
+	vec4 held = campaign_owner(here);
 	float realm_edge = province_edge * min(1.0,
-		step(0.001, abs(n_right.g - here.g)) * step(0.5, n_right.g * 255.0)
-		+ step(0.001, abs(n_left.g - here.g)) * step(0.5, n_left.g * 255.0)
-		+ step(0.001, abs(n_down.g - here.g)) * step(0.5, n_down.g * 255.0)
-		+ step(0.001, abs(n_up.g - here.g)) * step(0.5, n_up.g * 255.0));
+		campaign_other_realm(held, n_right) + campaign_other_realm(held, n_left)
+		+ campaign_other_realm(held, n_down) + campaign_other_realm(held, n_up));
 
 	float province = round(here.r * 255.0);
 	float is_selected = step(0.5, selected_index) * step(abs(province - selected_index), 0.5);
@@ -702,20 +713,15 @@ void fragment() {
 		is_hovered * (1.0 - is_selected) * 0.35);
 
 	// Each side of a contested border is painted in its own realm's colour, so the frontier reads
-	// as two claims meeting rather than one neutral line. A wider, fainter band inside the line is
-	// what keeps it legible over snow and forest when the camera pulls back.
-	float owner = here.g * 255.0;
-	vec3 claim = owner < 1.5 ? realm_one_color : (owner < 2.5 ? realm_two_color : neutral_claim_color);
+	// as two claims meeting rather than one neutral line, and it moves the season a county falls. A
+	// wider, fainter band inside the line keeps it legible when the camera pulls back.
+	vec3 claim = held.rgb * 0.62;
 	vec2 glow_step = 6.0 / vec2(textureSize(campaign_id_map, 0));
-	vec4 g_right = texture(campaign_id_map, map_uv + vec2(glow_step.x, 0.0));
-	vec4 g_left = texture(campaign_id_map, map_uv - vec2(glow_step.x, 0.0));
-	vec4 g_down = texture(campaign_id_map, map_uv + vec2(0.0, glow_step.y));
-	vec4 g_up = texture(campaign_id_map, map_uv - vec2(0.0, glow_step.y));
-	float realm_glow = min(1.0,
-		step(0.001, abs(g_right.g - here.g)) * step(0.5, g_right.g * 255.0)
-		+ step(0.001, abs(g_left.g - here.g)) * step(0.5, g_left.g * 255.0)
-		+ step(0.001, abs(g_down.g - here.g)) * step(0.5, g_down.g * 255.0)
-		+ step(0.001, abs(g_up.g - here.g)) * step(0.5, g_up.g * 255.0)) * step(0.5, here.g * 255.0);
+	float realm_glow = on_land * min(1.0,
+		campaign_other_realm(held, texture(campaign_id_map, map_uv + vec2(glow_step.x, 0.0)))
+		+ campaign_other_realm(held, texture(campaign_id_map, map_uv - vec2(glow_step.x, 0.0)))
+		+ campaign_other_realm(held, texture(campaign_id_map, map_uv + vec2(0.0, glow_step.y)))
+		+ campaign_other_realm(held, texture(campaign_id_map, map_uv - vec2(0.0, glow_step.y))));
 
 	campaign_albedo = mix(campaign_albedo, border_color, province_edge * 0.4);
 	campaign_albedo = mix(campaign_albedo, claim, realm_glow * 0.12);

@@ -86,6 +86,7 @@ public partial class CampaignMap3D : Node3D
 	private Image _idImage;
 	private MapDecoration _decoration;
 	private MapClouds _clouds;
+	private MapRain _rain;
 	private MapWater _water;
 	private DirectionalLight3D _sun;
 	private ProceduralSkyMaterial _sky;
@@ -111,6 +112,8 @@ public partial class CampaignMap3D : Node3D
 		// HeightScale is what a fully white height pixel stands for, so it is the tallest ground
 		// this map can have — the sky is placed against that.
 		_clouds.Build(new Vector2(MapWidth, MapDepth), HeightScale);
+		_rain = new MapRain();
+		AddChild(_rain);
 
 		_camera = new Camera3D { Fov = CameraFov, Far = 800.0f, Current = true };
 		AddChild(_camera);
@@ -165,8 +168,9 @@ public partial class CampaignMap3D : Node3D
 	public string ArmyAt(Vector2 mapPixel) => _decoration.ArmyAt(mapPixel);
 
 	/// <summary>Walks a county's banner along a road, and says when it has arrived.</summary>
-	public void WalkArmy(string army, List<Vector2> road, System.Action arrived) =>
-		_decoration.WalkArmy(army, road, arrived);
+	public void WalkArmy(string army, List<Vector2> road, System.Action arrived,
+		float stride = MapDecoration.StrideSeconds) =>
+		_decoration.WalkArmy(army, road, arrived, stride);
 
 	/// <summary>Takes down the banners of companies that are not standing any more.</summary>
 	public void RetireArmies(System.Collections.Generic.ICollection<string> standing) =>
@@ -179,6 +183,8 @@ public partial class CampaignMap3D : Node3D
 
 	/// <summary>Whose village stands under a map pixel, or nothing.</summary>
 	public string TownAt(Vector2 mapPixel) => _decoration.TownAt(mapPixel);
+
+	public string CastleAt(Vector2 mapPixel) => _decoration.CastleAt(mapPixel);
 
 	public bool AtCastle(string province, Vector2 mapPixel) => _decoration.AtCastle(province, mapPixel);
 
@@ -203,6 +209,18 @@ public partial class CampaignMap3D : Node3D
 	/// <summary>Raised whenever the chosen province changes. The minimap listens to this rather than
 	/// being wired up by the page, so it keeps working however that page is rearranged.</summary>
 	public static event System.Action<int> ProvinceHighlighted;
+
+	/// <summary>Raised with the holders strip whenever a county may have changed hands, for the
+	/// minimap, which washes its counties from the same strip the ground does.</summary>
+	public static event System.Action<Image> HoldersChanged;
+
+	/// <summary>Who holds every province now, one texel each in province order: the holder's colour,
+	/// and his realm's number + 1 in alpha. The ground draws the frontiers between them.</summary>
+	public void ShowHolders(Image strip)
+	{
+		_ground?.SetShaderParameter("campaign_owners", ImageTexture.CreateFromImage(strip));
+		HoldersChanged?.Invoke(strip);
+	}
 
 	public void SetHighlight(int selectedIndex, int hoveredIndex)
 	{
@@ -300,6 +318,9 @@ public partial class CampaignMap3D : Node3D
 
 	/// <summary>World position of a map pixel, sitting on the terrain surface.</summary>
 	public Vector3 WorldAt(Vector2 mapPixel) => MapToWorld(mapPixel);
+
+	/// <summary>A storm over a map pixel, for the few seasons the weather is the news.</summary>
+	public void Rain(Vector2 mapPixel) => _rain.Shower(MapToWorld(mapPixel));
 
 	/// <summary>Puts a working site (quarry, pasture, lumber camp) on a province's ground.</summary>
 	public void AddSite(Vector2 seatPixel, MapDecoration.SiteKind kind, float weight) =>
@@ -463,6 +484,11 @@ public partial class CampaignMap3D : Node3D
 	/// lower half of the screen hang out over open water. So the view's own reach — near edge, far
 	/// edge and half its width at the near edge — is measured off the camera's height and tilt, and
 	/// the focus is held where all of it stays over the map. A view bigger than the map is centred.</summary>
+	/// <summary>The share of the screen's width the page's own furniture covers down the right-hand
+	/// side (the sidebar). The view may go that much further east, or the counties along the east
+	/// coast sit under the sidebar for good.</summary>
+	public float CoveredRight { get; set; }
+
 	private void ClampFocus()
 	{
 		float pitch = Mathf.DegToRad(-CameraPitchDegrees);
@@ -474,12 +500,14 @@ public partial class CampaignMap3D : Node3D
 		Vector2 screen = IsInsideTree() ? GetViewport().GetVisibleRect().Size : new Vector2(16, 9);
 		float side = height / Mathf.Sin(pitch + half) * Mathf.Tan(half) * (screen.X / Mathf.Max(1f, screen.Y));
 
-		_focus.X = Fit(_focus.X, (-MapWidth / 2) + side, (MapWidth / 2) - side);
+		_focus.X = Fit(_focus.X, (-MapWidth / 2) + side, (MapWidth / 2) - side + (2f * side * CoveredRight));
 
 		// Taller than the map, the view is laid on its southern coast rather than centred: the near
 		// ground fills the bottom half of the screen, so the sea past the south edge was most of what
-		// the opening view showed, while what spills past the north edge is far off and small.
-		float least = (-MapDepth / 2) + north;
+		// the opening view showed. The north is let go further: what spills past the north edge is
+		// far off and small, and holding all of it over land kept the northern counties at the top
+		// of the screen, under the resource bar, however far the lord scrolled.
+		float least = (-MapDepth / 2) + Mathf.Min(north, back * 0.25f);
 		float most = (MapDepth / 2) - south;
 		_focus.Z = least > most ? most : Mathf.Clamp(_focus.Z, least, most);
 	}
@@ -494,6 +522,7 @@ public partial class CampaignMap3D : Node3D
 		_camera.RotationDegrees = new Vector3(CameraPitchDegrees, 0, 0);
 		_sun.DirectionalShadowMaxDistance = _distance * ShadowReach;
 		_clouds?.SetFocus(_focus);
+		_rain?.SetZoom(_distance);
 	}
 
 	// --- sampling the same images the shader draws from --------------------------------------

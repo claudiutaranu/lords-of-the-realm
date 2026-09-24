@@ -28,9 +28,9 @@ public static class LordWalls
 	}
 
 	/// <summary>Orders the next rung if the stores will pay for it and the season is the one he gets
-	/// round to it. Paid in full on the order, the way the player's fortifications room pays.</summary>
+	/// round to it — an open town the first season it can. Paid in full on the order, the way the player's fortifications room pays.</summary>
 	public static void Fortify(ProvinceEconomy p, GameBalance b, Difficulty skill, RandomNumberGenerator dice,
-		string upTo)
+		string upTo, Market market = null)
 	{
 		string next = Next(p, upTo);
 		if (next.Length == 0 || p.BesiegedFrom.Length > 0)
@@ -39,6 +39,11 @@ public static class LordWalls
 		}
 
 		Fortifications.Wall wall = Fortifications.Of(next);
+		if (p.Fortification.Length == 0 && market != null)
+		{
+			BuyShortfall(p, b, market, wall);
+		}
+
 		foreach ((string store, int amount) in wall.Cost)
 		{
 			if (p.Stored(store) < amount)
@@ -47,7 +52,10 @@ public static class LordWalls
 			}
 		}
 
-		if (dice.Randf() >= b.LordBuildChance[(int)skill])
+		// A town with no wall at all is not left to when he gets round to it: one he has just taken is
+		// the first place anybody will come to take back, and a palisade is the season's work of
+		// whatever timber it has. Only the rungs above wait on the dice.
+		if (p.Fortification.Length > 0 && dice.Randf() >= b.LordBuildChance[(int)skill])
 		{
 			return;
 		}
@@ -62,6 +70,21 @@ public static class LordWalls
 		p.BuildSeasonsLeft = wall.Seasons;
 	}
 
+	/// <summary>Buys what an open town's palisade is short of, out of what the purse holds above his
+	/// reserve — all of it or none. The timber a taken town has goes to the smithy first, and a town
+	/// that waited on its own woodcutters for its wall waited until somebody took it back.</summary>
+	private static void BuyShortfall(ProvinceEconomy p, GameBalance b, Market market, Fortifications.Wall wall)
+	{
+		foreach ((string store, int amount) in wall.Cost)
+		{
+			int shortfall = amount - p.Stored(store);
+			if (shortfall > 0 && market.Worth(store, shortfall, buying: true) <= p.Gold - b.LordGoldReserve)
+			{
+				market.Buy(p, store, shortfall);
+			}
+		}
+	}
+
 	/// <summary>How much of a store he holds back from market for the rung he means to build next.</summary>
 	public static int Saving(ProvinceEconomy p, string store, string upTo)
 	{
@@ -69,14 +92,18 @@ public static class LordWalls
 		return next.Length == 0 ? 0 : Fortifications.Of(next).Cost.GetValueOrDefault(store);
 	}
 
-	/// <summary>Puts men on walls that have too few: up to LordWatch of them, or as many as the walls
-	/// hold if that is fewer, out of his own companies
-	/// standing at home, largest first. A wall is not a garrison, and a lord who built one and left it
-	/// empty had built a gate for the first army past to walk through.</summary>
+	/// <summary>Puts men on walls that have too few: LordWatchShare of what they hold, never fewer
+	/// than LordWatch, out of his own companies standing at home, largest first. A wall is not a
+	/// garrison, and a lord who built one and left it empty had built a gate for the first army past
+	/// to walk through.</summary>
 	public static void ManTheWalls(ProvinceEconomy p, GameBalance b)
 	{
-		int wanted = Mathf.Min(b.LordWatch - p.CastleMen, p.WallRoom);
-		if (p.Fortification.Length == 0 || wanted <= 0)
+		int watch = Mathf.Max(b.LordWatch,
+			Mathf.FloorToInt(Fortifications.Of(p.Fortification).Garrison * b.LordWatchShare));
+		int wanted = Mathf.Min(watch - p.CastleMen, p.WallRoom);
+
+		// Nobody walks in through a gate an army is sitting in front of.
+		if (p.Fortification.Length == 0 || wanted <= 0 || p.BesiegedFrom.Length > 0)
 		{
 			return;
 		}

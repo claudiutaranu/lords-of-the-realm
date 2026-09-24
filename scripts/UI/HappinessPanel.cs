@@ -26,17 +26,15 @@ public partial class HappinessPanel : CountyPanel
 	private const int MostYears = 20;
 	private const string TavernArtPath = "res://assets/ui/happiness-tavern.png";
 
-	/// <summary>Every line the season can be broken into, in the order a lord would ask about them:
-	/// what he charged, what he fed them, whether they went hungry anyway, who he took for the
-	/// army, who he quartered on them, what he is doing elsewhere, and what simply happened.</summary>
+	/// <summary>Every line the season is made of, the original's own: what he charged, what the
+	/// realm's rates cost here, how healthy the county is, what it was fed, and what simply happened.
+	/// The sons taken for the army are charged the day they are taken, not here.</summary>
 	private static readonly (string Name, System.Func<TurnSummary, float> Of)[] Lines =
 	{
 		("From taxes", season => season.LoyaltyFromTax),
-		("From the ration", season => season.LoyaltyFromRations),
-		("From hunger", season => season.LoyaltyFromStarvation),
-		("From the levy", season => season.LoyaltyFromConscription),
-		("From the garrison", season => season.LoyaltyFromGarrison),
 		("From your other counties", season => season.LoyaltyFromNeighbours),
+		("From health", season => season.LoyaltyFromHealth),
+		("From the ration", season => season.LoyaltyFromRations),
 		("From the world", season => season.LoyaltyFromEvents),
 	};
 

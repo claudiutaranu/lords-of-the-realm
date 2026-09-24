@@ -209,7 +209,7 @@ public partial class HallPage : Control
 	/// <summary>The way out, in the corner every other screen keeps it in.</summary>
 	private void HangCloseButton()
 	{
-		var close = new Button { Text = "✕", CustomMinimumSize = new Vector2(52, 52) };
+		Button close = Chrome.Plate("✕", 52);
 		close.AddThemeFontSizeOverride("font_size", 22);
 		close.Pressed += () => Closed?.Invoke();
 		AddChild(close);
@@ -218,7 +218,7 @@ public partial class HallPage : Control
 		close.OffsetLeft = -80;
 		close.OffsetTop = 12;
 		close.OffsetRight = -28;
-		close.OffsetBottom = 80;
+		close.OffsetBottom = 64;
 	}
 
 	/// <summary>The doors out, hung over whoever answers for each of them.</summary>

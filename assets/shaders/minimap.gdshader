@@ -4,7 +4,7 @@
 // terrain shader and the click raycast read, so the minimap can never disagree with the map.
 // Ownership does not come from that image — it arrives as a strip of one texel per province, which
 // the page rebuilds whenever a province changes hands: RGB is the realm's colour, and alpha carries
-// the realm's index so the whole realm can be lit when one of its provinces is chosen.
+// the realm's number + 1 (0 is nobody) so the whole realm can be lit when one of its provinces is chosen.
 shader_type canvas_item;
 
 uniform sampler2D id_map : filter_nearest, repeat_disable;
@@ -34,7 +34,7 @@ void fragment() {
 		color = mix(terrain, water_color, 0.7);
 	} else {
 		vec4 owner = texelFetch(owner_colors, ivec2(int(province) - 1, 0), 0);
-		realm = round(owner.a * 255.0);
+		realm = round(owner.a * 255.0) - 1.0;
 		color = mix(terrain, owner.rgb, 0.42);
 	}
 

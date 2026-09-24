@@ -36,7 +36,7 @@ public partial class JoinPanel : Control
 
 		var column = new VBoxContainer { CustomMinimumSize = new Vector2(460, 0) };
 		column.AddThemeConstantOverride("separation", 12);
-		centred.AddChild(Chrome.Framed(column, 26));
+		centred.AddChild(Chrome.Painted(column));
 
 		Label title = Chrome.Line("Two banners, one field", 26, Chrome.Cream);
 		title.HorizontalAlignment = HorizontalAlignment.Center;

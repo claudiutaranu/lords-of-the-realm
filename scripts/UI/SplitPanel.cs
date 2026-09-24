@@ -70,7 +70,7 @@ public partial class SplitPanel : Control
 
 		var column = new VBoxContainer { CustomMinimumSize = new Vector2(760, 0) };
 		column.AddThemeConstantOverride("separation", 14);
-		centred.AddChild(Chrome.Framed(column, 28));
+		centred.AddChild(Chrome.Painted(column));
 
 		_title = Chrome.Line("", 30, Chrome.Cream);
 		_title.HorizontalAlignment = HorizontalAlignment.Center;

@@ -35,6 +35,8 @@ public partial class CampaignBriefingPage : Control
 		difficulty.TooltipText = "How well the lords who are not you will play their own counties";
 		difficulty.ItemSelected += chosen => Campaign.Difficulty = (Difficulty)chosen;
 
+		Tally();
+
 		GetNode<Button>("%BackButton").Pressed += () => SceneRouter.GoTo(this, CampaignScenePath);
 		GetNode<Button>("%StartCampaignButton").Pressed += () =>
 		{
@@ -65,5 +67,52 @@ public partial class CampaignBriefingPage : Control
 		{
 			panelTween.Parallel().TweenProperty(panels[i], "modulate:a", 1.0, PanelFadeSeconds).SetDelay(PanelStaggerSeconds * i);
 		}
+	}
+
+	/// <summary>The stats bar read off the campaign itself, not typed into the scene: the lords who
+	/// hold land, the counties that can change hands, the gold the player's seat opens with, and
+	/// the seat the rival rules from.</summary>
+	private void Tally()
+	{
+		Godot.Collections.Dictionary data = GD.Load<Json>(Campaign.Data("provinces.json")).Data.AsGodotDictionary();
+		string player = data["player"].AsString();
+		string unclaimed = data["unclaimed"].AsString();
+		var lords = new System.Collections.Generic.HashSet<string>();
+		int counties = 0;
+		int gold = 0;
+		string rivalSeat = "";
+		foreach (Variant entry in data["provinces"].AsGodotArray())
+		{
+			Godot.Collections.Dictionary county = entry.AsGodotDictionary();
+			string realm = county["realm"].AsString();
+			string economy = county.TryGetValue("economy", out Variant file) ? file.AsString() : "";
+			if (economy.Length == 0)
+			{
+				continue; // scenery: drawn on the map, not a county anybody can hold
+			}
+
+			counties++;
+			if (realm != unclaimed)
+			{
+				lords.Add(realm);
+			}
+
+			if (realm == player)
+			{
+				gold += GD.Load<ProvinceDefinition>(Campaign.Data($"provinces/{economy}.tres")).InitialGold;
+			}
+			else if (realm != unclaimed && rivalSeat.Length == 0)
+			{
+				rivalSeat = county["name"].AsString();
+			}
+		}
+
+		const string Stats = "StatsBar/Center/StatsRow";
+		GetNode<Label>($"{Stats}/Lords/Value").Text = lords.Count.ToString();
+		GetNode<Label>($"{Stats}/EnemyLords/Value").Text = (lords.Count - 1).ToString();
+		GetNode<Label>($"{Stats}/Provinces/Value").Text = counties.ToString();
+		GetNode<Label>($"{Stats}/Gold/Text/Value").Text = gold.ToString("N0");
+		GetNode<Label>($"{Stats}/Objectives/Value").Text =
+			$"Take {rivalSeat}, Lord Alaric's seat  ·  Hold all {counties} counties";
 	}
 }

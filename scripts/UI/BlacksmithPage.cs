@@ -1,8 +1,9 @@
 using System.Collections.Generic;
 using Godot;
 
-/// <summary>The smithy: weapons, bought out of the province's own stores. One order at a time — a
-/// smith with two commissions finishes neither.</summary>
+/// <summary>The smithy: which weapon the forge makes. One kind at a time, every season, out of the
+/// province's own stores (Smithy) — the lord chooses what, and the smiths the labour bar sends
+/// choose how many. Nothing is ordered and waited on, so nothing here is paid for up front.</summary>
 public partial class BlacksmithPage : ProductionPage
 {
 	protected override string DataPath => "res://data/weapons.json";
@@ -27,17 +28,56 @@ public partial class BlacksmithPage : ProductionPage
 	// The smith labels his own wall: each sign hangs over its rack.
 	protected override void BuildChoosers() => HangSigns();
 
-	protected override (string Making, int TurnsLeft) InHand => (Province.Forging, Province.ForgeTurnsLeft);
+	private ProvinceDefinition _definition;
+	private GameBalance _balance;
+	private Season _season;
+	private Item _chosen;
 
-	protected override string BusyLine => "The forge is busy";
+	/// <summary>The land and the season the county is working in, which choosing a weapon needs: the
+	/// hands are dealt again the moment the forge wants some, or it would stand cold until the lord
+	/// thought to touch the labour bar.</summary>
+	public void Brief(ProvinceDefinition definition, GameBalance balance, Season season)
+	{
+		_definition = definition;
+		_balance = balance;
+		_season = season;
+		ShowDetail();
+	}
 
-	protected override string OrderLine => "Start production";
+	// Open on what the forge is making, so the lord walks in to see it at work.
+	protected override void Opened() =>
+		Choose(Items.Find(item => item.Key == Province.Forging) ?? (Items.Count > 0 ? Items[0] : null));
 
-	protected override string DeliveryLine(Item item) =>
-		$"{item.Batch} forged in {item.Turns} turn{(item.Turns == 1 ? "" : "s")}";
+	// The forge is never busy: a new choice simply replaces the old one.
+	protected override (string Making, int TurnsLeft) InHand => ("", 0);
 
-	protected override string MakingLine(string name, int turns) =>
-		$"Forging {base.MakingLine(name, turns)}";
+	protected override string BusyLine => "";
+
+	protected override string OrderLine => AtTheAnvil(_chosen) ? "Let the forge go cold" : "Forge these";
+
+	protected override string TermsLine(Item item) => "Each needs";
+
+	protected override string DeliveryLine(Item item)
+	{
+		if (_balance == null || Province == null)
+		{
+			return "";
+		}
+
+		if (!AtTheAnvil(item))
+		{
+			return $"{_balance.SmithsPerWeapon} smiths make one a season";
+		}
+
+		int made = Mathf.Min(Province.SmithWorkers / Mathf.Max(1, _balance.SmithsPerWeapon),
+			Smithy.Affordable(Province, item.Key));
+		return $"{made:N0} a season, {Province.SmithWorkers:N0} at the anvil";
+	}
+
+	// Chosen with empty stores too: the forge waits for iron rather than the lord waiting to choose.
+	protected override bool CanAfford(Item item) => true;
+
+	protected override void Chosen(Item item) => _chosen = item;
 
 	protected override string IconFor(string purse) => purse switch
 	{
@@ -46,33 +86,27 @@ public partial class BlacksmithPage : ProductionPage
 		_ => purse,
 	};
 
-	protected override int Held(string purse) => purse switch
-	{
-		"gold" => Province?.Gold ?? 0,
-		"grain" => Province?.Grain ?? 0,
-		"cattle" => Province?.Cattle ?? 0,
-		"wood" => Province?.Wood ?? 0,
-		"stone" => Province?.Stone ?? 0,
-		_ => Province?.Iron ?? 0,
-	};
+	protected override int Held(string purse) => Province?.Stored(purse) ?? 0;
 
-	protected override void Pay(string purse, int amount)
+	protected override void Pay(string purse, int amount) => Province.Add(purse, -amount);
+
+	protected override void Begin(Item item, int count) => Province.Forging = item?.Key ?? "";
+
+	protected override void PlaceOrder()
 	{
-		switch (purse)
+		if (_chosen == null)
 		{
-			case "gold": Province.Gold -= amount; break;
-			case "grain": Province.Grain -= amount; break;
-			case "cattle": Province.Cattle -= amount; break;
-			case "wood": Province.Wood -= amount; break;
-			case "stone": Province.Stone -= amount; break;
-			default: Province.Iron -= amount; break;
+			return;
 		}
+
+		Begin(AtTheAnvil(_chosen) ? null : _chosen, 0);
+		if (_definition != null)
+		{
+			Labour.Deal(Province, _definition, _balance, _season);
+		}
+
+		Refresh();
 	}
 
-	protected override void Begin(Item item, int count)
-	{
-		Province.Forging = item.Key;
-		Province.ForgeTurnsLeft = item.Turns;
-		Province.ForgeBatch = count;
-	}
+	private bool AtTheAnvil(Item item) => item != null && Province?.Forging == item.Key;
 }

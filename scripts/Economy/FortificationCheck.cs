@@ -121,7 +121,8 @@ public partial class FortificationCheck : Node
 			new Dictionary<string, string> { ["Kingsreach"] = "royal-crown" }, "royal-crown", Difficulty.Medium);
 		ProvinceEconomy county = turns.GetProvince("Kingsreach");
 		int room = Fortifications.Of("small-palisade").Garrison;
-		Is("a palisade has room for some men and not for an army", room is > 0 and < 100, true);
+		Is("a palisade holds what Lords of the Realm's does", room, 150);
+		Is("  and the royal castle four times that", Fortifications.Of("grand-castle").Garrison, 600);
 
 		FieldArmy small = county.Raise();
 		small.Men["bow"] = 10;

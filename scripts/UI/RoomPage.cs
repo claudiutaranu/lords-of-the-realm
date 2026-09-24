@@ -185,8 +185,11 @@ public abstract partial class RoomPage : Control
 
 		Body = body;
 		body.AddChild(BuildDetailPanel());
-		HangCloseButton();
 		BuildChoosers();
+
+		// Last, so it stands over whatever a room lays over its page — a room that brings its panels
+		// to the front must not bury the way out under them.
+		HangCloseButton();
 	}
 
 	/// <summary>The shared stockpile strip, centred over the page: the same component every scene
@@ -203,16 +206,15 @@ public abstract partial class RoomPage : Control
 	/// out with the stores, so centring them cannot push it around.</summary>
 	private void HangCloseButton()
 	{
-		var close = new Button { Text = "✕", CustomMinimumSize = new Vector2(52, 52) };
-		close.AddThemeFontSizeOverride("font_size", 22);
-		close.Pressed += () => Closed?.Invoke();
+		// On the square plate every icon button in the game wears.
+		Button close = Chrome.Plate("✕", 52, () => Closed?.Invoke());
 		AddChild(close);
 
 		close.SetAnchorsPreset(LayoutPreset.TopRight);
 		close.OffsetLeft = -80;
 		close.OffsetTop = 12;
 		close.OffsetRight = -28;
-		close.OffsetBottom = 80;
+		close.OffsetBottom = 64;
 	}
 
 	private Control BuildTitle()

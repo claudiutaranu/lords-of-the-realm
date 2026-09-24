@@ -15,8 +15,12 @@ public readonly record struct Defenders(
 	Dictionary<string, int> Field,
 	Dictionary<string, int> Castle,
 	string Fortification,
-	float Loyalty)
+	float Loyalty,
+	bool InOpenCountry = false)
 {
+	// InOpenCountry: two companies meeting away from any town. Nobody is holding his own town and no
+	// people are at anybody's back, so neither the town's nor the people's term is reckoned.
+
 	/// <summary>Everybody who would have to be got through, on the walls and in front of them. What
 	/// the map puts on the shield under the banner.</summary>
 	public int Men => ProvinceEconomy.Men(Field) + ProvinceEconomy.Men(Castle);

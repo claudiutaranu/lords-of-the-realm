@@ -200,8 +200,12 @@ public partial class RationPanel : CountyPanel
 		_bread.Text = Some(next.Bread);
 		_beef.Text = next.Slaughtered > 0 ? $"{next.Slaughtered:N0} head" : "—";
 
-		_short.Text = Some(next.FoodShort);
-		_short.AddThemeColorOverride("font_color", next.FoodShort > 0 ? Chrome.Short : Chrome.Dim);
+		// What the order asked for that the table could not serve: the portions of the ration he set,
+		// less the portions of the one it came down to.
+		int unserved = Mathf.Max(0,
+			Livelihood.Portions(_province.Population + _province.FieldMen, _province.Ration) - next.Needed);
+		_short.Text = Some(unserved);
+		_short.AddThemeColorOverride("font_color", unserved > 0 ? Chrome.Short : Chrome.Dim);
 
 		// How long the barn holds out at this ration, counted on what this season is about to take.
 		// A county eating nothing out of the granary is not "for ever" — it is a county eating its
@@ -216,8 +220,8 @@ public partial class RationPanel : CountyPanel
 		_achieved.AddThemeColorOverride("font_color",
 			next.Achieved < _province.Ration ? Chrome.Short : Chrome.Bright);
 
-		float hearts = _balance.RationLoyaltyDelta[(int)next.Achieved];
-		_goodwill.Text = Mathf.Abs(hearts) < 0.05f ? "(0)" : $"({hearts:+0.0;-0.0})";
+		float hearts = Livelihood.RationTerm(next.Achieved);
+		_goodwill.Text = hearts == 0f ? "(0)" : $"({hearts:+0;-0})";
 		_goodwill.AddThemeColorOverride("font_color",
 			hearts < 0f ? Chrome.Short : hearts > 0f ? Chrome.Gain : Chrome.Dim);
 	}

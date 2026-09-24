@@ -119,7 +119,7 @@ public partial class TaxPanel : CountyPanel
 
 	private void Move(int points)
 	{
-		_province.Tax = Mathf.Clamp(_province.Tax + points, 0, _balance.MostTaxPercent);
+		_province.Tax = Mathf.Clamp(_province.Tax + points, 0, Livelihood.MostTax);
 		Show();
 		Changed?.Invoke();
 	}
@@ -129,7 +129,8 @@ public partial class TaxPanel : CountyPanel
 		_rate.Text = $"{_province.Tax}%";
 		_due.Text = $"{EconomySimulation.TaxDue(_province, _balance):N0} crowns";
 
-		Reads(_here, EconomySimulation.TaxGoodwill(_province.Tax, _balance));
+		// The county's own rate against five, and its own share of what the realm's rates cost.
+		Reads(_here, Livelihood.TaxTerm(_province.Tax) + Livelihood.EmpireTerm(_province.Tax));
 
 		// A lord who holds one county has no elsewhere, and a flat "0" there reads as "this rate
 		// costs nobody else anything" — which is not the same statement, and is the one that makes
@@ -141,15 +142,14 @@ public partial class TaxPanel : CountyPanel
 			return;
 		}
 
-		Reads(_elsewhere, EconomySimulation.TaxSpill(_province.Tax, _balance));
+		Reads(_elsewhere, Livelihood.EmpireTerm(_province.Tax));
 	}
 
-	/// <summary>A goodwill figure, rounded to what a player can act on and coloured by which way it
-	/// cuts. Shown to one decimal because the interesting moves are less than a whole point wide:
-	/// rounded to integers, three points of tax in a row would all read as the same "-1".</summary>
+	/// <summary>A goodwill figure, in the whole points the original moves it in, coloured by which
+	/// way it cuts.</summary>
 	private static void Reads(Label label, float hearts)
 	{
-		label.Text = $"{hearts:+0.0;-0.0;0}";
+		label.Text = $"{hearts:+0;-0;0}";
 		// Red costs, green earns, and nothing at all is WHITE and not grey: a lord reading "no
 		// change" has to be able to read it, and dimming the one figure that says "this rate is
 		// free" hides the answer he came here for.

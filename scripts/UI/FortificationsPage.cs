@@ -125,18 +125,9 @@ public partial class FortificationsPage : RoomPage
 	/// timber ladder if it stands behind nothing.</summary>
 	protected override void Opened()
 	{
-		Fort standing = Find(Province.Fortification);
-		if (standing != null)
-		{
-			Choose(standing, standing.Key);
-			return;
-		}
-
-		// Nothing raised here. The panel still opens on the first rung, so there is something to
-		// read the moment the page appears — but the valley behind it stays empty, because an open
-		// village is the true picture until the player asks to see one.
 		// Asked for on the way in, on a worker thread, so that stepping down the ladder never waits
-		// on a disk. By the time the first card is pressed they are usually already in hand.
+		// on a disk. By the time the first card is pressed they are usually already in hand — and
+		// the rung already standing is among them, or the valley would open without its own walls.
 		foreach (Ladder ladder in _ladders)
 		{
 			foreach (Fort rung in ladder.Forts)
@@ -147,6 +138,16 @@ public partial class FortificationsPage : RoomPage
 			}
 		}
 
+		Fort standing = Find(Province.Fortification);
+		if (standing != null)
+		{
+			Choose(standing, standing.Key);
+			return;
+		}
+
+		// Nothing raised here. The panel still opens on the first rung, so there is something to
+		// read the moment the page appears — but the valley behind it stays empty, because an open
+		// village is the true picture until the player asks to see one.
 		Fort first = _ladders.Count > 0 && _ladders[0].Forts.Count > 0 ? _ladders[0].Forts[0] : null;
 		Choose(first, showing: null);
 	}
@@ -160,14 +161,20 @@ public partial class FortificationsPage : RoomPage
 		BuildWalls();
 
 
-		var row = new HBoxContainer
+		// The walls' own card stands over the two counters, so the counters keep the whole width and
+		// their cards stay wide enough to read.
+		var stack = new VBoxContainer
 		{
 			SizeFlagsVertical = SizeFlags.ShrinkEnd,
 			SizeFlagsHorizontal = SizeFlags.ExpandFill,
+			MouseFilter = MouseFilterEnum.Ignore,
 		};
+		stack.AddThemeConstantOverride("separation", 12);
+		Body.AddChild(stack);
+		Body.MoveChild(stack, 0);
+
+		var row = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
 		row.AddThemeConstantOverride("separation", 16);
-		Body.AddChild(row);
-		Body.MoveChild(row, 0);
 
 		foreach (Ladder ladder in _ladders)
 		{
@@ -204,9 +211,10 @@ public partial class FortificationsPage : RoomPage
 		_garrison = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
 		_garrison.AddThemeConstantOverride("separation", 8);
 		PanelContainer watch = Framed(_garrison, 12);
-		watch.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-		watch.SizeFlagsStretchRatio = 3;
-		row.AddChild(watch);
+		watch.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
+		watch.CustomMinimumSize = new Vector2(560, 0);
+		stack.AddChild(watch);
+		stack.AddChild(row);
 	}
 
 	/// <summary>Who stands on the walls, company by company.
@@ -254,7 +262,9 @@ public partial class FortificationsPage : RoomPage
 
 		if (companies.Count == 0)
 		{
-			_garrison.AddChild(Line("No men in the county to put on them.", 16, Dim));
+			Label nobody = Line("No men in the county to put on them.", 16, Bright);
+			nobody.HorizontalAlignment = HorizontalAlignment.Center;
+			_garrison.AddChild(nobody);
 			return;
 		}
 
@@ -459,7 +469,11 @@ public partial class FortificationsPage : RoomPage
 	{
 		if (!_art.TryGetValue(path, out Resource held))
 		{
-			held = ResourceLoader.LoadThreadedGet(path);
+			// A file nobody asked for on the way in is loaded here and now rather than coming back
+			// as nothing: an empty texture is a valley with no walls in it.
+			held = ResourceLoader.LoadThreadedGetStatus(path) == ResourceLoader.ThreadLoadStatus.InvalidResource
+				? GD.Load<Resource>(path)
+				: ResourceLoader.LoadThreadedGet(path);
 			_art[path] = held;
 		}
 
@@ -492,7 +506,7 @@ public partial class FortificationsPage : RoomPage
 	{
 		var card = new Button
 		{
-			CustomMinimumSize = new Vector2(0, 258),
+			CustomMinimumSize = new Vector2(150, 258),
 			SizeFlagsHorizontal = SizeFlags.ExpandFill,
 			TooltipText = fort.Blurb,
 		};

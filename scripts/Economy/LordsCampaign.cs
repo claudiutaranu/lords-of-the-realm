@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 
 /// <summary>The rival lords' war, once a season: their companies gather, pick the nearest county that
@@ -26,6 +27,12 @@ public sealed class LordsCampaign
 	private readonly float _reach;
 	private readonly RandomNumberGenerator _dice = new();
 
+	/// <summary>How many counties each lord held last season, and the turn each may march again after
+	/// taking one (LordSettles). ponytail: not saved, so a loaded game lets a settling lord march at
+	/// once; save both with the campaign if that is ever noticed.</summary>
+	private readonly Dictionary<string, int> _held = new();
+	private readonly Dictionary<string, int> _settledBy = new();
+
 	/// <param name="towns">The village of every county that can be taken, by name.</param>
 	/// <param name="reach">How close to a village counts as standing at its gate
 	/// (MapDecoration.TownRing).</param>
@@ -45,13 +52,17 @@ public sealed class LordsCampaign
 	{
 		var news = new List<FiredEvent>();
 		int skill = (int)turns.Difficulty;
+
+		// One banner a county from the first season, marching or not.
+		Gather(turns);
 		if (turns.Turn < b.LordFirstMarch[skill])
 		{
 			return news;
 		}
 
-		Gather(turns);
+		Settle(turns, b, skill);
 		var marched = new HashSet<FieldArmy>();
+		Rally(turns, walked, marched);
 		foreach (FieldArmy army in turns.Armies())
 		{
 			string realm = turns.RealmOf(army);
@@ -73,15 +84,17 @@ public sealed class LordsCampaign
 				continue;
 			}
 
-			string target = Prize(turns, army, realm, b, skill);
-			if (target == null)
+			// A county he has only just taken is settled before he goes looking for the next.
+			if (turns.Turn < _settledBy.GetValueOrDefault(realm))
 			{
 				continue;
 			}
 
-			if (army.County == target && Pixel(army).DistanceTo(_towns[target]) <= _reach)
+			// Already at a gate he wants: that is the fight, whatever else is on the map.
+			string atGate = AtGate(turns, army, realm, b, skill);
+			if (atGate != null)
 			{
-				Engage(turns, army, target, b, skill, news);
+				Engage(turns, army, atGate, b, skill, news);
 				continue;
 			}
 
@@ -99,15 +112,44 @@ public sealed class LordsCampaign
 				}
 			}
 
-			if (ProvinceEconomy.Men(together) < b.LordLeastHost
-				|| Odds(turns, together, target, walls: false, b, marched: true) < b.LordAttackOdds[skill])
+			(string target, float odds) = ProvinceEconomy.Men(together) < b.LordLeastHost
+				? (null, 0f)
+				: Prize(turns, army, together, realm, b, skill);
+			bool stopShort = false;
+			if (target == null || odds < b.LordAttackOdds[skill])
 			{
-				continue;
+				// Not on its own. The war host, then: every company of his that is free to march, which
+				// fall in together at an assembly point before the gate and go in as one. Weighed one
+				// county's company at a time, a lord with five hundred men spread over six counties
+				// never liked his chances against a town of eighty-five and never came.
+				Dictionary<string, int> everyone = Roster(Free(turns, realm));
+				(target, odds) = ProvinceEconomy.Men(everyone) < b.LordLeastHost
+					? (null, 0f)
+					: Prize(turns, army, everyone, realm, b, skill);
+				if (target == null || odds < b.LordAttackOdds[skill])
+				{
+					continue;
+				}
+
+				// Those already gathered before the gate, with this one: enough to go in, or wait.
+				var gathered = new Dictionary<string, int>(together);
+				foreach (FieldArmy other in Free(turns, realm))
+				{
+					if (!host.Contains(other) && Pixel(other).DistanceTo(_towns[target]) <= Gathering)
+					{
+						foreach ((string unit, int men) in other.Men)
+						{
+							gathered[unit] = gathered.GetValueOrDefault(unit) + men;
+						}
+					}
+				}
+
+				stopShort = Odds(turns, gathered, target, walls: false, b, marched: true) < b.LordAttackOdds[skill];
 			}
 
 			foreach (FieldArmy company in host)
 			{
-				Walk(turns, company, target, walked);
+				Walk(turns, company, target, walked, stopShort);
 			}
 
 			if (army.County == target && Pixel(army).DistanceTo(_towns[target]) <= _reach)
@@ -119,31 +161,112 @@ public sealed class LordsCampaign
 		return news;
 	}
 
-	/// <summary>Companies raised by the same county and standing at home fall in under one banner
-	/// before anybody marches: a lord who sends his army out one company at a time loses it that way.
-	/// Only the same county's: a merged company is paid and fed by the county it merged into, and
-	/// merging every county's men into one host put the whole war on one county's granary.
-	/// Companies of different counties join at the gate they are all marching on (<see cref="Muster"/>).</summary>
+	/// <summary>A lord who holds more counties than he did last season took one, and sits down to
+	/// settle it for LordSettles seasons.</summary>
+	private void Settle(TurnManager turns, GameBalance b, int skill)
+	{
+		var now = new Dictionary<string, int>();
+		foreach (ProvinceEconomy county in turns.Provinces)
+		{
+			now[county.Realm] = now.GetValueOrDefault(county.Realm) + 1;
+		}
+
+		foreach ((string realm, int held) in now)
+		{
+			if (_held.TryGetValue(realm, out int before) && held > before)
+			{
+				_settledBy[realm] = turns.Turn + b.LordSettles[skill];
+			}
+		}
+
+		_held.Clear();
+		foreach ((string realm, int held) in now)
+		{
+			_held[realm] = held;
+		}
+	}
+
+	/// <summary>Every company of the same lord standing in the same county falls in under one banner
+	/// — the largest — before anybody marches: a lord who sends his army out one company at a time
+	/// loses it that way, and a map with a banner for every levy is a map nobody can read. A merged
+	/// company is fed by the county that raised the largest of them.</summary>
 	private static void Gather(TurnManager turns)
 	{
-		var hosts = new Dictionary<string, FieldArmy>();
-		foreach (FieldArmy army in turns.Armies())
+		var companies = turns.Armies().FindAll(army => army.Strength > 0 && turns.RealmOf(army) != turns.PlayerRealm
+			&& Besieging(turns, army).Length == 0);
+		companies.Sort((x, y) => y.Strength != x.Strength ? y.Strength.CompareTo(x.Strength) : string.CompareOrdinal(x.Key, y.Key));
+		var hosts = new Dictionary<(string Realm, string County), FieldArmy>();
+		foreach (FieldArmy army in companies)
 		{
-			if (army.Strength == 0 || turns.RealmOf(army) == turns.PlayerRealm || army.County != army.Home
-				|| Besieging(turns, army).Length > 0)
-			{
-				continue;
-			}
-
-			if (hosts.TryGetValue(army.Home, out FieldArmy host))
+			var where = (turns.RealmOf(army), army.County);
+			if (hosts.TryGetValue(where, out FieldArmy host))
 			{
 				turns.Merge(host, army);
 			}
 			else
 			{
-				hosts[army.Home] = army;
+				hosts[where] = army;
 			}
 		}
+	}
+
+	/// <summary>A lord's smaller companies march to join his main host, wherever it stands, so his men
+	/// are one army and not a banner in every county. They stop short of a gate the host is waiting
+	/// before, and fall in with it the season they share its county (<see cref="Gather"/>).</summary>
+	private void Rally(TurnManager turns, List<RivalMarch> walked, HashSet<FieldArmy> marched)
+	{
+		var mains = new Dictionary<string, FieldArmy>();
+		foreach (FieldArmy army in turns.Armies())
+		{
+			string realm = turns.RealmOf(army);
+			if (army.Strength == 0 || realm == turns.PlayerRealm || realm.Length == 0 || Besieging(turns, army).Length > 0)
+			{
+				continue;
+			}
+
+			if (!mains.TryGetValue(realm, out FieldArmy main) || army.Strength > main.Strength)
+			{
+				mains[realm] = army;
+			}
+		}
+
+		foreach (FieldArmy army in new List<FieldArmy>(turns.Armies()))
+		{
+			string realm = turns.RealmOf(army);
+			if (!mains.TryGetValue(realm, out FieldArmy main) || army == main || army.Strength == 0
+				|| army.County == main.County || Besieging(turns, army).Length > 0 || !_towns.ContainsKey(main.County))
+			{
+				continue;
+			}
+
+			bool ours = turns.AnyProvince(main.County)?.Realm == realm;
+			Walk(turns, army, main.County, walked, gather: !ours);
+			marched.Add(army);
+		}
+	}
+
+	/// <summary>How far from a gate a lord's companies gather before they go in together: a morning's
+	/// march, far enough that the town does not turn out on them.</summary>
+	private float Gathering => _reach * 4f;
+
+	/// <summary>Every company of a lord's that can be sent: in the field, with men in it, and not
+	/// keeping a siege.</summary>
+	private static List<FieldArmy> Free(TurnManager turns, string realm) =>
+		turns.Armies().FindAll(army => army.Strength > 0 && turns.RealmOf(army) == realm
+			&& Besieging(turns, army).Length == 0);
+
+	private static Dictionary<string, int> Roster(List<FieldArmy> companies)
+	{
+		var all = new Dictionary<string, int>();
+		foreach (FieldArmy company in companies)
+		{
+			foreach ((string unit, int men) in company.Men)
+			{
+				all[unit] = all.GetValueOrDefault(unit) + men;
+			}
+		}
+
+		return all;
 	}
 
 	/// <summary>This company and every other of the same lord standing in the same county, not
@@ -155,31 +278,36 @@ public sealed class LordsCampaign
 			&& turns.RealmOf(other) == realm && Besieging(turns, other).Length == 0);
 	}
 
-	/// <summary>Every company of the lord's standing at this gate falls in with the one about to fight
-	/// for it, so the day is fought with all of them rather than one at a time.</summary>
+	/// <summary>Every company of the lord's gathered before this gate falls in with the one about to
+	/// fight for it, so the day is fought with all of them rather than one at a time.</summary>
 	private void Muster(TurnManager turns, FieldArmy army, string county)
 	{
 		string realm = turns.RealmOf(army);
 		foreach (FieldArmy other in turns.Armies())
 		{
 			if (other != army && other.Strength > 0 && other.County == county && turns.RealmOf(other) == realm
-				&& Pixel(other).DistanceTo(_towns[county]) <= _reach && Besieging(turns, other).Length == 0)
+				&& Pixel(other).DistanceTo(_towns[county]) <= Gathering && Besieging(turns, other).Length == 0)
 			{
 				turns.Merge(army, other);
 			}
 		}
 	}
 
-	/// <summary>The nearest county he can walk to that is not his and that his difficulty lets him
-	/// want. Straight-line nearest first; the road is only asked of the first few.</summary>
-	private string Prize(TurnManager turns, FieldArmy army, string realm, GameBalance b, int skill)
+	/// <summary>How many of the nearest counties he wants he weighs before choosing one.</summary>
+	private const int PrizesWeighed = 3;
+
+	/// <summary>The counties he could want: not his, somebody's to take — a county the map draws and
+	/// no economy describes cannot change hands, and a company once sat in one for twenty years — and
+	/// the player's only if his difficulty lets him. Nearest first.</summary>
+	private List<string> Wanted(TurnManager turns, FieldArmy army, string realm, GameBalance b, int skill)
 	{
 		Vector2 here = Pixel(army);
 		var wanted = new List<string>();
 		foreach ((string county, Vector2 _) in _towns)
 		{
 			string holder = turns.AnyProvince(county)?.Realm ?? "";
-			if (holder == realm || (holder == turns.PlayerRealm && b.LordWillAttackPlayer[skill] == 0))
+			if (holder == realm || !turns.CanBeTaken(county)
+				|| (holder == turns.PlayerRealm && b.LordWillAttackPlayer[skill] == 0))
 			{
 				continue;
 			}
@@ -187,32 +315,82 @@ public sealed class LordsCampaign
 			wanted.Add(county);
 		}
 
+		// The empty country first: while any county is still nobody's, the player's are not on his
+		// list. He grows on what is free for the taking, and comes for the player once there is
+		// nothing else left — which gives a lord who moves quickly the same country to race him for.
+		bool free = wanted.Exists(county => turns.AnyProvince(county) == null);
+		if (free)
+		{
+			wanted.RemoveAll(county => turns.AnyProvince(county)?.Realm == turns.PlayerRealm);
+		}
+
 		wanted.Sort((x, y) =>
 		{
 			int nearer = here.DistanceSquaredTo(_towns[x]).CompareTo(here.DistanceSquaredTo(_towns[y]));
 			return nearer != 0 ? nearer : string.CompareOrdinal(x, y);
 		});
+		return wanted;
+	}
 
-		for (int tried = 0; tried < wanted.Count && tried < 3; tried++)
+	/// <summary>The gate of a county he wants, if the company is standing at one.</summary>
+	private string AtGate(TurnManager turns, FieldArmy army, string realm, GameBalance b, int skill)
+	{
+		foreach (string county in Wanted(turns, army, realm, b, skill))
 		{
-			if (army.County == wanted[tried] || _way(here, _towns[wanted[tried]]).Count > 0)
+			if (army.County == county && Pixel(army).DistanceTo(_towns[county]) <= _reach)
 			{
-				return wanted[tried];
+				return county;
 			}
 		}
 
 		return null;
 	}
 
-	/// <summary>As far along the road as this season's legs carry them.</summary>
-	private void Walk(TurnManager turns, FieldArmy army, string target, List<RivalMarch> walked)
+	/// <summary>Of the few nearest counties he can walk to, the one his host would most surely take —
+	/// so a strong neighbour does not stop his war dead while a weak one sits two valleys over.
+	/// Nearer wins a tie.</summary>
+	private (string County, float Odds) Prize(TurnManager turns, FieldArmy army, Dictionary<string, int> host,
+		string realm, GameBalance b, int skill)
+	{
+		Vector2 here = Pixel(army);
+		string best = null;
+		float bestOdds = -1f;
+		int weighed = 0;
+		foreach (string county in Wanted(turns, army, realm, b, skill))
+		{
+			if (weighed == PrizesWeighed)
+			{
+				break;
+			}
+
+			if (army.County != county && _way(here, _towns[county]).Count == 0)
+			{
+				continue;
+			}
+
+			weighed++;
+			float odds = Odds(turns, host, county, walls: false, b, marched: true);
+			if (odds > bestOdds)
+			{
+				best = county;
+				bestOdds = odds;
+			}
+		}
+
+		return (best, bestOdds);
+	}
+
+	/// <summary>As far along the road as this season's legs carry them — or, <paramref name="gather"/>,
+	/// no nearer the gate than the assembly point, to wait there for the rest of the host.</summary>
+	private void Walk(TurnManager turns, FieldArmy army, string target, List<RivalMarch> walked, bool gather = false)
 	{
 		Vector2 from = Pixel(army);
 		List<(Vector2 At, float Spent)> road = _way(from, _towns[target]);
 		int halt = -1;
 		for (int step = 0; step < road.Count; step++)
 		{
-			if (road[step].Spent <= army.MarchLeft)
+			bool tooNear = gather && road[step].At.DistanceTo(_towns[target]) < Gathering * 0.6f;
+			if (road[step].Spent <= army.MarchLeft && !tooNear)
 			{
 				halt = step;
 			}
@@ -283,6 +461,7 @@ public sealed class LordsCampaign
 	private static void Strike(TurnManager turns, FieldArmy army, string county, Vector2 at, bool walls,
 		List<FiredEvent> news)
 	{
+		string realm = turns.RealmOf(army);
 		bool players = turns.AnyProvince(county)?.Realm == turns.PlayerRealm;
 		Defenders before = turns.DefendersOf(county);
 		int came = army.Strength;
@@ -290,6 +469,19 @@ public sealed class LordsCampaign
 		Battle.Result day = turns.Attack(army, county, at, walls);
 		if (!players)
 		{
+			// Somebody else's county, or nobody's: not a fight in his hall, but the race for the
+			// country is, and a player who cannot see his rival growing does not know he is in one.
+			if (turns.AnyProvince(county)?.Realm == realm)
+			{
+				Tell(turns, county, "rival-took", news, new Dictionary<string, string>
+				{
+					["county"] = county,
+					["came"] = $"{came}",
+					["theirs"] = $"{Holding(turns, realm)}",
+					["ours"] = $"{Holding(turns, turns.PlayerRealm)}",
+				});
+			}
+
 			return;
 		}
 
@@ -311,6 +503,9 @@ public sealed class LordsCampaign
 			["walls"] = $"{ProvinceEconomy.Men(after.Castle)}",
 		});
 	}
+
+	private static int Holding(TurnManager turns, string realm) =>
+		turns.Provinces.Count(county => county.Realm == realm);
 
 	/// <summary>A roll of the dead, the way a steward reads it: how many, then how many of each.</summary>
 	private static string Fallen(Dictionary<string, int> losses)
@@ -342,12 +537,12 @@ public sealed class LordsCampaign
 		men == 1 || name.EndsWith("men") || name.EndsWith("s") || name.EndsWith("ry") ? name : name + "s";
 
 	/// <summary>Tells the player about his county, the steward's numbers written into the line.
-	/// Only his: a rival's war with the neutral country is not news in his hall.</summary>
+	/// Only his, and a rival's conquests: who fights whom elsewhere is not news in his hall.</summary>
 	private static void Tell(TurnManager turns, string county, string id, List<FiredEvent> news,
 		Dictionary<string, string> fill)
 	{
 		GameEvent said = EventEngine.Find(id);
-		if (said == null || (turns.AnyProvince(county)?.Realm != turns.PlayerRealm && id != "county-lost"))
+		if (said == null || (turns.AnyProvince(county)?.Realm != turns.PlayerRealm && id is not ("county-lost" or "rival-took")))
 		{
 			return;
 		}

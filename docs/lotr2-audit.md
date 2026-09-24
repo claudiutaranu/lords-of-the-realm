@@ -255,21 +255,21 @@ altfel dacă fericirea ≤ 35:           pop -= Round(pop × 1,2% × (1 + 2 × a
 
 ## Muncă: 9 joburi și alocatorul
 
-La noi sunt **6 joburi**: grâne, vite, lemn, piatră, fier, zidari (`ProvinceEconomy.GrainWorkers…BuildWorkers`),
-iar Idle rezultă din diferență (`Workers − AllocatedWorkers`, `ProvinceEconomy.cs:538-545`). Recuperarea
-câmpurilor nu e job separat: o fac grânarii în plus (`EconomySimulation.cs:186`). Fierarul nu e job deloc
-(`ForgeWeapons` doar numără ture).
+Rescris după checklist în `Labour.cs` (2026-09-24).
 
-- [ ] DIFERIT — `ProvinceEconomy.cs` (`*Workers`), `EconomySimulation.cs:63` `Demand` — Fiecare job are doar `workers`, iar plafonul (`Demand`) se calculează la cerere. Nu există `wanted` și nici un `usefulCeiling` salvat.
-- [ ] DIFERIT — `EconomySimulation.cs:63-71` — Plafonul grânelor e `câmpuri × GrainWorkersPerField[sezon] + FieldRepair` (tabel pe sezon), iar la vite `Ceil(vite / CowsPerHerder)`. Niciunul nu e găsit prin căutarea pe `workers = 0…pop`. Lemnul, piatra și fierul au plafonul capacității din `ProvinceDefinition` (`*WorkerCapacity`), finit, nu 100.000. Nu există industrie oprită.
-- [ ] DIFERIT — `ProvinceEconomy.cs:418` (`float LabourSplit`), `EconomySimulation.cs:727` `Split` — Există un singur raport `float` câmp/industrie. În interiorul fiecărei jumătăți oamenii se împart proporțional cu plafonul (`Spread`, `:760`). Nu există cele 8 procente salvate și nici `industryShare` de start 25%: la start, `Deploy` (`:707`) umple întâi grânele, apoi vitele, lemnul, fierul, piatra.
-- [ ] DIFERIT — `EconomySimulation.cs:760` `Spread` — Toți oamenii unei jumătăți sunt puși pe joburi, **inclusiv peste plafon**, unde doar sunt numărați ca Idle (`Idle`, `:103`). Nu se mută pe joburile cu loc, nu există ture de redistribuire (5 pentru grâne și vite la una pentru recuperare) și nu există Idle ca job.
-- [ ] DIFERIT — `EconomyCheck.cs:215`, `:249`, `:255` — Invariantul testat e `alocați ≤ populație`, nu `suma celor 9 == populație`. Egalitatea iese oricum prin definiție, pentru că Idle e diferența. Nu e verificat în fiecare comitat și în fiecare sezon.
-- [x] OK — `EconomySimulation.cs:760` — Alocatorul citește doar plafonul (`Demand`). `wanted` nici nu există.
-- [ ] DIFERIT — `UI/LabourBar.cs:76`, `TurnManager.cs:815`, `EconomySimulation.cs:676` — Alocatorul (`Split`) rulează **doar când jucătorul mută bara**. În pipeline nu rulează deloc: alocarea jucătorului se păstrează de la un sezon la altul, iar `FitWorkforce` doar taie surplusul când populația scade. `SetField` nu realocă. AI-ul realocă prin `LordAI`.
-- [ ] DIFERIT — `UI/LabourPage.cs`, `UI/LabourBar.cs` — Plăcuțele pun direct numărul de muncitori pe job, nu rescriu procente. Industriile nu au on/off, deci nu se pot porni prin drag.
-- [ ] DIFERIT [I] — `EconomySimulation.cs:57` `Masons`, `UI/FortificationsPage.cs:810-812` — Materialele se plătesc integral la comandă, deci zidarii pot lucra din primul sezon (plafon = `BuildLeft`). Diferență notată, dar nenumărată ca greșeală (item [I]).
-- [ ] DIFERIT — `EconomySimulation.cs:103` `Idle` — Surplusul peste plafon e numărat ca Idle, ca în original. Nu există însă pragul roșu cu figuri fantomă, care cere `wanted`, și nici regula de o iconiță la `ceil(pop/25)` oameni.
+- [x] OK — 9 joburi: grâne, vite, recuperare (`ReclaimWorkers`), castel, fier, piatră, lemn, fierar (`SmithWorkers`), Idle = restul.
+- [x] OK — `IndustryShare` (start 25%) + procente salvate pe fiecare jumătate (`Shares`); fiecare job primește `Pct(jumătate, share)` sau plafonul; resturile se plimbă în jumătate (grâne și vite 5 ture la una a recuperării); restul e Idle.
+- [x] OK — Realocare de la zero de 2 ori pe sezon (`RunTurn` după castel și după populație) + la sfârșitul sezonului în `TurnManager`, după bară, după on/off și după comenzile fierăriei.
+- [x] OK — Plafon util: fier/piatră/lemn `Bottomless` (100.000) dacă există și sunt pornite, 0 altfel; grâne și vite după cererea sezonului.
+- [x] OK — On/off pe fier, piatră, lemn, fierar (`Shut`); a cere oameni la un sit oprit îl pornește.
+- [x] OK — Mutarea unei figuri rescrie procentele (`Labour.Ask`).
+- [x] OK — Eficiență per sit: 15% la start, crește compus cât are măcar un om, revine la 15% la zero. Rata de creștere (`SiteEfficiencyGrowth`) e presupusă [I].
+- [x] OK — Invariant testat pe 8 sezoane: fiecare om pe un singur job, niciun job peste plafon.
+- [x] OK — O iconiță = `ceil(pop/25)` oameni (`WorkerFigures`), figuri fantomă sub prag.
+- [ ] DIFERIT — Plafonul grânelor și al vitelor e cererea sezonului din modelul nostru, nu căutarea pe `workers = 0…pop` (modelul de grâne și de vite e încă al nostru, vezi secțiunile lor).
+- [ ] DIFERIT [I] — Zidarii pot lucra din primul sezon: materialele se plătesc la comandă.
+- [ ] DIFERIT [I] — Procentele de start pe fiecare jumătate nu sunt cunoscute (`Labour.Opening`). Siturile unui comitat nou încep la 100% eficiență, nu la 15%.
+- [ ] DIFERIT — Figurile se mută cu −/+, nu prin drag.
 
 ## Câmpuri, grâne, fertilitate, vreme
 
@@ -313,7 +313,7 @@ fiecare câmp (`ProvinceEconomy.cs:433-434`). Nu există tile-uri, deșert sau v
 - [ ] LIPSĂ — Benzile Flooding…Drought și regulile pentru Frost.
 - [ ] LIPSĂ — „Fără Advanced Farming vremea e mereu Cloudy”: nu există nici vremea, nici opțiunea.
 - [ ] DIFERIT — `EventEngine.cs:213-236` — Inundația (doar primăvara) și seceta (doar vara) sunt evenimente random ponderate (`FloodWeight`, `DroughtWeight`, `GameBalance.cs:202-203`), nu benzi de vreme, și nu strică niciun câmp în deșert.
-- [ ] DIFERIT — `EventEngine.cs:219-224`, `:236`, `GameBalance.cs:225`, `:233` — Efectele pe grâne sunt: inundația șterge toată cultura și ia 0,15 din fertilitate, seceta ia 50% din cultură. Nu există tabelul pe semănat, creștere și recoltă (Flooding ¼, Frost/Storms ½, Sunny ×3/2, Drought ½). [D]
+- [ ] DIFERIT — `EventEngine.cs:219-224`, `:236`, `GameBalance.cs:225`, `:233` — Efectele pe grâne sunt: inundația face deșert un câmp de grâne (cel mai sleit, `EconomySimulation.Flood`) și ia doar cultura lui, cu 400 om-sezon de recuperare pe câmp; seceta ia 50% din cultură și nu strică niciun câmp. Nu există tabelul pe semănat, creștere și recoltă (Flooding ¼, Frost/Storms ½, Sunny ×3/2, Drought ½). [D]
 
 ## Vite
 
@@ -358,7 +358,8 @@ Nu există mortalitate: vitele scad doar prin tăiere (`Eat`) și evenimente (mu
 - [ ] DIFERIT [I] — `data/fortifications.json` — Costuri: palisadă 200 lemn; medium-fort 400 lemn + 60 piatră; large-fort 700 lemn + 150 piatră + 40 fier; small-castle 300 piatră + 120 lemn + 30 fier; medium-castle 600 piatră + 220 lemn + 80 fier; large-castle 1000 piatră + 350 lemn + 160 fier; grand-castle 1500 piatră + 500 lemn + 280 fier. Lista are Palisade 40/400 … Royal 3000/800 (piatră/lemn), fără fier. Diferență notată, nenumărată ca greșeală (item [I]).
 - [ ] DIFERIT — `UI/FortificationsPage.cs:801-816`, `EconomySimulation.cs:545` — Materialele se plătesc integral la comandă, din UI, deci zidarii lucrează din primul sezon. Nu există livrare de materiale și nici oprirea construcției: `Building` se golește doar la final (`EconomySimulation.cs:564`).
 - [ ] DIFERIT — `UI/FortificationsPage.cs:803-804`, `data/fortifications.json:2` („the cost is the whole thing, not the difference”) — Poți construi orice treaptă diferită de cea curentă, deci și downgrade. Costul e însă mereu prețul întreg al treptei noi: downgrade-ul nu eliberează materiale.
-- [ ] LIPSĂ — Castelul nou nu vine cu garnizoană gratuită de arcași scăzută din populație. Garnizoana (`ProvinceEconomy.Castle`) se ia din companii prin `FortificationsPage` (`Muster`/`Mustered`) și nu există capacitate per tip.
+- [ ] LIPSĂ — Castelul nou nu vine cu garnizoană gratuită de arcași scăzută din populație. Garnizoana (`ProvinceEconomy.Castle`) se ia din companii prin `FortificationsPage` (`Muster`/`Mustered`).
+- [x] OK — Capacitatea per tip, ca în original (`data/fortifications.json` "garrison"): Palisade 150, Motte & Bailey 200, Norman Keep 200, Stone Castle 400, Royal Castle 600. Între Motte & Bailey și Stone Castle scara urcă din 50 în 50 (Wooden Keep 250, Small Keep 300, Keep 350), deci Keep-ul nostru ține 350, nu 200 cât Norman Keep — decizie de design. Cifrele vin din ghidurile comunității, confirmate de două căutări, dar necitite direct într-un ghid [I].
 - [ ] LIPSĂ — Nu există daune la castel și nici reparații după asediu.
 - [ ] LIPSĂ — Nu există scor, deci nici regula „castel în construcție nu contează”.
 - [ ] LIPSĂ — Nu avem designer de castel. Lista permite omiterea lui în v1.
@@ -376,7 +377,7 @@ fiecare comitat deținut, după economia lui:
 | Eveniment | Pondere | Condiție | Efect imediat |
 | --- | --- | --- | --- |
 | plague | 1 (flămând: `PlagueWeightHungry`) | oricând | −9% pop/sezon × 3, −6 fericire |
-| flood | 2 | primăvara, cu cultură în picioare | cultura = 0, 400 om-sezon de recuperare, −fertilitate |
+| flood | 2 | primăvara, cu cultură în picioare | un câmp de grâne → `FieldUse.Waste` (cu cultura lui), 400 om-sezon de recuperare, apoi fallow |
 | drought | 2 | vara, cu cultură | −50% cultură |
 | rats | 3 | grâne > `RatsGranary` | −25% grâne |
 | murrain | 3 | vite > pășuni × `CowsPerField` | −30% vite |

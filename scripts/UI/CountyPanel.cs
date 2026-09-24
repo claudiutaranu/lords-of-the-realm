@@ -1,7 +1,8 @@
 using Godot;
 
-/// <summary>The shell every county table is served on: the map dimmed behind it, one framed column
-/// in the middle of the screen with the county's name in gold at the top, and a way out of it.
+/// <summary>The shell every county table is served on: the map dimmed behind it, one column in the
+/// painted frame every modal wears (Chrome.Painted) with the county's name on its ribbon, and a way
+/// out of it.
 ///
 /// Here rather than copied into each table because the way out is the part that goes wrong. Three
 /// panels written separately are three chances for one of them to swallow Escape, or to leave the
@@ -41,7 +42,7 @@ public abstract partial class CountyPanel : Control
 
 		Column = new VBoxContainer { CustomMinimumSize = new Vector2(Width, 0) };
 		Column.AddThemeConstantOverride("separation", 12);
-		centred.AddChild(Chrome.Framed(Column, 26));
+		centred.AddChild(Chrome.Painted(Column));
 
 		_county = Chrome.Line("", 32, Chrome.Cream);
 		_county.HorizontalAlignment = HorizontalAlignment.Center;

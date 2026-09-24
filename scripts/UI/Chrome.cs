@@ -78,6 +78,43 @@ public static class Chrome
 		return panel;
 	}
 
+	/// <summary>The painted frame the army's table is served on (assets/ui/army-panel.png, cut to
+	/// its border and drawn at half size as assets/ui/modal-frame.png), put round any modal's column:
+	/// the gold corners and the ribbon keep their shape and only the blue between them stretches, so
+	/// a two-line question and a county's whole ledger wear the same frame. The column's first line
+	/// is its title and sits on the ribbon.</summary>
+	public static PanelContainer Painted(Control content)
+	{
+		// Never so narrow that the ribbon, which stretches with the frame, is shorter than a title.
+		var panel = new PanelContainer
+		{
+			MouseFilter = Control.MouseFilterEnum.Stop,
+			CustomMinimumSize = new Vector2(PaintedLeast, 0),
+		};
+		panel.AddThemeStyleboxOverride("panel", PaintedStyle());
+		panel.AddChild(content);
+		return panel;
+	}
+
+	/// <summary>The painted frame on its own, for a panel laid out in a scene rather than in code.</summary>
+	public static StyleBoxTexture PaintedStyle() => new()
+	{
+		// Out to where the ribbon begins on either side, and down to under it: the corners and the
+		// ribbon are never stretched, only the plain field and the plain rails.
+		Texture = GD.Load<Texture2D>(ModalFramePath),
+		TextureMarginLeft = 128,
+		TextureMarginRight = 128,
+		TextureMarginTop = 84,
+		TextureMarginBottom = 44,
+		ContentMarginLeft = 44,
+		ContentMarginRight = 44,
+		ContentMarginTop = 30,
+		ContentMarginBottom = 40,
+	};
+
+	private const string ModalFramePath = "res://assets/ui/modal-frame.png";
+	private const float PaintedLeast = 660f;
+
 	/// <summary>A hairline of the same gold the frames use, for a rule under a heading.</summary>
 	public static Control Rule(int width) => new ColorRect
 	{

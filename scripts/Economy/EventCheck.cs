@@ -54,19 +54,6 @@ public partial class EventCheck : Node
 		var taxed = new TurnSummary { LoyaltyBefore = 26f, LoyaltyAfter = 20f, LoyaltyFromTax = -10f, LoyaltyFromRations = -0f };
 		Is("the tax is named when the tax did it", Told(p, b, taxed), "unrest-taxes");
 
-		// Same county, same unrest, but the sons taken for the army cost more than the tax did.
-		p = Province();
-		p.Loyalty = 20f;
-		var levied = new TurnSummary { LoyaltyBefore = 26f, LoyaltyAfter = 20f, LoyaltyFromTax = -4f, LoyaltyFromConscription = -9f };
-		Is("the intake is named when the intake did it", Told(p, b, levied), "unrest-conscription");
-
-		// Men billeted on the village, when they weigh heavier than the tax that pays for them. A
-		// lord told it is the tax will cut the tax, keep the garrison, and wonder why nothing moved.
-		p = Province();
-		p.Loyalty = 20f;
-		var billeted = new TurnSummary { LoyaltyBefore = 26f, LoyaltyAfter = 20f, LoyaltyFromTax = -2f, LoyaltyFromGarrison = -6f };
-		Is("the garrison is named when the garrison did it", Told(p, b, billeted), "unrest-garrison");
-
 		// What the lord is doing two counties away, when that is the heaviest thing on this one. He
 		// must not be told to cut a tax he never levied here — the rate in front of him is fair, and
 		// cutting it further would do nothing at all for the grievance he actually has.
@@ -99,8 +86,8 @@ public partial class EventCheck : Node
 		{
 			LoyaltyBefore = 9f,
 			LoyaltyAfter = 0f,
-			LoyaltyFromStarvation = -18f,
-			FoodShort = 0, // the famine line is not what is under test here
+			LoyaltyFromRations = -18f,
+			Achieved = RationLevel.Normal, // the famine line is not what is under test here
 		};
 		Is("so a revolt over hunger says nothing at all", Told(p, b, starved), "");
 	}
@@ -314,8 +301,8 @@ public partial class EventCheck : Node
 	{
 		LoyaltyBefore = province.Loyalty,
 		LoyaltyAfter = province.Loyalty,
-		FoodShort = 40,
-		LoyaltyFromStarvation = -12f,
+		Achieved = RationLevel.Quarter,
+		LoyaltyFromRations = -5f,
 	};
 
 	/// <summary>A season where the people have no complaint, so only the world's half can speak.</summary>

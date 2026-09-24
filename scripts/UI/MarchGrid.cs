@@ -92,8 +92,11 @@ public sealed class MarchGrid
 	public List<(Vector2 At, float Spent)> Way(Vector2 from, Vector2 to, float budget)
 	{
 		var none = new List<(Vector2, float)>();
-		int start = CellOf(from);
-		int goal = CellOf(to);
+		// An army can come to rest a step off the walkable ground — on the shoulder of a mountain road —
+		// and a click can land on a crag beside the path. Both are read as the nearest ground a man
+		// can stand on, or an army halted there could never be moved again.
+		int start = Footing(CellOf(from));
+		int goal = Footing(CellOf(to));
 		if (start < 0 || goal < 0 || _cost[start] <= 0f || _cost[goal] <= 0f)
 		{
 			return none;
@@ -203,6 +206,35 @@ public sealed class MarchGrid
 
 	private Vector2 Middle(int across, int down) =>
 		new((across + 0.5f) * CellSize, (down + 0.5f) * CellSize);
+
+	/// <summary>The cell itself if it can be stood on, else the nearest one within two cells that can.</summary>
+	private int Footing(int cell)
+	{
+		if (cell < 0 || _cost[cell] > 0f)
+		{
+			return cell;
+		}
+
+		int across = cell % _across;
+		int down = cell / _across;
+		for (int reach = 1; reach <= 2; reach++)
+		{
+			for (int dy = -reach; dy <= reach; dy++)
+			{
+				for (int dx = -reach; dx <= reach; dx++)
+				{
+					int x = across + dx;
+					int y = down + dy;
+					if (x >= 0 && y >= 0 && x < _across && y < _down && _cost[(y * _across) + x] > 0f)
+					{
+						return (y * _across) + x;
+					}
+				}
+			}
+		}
+
+		return cell;
+	}
 
 	private int CellOf(Vector2 pixel)
 	{

@@ -77,8 +77,8 @@ public static class Battle
 	}
 
 	private static Terms Open(Defenders against, bool marched, GameBalance b) =>
-		new(b.TownDefence * Heart(against.Loyalty, b), int.MaxValue, 1f, Legs(marched, b), 1f,
-			b.BattleBite, false);
+		new(against.InOpenCountry ? 1f : b.TownDefence * Heart(against.Loyalty, b), int.MaxValue, 1f,
+			Legs(marched, b), 1f, b.BattleBite, false);
 
 	private static Terms Walls(Defenders against, bool marched, GameBalance b)
 	{

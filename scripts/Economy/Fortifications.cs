@@ -32,12 +32,12 @@ public static class Fortifications
 	/// file lists them, which is the order a lord climbs it; <paramref name="Cost"/> is what it takes
 	/// out of the county's stores, paid in full when ordered. <paramref name="Garrison"/> is how many
 	/// men it has room for.</summary>
-	public readonly record struct Wall(string Name, float Tax, float Defence, int Frontage, int Stores,
+	public readonly record struct Wall(string Name, int TaxBase, float Defence, int Frontage, int Stores,
 		int Garrison, int Rung, int Seasons, Dictionary<string, int> Cost);
 
 	/// <summary>Open ground: no bonus, and every man an attacker has can be brought to bear at once.
 	/// What a village with no walls answers to, and what an unreadable key answers to as well.</summary>
-	private static readonly Wall None = new("open ground", 0f, 1f, int.MaxValue, 0, 0, -1, 0,
+	private static readonly Wall None = new("open ground", OpenGroundTaxBase, 1f, int.MaxValue, 0, 0, -1, 0,
 		new Dictionary<string, int>());
 
 	private static Dictionary<string, Wall> _walls;
@@ -64,9 +64,11 @@ public static class Fortifications
 		return _walls.TryGetValue(fortification, out Wall wall) ? wall : None;
 	}
 
-	/// <summary>How much a fortification adds to what the province collects, as a fraction of the
-	/// tax it would take without one.</summary>
-	public static float TaxBonus(string fortification) => Of(fortification).Tax;
+	/// <summary>What a hundred heads pay at a rate of one behind these walls (Livelihood.TaxDue).</summary>
+	public static int TaxBase(string fortification) => Of(fortification).TaxBase;
+
+	/// <summary>The original's figure for a county with no walls at all.</summary>
+	public const int OpenGroundTaxBase = 320;
 
 	private static Dictionary<string, Wall> Read()
 	{
@@ -96,7 +98,7 @@ public static class Fortifications
 				string key = fort["key"].AsString();
 				walls[key] = new Wall(
 					fort["name"].AsString(),
-					fort.TryGetValue("tax", out Variant tax) ? (float)tax : 0f,
+					fort.TryGetValue("taxBase", out Variant taxBase) ? (int)taxBase : OpenGroundTaxBase,
 					fort.TryGetValue("defence", out Variant defence) ? (float)defence : 1f,
 					fort.TryGetValue("frontage", out Variant frontage) ? (int)frontage : int.MaxValue,
 					fort.TryGetValue("stores", out Variant stores) ? (int)stores : 0,

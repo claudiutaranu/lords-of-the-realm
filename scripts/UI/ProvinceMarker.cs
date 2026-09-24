@@ -36,6 +36,18 @@ public partial class ProvinceMarker : Control
 		MouseFilter = MouseFilterEnum.Ignore;
 	}
 
+	/// <summary>Repaints the ring in whoever holds the county now.</summary>
+	public void SetHolder(Color fill)
+	{
+		if (_fill == fill)
+		{
+			return;
+		}
+
+		_fill = fill;
+		QueueRedraw();
+	}
+
 	/// <summary>Hangs a mark over the county — soldiers standing in it this season, and nothing else
 	/// so far. Null takes it down again. Drawn outside the control's own box on purpose: the box is
 	/// the dot, and the dot is what the map pins to the ground.</summary>

@@ -104,7 +104,7 @@ public abstract partial class ProductionPage : RoomPage
 				// Optional: a room where things are made over seasons gives one, and the yard, which
 				// raises its men the day they are paid for, has nothing to give.
 				fields.TryGetValue("turns", out Variant turns) ? turns.AsInt32() : 0,
-				fields["batch"].AsInt32(),
+				fields.TryGetValue("batch", out Variant batch) ? batch.AsInt32() : 1,
 				cost));
 		}
 	}
@@ -298,7 +298,7 @@ public abstract partial class ProductionPage : RoomPage
 		Refresh();
 	}
 
-	protected bool CanAfford(Item item)
+	protected virtual bool CanAfford(Item item)
 	{
 		foreach ((string key, int _) in item.Cost)
 		{

@@ -43,13 +43,8 @@ project/assembly_name="Realm Prototype"
 
 [rendering]
 
-; Nothing was anti-aliased at all, which is Godot's default and was wrong for this map: a terrain
-; full of high-contrast rock-against-grass edges crawls with jaggies without it. MSAA answers the
-; silhouettes and TAA the shading, and the shading is most of it here — a rock/grass boundary is a
-; texture edge inside a triangle, which MSAA cannot see.
-anti_aliasing/quality/msaa_3d=2
-anti_aliasing/quality/use_taa=true
-anti_aliasing/quality/screen_space_aa=1
-
 rendering_device/driver.windows="d3d12"
+anti_aliasing/quality/msaa_3d=2
 environment/defaults/default_clear_color=Color(0, 0, 0, 1)
+anti_aliasing/quality/screen_space_aa=1
+anti_aliasing/quality/use_taa=true

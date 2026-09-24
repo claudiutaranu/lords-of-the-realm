@@ -28,7 +28,6 @@ public partial class CampaignMapPage : Control
 	private const string LeaveFarewellPath = "res://assets/audio/quit-farewell.mp3";
 	private const string OpeningVoicePath = "res://assets/audio/campaign-opening-briefing.mp3";
 	private const string SavingVoicePath = "res://assets/audio/saving-game.mp3";
-	private const string CastleCompleteVoicePath = "res://assets/audio/castle-complete.mp3";
 	private const string DisbandVoicePath = "res://assets/audio/disband-troops.mp3";
 	private const string SquareButtonPath = "res://assets/ui/button-square.png";
 	private const string MercenaryBadgePath = "res://assets/ui/icons/mercenaries.png";
@@ -98,6 +97,9 @@ public partial class CampaignMapPage : Control
 	/// <paramref name="MapPosition"/> is its seat — the pin, the end of its roads, where its army
 	/// stands; <paramref name="TownPosition"/> is where its village, fields and castle are laid out,
 	/// which is the seat itself unless the generator had to move the village clear of a cliff.</summary>
+	/// <summary>Which counties border which (provinces.json "neighbours"), for moving house.</summary>
+	private readonly Dictionary<string, List<string>> _neighbours = new();
+
 	private record ProvinceData(string Name, Vector2 MapPosition, string Realm, bool IsCapital, string EconomyFile,
 		Vector2 TownPosition);
 
@@ -146,9 +148,16 @@ public partial class CampaignMapPage : Control
 	/// away unpaid, so far. Shown once he is done talking.</summary>
 	private string _turnNote = "";
 
-	/// <summary>Whether the masons finished a wall this season, which the steward announces once the
-	/// advisor has had his say — spoken over him, one of the two would not be heard.</summary>
-	private bool _wallRaised;
+	/// <summary>The walls the masons finished this season in the lord's counties, announced once the
+	/// advisor has had his say — shown over him, one of the two would not be read.</summary>
+	private readonly List<(string County, string Fort, int OnTheWalls)> _wallsRaised = new();
+
+	private ConstructionPanel _construction;
+	private ConquestPanel _conquest;
+
+	/// <summary>The counties the lord held when last asked, for telling which of them are new.</summary>
+	private HashSet<string> _held;
+	private GarrisonPanel _garrison;
 
 	/// <summary>Whether the next click on a county is a destination rather than a selection. One flag
 	/// and not a mode with its own screen: the lord has already said march, and the only thing left
@@ -179,6 +188,13 @@ public partial class CampaignMapPage : Control
 	{
 		_map = GetNode<SubViewportContainer>("%Map");
 		_world = GetNode<CampaignMap3D>("%World");
+
+		// The sidebar covers the east of the screen; the camera is told how much, so the east coast
+		// can still be scrolled out from under it.
+		var furniture = GetNode<Control>("Sidebar");
+		void Covered() => _world.CoveredRight = furniture.Size.X / Mathf.Max(1f, GetViewportRect().Size.X);
+		furniture.Resized += Covered;
+		Covered();
 		_turnLabel = GetNode<Label>("%TurnValue");
 		_seasonLabel = GetNode<Label>("%SeasonValue");
 		_goldLabel = GetNode<Label>("%GoldValue");
@@ -230,6 +246,7 @@ public partial class CampaignMapPage : Control
 			unheld)
 		{
 			RivalWallsUpTo = _rivalWallsUpTo,
+			Neighbours = _neighbours,
 		};
 		// Read before the pending save is consumed: it is the only thing that tells a campaign
 		// being started from a campaign being resumed.
@@ -320,6 +337,18 @@ public partial class CampaignMapPage : Control
 		AddChild(_join);
 
 		// And what happens when the men standing there are somebody else's.
+		// The masons' news, in the frame every modal wears.
+		_construction = new ConstructionPanel();
+		AddChild(_construction);
+
+		// And a county taken, over everything.
+		_conquest = new ConquestPanel();
+		AddChild(_conquest);
+
+		// And the walls themselves, asked about with the right button.
+		_garrison = new GarrisonPanel();
+		AddChild(_garrison);
+
 		_battle = new BattlePanel();
 		AddChild(_battle);
 		_battle.Settled += () =>
@@ -334,6 +363,8 @@ public partial class CampaignMapPage : Control
 			{
 				SelectProvince(_markers.IndexOf(_selected));
 			}
+
+			Conquered();
 		};
 
 		// Which men stay and which walk off is the lord's to say, kind by kind, before anything moves.
@@ -395,10 +426,13 @@ public partial class CampaignMapPage : Control
 				_turnNote = "";
 			}
 
-			if (_wallRaised)
+			// A gate that opened to a siege over the season is a county taken too.
+			Conquered();
+
+			if (_wallsRaised.Count > 0)
 			{
-				Narrator.Say(CastleCompleteVoicePath);
-				_wallRaised = false;
+				_construction.Announce(new List<(string, string, int)>(_wallsRaised));
+				_wallsRaised.Clear();
 			}
 		};
 
@@ -414,6 +448,17 @@ public partial class CampaignMapPage : Control
 		endTurn.ActionMode = BaseButton.ActionModeEnum.Press;
 		endTurn.Pressed += AdvanceTurn;
 		_sectionPanel = GetNode<Control>("%SectionPanel");
+
+		// In the painted frame every modal wears, its title on the ribbon.
+		_sectionPanel.AddThemeStyleboxOverride("panel", Chrome.PaintedStyle());
+		_sectionPanel.CustomMinimumSize = new Vector2(660, 0);
+		var sectionMargin = GetNode<MarginContainer>("SectionPanel/SectionMargin");
+		foreach (string side in new[] { "left", "top", "right", "bottom" })
+		{
+			sectionMargin.AddThemeConstantOverride($"margin_{side}", 0);
+		}
+
+		GetNode<Label>("%SectionTitle").HorizontalAlignment = HorizontalAlignment.Center;
 		_sectionTitle = GetNode<Label>("%SectionTitle");
 		_sectionBody = GetNode<Label>("%SectionBody");
 		GoldTitle.Apply(_sectionTitle);
@@ -460,6 +505,7 @@ public partial class CampaignMapPage : Control
 		ShowFortifications();
 		ShowSettlements();
 		ShowArmies();
+		Conquered(); // takes note of what the lord opens with; nothing is announced
 
 		// The ground an army may cross, cut once the map and the ledger both exist: it needs the
 		// height of the land, the roads drawn on it, and which counties are already somebody's.
@@ -658,10 +704,12 @@ public partial class CampaignMapPage : Control
 		LayTrail(new List<(Vector2, float)>(), 0f);
 	}
 
-	/// <summary>How far past this season's legs a road is still worth working out, so the lord can be
-	/// shown where it goes and how far along it he would get. Not unbounded: a search told to find
-	/// the far side of the world will walk the whole map to say no.</summary>
-	private float Beyond(FieldArmy army) => army.MarchLeft * 4f;
+	/// <summary>How far a road is still worth working out, so the lord can be shown where it goes and
+	/// how far along it he would get: four full seasons of marching, whatever is left of this one. Not
+	/// what is left — an army that had spent most of its season could not be sent anywhere further
+	/// than a stone's throw, and only moved again after the turn. Not unbounded either: a search told
+	/// to find the far side of the world walks the whole map to say no.</summary>
+	private float Beyond(FieldArmy army) => _balance.MarchReach * 4f;
 
 	/// <summary>The last step of a road the army can actually pay for, or -1 when it cannot take a
 	/// single one.</summary>
@@ -713,6 +761,31 @@ public partial class CampaignMapPage : Control
 		return theirs == null || theirs.Realm != _playerRealm;
 	}
 
+	/// <summary>Another lord's company standing where this one has just halted, or null — the one a
+	/// lord who marched onto its banner came to fight.</summary>
+	private FieldArmy Foe(FieldArmy army)
+	{
+		FieldArmy nearest = null;
+		float best = JoinReach;
+		foreach (FieldArmy other in _turnManager.Armies())
+		{
+			string realm = _turnManager.RealmOf(other);
+			if (other.Strength <= 0 || realm == _playerRealm || realm.Length == 0)
+			{
+				continue;
+			}
+
+			float far = ArmyPixel(other).DistanceTo(ArmyPixel(army));
+			if (far <= best)
+			{
+				best = far;
+				nearest = other;
+			}
+		}
+
+		return nearest;
+	}
+
 	/// <summary>The other company of the lord's standing where this one has just halted, or null.
 	/// What the join is offered over: men who could see each other across the same field.</summary>
 	private FieldArmy Beside(FieldArmy army)
@@ -741,9 +814,15 @@ public partial class CampaignMapPage : Control
 
 		List<(Vector2 At, float Spent)> road = _ground.Way(ArmyPixel(army), ground, Beyond(army));
 		int halt = Halting(road, army.MarchLeft);
-		if (halt < 0)
+		if (road.Count == 0)
 		{
 			ShowSaveToast("There is no way there");
+			return false;
+		}
+
+		if (halt <= 0)
+		{
+			ShowSaveToast($"The men of {army.Home} have no ground left this season");
 			return false;
 		}
 
@@ -780,6 +859,7 @@ public partial class CampaignMapPage : Control
 			ShowFields(_provinces[county]);
 			SelectProvince(county);
 			LayGround(); // a county taken is a county open to walk through
+			Conquered();
 
 			// A county is taken at its own gate and nowhere else. Men who have halted on another
 			// lord's seat — his town, or the walls raised on it — are standing where the thing worth
@@ -788,6 +868,15 @@ public partial class CampaignMapPage : Control
 			{
 				_battle.Open(_turnManager, _balance, army, into, strides[^1],
 					ColoursOf(_turnManager.RealmOf(army)), ColoursOf(HolderOf(_provinces[county])));
+				return;
+			}
+
+			// Halted beside another lord's company in open country: that is a fight too, if he wants it.
+			FieldArmy foe = Foe(army);
+			if (foe != null)
+			{
+				_battle.OpenAgainst(_turnManager, _balance, army, foe,
+					ColoursOf(_turnManager.RealmOf(army)), ColoursOf(_turnManager.RealmOf(foe)));
 				return;
 			}
 
@@ -944,15 +1033,56 @@ public partial class CampaignMapPage : Control
 	}
 
 	/// <summary>Opens one of the town's buildings. Most rooms need nothing but the province's own
-	/// stores; the labour room needs the land it is working and the season it is working it in,
-	/// neither of which a room is handed, so it is told separately.</summary>
+	/// stores; the labour room and the smithy need the land the county is working and the season it
+	/// is working it in — the smithy deals the hands again when it is lit — and neither is handed to
+	/// a room, so they are told separately.</summary>
 	private void Enter(string room)
 	{
 		RoomPage opened = OpenRoom($"res://scene/campaign-map/{room}.tscn", "use");
-		if (opened is LabourPage labour
-			&& _definitionsByName.TryGetValue(Selected().Name, out ProvinceDefinition definition))
+		if (!_definitionsByName.TryGetValue(Selected().Name, out ProvinceDefinition definition))
+		{
+			return;
+		}
+
+		if (opened is LabourPage labour)
 		{
 			labour.Brief(definition, _balance, _turnManager.CurrentSeason);
+		}
+		else if (opened is BlacksmithPage smithy)
+		{
+			smithy.Brief(definition, _balance, _turnManager.CurrentSeason);
+		}
+	}
+
+	/// <summary>Announces every county the lord holds now that he did not the last time this was
+	/// asked. The first time, it only takes note: a campaign opening is not a conquest.</summary>
+	private void Conquered()
+	{
+		var now = new HashSet<string>();
+		foreach (ProvinceEconomy county in _turnManager.Provinces)
+		{
+			if (county.Realm == _playerRealm)
+			{
+				now.Add(county.ProvinceName);
+			}
+		}
+
+		var taken = new List<string>();
+		if (_held != null)
+		{
+			foreach (string county in now)
+			{
+				if (!_held.Contains(county))
+				{
+					taken.Add(county);
+				}
+			}
+		}
+
+		_held = now;
+		if (taken.Count > 0)
+		{
+			_conquest.Announce(taken);
 		}
 	}
 
@@ -1137,6 +1267,16 @@ public partial class CampaignMapPage : Control
 			Godot.Collections.Dictionary fields = entry.AsGodotDictionary();
 			string name = fields["name"].AsString();
 			var seat = new Vector2(fields["x"].AsSingle(), fields["y"].AsSingle());
+			var bordering = new List<string>();
+			if (fields.TryGetValue("neighbours", out Variant neighbours))
+			{
+				foreach (Variant other in neighbours.AsGodotArray())
+				{
+					bordering.Add(other.AsString());
+				}
+			}
+
+			_neighbours[name] = bordering;
 			_provinces.Add(new ProvinceData(
 				name,
 				seat,
@@ -1194,7 +1334,21 @@ public partial class CampaignMapPage : Control
 			return false;
 		}
 
-		_fallen.Announce(_turnManager.CurrentSeason, _turnManager.CurrentYear, _turnManager.Turn);
+		string seat = _provinces.Find(province => province.IsCapital)?.Name ?? "The realm";
+
+		// How it ended, in the steward's words, if it ended at a gate this turn: the season will never
+		// turn over to let the advisor say it.
+		FiredEvent last = null;
+		foreach (FiredEvent item in _turnManager.RivalNews)
+		{
+			if (item.Said.Id == "county-lost")
+			{
+				last = item;
+			}
+		}
+
+		_fallen.Announce(last?.ProvinceName ?? seat, _turnManager.CurrentSeason, _turnManager.CurrentYear, _turnManager.Turn,
+			last?.Said.Text);
 		return true;
 	}
 
@@ -1209,6 +1363,10 @@ public partial class CampaignMapPage : Control
 			return; // already mid-turn, or the reign is over; a second click must not queue another season
 		}
 
+		// The opening briefing is read by then, or not going to be: left open, it sat under every
+		// window the season brought for the rest of the campaign.
+		_sectionPanel.Visible = false;
+
 		ShowArmies(); // everybody where they stand, before anybody moves
 		List<LordsCampaign.RivalMarch> marches = _turnManager.RivalsTurn();
 		if (marches.Count == 0)
@@ -1218,6 +1376,8 @@ public partial class CampaignMapPage : Control
 		}
 
 		_rivalsMarching = true;
+		// The lord's own orders are shut while theirs are carried out, End Turn with them.
+		GetNode<Control>("%EndTurnButton").Visible = false;
 		int walking = marches.Count;
 		int longest = 0;
 		void Halted()
@@ -1228,6 +1388,7 @@ public partial class CampaignMapPage : Control
 			}
 
 			_rivalsMarching = false;
+			GetNode<Control>("%EndTurnButton").Visible = true;
 			ShowArmies();
 			ShowFortifications();
 			ShowSettlements();
@@ -1257,13 +1418,13 @@ public partial class CampaignMapPage : Control
 				{
 					Halted();
 				}
-			});
+			}, MapDecoration.RivalStrideSeconds);
 		}
 
 		// And settled by the clock if a banner never reports in. One whose figure was taken off the
 		// board mid-stride — merged, beaten, retired — takes its walk and its word with it, and the
 		// turn sat waiting for a man who no longer existed.
-		GetTree().CreateTimer(longest * MapDecoration.StrideSeconds + DeadlineSlack).Timeout += Halted;
+		GetTree().CreateTimer(longest * MapDecoration.RivalStrideSeconds + DeadlineSlack).Timeout += Halted;
 	}
 
 	/// <summary>A turn passes behind a curtain: the screen fades out, the season turns over while
@@ -1279,7 +1440,15 @@ public partial class CampaignMapPage : Control
 		{
 			List<TurnSummary> summaries = _turnManager.AdvanceTurn();
 			_turnNote = MenLost(summaries);
-			_wallRaised = summaries.Exists(summary => summary.WallRaised.Length > 0);
+			_wallsRaised.Clear();
+			foreach (TurnSummary summary in summaries)
+			{
+				if (summary.WallRaised.Length > 0)
+				{
+					_wallsRaised.Add((summary.ProvinceName, summary.WallRaised,
+						_turnManager.GetProvince(summary.ProvinceName)?.CastleMen ?? 0));
+				}
+			}
 			UpdateTurnDisplay();
 			SelectProvince(_selected != null ? _markers.IndexOf(_selected) : 0);
 
@@ -1321,6 +1490,17 @@ public partial class CampaignMapPage : Control
 			// ended this season is told that, and nothing else.
 			if (!Fell())
 			{
+				// The rain falls while he describes it, over the county it drowned — and over a
+				// rival's county too, which he sees rained on and is not told about.
+				foreach (string county in _turnManager.Flooded)
+				{
+					ProvinceData flooded = _provinces.Find(province => province.Name == county);
+					if (flooded != null)
+					{
+						_world.Rain(flooded.TownPosition);
+					}
+				}
+
 				_advisor.Tell(_turnManager.News);
 			}
 		}));
@@ -1395,7 +1575,7 @@ public partial class CampaignMapPage : Control
 	{
 		if (!_definitionsByName.TryGetValue(province.Name, out ProvinceDefinition definition))
 		{
-			// A county the campaign has not written an economy for yet (Frostgate, Icemere Reach). Its
+			// A county the campaign has not written an economy for (a map drawn ahead of its data). Its
 			// people still farm: it is drawn as an ordinary county — the definition's own defaults —
 			// until the campaign writes it one. It left those seats with a village and no fields.
 			definition = new ProvinceDefinition { ProvinceName = province.Name };
@@ -1408,8 +1588,7 @@ public partial class CampaignMapPage : Control
 			// would stand bare for ever. It plainly feeds itself, so it is drawn as a province that
 			// sowed — one number, and the day the province starts taking turns its own sowing
 			// replaces it.
-			economy = ProvinceEconomy.FromDefinition(definition);
-			economy.StandingCrop = definition.InitialGrain;
+			economy = ProvinceEconomy.FromDefinition(definition); // opens with last winter's crop standing
 		}
 
 		_world.SetFields(province.Name, province.TownPosition, economy, _turnManager.CurrentSeason);
@@ -1419,12 +1598,26 @@ public partial class CampaignMapPage : Control
 	/// it now. Safe to call again: a village already standing only has its banners changed.</summary>
 	private void ShowSettlements()
 	{
-		foreach (ProvinceData province in _provinces)
+		var holders = Image.CreateEmpty(_provinces.Count, 1, false, Image.Format.Rgba8);
+		var realmOrder = new List<string>(_realms.Keys);
+		for (int i = 0; i < _provinces.Count; i++)
 		{
+			ProvinceData province = _provinces[i];
+			string holder = HolderOf(province);
+			Color accent = _realms[holder].Accent;
 			_definitionsByName.TryGetValue(province.Name, out ProvinceDefinition definition);
 			_world.AddSettlement(province.Name, province.TownPosition, SettlementFor(definition, province.IsCapital),
-				_realms[HolderOf(province)].Accent);
+				accent);
+			holders.SetPixel(i, 0, new Color(accent.R, accent.G, accent.B, (realmOrder.IndexOf(holder) + 1) / 255f));
+			if (i < _markers.Count)
+			{
+				_markers[i].SetHolder(accent);
+			}
 		}
+
+		// Not only the banners on its villages: a county that falls takes its new lord's colour on
+		// its ring and on the minimap the same season.
+		_world.ShowHolders(holders);
 	}
 
 	private BattlePanel.Colours ColoursOf(string realmKey) =>
@@ -1736,7 +1929,8 @@ public partial class CampaignMapPage : Control
 		}
 
 		// The right button asks about a thing rather than doing something with it: a company under
-		// the pointer is opened and told in full, whoever it belongs to.
+		// the pointer is opened and told in full, whoever it belongs to; with none there, the walls of
+		// the seat under it.
 		if (@event is InputEventMouseButton { ButtonIndex: MouseButton.Right, Pressed: false } asked
 			&& !_marching && _world.TryMapPixel(asked.Position, out Vector2 under))
 		{
@@ -1748,6 +1942,16 @@ public partial class CampaignMapPage : Control
 					_realms.TryGetValue(realmKey, out RealmData lord) ? lord.Name : realmKey, realmKey,
 					realmKey == _playerRealm);
 				_army.OfferWalls(WallsFor(company) != null);
+				return;
+			}
+
+			// No company there: a seat with walls on it is asked about its garrison.
+			string seat = _world.CastleAt(under) is { Length: > 0 } castle ? castle : _world.TownAt(under);
+			ProvinceEconomy walled = seat.Length == 0 ? null : _turnManager.AnyProvince(seat);
+			if (walled is { Fortification.Length: > 0 })
+			{
+				_garrison.Open(walled, _realms.TryGetValue(walled.Realm, out RealmData holder) ? holder.Name : walled.Realm,
+					_balance);
 			}
 
 			return;
@@ -1829,9 +2033,39 @@ public partial class CampaignMapPage : Control
 		// The sidebar takes the province whether or not anyone runs it: an unclaimed one still has a
 		// name, a crest and the land under it, it just has no numbers of its own to show.
 		_sidebar.ShowHeader(province.Name, realmName, realmKey, _realms[realmKey].Accent);
-		_sidebar.ShowEconomy(economy, _definitionsByName.GetValueOrDefault(province.Name),
-			_balance, _turnManager.CurrentSeason);
+		ProvinceDefinition definition = _definitionsByName.GetValueOrDefault(province.Name);
+		_sidebar.ShowEconomy(economy, definition, _balance, _turnManager.CurrentSeason);
+		if (economy == null)
+		{
+			_sidebar.ShowWord(Word(province.Name, definition));
+		}
 	}
+
+	/// <summary>The scouts' word on a county not yours: its people, what its hills give, its herd and
+	/// the men who would meet you at its gate — rounded, because it is hearsay, not its books. A
+	/// county worth marching on is one you can tell apart from the others.</summary>
+	private string Word(string county, ProvinceDefinition definition)
+	{
+		if (definition == null)
+		{
+			return "No word reaches you of what it holds.";
+		}
+
+		ProvinceEconomy theirs = _turnManager.AnyProvince(county);
+		int people = theirs?.Population ?? definition.InitialPopulation;
+		int herd = theirs?.Cattle ?? definition.InitialCattle;
+		string hills = definition.IronWorkerCapacity > 0 ? "Iron in its hills."
+			: definition.StoneWorkerCapacity > 0 ? "Stone in its hills."
+			: "Nothing in its hills but sheep.";
+		return $"Some {Rounded(people)} souls, and {Rounded(herd)} head of cattle. {hills}\n"
+			+ $"About {Rounded(_turnManager.DefendersOf(county).Men)} men would meet you at its gate.";
+	}
+
+	/// <summary>A number as a scout brings it back: to the nearest ten, or five under fifty.</summary>
+	private static int Rounded(int count) =>
+		count < ScoutsRoundSmall ? Mathf.RoundToInt(count / 5f) * 5 : Mathf.RoundToInt(count / 10f) * 10;
+
+	private const int ScoutsRoundSmall = 50;
 
 	// Markers are 2D art pinned to 3D ground, so every frame the camera moves they have to be
 	// re-projected; one unproject per province is cheaper than tracking whether it moved.

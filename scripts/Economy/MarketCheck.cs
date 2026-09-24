@@ -51,19 +51,20 @@ public partial class MarketCheck : Node
 		// Arms are not fields on the province — they live in the armoury the smithy fills — and the
 		// market has to reach the same way into both kinds of pile.
 		Is("a sword is priced from the balance", market.Price("sword"), balance.SwordPrice);
-		province = Province(gold: 500, grain: 0);
+		int sword = balance.SwordPrice;
+		province = Province(gold: 3 * sword, grain: 0);
 		Is("an empty armoury holds no swords", province.Stored("sword"), 0);
-		Is("buying 2 swords at 120 succeeds", market.Buy(province, "sword", 2), true);
-		Is("  gold paid", province.Gold, 260);
+		Is("buying 2 swords succeeds", market.Buy(province, "sword", 2), true);
+		Is("  gold paid", province.Gold, sword);
 		Is("  swords racked", province.Stored("sword"), 2);
 		Is("  and racked under their own name", province.Armoury["sword"], 2);
 		Is("selling 1 sword back succeeds", market.Sell(province, "sword", 1), true);
-		Is("  gold taken in", province.Gold, 380);
+		Is("  gold taken in", province.Gold, 2 * sword);
 		Is("  one sword left", province.Stored("sword"), 1);
 		Is("selling a sword the rack has not got fails", market.Sell(province, "sword", 5), false);
 		Is("  rack untouched", province.Stored("sword"), 1);
-		Is("buying 4 swords on 380 gold fails", market.Buy(province, "sword", 4), false);
-		Is("  gold untouched", province.Gold, 380);
+		Is("buying 4 swords on two swords' gold fails", market.Buy(province, "sword", 4), false);
+		Is("  gold untouched", province.Gold, 2 * sword);
 		Is("  rack untouched", province.Stored("sword"), 1);
 
 		// The ways a caller might try to conjure something out of nothing.
@@ -154,6 +155,7 @@ public partial class MarketCheck : Node
 	/// nothing can shift.</summary>
 	private static GameBalance Still() => new()
 	{
+		GrainPrice = 10, // round figures, so the arithmetic below reads at a glance
 		MarketSpread = 0f,
 		MarketDepth = 1000000000f,
 		GrainSeasonPrice = new[] { 1f, 1f, 1f, 1f },

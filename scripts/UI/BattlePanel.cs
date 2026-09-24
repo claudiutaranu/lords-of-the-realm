@@ -75,6 +75,7 @@ public partial class BattlePanel : PaintedPanel
 		_turns = turns;
 		_balance = balance;
 		_attacker = from;
+		_enemy = null;
 		_county = county;
 		_at = at;
 		_us = us;
@@ -82,6 +83,30 @@ public partial class BattlePanel : PaintedPanel
 		Lay();
 		Reveal();
 	}
+
+	/// <summary>Puts the lord's company in front of another lord's in open country.</summary>
+	public void OpenAgainst(TurnManager turns, GameBalance balance, FieldArmy from, FieldArmy enemy,
+		Colours us, Colours them)
+	{
+		_turns = turns;
+		_balance = balance;
+		_attacker = from;
+		_enemy = enemy;
+		_county = enemy.County;
+		_us = us;
+		_them = them;
+		Lay();
+		Reveal();
+	}
+
+	/// <summary>The company on the far side of the table when the fight is in open country, or null
+	/// when it is a county's own defence.</summary>
+	private FieldArmy _enemy;
+
+	private Defenders Against() => _enemy != null
+		? new Defenders(_enemy.Men, new Dictionary<string, int>(), "", _turns.AnyProvince(_enemy.Home)?.Loyalty ?? 0f,
+			InOpenCountry: true)
+		: _turns.DefendersOf(_county);
 
 	protected override void Furnish()
 	{
@@ -167,7 +192,7 @@ public partial class BattlePanel : PaintedPanel
 	private void Lay()
 	{
 		FieldArmy ours = _attacker;
-		Defenders against = _turns.DefendersOf(_county);
+		Defenders against = Against();
 		if (ours == null)
 		{
 			return;
@@ -177,11 +202,11 @@ public partial class BattlePanel : PaintedPanel
 		// storm at all where there are no walls, or nobody on them. An empty town used to be offered
 		// as "Storm the walls" behind open ground; it is walked into, the way TurnManager.Attack
 		// takes it (a county that is not Held falls to the field fight).
-		_walls = ProvinceEconomy.Men(against.Field) == 0 && against.Held;
+		_walls = _enemy == null && ProvinceEconomy.Men(against.Field) == 0 && against.Held;
 		Dictionary<string, int> holding = _walls ? against.Castle : against.Field;
 		bool spent = ours.MarchLeft <= 0f;
 
-		_where.Text = _county;
+		_where.Text = _enemy != null ? $"In the fields of {_county}" : _county;
 		_question.Text = _walls ? "Will you storm the walls?" : "Will you take the field?";
 		ShowSides(ours.Men, holding);
 
@@ -218,11 +243,13 @@ public partial class BattlePanel : PaintedPanel
 
 	/// <summary>Both halves of the table, and the frame cut to the longer of them: a skirmish between
 	/// two kinds of man is not served on a table laid for seven.</summary>
-	private void ShowSides(Dictionary<string, int> ours, Dictionary<string, int> theirs)
+	private void ShowSides(Dictionary<string, int> ours, Dictionary<string, int> theirs,
+		Dictionary<string, int> ourLost = null, Dictionary<string, int> theirLost = null)
 	{
-		(int mine, float high) = _ourSide.Show(_us.Name, $"Men of {_attacker.Home}", _us.Key, _us.Accent, ours);
+		(int mine, float high) = _ourSide.Show(_us.Name, $"Men of {_attacker.Home}", _us.Key, _us.Accent, ours, ourLost);
 		(int yours, float _) = _theirSide.Show(_them.Name,
-			_walls ? $"On the walls of {_county}" : $"Holding {_county}", _them.Key, _them.Accent, theirs);
+			_enemy != null ? $"Men of {_enemy.Home}" : _walls ? $"On the walls of {_county}" : $"Holding {_county}",
+			_them.Key, _them.Accent, theirs, theirLost);
 
 		// The middle column has a floor of its own, so a table this short stops shrinking there.
 		int kinds = Mathf.Max(MiddleRows, Mathf.Max(mine, yours));
@@ -270,10 +297,13 @@ public partial class BattlePanel : PaintedPanel
 			Note($"A place that size holds perhaps {seasons:N0} seasons of bread");
 		}
 
-		Term("Holding their own town", _balance.TownDefence, good: false);
-
 		float heart = 1f + ((Mathf.Clamp(against.Loyalty, 0f, 100f) - 50f) / 50f * _balance.LoyaltyDefence);
-		if (Mathf.Abs(heart - 1f) > 0.01f)
+		if (!against.InOpenCountry)
+		{
+			Term("Holding their own town", _balance.TownDefence, good: false);
+		}
+
+		if (!against.InOpenCountry && Mathf.Abs(heart - 1f) > 0.01f)
 		{
 			Term(heart > 1f ? "The people are with them" : "The people have had enough of them",
 				heart, good: heart < 1f);
@@ -347,6 +377,32 @@ public partial class BattlePanel : PaintedPanel
 	/// be wrong.</summary>
 	private void Strike()
 	{
+		// Both sides as they stood before the day, so the table can say what each had and, in
+		// brackets, what each lost.
+		var oursBefore = new Dictionary<string, int>(_attacker.Men);
+		Defenders standing = Against();
+		var theirsBefore = new Dictionary<string, int>(_walls ? standing.Castle : standing.Field);
+		if (_enemy != null)
+		{
+			Battle.Result met = _turns.Engage(_attacker, _enemy);
+			Settled?.Invoke();
+			foreach (Node old in _terms.GetChildren())
+			{
+				old.QueueFree();
+			}
+
+			ShowSides(oursBefore, theirsBefore, met.AttackerLosses, met.DefenderLosses);
+			Note($"We lost {met.AttackerFell:N0}");
+			Note($"They lost {met.DefenderFell:N0}");
+			_question.Text = "";
+			_verdict.Text = met.AttackerWon ? "Their company is broken, my lord." : "We are thrown back, my lord.";
+			_verdict.AddThemeColorOverride("font_color", met.AttackerWon ? Chrome.Cream : Bad);
+			_attack.Visible = false;
+			_siege.Visible = false;
+			_leaveWord.Text = "Done";
+			return;
+		}
+
 		Battle.Result day = _turns.Attack(_attacker, _county, _at, _walls);
 		Settled?.Invoke();
 
@@ -358,14 +414,11 @@ public partial class BattlePanel : PaintedPanel
 			old.QueueFree();
 		}
 
-		// A county that has just fallen answers with OUR men — they are the ones standing on it now
-		// — so asking it who is defending it would report our own army a second time, in the enemy's
-		// column. Taken is taken: there is nobody left on that side of the table.
 		Defenders left = taken
 			? new Defenders(new Dictionary<string, int>(), new Dictionary<string, int>(), "", 0f)
 			: _turns.DefendersOf(_county);
 
-		ShowSides(_attacker.Men, ProvinceEconomy.Men(left.Field) > 0 ? left.Field : left.Castle);
+		ShowSides(oursBefore, theirsBefore, day.AttackerLosses, day.DefenderLosses);
 
 		Note($"We lost {day.AttackerFell:N0}");
 		Note($"They lost {day.DefenderFell:N0}");

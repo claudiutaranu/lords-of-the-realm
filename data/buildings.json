@@ -18,7 +18,7 @@
 			"blurb": "Cut stone, for the walls that timber will no longer answer for." },
 		{ "key": "mine", "name": "Iron Mine", "icon": "iron", "works": "iron", "site": "iron", "spot": [0.230, 0.900], "scale": 0.300,
 			"blurb": "Ore out of the hill, and the arms and hinges it is beaten into." },
-		{ "key": "blacksmith", "name": "Blacksmith", "icon": "hammer", "room": "blacksmith", "spot": [0.510, 0.875], "scale": 0.300,
-			"blurb": "Iron and wood into arms, a commission at a time." }
+		{ "key": "blacksmith", "smiths": true, "name": "Blacksmith", "icon": "hammer", "room": "blacksmith", "spot": [0.510, 0.875], "scale": 0.300,
+			"blurb": "Iron and wood into arms, one kind at a time, every season there are smiths at the anvil." }
 	]
 }

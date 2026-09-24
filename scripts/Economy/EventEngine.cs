@@ -98,7 +98,8 @@ public static class EventEngine
 			said = Speak(p, "revolt", $"revolt-{Blame(summary)}", b.EventQuietTurns);
 		}
 
-		if (said == null && summary.FoodShort > 0)
+		// Served less than a full meal: the table went down a step, or was ordered down.
+		if (said == null && summary.Achieved < RationLevel.Normal)
 		{
 			// Two different failures wearing the same hunger: a lord who cut the bread himself, and
 			// a lord whose granary is simply empty. He can fix the first one this afternoon.
@@ -107,13 +108,13 @@ public static class EventEngine
 				b.EventQuietTurns);
 		}
 
-		if (said == null && summary.PopulationChange < 0 && p.Loyalty < b.EmigrationBelow)
+		if (said == null && summary.Moved < 0)
 		{
 			// Hungry or simply sick of him: people leave for both, and the two lines are not
 			// interchangeable. A lord told his people are leaving over taxes will cut taxes, and
 			// they will keep leaving, because what they wanted was bread.
 			said = Speak(p, "emigration",
-				summary.LoyaltyFromStarvation < 0f ? "emigration-hunger" : "emigration-unhappy",
+				summary.LoyaltyFromRations < 0f ? "emigration-hunger" : "emigration-unhappy",
 				b.EventQuietTurns);
 		}
 
@@ -130,32 +131,20 @@ public static class EventEngine
 	/// taxed hard and half-starved, and the advisor has to name the heavier of the two.</summary>
 	private static string Blame(TurnSummary summary)
 	{
-		// Hunger is one grievance whether it came from short rations or from an empty granary: the
-		// people cannot tell the difference and neither should the advisor.
-		float hunger = summary.LoyaltyFromRations + summary.LoyaltyFromStarvation;
+		// Hunger is one grievance whether it came from the table or from the sickness short tables
+		// bring: the people cannot tell the difference and neither should the advisor.
+		float hunger = summary.LoyaltyFromRations + Mathf.Min(0f, summary.LoyaltyFromHealth);
 		float taxes = summary.LoyaltyFromTax;
-		float sons = summary.LoyaltyFromConscription;
-		float billets = summary.LoyaltyFromGarrison;
 		float neighbours = summary.LoyaltyFromNeighbours;
 
-		if (hunger <= taxes && hunger <= sons && hunger <= billets && hunger <= neighbours && hunger < 0f)
+		if (hunger <= taxes && hunger <= neighbours && hunger < 0f)
 		{
 			return "hunger";
 		}
 
-		if (taxes <= sons && taxes <= billets && taxes <= neighbours && taxes < 0f)
+		if (taxes <= neighbours && taxes < 0f)
 		{
 			return "taxes";
-		}
-
-		if (sons <= billets && sons <= neighbours && sons < 0f)
-		{
-			return "conscription";
-		}
-
-		if (billets <= neighbours && billets < 0f)
-		{
-			return "garrison";
 		}
 
 		// Nothing the lord decided is to blame, so nothing is named. An id with no cause on the end
@@ -203,7 +192,7 @@ public static class EventEngine
 
 		// A hungry body cannot fight the pestilence, so hunger is what weights it rather than what
 		// permits it: the plague can find anybody.
-		bool weak = p.Ration < RationLevel.Normal || summary.FoodShort > 0;
+		bool weak = summary.Achieved < RationLevel.Normal || Livelihood.BandOf(p.Health) <= Livelihood.Band.Sick;
 		Offer(choices, weak ? b.PlagueWeightHungry : b.PlagueWeight, "plague",
 			weak ? "plague-outbreak-weak-health" : "plague-outbreak-traveler",
 			() =>
@@ -218,20 +207,9 @@ public static class EventEngine
 		{
 			// Land cropped year on year holds no water. The advisor says which flood this was,
 			// because one of them is the lord's rotation and the other is just rain.
-			bool exhausted = p.GrainFertility() < b.TiredSoil;
+			bool exhausted = p.Soil < b.TiredSoil;
 			Offer(choices, b.FloodWeight, "flood", exhausted ? "flood-overworked-fields" : "flood-01",
-				() =>
-				{
-					p.StandingCrop = 0;
-					p.FieldRepair = b.FieldRepairWork;
-					for (int field = 0; field < p.Fields.Length; field++)
-					{
-						if (p.Fields[field] == FieldUse.Grain)
-						{
-							p.Fertility[field] = Mathf.Max(b.FertilityFloor, p.Fertility[field] - b.FloodFertilityLoss);
-						}
-					}
-				});
+				() => EconomySimulation.Flood(p, b));
 		}
 
 		if (season == Season.Summer && p.StandingCrop > 0)
@@ -250,7 +228,7 @@ public static class EventEngine
 
 		// Murrain breeds in a herd with nowhere to stand: past what the pastures carry, not past
 		// some flat number, so the answer is either fewer beasts or more pasture.
-		if (p.Cattle > p.FieldsUnder(FieldUse.Pasture) * b.CowsPerField)
+		if (p.Cattle > p.FieldsUnder(FieldUse.Pasture) * 20) // past "average" crowding (Husbandry)
 		{
 			Offer(choices, b.MurrainWeight, "murrain", "cattle-disease-01",
 				() => p.Cattle -= Mathf.RoundToInt(p.Cattle * b.MurrainHerdLoss));
@@ -271,7 +249,7 @@ public static class EventEngine
 		}
 
 		// The one piece of good news, and it is earned: a harvest off land the lord let rest.
-		if (season == Season.Autumn && summary.Harvest > 0 && p.GrainFertility() > b.GoodHeart)
+		if (season == Season.Autumn && summary.Harvest > 0 && p.Soil > b.GoodHeart)
 		{
 			Offer(choices, b.BumperWeight, "bumper", "bumper-crop-01",
 				() =>

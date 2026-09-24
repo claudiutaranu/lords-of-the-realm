@@ -448,38 +448,6 @@ layout_mode = 2
 size_flags_horizontal = 4
 text = "Close"
 
-[node name="InfoPanel" type="PanelContainer" parent="." unique_id=633177339]
-custom_minimum_size = Vector2(296, 0)
-layout_mode = 1
-anchors_preset = 2
-anchor_top = 1.0
-anchor_bottom = 1.0
-offset_left = 24.0
-offset_top = -140.0
-offset_right = 320.0
-offset_bottom = -24.0
-grow_vertical = 0
-
-[node name="InfoContent" type="VBoxContainer" parent="InfoPanel" unique_id=1349308805]
-layout_mode = 2
-theme_override_constants/separation = 6
-
-[node name="InfoName" type="Label" parent="InfoPanel/InfoContent" unique_id=188826438]
-unique_name_in_owner = true
-layout_mode = 2
-theme_type_variation = &"GildedTitle"
-theme_override_font_sizes/font_size = 24
-text = "Select a stronghold"
-autowrap_mode = 2
-
-[node name="InfoMeta" type="Label" parent="InfoPanel/InfoContent" unique_id=772685680]
-unique_name_in_owner = true
-layout_mode = 2
-theme_type_variation = &"Subtitle"
-theme_override_font_sizes/font_size = 16
-text = "Click a marker on the map to see it here."
-autowrap_mode = 3
-
 [node name="GameMenu" type="Control" parent="." unique_id=424184073]
 unique_name_in_owner = true
 visible = false

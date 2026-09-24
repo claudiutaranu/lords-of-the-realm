@@ -18,6 +18,12 @@ public static class CityArt
 
 	public static bool HasTile(string building) => ResourceLoader.Exists(Tile(building));
 
+	/// <summary>The banner a building's name is written on: its shield and a bar to write on.
+	/// Optional too — a building without one keeps the plain plate.</summary>
+	public static string Plaque(string building) => $"{Directory}/plaques/{building}.png";
+
+	public static bool HasPlaque(string building) => ResourceLoader.Exists(Plaque(building));
+
 	/// <summary>The sheet a building's moving piece is drawn on — the sails, the wheel, the crane.
 	/// Optional: most buildings stand still.</summary>
 	public static string Rotor(string building) => $"{Directory}/buildings/{building}-rotor.png";

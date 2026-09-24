@@ -26,14 +26,19 @@ public class ProvinceEconomy
 	/// of five named steps, because the decision it stands for is "how much more can I ask for
 	/// before they turn on me" — and that question has an answer a point at a time.
 	///
-	/// The opening value mirrors <see cref="GameBalance.FairTaxPercent"/>: a county opens on the rate
-	/// it thinks is fair. Two numbers in two files that have to agree, so a check holds them
-	/// together rather than a comment asking nicely.</summary>
+	/// A county opens untaxed, as it does in Lords of the Realm; five is where the rate stops
+	/// costing it goodwill (Livelihood.TaxTerm).</summary>
 	[System.Text.Json.Serialization.JsonConverter(typeof(SaveGame.TaxPercentJson))]
 	public int Tax = OpeningTaxPercent;
 
-	/// <summary>The rate a county opens on, which is the one the balance calls fair.</summary>
-	public const int OpeningTaxPercent = 5;
+	public const int OpeningTaxPercent = 0;
+
+	/// <summary>How well the county is, 0 to 100, read in five bands (Livelihood.BandOf): moved each
+	/// season by what it was fed, and what decides how many of it die.</summary>
+	public int Health = OpeningHealth;
+
+	/// <summary>Good, as a county nobody has starved opens.</summary>
+	public const int OpeningHealth = 75;
 	[System.Text.Json.Serialization.JsonConverter(typeof(SaveGame.RationJson))]
 	public RationLevel Ration = RationLevel.Normal;
 
@@ -118,15 +123,19 @@ public class ProvinceEconomy
 
 	public int BuildSeasonsLeft;
 
-	/// <summary>What the smithy is forging, by weapon key, and how many turns are left on it. Empty
-	/// when the forge is cold. The order is paid for when it is placed, so a save carries only what
-	/// is still owed.</summary>
+	/// <summary>What the smithy makes, by weapon key: one kind, every season, for as long as the lord
+	/// leaves it so (Smithy). Empty when the forge is cold, and then nobody is sent to it.</summary>
 	public string Forging = "";
-	public int ForgeTurnsLeft;
 
-	/// <summary>How many the order delivers when it finishes — carried with the order rather than
-	/// looked up later, so retuning weapons.json never changes what is already on the anvil.</summary>
+	/// <summary>Weapons already paid for and owed to the armoury at the end of the season. Only a
+	/// save from before the forge worked by the season carries any — an order it had paid for and
+	/// was still waiting on — and they are delivered the first season it is played.</summary>
 	public int ForgeBatch;
+
+	/// <summary>The hands at the anvil. A trade on the labour bar like the masons, and like them
+	/// wanted only while there is work: a cold forge, or one with nothing in the stores to work, asks
+	/// for nobody.</summary>
+	public int SmithWorkers;
 
 	/// <summary>Finished weapons the province holds, by the same key — what the yard arms its
 	/// recruits out of.</summary>
@@ -368,6 +377,11 @@ public class ProvinceEconomy
 	/// has gone without. The second is what actually ends it: men hold out on an empty larder for a
 	/// while and then they open the gate.</summary>
 	public int SiegeSeasons;
+
+	/// <summary>The turn the town's own militia was last beaten in the field. A beaten militia does
+	/// not turn out again the same season (TurnManager.DefendersOf), which is what lets the victor go
+	/// on to the walls or sit down before them.</summary>
+	public int MilitiaRoutedTurn;
 	public int HungrySeasons;
 
 	/// <summary>The men the county's own granary has to feed. Everybody, until somebody shuts the
@@ -405,18 +419,28 @@ public class ProvinceEconomy
 	/// One with nobody in it is dropped when the save is restored (see TurnManager.Restore).</summary>
 	private FieldArmy Older() => Armies.Count > 0 ? Armies[0] : Raise();
 
+	/// <summary>The proportions the county is dealt by (Labour): the percent of it that goes to
+	/// industry — a quarter in a county nobody has divided — and, within each half, each job's part
+	/// of that half in hundredths of a percent (Labour.Whole). The hands themselves are dealt from
+	/// these, twice a season.</summary>
+	public int IndustryShare = 25;
+
+	public Dictionary<string, int> Shares = new();
+
+	/// <summary>The sites the lord has shut (Labour.Sites): nobody is dealt to them.</summary>
+	public List<string> Shut = new();
+
+	/// <summary>How practised each site's people are at it, in percent (Labour.Practise). A site
+	/// nobody has written down for is one the county has always worked, at its best.</summary>
+	public Dictionary<string, int> Efficiency = new();
+
+	public bool IsShut(string site) => Shut.Contains(site);
+
+	public int EfficiencyOf(string site) => Efficiency.TryGetValue(site, out int at) ? at : 100;
+
 	/// <summary>The band of foreign soldiers standing in the county this season: which company they
 	/// are, how many of them are still unspoken for, and how many more seasons they will wait
 	/// before walking on. An empty key is the usual state — nobody is for sale.</summary>
-	/// <summary>Where the lord left the labour bar, as the share of his hands he pointed at the
-	/// trades — or -1 for a county whose bar he has never touched, which reads off the allocation
-	/// instead so the grip starts where the county actually stands.
-	///
-	/// Remembered rather than derived, because the two do not map back onto each other: with more
-	/// hands than work on both sides of the bar, every position from a third to two thirds produces
-	/// exactly the same allocation, and a grip that re-reads it snaps back the moment it is let go.</summary>
-	public float LabourSplit = -1f;
-
 	public string MercenaryBand = "";
 	public int MercenaryMen;
 	public int MercenarySeasonsLeft;
@@ -427,16 +451,26 @@ public class ProvinceEconomy
 	public int StoneWorkers;
 	public int IronWorkers;
 
-	/// <summary>What each of the province's fields is under, and how much heart each of them has
-	/// left. Fertility runs 0..1 and moves once a year, after the harvest: down on a field that was
-	/// cropped, up on one that was rested. Two cropped to one rested comes out level.</summary>
-	public FieldUse[] Fields = System.Array.Empty<FieldUse>();
-	public float[] Fertility = System.Array.Empty<float>();
+	/// <summary>The hands putting torn ground right (FieldRepair), a job of their own as in the
+	/// original: men mending a field are not reaping one.</summary>
+	public int ReclaimWorkers;
 
-	/// <summary>Sacks in the ground — sown in spring, thinned by a summer nobody weeded, and reaped
-	/// in autumn. Held here rather than folded into Grain because a crop standing in the field is
-	/// not food: it cannot be eaten, sold, or carried off by anybody but the reapers.</summary>
+	/// <summary>What each of the province's fields is under.</summary>
+	public FieldUse[] Fields = System.Array.Empty<FieldUse>();
+
+	/// <summary>The heart of the county's land, −100 to 100, as Lords of the Realm keeps it: one
+	/// figure for the whole county, fed by its fallow and spent by its grain (Husbandry.Rest), and
+	/// worth half itself in percent to the crop each growing season.</summary>
+	public int Soil;
+
+	/// <summary>The crop standing in the fields, in sacks it will give — twelve to a sack sown at the
+	/// end of winter, capped and grown through spring and summer, reaped in autumn. Not food until
+	/// then: it cannot be eaten, sold, or carried off by anybody but the reapers.</summary>
 	public int StandingCrop;
+
+	/// <summary>How many fields were under grain when it was sown; a field lost since takes its share
+	/// of the harvest.</summary>
+	public int SownFields;
 
 	/// <summary>Work left before ground the water tore up is fit to sow again, in hand-seasons.
 	/// While it stands above zero the field lies turned over and the men are out on it; zero is
@@ -457,37 +491,11 @@ public class ProvinceEconomy
 		return count;
 	}
 
-	/// <summary>The average heart of the land under grain, which is what a harvest is scaled by. A
-	/// province with no grain fields has nothing to scale and reads as bare.</summary>
-	public float GrainFertility()
-	{
-		float total = 0f;
-		int under = 0;
-		for (int field = 0; field < Fields.Length; field++)
-		{
-			if (Fields[field] == FieldUse.Grain)
-			{
-				total += Fertility[field];
-				under++;
-			}
-		}
-
-		return under == 0 ? 0f : total / under;
-	}
-
-	// Set by EconomySimulation each turn; population growth is skipped the same turn a
-	// province starves (design doc section 11).
-	public bool StarvedThisTurn;
 
 	/// <summary>Seasons the Black Death has left to run here. It kills every one of them and is
 	/// announced when it arrives and again when it lifts, so it is a stretch of the campaign rather
 	/// than a single bad turn.</summary>
 	public int PlagueSeasonsLeft;
-
-	/// <summary>Sons taken out of the fields for the army, still fresh in the county's memory. Set
-	/// when an intake is ordered, worn down a little each season, and charged against loyalty while
-	/// it lasts — which is what lets the advisor say "you took too many sons" and mean it.</summary>
-	public int ConscriptedRecently;
 
 	/// <summary>The county's average goodwill in each year it has been run, oldest first. Kept on the
 	/// province rather than worked out later because it cannot be worked out later: the turn it
@@ -519,28 +527,6 @@ public class ProvinceEconomy
 		}
 	}
 
-	/// <summary>The men the county actually has billeted on it: its own companies standing on its
-	/// ground. The watch lives behind its own walls and eats from the castle's own larder when it
-	/// has to; a company three counties away is paid and fed from here but billeted on somebody
-	/// else. Counting the watch had a lord with a proper garrison resented for it every season, which
-	/// left him no goodwill to raise a single company with.
-	///
-	/// ponytail: another county's companies standing here are not counted — they are in that
-	/// county's roster. Count them through TurnManager if an occupying army should be resented.</summary>
-	public int Quartered
-	{
-		get
-		{
-			int men = 0;
-			foreach (FieldArmy standing in Armies)
-			{
-				men += standing.County == ProvinceName ? standing.Strength : 0;
-			}
-
-			return men;
-		}
-	}
-
 	/// <summary>The men on the walls, who go nowhere.</summary>
 	public int CastleMen => Men(Castle);
 
@@ -561,7 +547,8 @@ public class ProvinceEconomy
 	}
 
 	public int AllocatedWorkers =>
-		GrainWorkers + CattleWorkers + WoodWorkers + StoneWorkers + IronWorkers + BuildWorkers;
+		GrainWorkers + CattleWorkers + ReclaimWorkers + WoodWorkers + StoneWorkers + IronWorkers + BuildWorkers
+		+ SmithWorkers;
 
 	/// <summary>Who there is to work. It is the province's whole population, the way Lords of the
 	/// Realm counts it: everyone not under arms can be put to something. That is what makes raising
@@ -581,8 +568,10 @@ public class ProvinceEconomy
 		// is given, and the purse is the one where that would be a theft rather than a reading.
 		copy.Purse = new Treasury { Gold = Purse.Gold };
 		copy.Fields = (FieldUse[])Fields.Clone();
-		copy.Fertility = (float[])Fertility.Clone();
 		copy.Armoury = new Dictionary<string, int>(Armoury);
+		copy.Shares = new Dictionary<string, int>(Shares);
+		copy.Shut = new List<string>(Shut);
+		copy.Efficiency = new Dictionary<string, int>(Efficiency);
 		copy.Armies = new List<FieldArmy>(Armies.Count);
 		foreach (FieldArmy standing in Armies)
 		{
@@ -610,6 +599,8 @@ public class ProvinceEconomy
 		{
 			ProvinceName = definition.ProvinceName,
 			Population = definition.InitialPopulation,
+			// Divided the way a county nobody has touched is; a save with none is read off its hands.
+			Shares = Labour.OpeningShares(),
 			Gold = definition.InitialGold,
 			Grain = definition.InitialGrain,
 			Cattle = definition.InitialCattle,
@@ -617,7 +608,6 @@ public class ProvinceEconomy
 			Stone = definition.InitialStone,
 			Iron = definition.InitialIron,
 			Fields = new FieldUse[definition.Fields],
-			Fertility = new float[definition.Fields],
 			Fortification = definition.InitialFortification,
 		};
 
@@ -640,8 +630,13 @@ public class ProvinceEconomy
 				field < definition.InitialGrainFields ? FieldUse.Grain
 				: field < definition.InitialGrainFields + definition.InitialPastureFields ? FieldUse.Pasture
 				: FieldUse.Fallow;
-			province.Fertility[field] = 1f;
 		}
+
+		// Last winter's sowing is already in the ground: a county does not come into the story in
+		// the one year of its life when nobody sowed, and one that opened bare in spring would see no
+		// harvest for a year and a half.
+		province.SownFields = province.FieldsUnder(FieldUse.Grain);
+		province.StandingCrop = province.SownFields * Husbandry.MostSacksAField * Husbandry.CropPerSack;
 
 		return province;
 	}

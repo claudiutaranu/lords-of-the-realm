@@ -41,6 +41,11 @@ public class TurnManager
 	/// the meantime.</summary>
 	private readonly Dictionary<string, ProvinceDefinition> _unheld = new();
 
+	/// <summary>Whether a county can change hands at all: one somebody holds, or one with land
+	/// described that nobody holds yet. A county the map draws but no economy describes is scenery.</summary>
+	public bool CanBeTaken(string county) =>
+		_provincesByName.ContainsKey(county) || _unheld.ContainsKey(county);
+
 	/// <summary>How well the other lords play. Held here rather than read from a global each turn so
 	/// that a loaded save is played at the difficulty it was started on, not at whatever the menu
 	/// last had.</summary>
@@ -53,21 +58,27 @@ public class TurnManager
 	/// <summary>The realm the player is, for whoever has to tell his men from everybody else's.</summary>
 	public string PlayerRealm => _playerRealm;
 
-	/// <summary>True once the player holds no county at all — the end of his reign. His companies
-	/// in the field went with his last seat: there was nowhere left for them to fall back to.</summary>
+	/// <summary>True once the reign is over: the player holds no county at all, or every county he
+	/// holds has risen against him (happiness at nothing) and he has not one man under arms left to
+	/// hold any of them down.</summary>
 	public bool PlayerFallen
 	{
 		get
 		{
+			bool holds = false;
+			bool loyal = false;
+			int men = 0;
 			foreach (ProvinceEconomy province in _provincesByName.Values)
 			{
 				if (province.Realm == _playerRealm)
 				{
-					return false;
+					holds = true;
+					loyal |= province.Loyalty > 0f;
+					men += province.Soldiers;
 				}
 			}
 
-			return true;
+			return !holds || (!loyal && men == 0);
 		}
 	}
 
@@ -99,6 +110,11 @@ public class TurnManager
 	/// <summary>What the world did to the realm this turn, in the order it should be told. Read by
 	/// the map after the season has turned over, and replaced every turn.</summary>
 	public List<FiredEvent> News { get; private set; } = new();
+
+	/// <summary>Every county the river rose in this turn, whoever holds it. Not news — a lord is not
+	/// told a rival's harvest drowned — but weather, and weather over the next county is something
+	/// anybody can see from his own walls.</summary>
+	public List<string> Flooded { get; } = new();
 
 	/// <summary>The season just played, county by county. Kept because the happiness table is read
 	/// after the turn is over and the summary is otherwise thrown away with the turn that made it —
@@ -150,8 +166,10 @@ public class TurnManager
 			}
 
 			// A province opens with its people already at work. Nobody would hand a lord a county
-			// where every field is sown and not one man is in it.
-			EconomySimulation.Deploy(province, definition, balance, CurrentSeason);
+			// where every field is sown and not one man is in it. Off the quarter the bar opens at,
+			// not off this season's need: fitted to spring's few tenders, the bar stayed there, and a
+			// lord who never touched it had no reapers in autumn and starved by the second winter.
+			Labour.Deal(province, definition, balance, CurrentSeason);
 			_provincesByName[definition.ProvinceName] = province;
 		}
 
@@ -229,15 +247,24 @@ public class TurnManager
 		// against whoever is standing on it. Two of a lord's own companies standing in the same field
 		// stay two companies — putting them under one banner is an order he gives (see
 		// <see cref="Merge"/>), not something the ground does to them.
-		if (there != null || toCounty == army.Home)
+		// Ground the map draws and no economy describes is only ground: walked across, never taken.
+		// Asking to claim it failed, and a march reported refused after the men had already moved was
+		// a banner the map would not walk to a place the ledger had put it.
+		if (there != null || toCounty == army.Home || !CanBeTaken(toCounty))
 		{
 			return true;
 		}
 
 		// Nobody holds it. If its own people have taken up what hangs in the barn, they have to be
 		// beaten before anything changes hands, and the march simply ends on their ground. An empty
-		// county is walked into, the way it always was.
-		return DefendersOf(toCounty).Men > 0 || Claim(army, toCounty, at);
+		// county is walked into, the way it always was — and the march stands either way: the men
+		// are there.
+		if (DefendersOf(toCounty).Men == 0)
+		{
+			Claim(army, toCounty, at);
+		}
+
+		return true;
 	}
 
 	/// <summary>Puts one company's men under another's banner, where the lord wants one army instead
@@ -399,7 +426,7 @@ public class TurnManager
 			}
 
 			there = ProvinceEconomy.FromDefinition(taken);
-			EconomySimulation.Deploy(there, taken, _balance, CurrentSeason);
+			Labour.Deal(there, taken, _balance, CurrentSeason);
 			_definitions.Add(taken);
 			_provincesByName[toCounty] = there;
 			_unheld.Remove(toCounty);
@@ -492,6 +519,8 @@ public class TurnManager
 		// Men who have nothing left in their legs are attacking on the last of them. The map charged
 		// them for the road on the way here, so this is simply read off what is left of the season.
 		bool spent = army.MarchLeft <= 0f;
+		ProvinceEconomy town = _provincesByName.GetValueOrDefault(county);
+		bool turnedOut = !walls && town != null && StandingIn(county).Count == 0;
 		Defenders against = DefendersOf(county);
 		Battle.Result day = walls
 			? Battle.OnTheWalls(army.Men, against, spent, _balance, _rng)
@@ -500,6 +529,18 @@ public class TurnManager
 		Bury(army.Men, day.AttackerLosses);
 		here.Bury();
 		Bury(walls ? against.Castle : against.Field, day.DefenderLosses);
+
+		// A held town that turned out for itself lost its own people, and does not turn out again this
+		// season if it broke.
+		if (turnedOut && ProvinceEconomy.Men(day.DefenderLosses) > 0)
+		{
+			town.Population = Mathf.Max(0, town.Population - ProvinceEconomy.Men(day.DefenderLosses));
+			EconomySimulation.FitWorkforce(town);
+			if (day.AttackerWon)
+			{
+				town.MilitiaRoutedTurn = Turn;
+			}
+		}
 
 		// Nobody falls back behind the walls any more: a field army that broke is not an army. What
 		// still turns one battle into two is the watch on the gate — men who were never in the first
@@ -516,6 +557,27 @@ public class TurnManager
 		return day;
 	}
 
+	/// <summary>One company falls on another in open country, away from any gate: the same day in the
+	/// field a county's defence is, with the other company standing in for the county's. Nothing
+	/// changes hands; whichever side breaks is gone.</summary>
+	public Battle.Result Engage(FieldArmy army, FieldArmy enemy)
+	{
+		ProvinceEconomy here = army == null ? null : _provincesByName.GetValueOrDefault(army.Home);
+		ProvinceEconomy there = enemy == null ? null : _provincesByName.GetValueOrDefault(enemy.Home);
+		if (here == null || there == null || army.Strength == 0 || enemy.Strength == 0)
+		{
+			return new Battle.Result(false, new Dictionary<string, int>(), new Dictionary<string, int>(), 0);
+		}
+
+		var against = new Defenders(enemy.Men, new Dictionary<string, int>(), "", there.Loyalty, InOpenCountry: true);
+		Battle.Result day = Battle.InTheField(army.Men, against, army.MarchLeft <= 0f, _balance, _rng);
+		Bury(army.Men, day.AttackerLosses);
+		Bury(enemy.Men, day.DefenderLosses);
+		here.Bury();
+		there.Bury();
+		return day;
+	}
+
 	/// <summary>Sits an army down in front of a gate it has decided not to climb.
 	///
 	/// The other way to take a castle, and the one the stone rungs are actually taken by: a garrison
@@ -523,15 +585,16 @@ public class TurnManager
 	/// his army's whole season, every season — the men are standing there rather than anywhere
 	/// else — and it costs the besieged his county's income for as long as it lasts.
 	///
-	/// Refused where there is anybody still standing in the open: a castle cannot be shut in while
-	/// its lord's field army is at large behind the siege lines.</summary>
+	/// Refused where any of its lord's companies still stand in the open: a castle cannot be shut in
+	/// while his field army is at large behind the siege lines. The town's own militia is not such an
+	/// army — a siege shuts it in with the rest of the town.</summary>
 	public bool Besiege(FieldArmy army, string county)
 	{
 		ProvinceEconomy here = army == null ? null : _provincesByName.GetValueOrDefault(army.Home);
 		ProvinceEconomy there = _provincesByName.GetValueOrDefault(county);
 		Defenders against = DefendersOf(county);
 		if (here == null || there == null || army.Strength == 0 || here.Realm == there.Realm
-			|| !against.Held || ProvinceEconomy.Men(against.Field) > 0)
+			|| !against.Held || StandingIn(county).Count > 0)
 		{
 			return false;
 		}
@@ -681,6 +744,14 @@ public class TurnManager
 				}
 			}
 
+			// Nobody of the lord's standing there: the town turns out for itself, the way an unclaimed
+			// one does — unless it already turned out this season and was beaten, or a siege has it
+			// shut in behind its gate.
+			if (there.Count == 0 && held.MilitiaRoutedTurn != Turn && held.BesiegedFrom.Length == 0)
+			{
+				field = Militia(held.Population);
+			}
+
 			return new Defenders(field, held.Castle, held.Fortification, held.Loyalty);
 		}
 
@@ -690,10 +761,17 @@ public class TurnManager
 			return new Defenders(new Dictionary<string, int>(), new Dictionary<string, int>(), "", 0f);
 		}
 
-		// The watch first — MilitiaArmed of them, bows and spears half and half — and every other
-		// man who turns out comes with what hangs in the barn.
+		return new Defenders(Militia(free.InitialPopulation), new Dictionary<string, int>(), free.InitialFortification,
+			ProvinceEconomy.OpeningLoyalty);
+	}
+
+	/// <summary>What a town turns out when nobody else is standing in it: MilitiaShare of its people,
+	/// the watch first — MilitiaArmed of them, bows and spears half and half — and every other man
+	/// with what hangs in the barn.</summary>
+	private Dictionary<string, int> Militia(int people)
+	{
 		var raised = new Dictionary<string, int>();
-		int militia = Mathf.FloorToInt(free.InitialPopulation * _balance.MilitiaShare[(int)Difficulty]);
+		int militia = Mathf.FloorToInt(people * _balance.MilitiaShare[(int)Difficulty]);
 		int armed = Mathf.FloorToInt(militia * _balance.MilitiaArmed[(int)Difficulty]);
 		int bows = armed / 2;
 		foreach ((string unit, int men) in new[] { (WatchBows, bows), (WatchSpears, armed - bows), (MilitiaUnit, militia - armed) })
@@ -704,8 +782,7 @@ public class TurnManager
 			}
 		}
 
-		return new Defenders(raised, new Dictionary<string, int>(), free.InitialFortification,
-			ProvinceEconomy.OpeningLoyalty);
+		return raised;
 	}
 
 	public ProvinceEconomy GetProvince(string name)
@@ -737,26 +814,70 @@ public class TurnManager
 		province.HappinessByYear[year] += (province.Loyalty - province.HappinessByYear[year]) / seasonsIn;
 	}
 
-	/// <summary>What the rest of this province's realm costs it in goodwill each season, by how hard
-	/// the rest of it is being taxed. Public because the tax table has to show a lord what a rate
-	/// will do to his other counties BEFORE he sets it — a cost you only discover after the turn is
-	/// a cost the player cannot plan around, and he will read it as the game being unfair.
-	///
-	/// Walked in authored order rather than by dictionary, like everything else that adds up across
-	/// provinces here: floating point does not add the same way twice if the order moves.</summary>
-	public float Resented(ProvinceEconomy province)
+	/// <summary>Which counties border which, by name, as the campaign's map has them
+	/// (provinces.json "neighbours"). Empty — the checks — and nobody moves house.</summary>
+	public Dictionary<string, List<string>> Neighbours { get; set; } = new();
+
+	/// <summary>The season's moving house, the original's rule: from every county, some of its people
+	/// leave for its happiest neighbour if that neighbour is happier (Livelihood.Movers). Worked out
+	/// for every county before anybody moves, so one county's arrivals do not change whether they
+	/// themselves would have left.</summary>
+	private void Migrate()
 	{
-		float spill = 0f;
-		foreach (ProvinceDefinition definition in _definitions)
+		var moves = new List<(ProvinceEconomy From, ProvinceEconomy To, int People)>();
+		foreach (ProvinceEconomy county in _provincesByName.Values)
 		{
-			ProvinceEconomy other = _provincesByName[definition.ProvinceName];
-			if (other != province && other.Realm == province.Realm)
+			ProvinceEconomy best = null;
+			foreach (string name in Neighbours.GetValueOrDefault(county.ProvinceName, new List<string>()))
 			{
-				spill += EconomySimulation.TaxSpill(other.Tax, _balance);
+				ProvinceEconomy next = _provincesByName.GetValueOrDefault(name);
+				if (next != null && (best == null || next.Loyalty > best.Loyalty))
+				{
+					best = next;
+				}
+			}
+
+			int movers = best == null ? 0 : Livelihood.Movers(county, best.Loyalty, neutral: false);
+			if (movers > 0)
+			{
+				moves.Add((county, best, movers));
 			}
 		}
 
-		return spill;
+		foreach ((ProvinceEconomy from, ProvinceEconomy to, int people) in moves)
+		{
+			int going = Mathf.Min(people, from.Population);
+			from.Population -= going;
+			to.Population += going;
+			if (_lastSeason.TryGetValue(from.ProvinceName, out TurnSummary left))
+			{
+				left.Moved -= going;
+				left.Restate(from);
+			}
+
+			if (_lastSeason.TryGetValue(to.ProvinceName, out TurnSummary came))
+			{
+				came.Moved += going;
+				came.Restate(to);
+			}
+		}
+	}
+
+	/// <summary>What the realm's rates cost this county's happiness a season: the original's table
+	/// (Livelihood.EmpireTerm) summed over every county its lord holds, this one among them — so a
+	/// lord who squeezes one shire past twenty percent is resented in all of them.</summary>
+	public float Resented(ProvinceEconomy province)
+	{
+		int term = 0;
+		foreach (ProvinceEconomy other in _provincesByName.Values)
+		{
+			if (other.Realm == province.Realm)
+			{
+				term += Livelihood.EmpireTerm(other.Tax);
+			}
+		}
+
+		return term;
 	}
 
 	/// <summary>How many other counties the same lord holds — what the tax table needs to know
@@ -891,6 +1012,10 @@ public class TurnManager
 	/// reckoned and its news told.</summary>
 	private readonly List<FiredEvent> _rivalNews = new();
 
+	/// <summary>What the rivals' marches this turn have to tell the lord, before the season turns and
+	/// hands it to the advisor — for the one screen that comes up before then: the end of his reign.</summary>
+	public IReadOnlyList<FiredEvent> RivalNews => _rivalNews;
+
 	/// <summary>The other lords' half of the season, the way Lords of the Realm plays it: the player
 	/// ends his turn, and then they give their orders, raise their men and march them, while he
 	/// watches. Returns every march they made, so the map can walk the banners along the roads they
@@ -920,7 +1045,7 @@ public class TurnManager
 				// And his muster, from the first season: the men he raises stand at home and defend it
 				// until LordsCampaign decides the season has come to march them.
 				LordArms.Arm(province, _balance, Difficulty,
-					county => _provincesByName.GetValueOrDefault(county)?.Realm ?? "");
+					county => _provincesByName.GetValueOrDefault(county)?.Realm ?? "", Market);
 				LordWalls.ManTheWalls(province, _balance);
 			}
 		}
@@ -954,6 +1079,7 @@ public class TurnManager
 		var summaries = new List<TurnSummary>(_definitions.Count);
 		var news = new List<FiredEvent>(_rivalNews);
 		_rivalNews.Clear();
+		Flooded.Clear();
 
 		Dictionary<string, string> stirs = WhereTheWorldStirs();
 		foreach (ProvinceDefinition definition in _definitions)
@@ -976,22 +1102,24 @@ public class TurnManager
 			bool stirred = stirs.GetValueOrDefault(province.Realm) == province.ProvinceName;
 			List<FiredEvent> happened =
 				EventEngine.AfterTurn(province, _balance, season, Turn, summary, _rng, stirred);
+			if (happened.Exists(item => item.Said.Id.StartsWith("flood")))
+			{
+				Flooded.Add(province.ProvinceName);
+			}
+
 			if (stirred && happened.Exists(item => !item.FromThePeople))
 			{
 				_worldLastStirred[province.Realm] = Turn;
 			}
 
-			// Soldiers for hire walk in on their own errand, and only where the lord could actually
-			// take them up on it: nobody is offering a company to a county he does not hold.
-			if (players)
-			{
-				Mercenaries.Season(province, _balance, _rng);
-			}
+			// Soldiers for hire walk in on their own errand, into any lord's county: the rivals hire
+			// them too (LordArms).
+			Mercenaries.Season(province, _balance, _rng);
 
 			// Last of all, and after the world has had its turn: a season that killed or drove out
-			// people has to take their hands out of the work too, or the county goes on being paid
-			// for labour by men who are dead or three counties away.
-			EconomySimulation.FitWorkforce(province);
+			// people is dealt again, or the county goes on being paid for labour by men who are dead
+			// or three counties away.
+			Labour.Deal(province, definition, _balance, (Season)(((int)season + 1) % SeasonsPerYear));
 
 			// Stamped again: a plague or a flood moved these numbers after the arithmetic finished,
 			// and the summary is supposed to be what the season did, not what it had done by halfway.
@@ -1007,6 +1135,8 @@ public class TurnManager
 				summaries.Add(summary);
 			}
 		}
+
+		Migrate();
 
 		// Last, and outside the loop above: a castle that gives up moves a county between realms, and
 		// doing that while that loop is still walking the counties would be running one of them for

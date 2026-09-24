@@ -18,27 +18,23 @@ public partial class GameBalance : Resource
 	[Export] public float StoneYieldPerWorker = 0.3f;
 	[Export] public float IronYieldPerWorker = 0.25f;
 
-	// --- the fields ----------------------------------------------------------------------------
+	/// <summary>Hands at the anvil for one weapon a season. The original's rate is not known;
+	/// ponytail: a flat rate with no efficiency ramp — Lords of the Realm's sites start near 15% and
+	/// warm up season on season, and that curve belongs here once the original's table is read.</summary>
+	[Export] public int SmithsPerWeapon = 2;
 
-	/// <summary>Grain is a year, not a season: sown in spring out of the province's own store,
-	/// weeded through the summer, and reaped in autumn. One field takes <see cref="SeedPerField"/>
-	/// sacks and gives <see cref="HarvestPerSeed"/> back for each of them, so a field is worth 120
-	/// sacks of the 5 it ate — and a province that spends its spring in the mines has nothing in the
-	/// ground to reap in the autumn.</summary>
-	[Export] public int SeedPerField = 5;
-	[Export] public float HarvestPerSeed = 24f;
+	/// <summary>The most hand-seasons of reclaiming torn ground takes in one season: the original's
+	/// two hundred to a field.</summary>
+	[Export] public int ReclaimPerSeason = 200;
 
-	/// <summary>What one field's worth of grain asks for in hands, by season. Autumn is the whole
-	/// game: a province can quarry all year, but for one turn it has to choose between its harvest
-	/// and everything else. Four fields therefore want most of a county for one turn, which is the
-	/// figure Lords of the Realm settles on too.
-	///
-	/// The other three were once 60, 20 and nothing, which left a county of nine hundred with work
-	/// for four hundred: half the realm stood about from the thaw to the harvest, and the labour bar
-	/// had nothing to decide because there was nowhere to move anybody to. Ploughing, weeding and a
-	/// winter of hedging and ditching are work, and they are now priced as work. [Spring, Summer,
-	/// Autumn, Winter]</summary>
-	[Export] public int[] GrainWorkersPerField = { 110, 80, 240, 45 };
+	/// <summary>How practised a site is the first season it is worked, in percent, and how much of
+	/// that it gains each season it keeps at least one man, compounded, up to a hundred. The
+	/// original's floor is about fifteen; its rate of climb is not known and this one is a guess
+	/// that takes a site from floor to full in about five seasons.</summary>
+	[Export] public int SiteEfficiencyFloor = 15;
+	[Export] public int SiteEfficiencyGrowth = 50;
+
+	// --- the fields (Husbandry keeps the original's own figures) --------------------------------
 
 	/// <summary>How many hands a rung of wall expects for each of the seasons it is priced at. At
 	/// exactly this many it takes the seasons the fortifications room quotes; at twice, half as
@@ -46,34 +42,6 @@ public partial class GameBalance : Resource
 	/// the place a lord puts the men the fields and the trades have no use for — which is what
 	/// Lords of the Realm's own labour bar is really for.</summary>
 	[Export] public int MasonsPerBuildSeason = 200;
-
-	/// <summary>What is left of a crop nobody weeded — the floor the summer's coverage runs down
-	/// to, not a flat loss.</summary>
-	[Export] public float UntendedCropYield = 0.45f;
-
-	/// <summary>How fertility moves over one year: up on a field left to rest, down on one under
-	/// grain, and halfway up under a herd, which gives some of it back where it stands. Two fields
-	/// cropped to one rested comes out level, which is the rotation the game is really about.</summary>
-	[Export] public float FertilityRested = 0.25f;
-	[Export] public float FertilityCropped = 0.12f;
-	[Export] public float FertilityFloor = 0.35f;
-
-	// --- the herd ------------------------------------------------------------------------------
-
-	[Export] public float CattleBaseGrowthRate = 0.05f;
-
-	/// <summary>How many head one pasture field carries before they are standing on each other, and
-	/// how many one herdsman can keep. A herd at its room grows at full rate; at twice its room it
-	/// does not grow at all.</summary>
-	[Export] public int CowsPerField = 20;
-	[Export] public float CowsPerHerder = 2.5f;
-
-	/// <summary>What the herd is worth as food: milk and cheese every season it is tended, and meat
-	/// on the season it is killed for. Both are counted in sacks of grain, because a province eats
-	/// one number and it may as well be the one it already understands.</summary>
-	[Export] public float DairyPerCow = 0.6f;
-	[Export] public float BeefPerCow = 4f;
-
 
 	[Export] public float PeoplePerGrain = 10f;
 	[Export] public float BasePopulationGrowthRate = 0.01f;
@@ -91,7 +59,6 @@ public partial class GameBalance : Resource
 	[Export] public float StarvationLoyaltyLossPerDeficit = 25f;
 
 	// [Spring, Summer, Autumn, Winter]
-	[Export] public float[] CattleSeasonMultiplier = { 1.00f, 1.10f, 1.10f, 0.80f };
 	[Export] public float[] WoodSeasonMultiplier = { 1.00f, 1.00f, 1.00f, 0.80f };
 	[Export] public float[] StoneSeasonMultiplier = { 1.00f, 1.00f, 1.00f, 0.70f };
 	[Export] public float[] IronSeasonMultiplier = { 1.00f, 1.00f, 1.00f, 0.80f };
@@ -142,13 +109,14 @@ public partial class GameBalance : Resource
 	/// and running the rest of his realm as though nothing were happening.</summary>
 	[Export] public float OtherCountiesTaxShare = 0.2f;
 
-	// What one unit of each store fetches at market. One price, paid either way: the realm buys at
-	// it and sells at it, so a province can turn a glut into gold and gold into what it lacks.
-	[Export] public int GrainPrice = 10;
-	[Export] public int CattlePrice = 42;
-	[Export] public int WoodPrice = 14;
-	[Export] public int StonePrice = 22;
-	[Export] public int IronPrice = 35;
+	// What one unit of each store is worth at market, between what the merchant asks and what he
+	// offers: Lords of the Realm II's own prices (sell/buy — a cow 12/24, a sack 2/4, stone 2/4, iron
+	// and timber 1/2) come out of these at the spread below.
+	[Export] public int GrainPrice = 3;
+	[Export] public int CattlePrice = 18;
+	[Export] public int WoodPrice = 2;
+	[Export] public int StonePrice = 3;
+	[Export] public int IronPrice = 2;
 
 	/// <summary>How the counter works. The spread is the merchant's cut on both sides, which is what
 	/// stops a moving price from being a money printer — sell until it drops, buy it back cheaper,
@@ -156,8 +124,8 @@ public partial class GameBalance : Resource
 	/// base value, so it is measured in turnover rather than in sacks and one figure covers every
 	/// store. The drift is how much of that fades each season, and the floor and ceiling are how far
 	/// a price can be driven in either direction before the market stops listening.</summary>
-	[Export] public float MarketSpread = 0.08f;
-	[Export] public float MarketDepth = 4000f;
+	[Export] public float MarketSpread = 0.333f; // the original buys at twice what it sells for
+	[Export] public float MarketDepth = 1200f;
 	[Export] public float PriceDrift = 0.25f;
 	[Export] public float PriceFloor = 0.45f;
 	[Export] public float PriceCeiling = 2.4f;
@@ -169,15 +137,15 @@ public partial class GameBalance : Resource
 	[Export] public float[] GrainSeasonPrice = { 1.30f, 1.10f, 0.75f, 1.05f };
 	[Export] public float[] CattleSeasonPrice = { 1.10f, 1.00f, 0.90f, 1.05f };
 
-	// What finished arms fetch. Dearer than the stores they are made of — the market is paying for
-	// the smith's turns as well as his iron, which is what makes buying them a real alternative to
-	// forging them.
-	[Export] public int SwordPrice = 120;
-	[Export] public int BowPrice = 70;
-	[Export] public int CrossbowPrice = 95;
-	[Export] public int SpearPrice = 60;
-	[Export] public int MacePrice = 110;
-	[Export] public int HorsePrice = 260;
+	// What finished arms fetch: Lords of the Realm II's own prices (sell/buy — spear 13/26, bow 16/32,
+	// sword 23/46, crossbow 24/48, mace 10/20, a knight's armour 44/88) come out of these at the spread. Three times these, a spear cost a hundred once a rival had been
+	// buying, and a lord with one county could not arm a company.
+	[Export] public int SwordPrice = 35;
+	[Export] public int BowPrice = 24;
+	[Export] public int CrossbowPrice = 36;
+	[Export] public int SpearPrice = 20;
+	[Export] public int MacePrice = 15;
+	[Export] public int HorsePrice = 66;
 
 	// --- what the world throws at a province -----------------------------------------------------
 
@@ -218,8 +186,9 @@ public partial class GameBalance : Resource
 	/// before walking on. Its own roll rather than a share of the world's attention: a band for hire
 	/// is not something that happens TO a county the way a flood does, and it should not be able to
 	/// crowd a flood off the table. Three seasons is long enough for a lord to sell something and
-	/// short enough that he has to decide.</summary>
-	[Export] public float MercenaryChance = 0.12f;
+	/// short enough that he has to decide. One chance in eight left a lord with a single county eight
+	/// turns without a band a third of the time; one in three sees one most years.</summary>
+	[Export] public float MercenaryChance = 0.33f;
 	[Export] public int MercenarySeasons = 3;
 
 	/// <summary>The Black Death runs for this many seasons once it arrives, killing this share of
@@ -228,23 +197,20 @@ public partial class GameBalance : Resource
 	[Export] public float PlagueDeathRate = 0.09f;
 	[Export] public float PlagueLoyaltyLoss = 6f;
 
-	/// <summary>What the weather takes. The flood is a spring event and the drought a summer one,
-	/// because both are only worth anything while there is a crop in the ground to take.</summary>
-	[Export] public float FloodFertilityLoss = 0.15f;
-
-	/// <summary>What a flooded field takes to put right, counted in hand-seasons. The hands the
-	/// year's own work can spare go onto the torn ground and take this down every turn, so how long
-	/// a field lies ruined is the lord's own answer to how many men he leaves on the land rather
-	/// than a timer he waits out. Four hundred is a season or two for a province with its fields
-	/// fully manned, and forever for one that has moved everybody into the mine.</summary>
+	/// <summary>What one flooded field takes to put right, counted in hand-seasons. The reclaimers
+	/// take this down every turn, so how long a field lies waste is the lord's own answer to how many
+	/// men he spares for it rather than a timer he waits out. Four hundred is two seasons at the
+	/// most a season will take, and forever for a county that has moved everybody into the mine.
+	/// The flood is a spring event and the drought a summer one, because both are only worth
+	/// anything while there is a crop in the ground to take.</summary>
 	[Export] public int FieldRepairWork = 400;
 	[Export] public float DroughtCropLoss = 0.5f;
 
 	/// <summary>Soil below this has been cropped past its rest, which is what makes a flood the
 	/// lord's fault rather than the rain's; above <see cref="GoodHeart"/> the land is in condition
 	/// to repay a good year.</summary>
-	[Export] public float TiredSoil = 0.6f;
-	[Export] public float GoodHeart = 0.85f;
+	[Export] public int TiredSoil = -30;
+	[Export] public int GoodHeart = 60;
 
 	/// <summary>The rats want a granary so full it is spilling: a hoard past this many sacks is what
 	/// brings them, and they take this share of it.</summary>
@@ -293,10 +259,12 @@ public partial class GameBalance : Resource
 	[Export] public float MarchCostByRoad = 1f;
 	[Export] public float MarchCostOffRoad = 2.2f;
 
-	/// <summary>Gold a soldier is owed each season, and how many of the unpaid walk away. Wages come
-	/// out of what the reeve brought in, so an army bigger than the county can carry empties the
-	/// treasury first and then thins itself, which is the honest end of overreaching.</summary>
-	[Export] public float WagePerSoldier = 0.6f;
+	/// <summary>Gold a soldier is owed each season — a third of a crown a year, as Lords of the Realm
+	/// pays him — and how many of the unpaid walk away. Wages come out of what the reeve brought in,
+	/// so an army bigger than the county can carry empties the treasury first and then thins itself.
+	/// At seven times this, a lord who had not yet raised his tax off nothing was broke by his
+	/// second company.</summary>
+	[Export] public float WagePerSoldier = 1f / 12f;
 	[Export] public float DesertionRate = 0.35f;
 
 	/// <summary>How many men under arms a county takes for granted, as a share of its own people: a
@@ -418,12 +386,10 @@ public partial class GameBalance : Resource
 	/// when he is under it. How far ahead a lord counts is most of what makes him hard to starve.</summary>
 	[Export] public float[] LordGrainSeasons = { 1f, 2f, 3f };
 
-	/// <summary>How tired a grain field has to be before a lord rests it, and how far a resting one has
-	/// to recover before he sows it again. Without them he only ever ploughed fallow up and never let
-	/// it rest: every field sank to the floor and a county that fed itself at the start was starving
-	/// in forty years with the same people on the same land. Cropped three years and rested two, a
-	/// field stays at about four fifths of its heart.</summary>
-	[Export] public float LordRestsBelow = 0.75f;
+	/// <summary>How tired the county's soil (−100..100) has to be before a lord rests a field, and
+	/// how rich before he sows one back. Without them he only ever ploughed fallow up and never let
+	/// it rest, and a county that fed itself at the start was starving in forty years.</summary>
+	[Export] public int LordRestsBelow = 0;
 
 	/// <summary>The goodwill under which a lord raises nobody: the sons are the last thing a
 	/// resentful county gives. The same for every lord, and just above where people start to leave
@@ -432,21 +398,20 @@ public partial class GameBalance : Resource
 	[Export] public float LordLevyAbove = 36f;
 
 	/// <summary>The share of a county a lord counts on being in the fields at harvest, which is what
-	/// decides how many fields he sows: GrainWorkersPerField's autumn figure a field.</summary>
+	/// decides how many fields he sows: a full field wants the reapers for a hundred and twenty sacks.</summary>
 	[Export] public float LordReapShare = 0.9f;
 
 	/// <summary>Iron, stone and timber a lord keeps in the yard; everything above it he sells each
 	/// season.</summary>
 	[Export] public int LordKeepsWares = 150;
-	[Export] public float LordSowsAbove = 0.95f;
+	[Export] public int LordSowsAbove = 40;
 
-	/// <summary>The share of base that a sack has to fetch him, after the merchant's cut, before he
-	/// will let it go. Read against what the seasons actually pay: about six tenths in autumn when
-	/// every barn in the realm is full, nine in winter, ten in summer and eleven in spring. So 0.55
-	/// is a lord who sells whenever the barn is full and has not thought past that; 0.95 holds his
-	/// grain back through the glut; and 1.05 waits for spring and then sells only as much as the
-	/// market will take at the top without pushing it back down.</summary>
-	[Export] public float[] LordSellsAbove = { 0.55f, 0.95f, 1.05f };
+	/// <summary>The share of an ordinary season's selling price a sack has to fetch him before he will
+	/// let it go. Prices are whole crowns and a sack's are the original's small ones — two in an
+	/// ordinary season, one in the autumn glut — so 0.45 is a lord who sells whenever the barn is
+	/// full, and 0.9 and 0.95 hold the grain back through the glut and sell it when it is dear again,
+	/// only as much as the market takes without pushing it back down.</summary>
+	[Export] public float[] LordSellsAbove = { 0.45f, 0.9f, 0.95f };
 
 	/// <summary>The goodwill he eases the tax at. A poor lord reads his treasury and squeezes until
 	/// the county is on the edge of leaving; a good one reads the county long before. Never under
@@ -459,17 +424,24 @@ public partial class GameBalance : Resource
 	/// <summary>The share of his people a lord keeps in the field, the watch on his gates aside.
 	/// About one in eight is what it takes to beat a neutral county's militia once the town keeps a
 	/// watch of bows and spears (MilitiaArmed); a hard lord keeps half as many again.</summary>
-	[Export] public float[] LordArmyShare = { 0.12f, 0.14f, 0.18f };
+	[Export] public float[] LordArmyShare = { 0.15f, 0.25f, 0.35f };
 
 	/// <summary>How sure a lord wants to be before he attacks, as the share of days he would carry.
 	/// A hard lord takes a real risk. The easy lord is as careful as the middling one: what makes
 	/// him easy is that he starts late, never comes for the player and never sits down before a
 	/// gate.</summary>
-	[Export] public float[] LordAttackOdds = { 0.75f, 0.75f, 0.6f };
+	[Export] public float[] LordAttackOdds = { 0.75f, 0.65f, 0.6f };
 
-	/// <summary>The first turn a lord marches on anybody. The opening years are the player's to find
-	/// his feet in, and the harder the lord the shorter they are.</summary>
-	[Export] public int[] LordFirstMarch = { 24, 12, 6 };
+	/// <summary>The first turn a lord marches on anybody. He takes the empty country first
+	/// (LordsCampaign.Wanted), so this is how soon the race for it begins: a hard lord is on the road
+	/// in his first summer.</summary>
+	[Export] public int[] LordFirstMarch = { 12, 8, 2 };
+
+	/// <summary>Seasons a lord spends settling a county he has just taken — its wall, its watch, its
+	/// people — before his host marches on the next. Without it the Northern Watch took the whole
+	/// empty country in five seasons on Medium and was at the player's gate by the fourth year's
+	/// spring, before the player had raised a second company: a race nobody could run.</summary>
+	[Export] public int[] LordSettles = { 6, 3, 1 };
 
 	/// <summary>Whether a lord comes for the player's counties at all (1) or only for the empty
 	/// country (0), and whether he will sit down before a gate he cannot storm.</summary>
@@ -482,7 +454,7 @@ public partial class GameBalance : Resource
 	/// raise, and the smallest he will march.</summary>
 	[Export] public float LordWagesShare = 0.6f;
 	[Export] public int LordSmithyBatches = 3;
-	[Export] public float LordLevyShare = 0.04f;
+	[Export] public float LordLevyShare = 0.06f;
 	[Export] public int LordLeastPeopleToLevy = 300;
 	[Export] public int LordLeastCompany = 10;
 	[Export] public int LordLeastHost = 40;
@@ -492,6 +464,20 @@ public partial class GameBalance : Resource
 	/// how many men he puts on a wall once it stands.</summary>
 	[Export] public float[] LordBuildChance = { 0.05f, 0.10f, 0.15f };
 	[Export] public int LordWatch = 30;
+
+	/// <summary>The share of what a wall holds that a lord keeps on it, the watch above being the
+	/// least he puts there: a stone keep with thirty men on it was a keep for the taking.</summary>
+	[Export] public float LordWatchShare = 0.4f;
+
+	/// <summary>What a lord's treasury is worth to his army each season, as a share of it spent on
+	/// wages on top of his taxes; the gold he keeps back whatever the war; and the share of what is
+	/// above that he will put into arms bought at market or a band of hired men in one season — by
+	/// difficulty. A lord who paid his men from his taxes alone sat on fifty thousand crowns with
+	/// forty men in the field; one who spent half his chest a season took the player's seat in five
+	/// years on middling.</summary>
+	[Export] public float[] LordTreasuryShare = { 0f, 0.01f, 0.03f };
+	[Export] public int LordGoldReserve = 500;
+	[Export] public float[] LordWarChest = { 0.1f, 0.25f, 0.5f };
 
 	/// <summary>How many battles a lord fights in his head before deciding one in the field.</summary>
 	[Export] public int LordOddsTrials = 40;

@@ -22,9 +22,14 @@
    "x": 365,
    "y": 485,
    "realm": "royal-crown",
-   "capital": true,
    "economy": "kingsreach",
-   "region": "south"
+   "capital": true,
+   "region": "south",
+   "neighbours": [
+	"Redmoor Hold",
+	"Ashenvale",
+    "Thornwatch"
+   ]
   },
   {
    "name": "Redmoor Hold",
@@ -32,7 +37,11 @@
    "y": 175,
    "realm": "neutral",
    "economy": "redmoor-hold",
-   "region": "south"
+   "region": "south",
+   "neighbours": [
+	"Kingsreach",
+    "Ashenvale"
+   ]
   },
   {
    "name": "Ashenvale",
@@ -40,7 +49,14 @@
    "y": 385,
    "realm": "neutral",
    "economy": "ashenvale",
-   "region": "south"
+   "region": "south",
+   "neighbours": [
+	"Kingsreach",
+	"Redmoor Hold",
+	"Thornwatch",
+	"Valmere",
+    "Icemere Reach"
+   ]
   },
   {
    "name": "Thornwatch",
@@ -48,7 +64,13 @@
    "y": 655,
    "realm": "neutral",
    "economy": "thornwatch",
-   "region": "south"
+   "region": "south",
+   "neighbours": [
+	"Kingsreach",
+	"Ashenvale",
+	"Farrowmere",
+    "Icemere Reach"
+   ]
   },
   {
    "name": "Farrowmere",
@@ -56,30 +78,52 @@
    "y": 885,
    "realm": "neutral",
    "economy": "farrowmere",
-   "region": "south"
+   "region": "south",
+   "neighbours": [
+	"Thornwatch",
+    "Icemere Reach"
+   ]
   },
   {
    "name": "Valmere",
    "x": 1095,
    "y": 105,
    "realm": "northern-watch",
-   "capital": true,
    "economy": "valmere",
-   "region": "north"
+   "capital": true,
+   "region": "north",
+   "neighbours": [
+	"Ashenvale",
+	"Frostgate",
+    "Icemere Reach"
+   ]
   },
   {
    "name": "Frostgate",
    "x": 1260,
    "y": 290,
    "realm": "neutral",
-   "region": "north"
+   "economy": "frostgate",
+   "region": "north",
+   "neighbours": [
+	"Valmere",
+    "Icemere Reach"
+   ]
   },
   {
    "name": "Icemere Reach",
    "x": 1200,
    "y": 485,
    "realm": "neutral",
-   "region": "north"
+   "economy": "icemere-reach",
+   "region": "north",
+   "neighbours": [
+	"Ashenvale",
+	"Thornwatch",
+	"Farrowmere",
+	"Valmere",
+    "Frostgate"
+   ]
   }
  ]
 }

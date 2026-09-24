@@ -53,6 +53,7 @@ public partial class ProvinceSidebar : VBoxContainer
 
 	private Control _held;
 	private Control _foreign;
+	private Label _word;
 	private ColorRect _accent;
 	private TextureRect _crest;
 	private Label _name;
@@ -64,8 +65,8 @@ public partial class ProvinceSidebar : VBoxContainer
 	private Button _march;
 	private readonly Dictionary<ResourceType, Label> _stock = new();
 	private readonly Dictionary<ResourceType, Label> _yield = new();
-	private readonly Dictionary<string, Label> _armoury = new();
-	private Label _forging;
+	private readonly List<(Control Divider, Control Cell, Label Count, Label Yield, string Weapon)> _armoury = new();
+	private Control _armouryFrame;
 	private LabourBar _labour;
 	private Control _labourFrame;
 
@@ -189,9 +190,9 @@ public partial class ProvinceSidebar : VBoxContainer
 		// loop above has already blanked its row. Previewing it anyway threw, and since the turn
 		// reselects whatever county is in hand, a lord who had last looked at a neighbour's land lost
 		// the rest of every turn after it — the fields, the walls and the season on the map.
+		TurnSummary next = held ? EconomySimulation.Preview(_economy, _definition, _balance, _season) : null;
 		if (held)
 		{
-			TurnSummary next = EconomySimulation.Preview(_economy, _definition, _balance, _season);
 			foreach ((ResourceType type, string _) in Resources)
 			{
 				int change = ChangeIn(next, type);
@@ -207,18 +208,27 @@ public partial class ProvinceSidebar : VBoxContainer
 
 		// The weapons waiting in the armoury, not the men holding them: an army raised in the yard
 		// marches out of the county, so a list of it here is a list of who has already gone. What
-		// the smithy has made stays until somebody is handed it.
-		foreach ((string weapon, Label count) in _armoury)
+		// the smithy has made stays until somebody is handed it. Only what there is, and what the
+		// forge is making, with what next season adds under it the way the stores carry theirs — a
+		// lit forge that will turn out nothing says so in red.
+		bool shown = false;
+		foreach ((Control divider, Control cell, Label count, Label yield, string weapon) in _armoury)
 		{
-			count.Text = held ? _economy.Armoury.GetValueOrDefault(weapon).ToString("N0") : "0";
+			int stocked = held ? _economy.Armoury.GetValueOrDefault(weapon) : 0;
+			bool forging = held && _economy.Forging == weapon;
+			count.Text = stocked.ToString("N0");
+			yield.Text = forging ? $"+{next.Forged:N0}" : "";
+			yield.AddThemeColorOverride("font_color", forging && next.Forged == 0 ? Lack : Gain);
+			cell.Visible = stocked > 0 || forging;
+			if (divider != null)
+			{
+				divider.Visible = cell.Visible && shown;
+			}
+
+			shown |= cell.Visible;
 		}
 
-		_forging.Visible = held && _economy.Forging.Length > 0;
-		if (_forging.Visible)
-		{
-			_forging.Text = $"On the anvil: {_economy.ForgeBatch:N0} in " +
-				$"{_economy.ForgeTurnsLeft} season{(_economy.ForgeTurnsLeft == 1 ? "" : "s")}";
-		}
+		_armouryFrame.Visible = shown;
 	}
 
 	// --- building the thing ------------------------------------------------------------------
@@ -357,27 +367,22 @@ public partial class ProvinceSidebar : VBoxContainer
 		}
 	}
 
-	/// <summary>What the county has in its armoury, and what the smithy has on the anvil. This is
+	/// <summary>What the county has in its armoury, and what the smithy adds to it a season. This is
 	/// where the muster used to stand, and it earns the room better: men raised in the yard leave
 	/// the county, weapons stay in it until somebody is given them.</summary>
 	private void BuildArmoury()
 	{
-		var column = new VBoxContainer();
-		column.AddThemeConstantOverride("separation", 4);
-
 		var row = new HBoxContainer();
 		row.AddThemeConstantOverride("separation", 2);
-		column.AddChild(row);
 
-		bool first = true;
 		foreach ((string weapon, string icon) in Arms)
 		{
-			if (!first)
+			Control divider = null;
+			if (_armoury.Count > 0)
 			{
-				row.AddChild(Divider());
+				divider = Divider();
+				row.AddChild(divider);
 			}
-
-			first = false;
 
 			var cell = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
 			cell.AddThemeConstantOverride("separation", 2);
@@ -388,16 +393,16 @@ public partial class ProvinceSidebar : VBoxContainer
 			count.AddThemeColorOverride("font_color", Cream);
 			cell.AddChild(count);
 
-			_armoury[weapon] = count;
+			Label yield = Small("", Gain);
+			yield.HorizontalAlignment = HorizontalAlignment.Center;
+			cell.AddChild(yield);
+
+			_armoury.Add((divider, cell, count, yield, weapon));
 			row.AddChild(cell);
 		}
 
-		// Only while there is something on it: a cold forge has nothing to say.
-		_forging = Small("", Gain);
-		_forging.HorizontalAlignment = HorizontalAlignment.Center;
-		column.AddChild(_forging);
-
-		_held.AddChild(Framed(column, 8));
+		_armouryFrame = Framed(row, 8);
+		_held.AddChild(_armouryFrame);
 	}
 
 	/// <summary>The labour bar, on the panel the lord is looking at his county from — which is where
@@ -412,6 +417,10 @@ public partial class ProvinceSidebar : VBoxContainer
 		// so only the letting go is worth a redraw, and that is when the forecasts change.
 		_labour.Settled += Refresh;
 	}
+
+	/// <summary>What the scouts say of a county you do not hold, under its keep: not its books, but
+	/// enough to know which gate is worth the march.</summary>
+	public void ShowWord(string word) => _word.Text = word;
 
 	/// <summary>What stands in place of the books for a province you do not hold: the keep on its
 	/// hill, unlit, and a line saying why there are no numbers under it. A column of dashes where
@@ -433,10 +442,10 @@ public partial class ProvinceSidebar : VBoxContainer
 			StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered,
 		});
 
-		Label line = Small("No word reaches you of what it holds.", Waiting);
-		line.AutowrapMode = TextServer.AutowrapMode.Word;
-		line.HorizontalAlignment = HorizontalAlignment.Center;
-		stack.AddChild(line);
+		_word = Small("No word reaches you of what it holds.", Waiting);
+		_word.AutowrapMode = TextServer.AutowrapMode.Word;
+		_word.HorizontalAlignment = HorizontalAlignment.Center;
+		stack.AddChild(_word);
 
 		_foreign = Framed(stack, 8);
 		_foreign.SizeFlagsVertical = SizeFlags.ExpandFill;

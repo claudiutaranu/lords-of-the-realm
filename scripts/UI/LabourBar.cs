@@ -1,18 +1,13 @@
 using System;
 using Godot;
 
-/// <summary>Lords of the Realm's own labour bar: bread at one end, tools at the other, and the
-/// county's hands slid between them.
+/// <summary>Lords of the Realm's own labour bar: the wheat at one end, the hammer at the other, one
+/// long bar between them, and the county's hands slid along it — the farm from the wheat up to the
+/// grip, the industry from there to the hammer (Labour.Divide), dealt again the moment it moves. Under it, the hands on the
+/// farm, the hands in the industry, and whoever neither can use.
 ///
-/// What each half does with the men it is handed is the season's business — grain before cattle,
-/// timber before iron before stone — and the plaques are there for the lord who wants to argue
-/// with that. A half given more hands than it has work for leaves the rest standing about, which
-/// is the point of a bar: it is a decision, and men sent to the mine do not quietly walk back to
-/// the harvest because the harvest was short.
-///
-/// It keeps nothing of its own. Where the grip sits is read off the allocation every time the bar
-/// is shown, so it can never disagree with the plaques: move a man with a plaque and the bar has
-/// already moved.</summary>
+/// It keeps nothing of its own: the grip is where the county's IndustryShare is, every time the bar
+/// is shown.</summary>
 public partial class LabourBar : VBoxContainer
 {
 	/// <summary>Raised while the grip is moving: whatever else reads the allocation should follow
@@ -31,6 +26,8 @@ public partial class LabourBar : VBoxContainer
 	private Label _fields;
 	private Label _trades;
 	private Label _spare;
+	private Label _farmShort;
+	private Label _industryShort;
 	private bool _reading;
 
 	/// <summary>What a county with men standing about is written in.</summary>
@@ -40,29 +37,28 @@ public partial class LabourBar : VBoxContainer
 	{
 		AddThemeConstantOverride("separation", 4);
 
+		// The wheat, the bar the whole way across to the hammer, the hammer.
 		var row = new HBoxContainer();
-		row.AddThemeConstantOverride("separation", 8);
+		row.AddThemeConstantOverride("separation", 6);
 		AddChild(row);
 
 		row.AddChild(Chrome.Icon("food", 30));
-
-		_fields = Count(HorizontalAlignment.Right);
-		row.AddChild(_fields);
-
-		// A pair of arrows beside the grip, because a hand on a slider moves in jumps and a lord
-		// shifting the last twenty men off the harvest should not have to fight it.
-		row.AddChild(Chrome.Plate("\u25c2", 34, () => Nudge(-1)));
 
 		_bar = new HSlider
 		{
 			MinValue = 0,
 			MaxValue = 100,
-			Step = 5,
+			Step = 1, // the original's industry share is a whole percent
 			SizeFlagsHorizontal = SizeFlags.ExpandFill,
 			SizeFlagsVertical = SizeFlags.ShrinkCenter,
-			CustomMinimumSize = new Vector2(120, 0),
-			TooltipText = "The fields on the left, the trades on the right.",
+			CustomMinimumSize = new Vector2(40, 0),
+			TooltipText = "The farm to the left, the industry to the right.",
 		};
+
+		// The grip is one of the county's people, as in Lords of the Realm: the man is what is moved.
+		var grip = GD.Load<Texture2D>("res://assets/ui/icons/worker-grip.png");
+		_bar.AddThemeIconOverride("grabber", grip);
+		_bar.AddThemeIconOverride("grabber_highlight", grip);
 
 		_bar.ValueChanged += share =>
 		{
@@ -72,40 +68,60 @@ public partial class LabourBar : VBoxContainer
 				return;
 			}
 
-			_province.LabourSplit = (float)share / 100f;
-			EconomySimulation.Split(_province, _definition, _balance, _season, _province.LabourSplit);
+			Labour.Divide(_province, _definition, _balance, _season, 100 - (int)share);
 			Counts();
 			Moved?.Invoke();
 		};
 
 		_bar.DragEnded += _ => Settled?.Invoke();
 		row.AddChild(_bar);
-
-		row.AddChild(Chrome.Plate("\u25b8", 34, () => Nudge(1)));
-
-		_trades = Count(HorizontalAlignment.Left);
-		row.AddChild(_trades);
 		row.AddChild(Chrome.Icon("hammer", 30));
+
+		// The hands under each end, and between them whoever neither end can use.
+		var counts = new HBoxContainer();
+		counts.AddThemeConstantOverride("separation", 6);
+		AddChild(counts);
+
+		_fields = Count(HorizontalAlignment.Left);
+		counts.AddChild(_fields);
 
 		// Hands nobody has given work to. It is the one number on this bar the lord did not choose,
 		// and the one worth putting in front of him: a county with men standing about is a county
 		// paying for a season it is not working.
 		_spare = Chrome.Line("", 15, Short);
 		_spare.HorizontalAlignment = HorizontalAlignment.Center;
-		AddChild(_spare);
+		_spare.VerticalAlignment = VerticalAlignment.Center;
+		_spare.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		counts.AddChild(_spare);
+
+		_trades = Count(HorizontalAlignment.Right);
+		counts.AddChild(_trades);
+
+		// Under each end, the hands its work still wants: the one thing the bar has to tell a lord
+		// before he ends the season with the harvest short.
+		var wants = new HBoxContainer();
+		wants.AddThemeConstantOverride("separation", 6);
+		AddChild(wants);
+		_farmShort = Chrome.Line("", 14, Short);
+		_farmShort.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		wants.AddChild(_farmShort);
+		_industryShort = Chrome.Line("", 14, Short);
+		_industryShort.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		_industryShort.HorizontalAlignment = HorizontalAlignment.Right;
+		wants.AddChild(_industryShort);
 	}
 
-	/// <summary>One step of the bar, from a button rather than from the grip. The split is settled
-	/// straight away: there is no drag to be taken out from under.</summary>
-	private void Nudge(int step)
+	/// <summary>How many more hands a half's jobs could use before none of them is short. The
+	/// diggings are never short (Labour.Wanted), so the industry's want is the masons' and the smiths'.</summary>
+	private int Missing(string[] jobs)
 	{
-		if (_province == null)
+		int missing = 0;
+		foreach (string job in jobs)
 		{
-			return;
+			missing += Mathf.Max(0, Labour.Wanted(_province, _definition, _balance, _season, job) - Labour.Hands(_province, job));
 		}
 
-		_bar.Value = Mathf.Clamp(_bar.Value + step * _bar.Step, _bar.MinValue, _bar.MaxValue);
-		Settled?.Invoke();
+		return missing;
 	}
 
 	/// <summary>Points the bar at a county, or at none — a province nobody is running has no hands
@@ -124,21 +140,27 @@ public partial class LabourBar : VBoxContainer
 		}
 
 		_reading = true;
-		_bar.Value = Mathf.RoundToInt(100f * (province.LabourSplit >= 0f
-			? province.LabourSplit
-			: EconomySimulation.TradesShare(province)));
+		// The farm fills the bar from the wheat up to the grip, the industry the rest of the way to the
+		// hammer — so the grip stands at the farm's share, not the industry's.
+		_bar.Value = 100 - province.IndustryShare;
 		_reading = false;
 		Counts();
 	}
 
 	private void Counts()
 	{
-		_fields.Text = (_province.GrainWorkers + _province.CattleWorkers).ToString("N0");
-		_trades.Text = (_province.WoodWorkers + _province.StoneWorkers + _province.IronWorkers).ToString("N0");
+		_fields.Text = (_province.GrainWorkers + _province.CattleWorkers + _province.ReclaimWorkers).ToString("N0");
+		_trades.Text = (_province.WoodWorkers + _province.StoneWorkers + _province.IronWorkers + _province.SmithWorkers
+			+ _province.BuildWorkers).ToString("N0");
 
 		int spare = EconomySimulation.Idle(_province, _definition, _balance, _season);
-		_spare.Text = spare > 0 ? $"{spare:N0} standing idle" : "";
-		_spare.Visible = spare > 0;
+		// Empty rather than hidden, so the industry's count stays under the hammer.
+		_spare.Text = spare > 0 ? $"{spare:N0} idle" : "";
+
+		int farm = Missing(Labour.Farm);
+		int industry = Missing(Labour.Industry);
+		_farmShort.Text = farm > 0 ? $"{farm:N0} short" : "";
+		_industryShort.Text = industry > 0 ? $"{industry:N0} short" : "";
 	}
 
 	private static Label Count(HorizontalAlignment side)

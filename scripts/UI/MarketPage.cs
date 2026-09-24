@@ -30,7 +30,8 @@ public partial class MarketPage : RoomPage
 	/// <summary>What is off the rack, for a stall that has one. Null when the stall is traded
 	/// directly.</summary>
 	private Good _picked;
-	private int _amount;
+	private int _buying;
+	private int _selling;
 
 	/// <summary>The good actually being priced and traded: what was taken off the rack, or the
 	/// stall itself where there is no rack.</summary>
@@ -144,7 +145,7 @@ public partial class MarketPage : RoomPage
 		_chosen = good;
 		// A rack opens on its first entry, so the panel always has something priced in it.
 		_picked = good?.Rack?[0];
-		_amount = Trading?.Step ?? 0;
+		_buying = _selling = Trading?.Step ?? 0;
 		LightSign(good?.Key);
 		ShowDetail();
 	}
@@ -152,7 +153,7 @@ public partial class MarketPage : RoomPage
 	private void Pick(Good good)
 	{
 		_picked = good;
-		_amount = good.Step;
+		_buying = _selling = good.Step;
 		ShowDetail();
 	}
 
@@ -212,16 +213,10 @@ public partial class MarketPage : RoomPage
 		reading.AddChild(terms);
 		reading.AddChild(Weather(Trading.Key));
 
-		// The slider runs to whichever side reaches further, so both trades are in reach of one
-		// control; each button below answers for its own side.
-		Detail.AddChild(Stepper("Amount", _amount, Trading.Step,
-			Mathf.Max(Affordable, Province.Stored(Trading.Key)),
-			settled =>
-			{
-				_amount = settled;
-				ShowDetail();
-			}));
-		Detail.AddChild(BuildCounter());
+		// A slider for each side of the counter, each running as far as that side can go: buying to
+		// what the purse will pay for, selling to what is in the store.
+		Detail.AddChild(BuildCounter(buying: true));
+		Detail.AddChild(BuildCounter(buying: false));
 	}
 
 	/// <summary>The rack under a stall's name: one plate per thing on it, the taken one lit. The
@@ -296,50 +291,46 @@ public partial class MarketPage : RoomPage
 
 	/// <summary>Buy and sell, side by side, each dead when the till or the store cannot answer for
 	/// it. The line under them is what the trade comes to either way.</summary>
-	private Control BuildCounter()
+	/// <summary>One side of the counter: how many, and the button that trades them at the price
+	/// written beside it — red on the buying side when the purse cannot cover it.</summary>
+	private Control BuildCounter(bool buying)
 	{
-		int cost = _market.Worth(Trading.Key, _amount, buying: true);
-		int fetches = _market.Worth(Trading.Key, _amount, buying: false);
+		int amount = buying ? _buying : _selling;
+		int most = buying ? Affordable : Province.Stored(Trading.Key);
 		var column = new VBoxContainer();
-		column.AddThemeConstantOverride("separation", 8);
+		column.AddThemeConstantOverride("separation", 4);
 
 		var row = new HBoxContainer();
 		row.AddThemeConstantOverride("separation", 12);
 		column.AddChild(row);
 
-		var buy = new Button
+		Control stepper = Stepper(buying ? "Buy" : "Sell", amount, Trading.Step, most, settled =>
 		{
-			Text = "Buy",
-			CustomMinimumSize = new Vector2(0, 52),
-			SizeFlagsHorizontal = SizeFlags.ExpandFill,
-			Disabled = Province.Gold < cost,
-		};
-		buy.AddThemeFontSizeOverride("font_size", 19);
-		buy.Pressed += Buy;
-		row.AddChild(buy);
+			if (buying)
+			{
+				_buying = settled;
+			}
+			else
+			{
+				_selling = settled;
+			}
 
-		var sell = new Button
+			ShowDetail();
+		});
+		stepper.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		row.AddChild(stepper);
+
+		int worth = _market.Worth(Trading.Key, amount, buying);
+		bool can = amount > 0 && (buying ? Province.Gold >= worth : Province.Stored(Trading.Key) >= amount);
+		var trade = new Button
 		{
-			Text = "Sell",
-			CustomMinimumSize = new Vector2(0, 52),
-			SizeFlagsHorizontal = SizeFlags.ExpandFill,
-			Disabled = Province.Stored(Trading.Key) < _amount,
+			Text = buying ? $"Buy for {worth:N0}" : $"Sell for {worth:N0}",
+			CustomMinimumSize = new Vector2(190, 48),
+			Disabled = !can,
 		};
-		sell.AddThemeFontSizeOverride("font_size", 19);
-		sell.Pressed += Sell;
-		row.AddChild(sell);
-
-		var total = new HBoxContainer();
-		total.AddThemeConstantOverride("separation", 7);
-		total.AddChild(Line($"{_amount:N0} {Trading.Name.ToLowerInvariant()}:", 15, Soft));
-		// Red when the till cannot cover it: the reason the buy button is dead.
-		total.AddChild(Line(cost.ToString("N0"), 15, Province.Gold >= cost ? Bright : Short));
-		total.AddChild(Icon("gold", 19));
-		total.AddChild(Line("to buy,", 15, Soft));
-		total.AddChild(Line(fetches.ToString("N0"), 15, Gain()));
-		total.AddChild(Icon("gold", 19));
-		total.AddChild(Line("to sell", 15, Soft));
-		column.AddChild(total);
+		trade.AddThemeFontSizeOverride("font_size", 17);
+		trade.Pressed += buying ? Buy : Sell;
+		row.AddChild(trade);
 		return column;
 	}
 
@@ -376,7 +367,7 @@ public partial class MarketPage : RoomPage
 
 	private void Buy()
 	{
-		if (_market.Buy(Province, Trading.Key, _amount))
+		if (_market.Buy(Province, Trading.Key, _buying))
 		{
 			Refresh();
 		}
@@ -384,7 +375,7 @@ public partial class MarketPage : RoomPage
 
 	private void Sell()
 	{
-		if (_market.Sell(Province, Trading.Key, _amount))
+		if (_market.Sell(Province, Trading.Key, _selling))
 		{
 			Refresh();
 		}

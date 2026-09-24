@@ -32,10 +32,6 @@ public partial class LabourPage : RoomPage
 		new(ResourceType.Iron, "Mine", "iron", "No ore in the ground."),
 	};
 
-	/// <summary>Hands move five at a time. One at a time is honest and unusable: an autumn harvest
-	/// asks for two hundred and forty of them.</summary>
-	private const int Step = 5;
-
 	private ProvinceDefinition _definition;
 	private GameBalance _balance;
 	private Season _season;
@@ -122,10 +118,10 @@ public partial class LabourPage : RoomPage
 
 		var spread = new Button { Text = "Set them to work", CustomMinimumSize = new Vector2(0, 46) };
 		spread.AddThemeFontSizeOverride("font_size", 18);
-		spread.TooltipText = "Fills every task to what it can use, bread first.";
+		spread.TooltipText = "Enough on the farm for every field and beast this season, the rest to the industry.";
 		spread.Pressed += () =>
 		{
-			EconomySimulation.Deploy(Province, _definition, _balance, _season);
+			Labour.FarmsFirst(Province, _definition, _balance, _season);
 			Rebuild();
 		};
 
@@ -172,7 +168,7 @@ public partial class LabourPage : RoomPage
 	private Control Acre(int field)
 	{
 		FieldUse use = Province.Fields[field];
-		float heart = Province.Fertility[field];
+		float heart = (Province.Soil + 100) / 200f; // the county's soil, as the original keeps it
 
 		var acre = new Button
 		{
@@ -246,6 +242,7 @@ public partial class LabourPage : RoomPage
 	{
 		FieldUse.Grain => "food",
 		FieldUse.Pasture => "livestock",
+		FieldUse.Waste => "pitchfork",
 		_ => "laurel",
 	};
 
@@ -253,6 +250,7 @@ public partial class LabourPage : RoomPage
 	{
 		FieldUse.Grain => "Grain",
 		FieldUse.Pasture => "Pasture",
+		FieldUse.Waste => "Flooded",
 		_ => "Fallow",
 	};
 
@@ -260,17 +258,18 @@ public partial class LabourPage : RoomPage
 	{
 		FieldUse.Grain => "Sown in spring, reaped in autumn. Takes heart out of the land.",
 		FieldUse.Pasture => "Room for twenty head. Gives back half of what grain takes.",
+		FieldUse.Waste => "Torn up by the flood. Nothing will grow on it until the reclaimers have mended it.",
 		_ => "Resting. Two fields under grain to one at rest comes out level.",
 	};
 
 	/// <summary>One task: what it is, how many hands are on it, and what they are worth. The stepper
-	/// runs to what the task can use or to what the province has spare, whichever comes first —
-	/// there is no way to put a hundred men on a job with work for twenty.</summary>
+	/// asks for hands (Labour.Ask) and runs to what the task can use or to its half of the county,
+	/// whichever comes first — there is no way to put a hundred men on a job with work for twenty.</summary>
 	private Control Row(Work work)
 	{
-		int demand = EconomySimulation.Demand(work.Type, Province, _definition, _balance, _season);
+		string job = Labour.JobOf(work.Type);
+		int demand = Labour.Most(Province, _definition, _balance, _season, job);
 		int on = Allocated(work.Type);
-		int spare = Province.Workers - Province.AllocatedWorkers;
 
 		var row = new HBoxContainer();
 		row.AddThemeConstantOverride("separation", 16);
@@ -294,14 +293,12 @@ public partial class LabourPage : RoomPage
 			return row;
 		}
 
-		// The slider runs to what the job wants, not to what the province can spare, so its position
-		// reads as "how much of this job is manned" — which is the thing worth knowing. Asking for
-		// more hands than there are simply takes all of them.
-		ResourceType type = work.Type;
-		int reachable = on + spare;
-		Control stepper = Stepper(null, on, Step, demand, hands =>
+		// The slider runs to what the job can use, so its position reads as "how much of this job is
+		// manned" — which is the thing worth knowing.
+		// A figure at a time, as on the province screen (WorkerFigures).
+		Control stepper = Stepper(null, on, WorkerFigures.Size(Province.Workers), demand, hands =>
 		{
-			Allocate(type, Mathf.Min(hands, reachable));
+			Labour.Ask(Province, _definition, _balance, _season, job, hands);
 			Rebuild();
 		}, floor: 0);
 
@@ -319,7 +316,7 @@ public partial class LabourPage : RoomPage
 		wants.HorizontalAlignment = HorizontalAlignment.Center;
 		readings.AddChild(wants);
 
-		int yield = EconomySimulation.ProjectedYield(type, on, Province, _definition, _balance, _season);
+		int yield = EconomySimulation.ProjectedYield(work.Type, on, Province, _definition, _balance, _season);
 		Label brings = Line(yield > 0 ? $"+{yield:N0}" : "—", 19, yield > 0 ? Gain() : Dim);
 		brings.HorizontalAlignment = HorizontalAlignment.Center;
 		readings.AddChild(brings);
@@ -350,16 +347,4 @@ public partial class LabourPage : RoomPage
 		ResourceType.Stone => Province.StoneWorkers,
 		_ => Province.IronWorkers,
 	};
-
-	private void Allocate(ResourceType type, int hands)
-	{
-		switch (type)
-		{
-			case ResourceType.Grain: Province.GrainWorkers = hands; break;
-			case ResourceType.Cattle: Province.CattleWorkers = hands; break;
-			case ResourceType.Wood: Province.WoodWorkers = hands; break;
-			case ResourceType.Stone: Province.StoneWorkers = hands; break;
-			default: Province.IronWorkers = hands; break;
-		}
-	}
 }

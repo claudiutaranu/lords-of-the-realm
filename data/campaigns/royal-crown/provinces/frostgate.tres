@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="ProvinceDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/Economy/ProvinceDefinition.cs" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+ProvinceName = "Frostgate"
+InitialPopulation = 320
+GrainWorkerCapacity = 200
+CattleWorkerCapacity = 180
+WoodWorkerCapacity = 200
+StoneWorkerCapacity = 0
+IronWorkerCapacity = 200
+GrainModifier = 0.8
+CattleModifier = 1.2
+WoodModifier = 1.1
+StoneModifier = 1.1
+IronModifier = 1.1
+InitialGold = 360
+InitialGrain = 230
+InitialCattle = 50
+InitialWood = 180
+InitialStone = 150
+InitialIron = 110

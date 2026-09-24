@@ -18,25 +18,19 @@ public partial class EconomyCheck : Node
 		ProvinceDefinition def = Definition();
 
 		Demands(b, def);
-		Sowing(b, def);
-		Weeding(b, def);
-		Reaping(b, def);
 		Mending(b, def);
 		Levy(b, def);
 		LabourBar(b, def);
 		Masons(b, def);
+		Forge(b, def);
 		OnePurse(b, def);
-		Soil(b, def);
-		Herd(b, def);
-		Eating(b, def);
-		TheTable(b, def);
 		TheArmy(b, def);
-		Taxes(b, def);
-		TheAccount(b, def);
-		Migration(b, def);
+		TheLand(b, def);
+		AsTheOriginal(b, def);
 		Turning(b, def);
 		Projection(b, def);
 		TheYear(b);
+		StoneOrIron();
 
 		GD.Print(_failed == 0
 			? "\nprovince economy: all checks passed"
@@ -50,21 +44,28 @@ public partial class EconomyCheck : Node
 	{
 		ProvinceEconomy p = Province();
 
-		// Four fields under grain, and what they ask for through the year. Autumn is the whole game.
-		Is("spring ploughs and sows", EconomySimulation.Demand(ResourceType.Grain, p, def, b, Season.Spring), 440);
-		Is("summer weeds", EconomySimulation.Demand(ResourceType.Grain, p, def, b, Season.Summer), 320);
-		Is("autumn asks two hundred and forty", EconomySimulation.Demand(ResourceType.Grain, p, def, b, Season.Autumn), 960);
-		Is("winter hedges and ditches", EconomySimulation.Demand(ResourceType.Grain, p, def, b, Season.Winter), 180);
-		Is("a herdsman to every few head", EconomySimulation.Demand(ResourceType.Cattle, p, def, b, Season.Spring), 16);
-		Is("the quarry takes what it has faces for", EconomySimulation.Demand(ResourceType.Stone, p, def, b, Season.Spring), def.StoneWorkerCapacity);
+		// Four fields under grain: the sowing wants twelve hands a sack, five sacks to a man, ten sacks a
+		// field; the herd wants a herdsman to three head, and takes twice that.
+		Is("the sowing asks for the sowers of ten sacks a field", EconomySimulation.Demand(ResourceType.Grain, p, def, b, Season.Winter), 96);
+		Is("a herdsman to three head, and twice that helps", EconomySimulation.Demand(ResourceType.Cattle, p, def, b, Season.Spring), 2 * Husbandry.Herdsmen(p.Cattle));
+		Is("the quarry takes all comers, as in the original", EconomySimulation.Demand(ResourceType.Stone, p, def, b, Season.Spring), Labour.Bottomless);
 
 		// The pool and the figures drawn against it were rescaled together when the population
 		// became the pool; the diggings are what catches it if only one of the two ever moves again.
 		ProvinceEconomy digging = Province();
-		EconomySimulation.Deploy(digging, def, b, Season.Spring);
+		digging.WoodWorkers = 200;
 		int wood = digging.Wood;
 		EconomySimulation.RunTurn(digging, def, b, Season.Spring);
-		Is("a full woodpile is worth seventy-five a season", digging.Wood - wood, 75);
+		Is("two hundred at a practised woodpile are worth seventy-five a season", digging.Wood - wood, 75);
+
+		// The same two hundred at a woodpile nobody has worked before bring in a fraction of it.
+		ProvinceEconomy green = Province();
+		green.WoodWorkers = 200;
+		green.Efficiency[Labour.Wood] = b.SiteEfficiencyFloor;
+		int greenWood = green.Wood;
+		EconomySimulation.RunTurn(green, def, b, Season.Spring);
+		Is("  and at a new one, what its practice allows", green.Wood - greenWood,
+			Mathf.RoundToInt(75f * b.SiteEfficiencyFloor / 100f));
 
 		Is("half the hands do half the work", EconomySimulation.Covered(30, 60), 0.5f);
 		Is("more hands than work is still one job", EconomySimulation.Covered(600, 60), 1f);
@@ -72,49 +73,13 @@ public partial class EconomyCheck : Node
 
 		// Hands on a job that cannot use them are wasted, and the waste is counted rather than
 		// silently folded into the yield.
+		p.StandingCrop = 2000; // a summer's crop two hundred tenders can keep
 		p.GrainWorkers = 200;
 		p.CattleWorkers = p.WoodWorkers = p.StoneWorkers = p.IronWorkers = 0;
 		Is("hands past the work stand idle", EconomySimulation.Idle(p, def, b, Season.Summer), 1000 - 200);
 	}
 
 	// --- the farming year --------------------------------------------------------------------------
-
-	private void Sowing(GameBalance b, ProvinceDefinition def)
-	{
-		ProvinceEconomy p = Province();
-		EconomySimulation.Deploy(p, def, b, Season.Spring);
-		TurnSummary s = EconomySimulation.RunTurn(p, def, b, Season.Spring);
-
-		Is("four fields take twenty sacks of seed", s.Sown, 20);
-		Is("  and the seed comes out of the granary", s.GrainBefore - 20 >= p.Grain, true);
-
-		// Seed the province does not have is seed it cannot sow.
-		ProvinceEconomy bare = Province();
-		bare.Grain = 6;
-		EconomySimulation.Deploy(bare, def, b, Season.Spring);
-		Is("a bare granary sows what little it has", EconomySimulation.RunTurn(bare, def, b, Season.Spring).Sown, 6);
-
-		// And hands it does not send are fields it does not sow.
-		ProvinceEconomy short_ = Province();
-		EconomySimulation.Deploy(short_, def, b, Season.Spring);
-		short_.GrainWorkers = 220; // half of what four fields ask for
-		Is("half the sowers sow half the seed", EconomySimulation.RunTurn(short_, def, b, Season.Spring).Sown, 10);
-	}
-
-	private void Weeding(GameBalance b, ProvinceDefinition def)
-	{
-		ProvinceEconomy tended = Province();
-		tended.StandingCrop = 20;
-		EconomySimulation.Deploy(tended, def, b, Season.Summer);
-		EconomySimulation.RunTurn(tended, def, b, Season.Summer);
-		Is("a weeded crop keeps all of itself", tended.StandingCrop, 20);
-
-		ProvinceEconomy neglected = Province();
-		neglected.StandingCrop = 20;
-		neglected.GrainWorkers = 0;
-		EconomySimulation.RunTurn(neglected, def, b, Season.Summer);
-		Is("an unweeded one comes in light", neglected.StandingCrop, 9);
-	}
 
 	private void OnePurse(GameBalance b, ProvinceDefinition def)
 	{
@@ -180,6 +145,7 @@ public partial class EconomyCheck : Node
 
 		// And a wall with nobody on it does not rise at all, however long the lord waits.
 		ProvinceEconomy stalled = Province();
+		stalled.Shares[Labour.Castle] = 0;
 		stalled.Building = "palisade";
 		stalled.BuildLeft = b.MasonsPerBuildSeason;
 		stalled.BuildWorkers = 0;
@@ -192,34 +158,174 @@ public partial class EconomyCheck : Node
 		Is("  and still asks for the same gang", EconomySimulation.Masons(stalled), b.MasonsPerBuildSeason);
 	}
 
+	private void Forge(GameBalance b, ProvinceDefinition def)
+	{
+		// A cold forge asks for nobody.
+		ProvinceEconomy cold = Province();
+		Is("a cold forge wants no smiths", EconomySimulation.Smiths(cold, b), 0);
+
+		// Swords are ten iron and three timber apiece: ninety iron is nine swords, and the forge asks
+		// for the hands to make all of them.
+		ProvinceEconomy lit = Province();
+		lit.Forging = "sword";
+		lit.Iron = 90;
+		lit.Wood = 1000;
+		Is("a lit forge wants hands for what the stores pay for", EconomySimulation.Smiths(lit, b), 9 * b.SmithsPerWeapon);
+
+		// Four swords' worth of smiths make four, every season, each paid for as it is made — out of
+		// last season's iron: whatever the mine brings up this season is not on the anvil yet.
+		lit.SmithWorkers = 4 * b.SmithsPerWeapon;
+		lit.IronWorkers = def.IronWorkerCapacity;
+		TurnSummary first = EconomySimulation.RunTurn(lit, def, b, Season.Spring);
+		Is("four swords' worth of smiths make four", lit.Armoury.GetValueOrDefault("sword"), 4);
+		Is("  and say so", first.Forged, 4);
+		int dug = Mathf.RoundToInt(def.IronWorkerCapacity * b.IronYieldPerWorker * def.IronModifier * b.IronSeasonMultiplier[(int)Season.Spring]);
+		Is("  paid for in iron as they were made", lit.Iron, 90 - 40 + dug);
+		lit.SmithWorkers = 4 * b.SmithsPerWeapon;
+		EconomySimulation.RunTurn(lit, def, b, Season.Spring);
+		Is("  and four more the next season", lit.Armoury.GetValueOrDefault("sword"), 8);
+
+		// The stores are the ceiling, however many are at the anvil.
+		ProvinceEconomy scant = Province();
+		scant.Forging = "sword";
+		scant.Iron = 25;
+		scant.Wood = 1000;
+		scant.SmithWorkers = 40;
+		Is("the smiths past what the iron pays for stand idle", EconomySimulation.Idle(scant, def, b, Season.Spring)
+			>= 40 - EconomySimulation.Smiths(scant, b), true);
+		EconomySimulation.RunTurn(scant, def, b, Season.Spring);
+		Is("  and make no more than it pays for", scant.Armoury.GetValueOrDefault("sword"), 2);
+
+		// A save from before the forge worked by the season had its order paid for; it lands.
+		ProvinceEconomy owed = Province();
+		owed.Forging = "spear";
+		owed.ForgeBatch = 30;
+		EconomySimulation.RunTurn(owed, def, b, Season.Spring);
+		Is("an order an old save paid for is delivered", owed.Armoury.GetValueOrDefault("spear"), 30);
+		Is("  once", owed.ForgeBatch, 0);
+
+		// The labour bar sends hands to a lit forge like to any trade.
+		ProvinceEconomy dealt = Province();
+		dealt.Forging = "mace";
+		dealt.Iron = 400;
+		dealt.Wood = 400;
+		Labour.Divide(dealt, def, b, Season.Summer, 50);
+		Is("the deal puts smiths at a lit forge", dealt.SmithWorkers > 0, true);
+		Is("  and every hand is still counted once", dealt.AllocatedWorkers <= dealt.Workers, true);
+	}
+
 	private void LabourBar(GameBalance b, ProvinceDefinition def)
 	{
-		// Everything to the fields: the woods and the workings stand empty however much they ask for.
-		ProvinceEconomy fields = Province();
-		EconomySimulation.Split(fields, def, b, Season.Autumn, toTrades: 0f);
-		Is("the bar hard over to the fields empties the trades",
-			fields.WoodWorkers + fields.StoneWorkers + fields.IronWorkers, 0);
-		Is("  and puts what the harvest asks for into it", fields.GrainWorkers > 0, true);
-		Is("  and the bar reads where it was put", EconomySimulation.TradesShare(fields), 0f);
+		// The bar hard over to the farm: the industry stands empty, the fields take what they can
+		// use and whoever is left over stands idle rather than being lent to the mine.
+		ProvinceEconomy farm = Province();
+		Labour.Divide(farm, def, b, Season.Winter, 0);
+		Is("the bar hard over to the farm empties the industry",
+			farm.WoodWorkers + farm.StoneWorkers + farm.IronWorkers + farm.BuildWorkers + farm.SmithWorkers, 0);
+		Is("  and no job has more than it can use", farm.GrainWorkers <= EconomySimulation.Demand(ResourceType.Grain, farm, def, b, Season.Winter), true);
+		Is("  and the rest stand idle", EconomySimulation.Idle(farm, def, b, Season.Winter),
+			farm.Workers - farm.AllocatedWorkers);
 
-		// Everything to the trades: the harvest is left standing in the field.
-		ProvinceEconomy trades = Province();
-		EconomySimulation.Split(trades, def, b, Season.Autumn, toTrades: 1f);
-		Is("the bar hard over to the trades empties the fields",
-			trades.GrainWorkers + trades.CattleWorkers, 0);
-		Is("  and the bar reads where it was put", EconomySimulation.TradesShare(trades), 1f);
+		// Hard over to the industry: nobody in the fields, and the diggings take every one of them.
+		ProvinceEconomy works = Province();
+		Labour.Divide(works, def, b, Season.Autumn, 100);
+		Is("the bar hard over to the industry empties the farm",
+			works.GrainWorkers + works.CattleWorkers + works.ReclaimWorkers, 0);
+		Is("  and the diggings take all comers", works.AllocatedWorkers, works.Workers);
 
-		// A half that has more hands than work leaves the rest standing rather than lending them.
-		ProvinceEconomy even = Province();
-		EconomySimulation.Split(even, def, b, Season.Winter, toTrades: 0.5f);
-		Is("nobody is at work who has no work", even.AllocatedWorkers <= even.Workers, true);
+		// A quarter to the industry, the original's opening: each half is dealt by its shares.
+		ProvinceEconomy quarter = Province();
+		Labour.Divide(quarter, def, b, Season.Spring, 25);
+		int industry = quarter.WoodWorkers + quarter.StoneWorkers + quarter.IronWorkers + quarter.BuildWorkers
+			+ quarter.SmithWorkers;
+		Is("a quarter of the county goes to the industry", industry, Labour.Pct(quarter.Workers, 25));
 
-		// And the bar never disagrees with the plaques: move a man by hand and it has already moved.
-		ProvinceEconomy argued = Province();
-		EconomySimulation.Split(argued, def, b, Season.Spring, toTrades: 0.5f);
-		float before = EconomySimulation.TradesShare(argued);
-		argued.IronWorkers += 40;
-		Is("a man moved by hand moves the bar", EconomySimulation.TradesShare(argued) > before, true);
+		// The leftovers of a job that cannot use its share walk on to the jobs with room...
+		ProvinceEconomy herd = Province();
+		herd.Shares[Labour.Grain] = Labour.Whole / 10;
+		herd.Shares[Labour.Cattle] = Labour.Whole * 9 / 10;
+		herd.Shares[Labour.Reclaim] = 0;
+		Labour.Divide(herd, def, b, Season.Winter, 0);
+		Is("a share the herd cannot use walks on to the fields",
+			herd.CattleWorkers == EconomySimulation.Demand(ResourceType.Cattle, herd, def, b, Season.Winter)
+			&& herd.GrainWorkers == EconomySimulation.Demand(ResourceType.Grain, herd, def, b, Season.Winter), true);
+
+		// ...but never to one the lord has set at nothing: those stand idle instead.
+		ProvinceEconomy none = Province();
+		none.Shares[Labour.Grain] = 0;
+		none.Shares[Labour.Cattle] = Labour.Whole;
+		none.Shares[Labour.Reclaim] = 0;
+		Labour.Divide(none, def, b, Season.Spring, 0);
+		Is("  and a job set at nothing is given nobody", none.GrainWorkers, 0);
+		EconomySimulation.RunTurn(none, def, b, Season.Spring);
+		Is("  not even when the season turns", none.GrainWorkers, 0);
+
+		// A shut site is dealt nobody, and its share goes to the sites still open.
+		ProvinceEconomy shut = Province();
+		Labour.Divide(shut, def, b, Season.Summer, 40);
+		int woodBefore = shut.WoodWorkers;
+		Labour.Toggle(shut, def, b, Season.Summer, Labour.Iron);
+		Is("a shut mine is dealt nobody", shut.IronWorkers, 0);
+		Is("  and the woods take its men", shut.WoodWorkers > woodBefore, true);
+		Labour.Ask(shut, def, b, Season.Summer, Labour.Iron, 20);
+		Is("asking for men at a shut mine opens it", shut.IsShut(Labour.Iron), false);
+
+		// Asking for hands rewrites the shares, and the deal gives them.
+		ProvinceEconomy asked = Province();
+		Labour.Divide(asked, def, b, Season.Summer, 40);
+		Labour.Ask(asked, def, b, Season.Summer, Labour.Wood, 60);
+		Is("a figure moved by the lord is where he put it", Mathf.Abs(asked.WoodWorkers - 60) <= 2, true);
+
+		// A figure taken off stands idle and stays idle; one put on comes from the idle first, and
+		// nobody else on the county moves either way.
+		ProvinceEconomy winter = Province();
+		Labour.Divide(winter, def, b, Season.Winter, 25);
+		int woodNow = winter.WoodWorkers;
+		int ironNow = winter.IronWorkers;
+		int idleNow = EconomySimulation.Idle(winter, def, b, Season.Winter);
+		Labour.Ask(winter, def, b, Season.Winter, Labour.Grain, winter.GrainWorkers - 20);
+		Is("a figure taken off the fields stands idle", EconomySimulation.Idle(winter, def, b, Season.Winter), idleNow + 20);
+		Labour.Ask(winter, def, b, Season.Winter, Labour.Wood, woodNow + 20);
+		Is("a figure put on the woods comes from the idle", EconomySimulation.Idle(winter, def, b, Season.Winter), idleNow);
+		Is("  and not off the mine", winter.IronWorkers, ironNow);
+		Is("  and is exactly one figure", winter.WoodWorkers, woodNow + 20);
+
+		// With nobody idle, the figure comes from a job with more than it needs — never off a herd
+		// that would fall below what it needs.
+		ProvinceEconomy busy = Province();
+		Labour.Divide(busy, def, b, Season.Spring, 25);
+		int herdNow = busy.CattleWorkers;
+		Labour.Ask(busy, def, b, Season.Spring, Labour.Grain, busy.GrainWorkers + 20);
+		Is("a figure for the fields leaves the herd its need", busy.CattleWorkers, herdNow);
+
+		// Torn ground has reclaimers of its own, and the reapers are not taken off the harvest for it.
+		ProvinceEconomy torn = Province();
+		torn.FieldRepair = 300;
+		Labour.Divide(torn, def, b, Season.Summer, 0);
+		Is("torn ground is dealt reclaimers", torn.ReclaimWorkers, b.ReclaimPerSeason);
+
+		// Every county, every season, in a year of turns: nine jobs, and every hand on exactly one.
+		ProvinceEconomy year = Province();
+		Labour.Divide(year, def, b, Season.Spring, 25);
+		bool counted = true;
+		for (int season = 0; season < 8; season++)
+		{
+			EconomySimulation.RunTurn(year, def, b, (Season)(season % 4));
+			counted &= year.AllocatedWorkers <= year.Workers
+				&& EconomySimulation.Idle(year, def, b, (Season)((season + 1) % 4)) == year.Workers - year.AllocatedWorkers;
+		}
+
+		Is("every hand is on one job and no job has more than it can use, season after season", counted, true);
+
+		// A site worked grows practised; one left empty falls back to where a new one starts.
+		ProvinceEconomy practised = Province();
+		practised.Efficiency[Labour.Wood] = b.SiteEfficiencyFloor;
+		practised.WoodWorkers = 10;
+		Labour.Practise(practised, b);
+		Is("a worked site grows more practised", practised.EfficiencyOf(Labour.Wood) > b.SiteEfficiencyFloor, true);
+		practised.WoodWorkers = 0;
+		Labour.Practise(practised, b);
+		Is("  and an abandoned one starts over", practised.EfficiencyOf(Labour.Wood), b.SiteEfficiencyFloor);
 	}
 
 	private void Levy(GameBalance b, ProvinceDefinition def)
@@ -257,154 +363,51 @@ public partial class EconomyCheck : Node
 
 	private void Mending(GameBalance b, ProvinceDefinition def)
 	{
-		// Summer asks four fields for 320 hands. Everything past that goes on the torn ground.
+		// Torn ground is the reclaimers' job, not the reapers': a field full of reapers mends nothing.
 		ProvinceEconomy torn = Province();
 		torn.FieldRepair = 400;
-		torn.GrainWorkers = 320;
-		Is("hands the year itself wants mend nothing", EconomySimulation.SeasonsToMend(torn, b, Season.Summer), -1);
-
-		torn.GrainWorkers = 420;
-		Is("a hundred spare hands is four seasons", EconomySimulation.SeasonsToMend(torn, b, Season.Summer), 4);
-
 		torn.GrainWorkers = 520;
-		Is("twice the hands, half the seasons", EconomySimulation.SeasonsToMend(torn, b, Season.Summer), 2);
+		Is("reapers mend nothing", EconomySimulation.SeasonsToMend(torn, b, Season.Summer), -1);
 
+		torn.ReclaimWorkers = 100;
+		Is("a hundred reclaimers is four seasons", EconomySimulation.SeasonsToMend(torn, b, Season.Summer), 4);
+
+		torn.ReclaimWorkers = 200;
+		Is("twice the reclaimers, half the seasons", EconomySimulation.SeasonsToMend(torn, b, Season.Summer), 2);
+
+		torn.ReclaimWorkers = 400;
+		Is("  but no faster than a season's most", EconomySimulation.SeasonsToMend(torn, b, Season.Summer), 2);
+
+		torn.ReclaimWorkers = 200;
 		EconomySimulation.RunTurn(torn, def, b, Season.Summer);
 		Is("  and a season of them takes its share off", torn.FieldRepair, 200);
 
-		// The heart the water took comes back on the turn the work is finished, not before it.
-		ProvinceEconomy last = Province();
-		last.FieldRepair = 100;
-		last.GrainWorkers = 420;
-		for (int field = 0; field < last.Fertility.Length; field++)
-		{
-			last.Fertility[field] = 0.5f;
-		}
+		// The flood takes one field under grain, and only that field's corn with it.
+		ProvinceEconomy drowned = Province();
+		int grainFields = drowned.FieldsUnder(FieldUse.Grain);
+		drowned.StandingCrop = grainFields * 100;
+		Is("the flood takes a field under grain", EconomySimulation.Flood(drowned, b), 0);
+		Is("  which lies waste", drowned.Fields[0] == FieldUse.Waste, true);
+		Is("  and one field fewer is under grain", drowned.FieldsUnder(FieldUse.Grain), grainFields - 1);
+		Is("  and only its corn is lost", drowned.StandingCrop, (grainFields - 1) * 100);
+		Is("  and it has to be mended", drowned.FieldRepair, b.FieldRepairWork);
 
-		EconomySimulation.RunTurn(last, def, b, Season.Summer);
-		Is("the last season closes the work", last.FieldRepair, 0);
-		Is("  and gives the land back what the flood took", last.Fertility[0], 0.65f);
-	}
+		EconomySimulation.SetField(drowned, 0, FieldUse.Grain);
+		Is("no order sows a flooded field", drowned.Fields[0] == FieldUse.Waste, true);
 
-	private void Reaping(GameBalance b, ProvinceDefinition def)
-	{
-		// Twenty sacks in the ground, twenty-four back for each of them, all the hands it wants.
-		ProvinceEconomy full = Province();
-		full.StandingCrop = 20;
-		EconomySimulation.Deploy(full, def, b, Season.Autumn);
-		Is("a full harvest is the year's whole yield", EconomySimulation.RunTurn(full, def, b, Season.Autumn).Harvest, 480);
-		Is("  and nothing is left standing", full.StandingCrop, 0);
-
-		ProvinceEconomy half = Province();
-		half.StandingCrop = 20;
-		EconomySimulation.Deploy(half, def, b, Season.Autumn);
-		half.GrainWorkers = 480; // half of the 960 four fields want
-		Is("half the reapers reap half the year", EconomySimulation.RunTurn(half, def, b, Season.Autumn).Harvest, 240);
-
-		// Tired land gives less of the same crop.
-		ProvinceEconomy tired = Province();
-		tired.StandingCrop = 20;
-		for (int field = 0; field < tired.Fertility.Length; field++)
-		{
-			tired.Fertility[field] = 0.5f;
-		}
-
-		EconomySimulation.Deploy(tired, def, b, Season.Autumn);
-		Is("tired land gives half as much", EconomySimulation.RunTurn(tired, def, b, Season.Autumn).Harvest, 240);
-	}
-
-	private void Soil(GameBalance b, ProvinceDefinition def)
-	{
-		ProvinceEconomy p = Province();
-		for (int field = 0; field < p.Fertility.Length; field++)
-		{
-			p.Fertility[field] = 0.5f;
-		}
-
-		EconomySimulation.Deploy(p, def, b, Season.Autumn);
-		EconomySimulation.RunTurn(p, def, b, Season.Autumn);
-
-		Is("a cropped field gives up some heart", p.Fertility[0], 0.38f);          // field 0 is grain
-		Is("a herd gives half of it back", p.Fertility[4], 0.625f);                // 4..6 are pasture
-		Is("rest gives all of it back", p.Fertility[7], 0.75f);                    // 7.. are fallow
-		// And only after the harvest: a spring turn leaves the soil exactly where it found it.
-		ProvinceEconomy spring = Rested(def, b);
-		EconomySimulation.RunTurn(spring, def, b, Season.Spring);
-		Is("and the soil only moves after the harvest", spring.Fertility[0], 0.5f);
+		// It is handed back on the turn the work is finished, not before it.
+		drowned.ReclaimWorkers = b.ReclaimPerSeason;
+		EconomySimulation.RunTurn(drowned, def, b, Season.Summer);
+		Is("half the work leaves it waste", drowned.Fields[0] == FieldUse.Waste, true);
+		drowned.ReclaimWorkers = b.ReclaimPerSeason;
+		EconomySimulation.RunTurn(drowned, def, b, Season.Summer);
+		Is("the last season closes the work", drowned.FieldRepair, 0);
+		Is("  and hands the field back to rest", drowned.Fields[0] == FieldUse.Fallow, true);
 	}
 
 	// --- the herd ----------------------------------------------------------------------------------
 
-	private void Herd(GameBalance b, ProvinceDefinition def)
-	{
-		ProvinceEconomy p = Province();
-		EconomySimulation.Deploy(p, def, b, Season.Spring);
-		TurnSummary s = EconomySimulation.RunTurn(p, def, b, Season.Spring);
-		Is("forty head give twenty-four of food", s.Dairy, 24);
-		Is("  and the herd adds to itself", p.Cattle, 42);
-
-		// Nobody milking, nothing milked, and nothing born.
-		ProvinceEconomy loose = Province();
-		loose.CattleWorkers = 0;
-		Is("an untended herd gives nothing", EconomySimulation.RunTurn(loose, def, b, Season.Spring).Dairy, 0);
-		Is("  and grows by nothing", loose.Cattle, 40);
-
-		// Three pasture fields carry sixty head. At a hundred and twenty they are standing on
-		// each other and the herd stops growing.
-		ProvinceEconomy packed = Province();
-		packed.Cattle = 120;
-		packed.Grain = 4000; // so nothing is slaughtered for want of bread
-		EconomySimulation.Deploy(packed, def, b, Season.Spring);
-		Is("a herd at twice its room does not grow", packed.Cattle, 120);
-		EconomySimulation.RunTurn(packed, def, b, Season.Spring);
-		Is("  even fully tended", packed.Cattle, 120);
-	}
-
 	// --- the table ---------------------------------------------------------------------------------
-
-	private void Eating(GameBalance b, ProvinceDefinition def)
-	{
-		// A thousand people want a hundred sacks. Forty head give twenty-four, and the granary
-		// covers the rest.
-		ProvinceEconomy p = Province();
-		p.StandingCrop = 0;
-		EconomySimulation.Deploy(p, def, b, Season.Winter);
-		int before = p.Grain;
-		TurnSummary s = EconomySimulation.RunTurn(p, def, b, Season.Winter);
-		Is("dairy is eaten before the granary is opened", s.Dairy, 19);   // winter milk is thinner
-		Is("  and the granary covers what is left", before - p.Grain, 81);
-		Is("  nobody goes short", s.FoodShort, 0);
-
-		// No grain and a small herd: the herd goes under the knife, and it is still not enough.
-		ProvinceEconomy hungry = Province();
-		hungry.Grain = 0;
-		hungry.Cattle = 10;
-		EconomySimulation.Deploy(hungry, def, b, Season.Spring);
-		TurnSummary famine = EconomySimulation.RunTurn(hungry, def, b, Season.Spring);
-		Is("an empty granary puts the herd under the knife", famine.Slaughtered, 10);
-		Is("  and what beef cannot cover is hunger", famine.FoodShort, 54);
-		Is("  which costs the province people", hungry.Population < 1000, true);
-		Is("  and its lord their goodwill", hungry.Loyalty < 70f, true);
-
-		// The ration is a multiple of a man's bread and nothing else, so the same county on each
-		// setting eats exactly that multiple. A winter province: nothing sown, reaped or dug, no herd
-		// to milk, so what leaves the granary is the meal and only the meal.
-		int ordinary = Eaten(b, def, RationLevel.Normal);
-		Is("the ordinary ration feeds a thousand on a hundred sacks", ordinary, 100);
-		Is("half of it takes half as much", Eaten(b, def, RationLevel.Half), ordinary / 2);
-		Is("double takes twice", Eaten(b, def, RationLevel.Double), ordinary * 2);
-		Is("triple takes three times", Eaten(b, def, RationLevel.Triple), ordinary * 3);
-		Is("and feeding them nothing takes nothing", Eaten(b, def, RationLevel.None), 0);
-
-		// And what the lord gets back for it. This is the whole reason to ever feed a county more
-		// than it needs: bread is the answer to a tax he cannot afford to cut.
-		Is("a county fed double thinks better of its lord",
-			b.RationLoyaltyDelta[(int)RationLevel.Double] > 0f, true);
-		Is("  and one fed triple better still",
-			b.RationLoyaltyDelta[(int)RationLevel.Triple] > b.RationLoyaltyDelta[(int)RationLevel.Double], true);
-		Is("  while a half ration is resented",
-			b.RationLoyaltyDelta[(int)RationLevel.Half] < 0f, true);
-	}
 
 	/// <summary>What a thousand people eat out of the granary in one winter season on this ration.
 	/// Read off the turn rather than the formula, so it is the meal the game actually serves.</summary>
@@ -415,78 +418,10 @@ public partial class EconomyCheck : Node
 		province.Cattle = 0;      // no dairy, so the granary answers for all of it
 		province.Grain = 4000;    // and enough in it that nothing goes short
 		province.StandingCrop = 0;
-		EconomySimulation.Deploy(province, def, b, Season.Winter);
+		Labour.FarmsFirst(province, def, b, Season.Winter);
 		int held = province.Grain;
 		EconomySimulation.RunTurn(province, def, b, Season.Winter);
 		return held - province.Grain;
-	}
-
-	/// <summary>The lord's own mix, and the ration he actually served. Two rules worth pinning down,
-	/// both of them the kind that look fine on screen while being quietly wrong: asking for a meal
-	/// off a herd that does not exist must still feed the county, and a ration nobody could serve
-	/// must not be the ration the county is grateful for.</summary>
-	private void TheTable(GameBalance b, ProvinceDefinition def)
-	{
-		// All bread. The granary answers for the whole meal and the herd is never touched — which is
-		// what makes the herd worth keeping, because next season it gives milk again.
-		TurnSummary loaves = Fed(b, def, beef: 0);
-		Is("a county fed on bread leaves its herd standing", loaves.Slaughtered, 0);
-		Is("  and the granary answers for the rest of the meal", loaves.Bread, loaves.Needed - loaves.Dairy);
-
-		// All beef. Nothing is opened in the barn and the herd pays for dinner.
-		TurnSummary beefy = Fed(b, def, beef: 100);
-		Is("a county fed on beef opens no sacks", beefy.Bread, 0);
-		Is("  and eats into the herd instead", beefy.Slaughtered > 0, true);
-
-		// And asking for meat where there is no herd. The order is not a spell: the bread covers it.
-		ProvinceEconomy landless = Province();
-		landless.Cattle = 0;
-		landless.Grain = 4000;
-		landless.BeefShare = 100;
-		landless.StandingCrop = 0;
-		EconomySimulation.Deploy(landless, def, b, Season.Winter);
-		TurnSummary asked = EconomySimulation.RunTurn(landless, def, b, Season.Winter);
-		Is("meat from a county with no herd comes as bread", asked.Bread > 0, true);
-		Is("  and nobody goes short for the asking", asked.FoodShort, 0);
-
-		// A lord who orders double into a barn with one ordinary meal in it. The county eats what
-		// there was, and thinks of him exactly what one ordinary meal is worth — not what he meant.
-		ProvinceEconomy promised = Province();
-		promised.Ration = RationLevel.Double;
-		promised.Cattle = 0;
-		promised.Grain = 100; // one ordinary meal for a thousand people, and not a sack more
-		promised.StandingCrop = 0;
-		EconomySimulation.Deploy(promised, def, b, Season.Winter);
-		TurnSummary got = EconomySimulation.RunTurn(promised, def, b, Season.Winter);
-		Is("a ration nobody could serve is not the ration they got", got.Achieved, RationLevel.Normal);
-		Is("  and their goodwill answers to what was served",
-			got.LoyaltyFromRations, b.RationLoyaltyDelta[(int)RationLevel.Normal]);
-		Is("  while a full meal is not a famine, whatever was promised", got.FoodShort, 0);
-
-		// Double, served in full, to a county whose size does not divide by ten. It was judged against
-		// its mouths rounded up to a whole sack — 233 portions for 117 mouths is 1.99 of a ration — so
-		// about half the counties on the map were fed double, thanked their lord for an ordinary meal,
-		// and grew at the ordinary rate.
-		ProvinceEconomy uneven = Province();
-		uneven.Population = 1165;
-		uneven.Ration = RationLevel.Double;
-		uneven.Cattle = 0;
-		uneven.Grain = 4000;
-		uneven.StandingCrop = 0;
-		EconomySimulation.Deploy(uneven, def, b, Season.Winter);
-		Is("double served in full is double, whatever the county's size",
-			EconomySimulation.RunTurn(uneven, def, b, Season.Winter).Achieved, RationLevel.Double);
-
-		// The other way round: promised nothing and served nothing.
-		ProvinceEconomy none = Province();
-		none.Ration = RationLevel.None;
-		none.Cattle = 0;
-		none.Grain = 4000;
-		none.StandingCrop = 0;
-		EconomySimulation.Deploy(none, def, b, Season.Winter);
-		TurnSummary starved = EconomySimulation.RunTurn(none, def, b, Season.Winter);
-		Is("a county given nothing is served nothing", starved.Achieved, RationLevel.None);
-		Is("  and that IS a famine", starved.FoodShort > 0, true);
 	}
 
 	/// <summary>A winter county with bread in the barn and a herd in the field, fed on the lord's
@@ -499,7 +434,7 @@ public partial class EconomyCheck : Node
 		province.Cattle = 80;
 		province.BeefShare = beef;
 		province.StandingCrop = 0;
-		EconomySimulation.Deploy(province, def, b, Season.Winter);
+		Labour.FarmsFirst(province, def, b, Season.Winter);
 		return EconomySimulation.RunTurn(province, def, b, Season.Winter);
 	}
 
@@ -511,29 +446,13 @@ public partial class EconomyCheck : Node
 	/// That is the exact inversion this case exists to keep shut.</summary>
 	private void TheArmy(GameBalance b, ProvinceDefinition def)
 	{
-		// Two counties holding the same thousand souls: one with all of them at the plough, one that
-		// has put a hundred of them under arms. Winter, so nothing is sown, reaped or dug, and no
-		// herd, so nothing is milked — what moves the granary is eating and only eating.
-		ProvinceEconomy peace = Fed();
-		peace.Population = 800;
-		int atPlough = -EconomySimulation.RunTurn(peace, def, b, Season.Winter).GrainChange;
-
+		// Armies eat, at the county's own ration, as the original's option has it: a hundred men in
+		// the field are a hundred more at the table.
 		ProvinceEconomy war = Fed();
 		war.Population = 700;
 		war.Muster("spear", 100);
 		TurnSummary raised = EconomySimulation.RunTurn(war, def, b, Season.Winter);
-
-		Is("the garrison eats", raised.SoldierFood, Mathf.CeilToInt(100 / b.PeoplePerGrain * b.SoldierAppetite));
-		Is("a soldier eats more than a ploughman", -raised.GrainChange > atPlough, true);
-
-		// Short rations are for the people. An army is fed or it is not an army, so cutting the
-		// county's bread must not quietly cut the garrison's too.
-		ProvinceEconomy starved = Fed();
-		starved.Population = 700;
-		starved.Ration = RationLevel.Half;
-		starved.Muster("spear", 100);
-		Is("and does not go on short rations with them",
-			EconomySimulation.RunTurn(starved, def, b, Season.Winter).SoldierFood, raised.SoldierFood);
+		Is("the men in the field eat at the county's table", raised.Needed, 800);
 
 		// Wages, out of what the reeve just brought in.
 		Is("the men are paid", raised.Wages, Mathf.CeilToInt(100 * b.WagePerSoldier));
@@ -551,30 +470,6 @@ public partial class EconomyCheck : Node
 		Is("unpaid men walk away", unpaid.Deserted, Mathf.CeilToInt(100 * b.DesertionRate));
 		Is("and are gone from the roster", broke.Soldiers, 100 - unpaid.Deserted);
 		Is("the treasury is emptied, not overdrawn", broke.Gold >= 0, true);
-
-		// And what they cost in goodwill, which is measured against the village they stand in. The
-		// allowance matters as much as the charge: a county with no soldiers at all is the one the
-		// brigands come for, so the resentment has to start where the watch ends and not at the
-		// first man.
-		ProvinceEconomy watched = Fed();
-		watched.Population = 1000;
-		watched.Muster("spear", 40); // under the twentieth the county takes for granted
-		Is("a watch on the gate costs no goodwill",
-			EconomySimulation.RunTurn(watched, def, b, Season.Winter).LoyaltyFromGarrison, 0f);
-
-		ProvinceEconomy occupied = Fed();
-		occupied.Population = 1000;
-		occupied.Muster("spear", 150); // a tenth of the county past it
-		Is("a garrison it cannot ignore is an occupation",
-			EconomySimulation.RunTurn(occupied, def, b, Season.Winter).LoyaltyFromGarrison,
-			-b.GarrisonLoyaltyPerTenth);
-
-		// The same hundred and fifty men in a county five times the size are nobody's business.
-		ProvinceEconomy wide = Fed();
-		wide.Population = 5000;
-		wide.Muster("spear", 150);
-		Is("  and the same men in a larger county are not",
-			EconomySimulation.RunTurn(wide, def, b, Season.Winter).LoyaltyFromGarrison, 0f);
 
 		// A company cut in two, which is how a lord leaves a ford held and goes on with the rest. He
 		// says which men walk off, kind by kind; nobody may be lost or conjured in the cut, and both
@@ -615,110 +510,6 @@ public partial class EconomyCheck : Node
 		return province;
 	}
 
-	private void Taxes(GameBalance b, ProvinceDefinition def)
-	{
-		// The two numbers that have to agree and live in different files: what a province opens on,
-		// and what its people call a fair rate. A comment asking them to stay in step is worth
-		// nothing the day somebody retunes one of them.
-		Is("a county opens on the rate it calls fair", Province().Tax, b.FairTaxPercent);
-
-		Is("an open village pays plainly", Collected(b, def, ""), 150);
-		Is("a keep is worth a tenth more", Collected(b, def, "medium-castle"), 165);
-		Is("a royal castle near a quarter", Collected(b, def, "grand-castle"), 183);
-		Is("a wall nobody has priced adds nothing", Collected(b, def, "turnip-fort"), 150);
-
-		// The rate is a number the lord chooses, so what it is worth has to scale with it.
-		Is("and a harder rate brings in more", Collected(b, def, "", 20), 600);
-		Is("taking nothing brings in nothing", Collected(b, def, "", 0), 0);
-
-		// What it costs him. Thanks are capped and resentment is not: a lord can always make things
-		// worse faster than he can make them better, and a county cannot be bought outright by
-		// simply never taxing it.
-		Is("a fair rate is neither thanked nor resented", EconomySimulation.TaxGoodwill(b.FairTaxPercent, b), 0f);
-		Is("a heavy one is resented by the point",
-			EconomySimulation.TaxGoodwill(b.FairTaxPercent + 10, b), -10f * b.LoyaltyPerTaxPoint);
-		Is("and a light hand is thanked, but only so far",
-			EconomySimulation.TaxGoodwill(0, b), b.TaxGoodwillCap);
-
-		// And what it costs the counties it was not levied on.
-		Is("a fair rate is nobody else's business", EconomySimulation.TaxSpill(b.FairTaxPercent, b), 0f);
-		Is("a heavy one is talked about next door",
-			EconomySimulation.TaxSpill(b.FairTaxPercent + 10, b),
-			-10f * b.LoyaltyPerTaxPoint * b.OtherCountiesTaxShare);
-	}
-
-	/// <summary>The happiness table adds its own lines up against the two numbers either side of
-	/// them, so they have to be the WHOLE of what moved the county. The failure this guards is not a
-	/// wrong number on a page — it is the day something starts moving goodwill without writing down
-	/// that it did, and the page goes on looking perfectly reasonable while quietly not adding up.
-	/// The player then has six honest lines and no way to tell which of them is short.</summary>
-	private void TheAccount(GameBalance b, ProvinceDefinition def)
-	{
-		// A county with something wrong with it on every count, and starting high enough that the
-		// whole bill fits: goodwill stops at nought, and a county driven through the floor is the one
-		// case where the lines legitimately come to more than the difference between the seasons.
-		ProvinceEconomy p = Province();
-		p.Loyalty = 90f;
-		p.Tax = 25;
-		p.Ration = RationLevel.Half;
-		p.Grain = 4000;
-		p.ConscriptedRecently = 200;
-		p.Muster("spear", 150);
-		EconomySimulation.Deploy(p, def, b, Season.Winter);
-		TurnSummary season = EconomySimulation.RunTurn(p, def, b, Season.Winter);
-
-		float lines = season.LoyaltyFromTax + season.LoyaltyFromRations + season.LoyaltyFromStarvation
-			+ season.LoyaltyFromConscription + season.LoyaltyFromGarrison + season.LoyaltyFromNeighbours
-			+ season.LoyaltyFromEvents;
-
-		Is("the account adds up to the season", lines, season.LoyaltyChange);
-		Is("  the tax is on it", season.LoyaltyFromTax < 0f, true);
-		Is("  the short ration is on it", season.LoyaltyFromRations < 0f, true);
-		Is("  the sons taken are on it", season.LoyaltyFromConscription < 0f, true);
-		Is("  and the men quartered on them are on it", season.LoyaltyFromGarrison < 0f, true);
-	}
-
-	private void Migration(GameBalance b, ProvinceDefinition def)
-	{
-		// Content, well fed, and growing: births, then people arriving from elsewhere.
-		ProvinceEconomy liked = Province();
-		liked.Loyalty = 80f;
-		liked.Ration = RationLevel.Double;
-		liked.Grain = 4000;
-		EconomySimulation.Deploy(liked, def, b, Season.Winter);
-		EconomySimulation.RunTurn(liked, def, b, Season.Winter);
-		Is("a content province draws people in", liked.Population, 1021);
-
-		// Resented and squeezed: the edges empty, and plainly. A county losing two people out of a
-		// thousand is a county the player reads as steady — births at one percent a season used to
-		// very nearly cancel the leavers, so a lord could tax his people to the brink and see no
-		// movement at all in the one number he watches.
-		ProvinceEconomy resented = Province();
-		resented.Loyalty = 20f;
-		resented.Tax = 30;
-		resented.Grain = 4000;
-		EconomySimulation.Deploy(resented, def, b, Season.Winter);
-		EconomySimulation.RunTurn(resented, def, b, Season.Winter);
-		Is("a resented one empties from the edges", resented.Population, 964);
-		Is("  and visibly, not two souls at a time", 1000 - resented.Population > 10, true);
-
-		// And a county that has nothing left to say to its lord goes faster than one that has only
-		// just crossed the line.
-		ProvinceEconomy lost = Province();
-		lost.Loyalty = 0f;
-		lost.Grain = 4000;
-		EconomySimulation.Deploy(lost, def, b, Season.Winter);
-		EconomySimulation.RunTurn(lost, def, b, Season.Winter);
-
-		ProvinceEconomy sullen = Province();
-		sullen.Loyalty = b.EmigrationBelow;
-		sullen.Grain = 4000;
-		EconomySimulation.Deploy(sullen, def, b, Season.Winter);
-		EconomySimulation.RunTurn(sullen, def, b, Season.Winter);
-		Is("a county in revolt empties faster than a sullen one",
-			lost.Population < sullen.Population, true);
-	}
-
 	/// <summary>Turning a field to another use. The rule worth guarding is the one that costs the
 	/// player something: a crop already sown goes under the plough with the field it stood on.</summary>
 	private void Turning(GameBalance b, ProvinceDefinition def)
@@ -738,12 +529,12 @@ public partial class EconomyCheck : Node
 		EconomySimulation.SetField(p, 9, FieldUse.Grain);
 		Is("and turning a field to what it already is costs nothing", p.StandingCrop, 15);
 
-		// Fewer fields under grain is fewer hands wanted at harvest.
-		Is("the land sets what the harvest asks for",
-			EconomySimulation.Demand(ResourceType.Grain, p, def, b, Season.Autumn), 960);
+		// Fewer fields under grain is fewer hands wanted at the sowing.
+		Is("the land sets what the sowing asks for",
+			EconomySimulation.Demand(ResourceType.Grain, p, def, b, Season.Winter), 96);
 		EconomySimulation.SetField(p, 1, FieldUse.Fallow);
-		Is("  and one field less asks for two hundred and forty hands less",
-			EconomySimulation.Demand(ResourceType.Grain, p, def, b, Season.Autumn), 720);
+		Is("  and one field less asks for twenty-four hands less",
+			EconomySimulation.Demand(ResourceType.Grain, p, def, b, Season.Winter), 72);
 	}
 
 	/// <summary>The number on the panel has to be the number the season delivers, and looking at it
@@ -755,7 +546,7 @@ public partial class EconomyCheck : Node
 		{
 			ProvinceEconomy p = Province();
 			p.StandingCrop = 20;
-			EconomySimulation.Deploy(p, def, b, season);
+			Labour.FarmsFirst(p, def, b, season);
 
 			ProvinceEconomy untouched = p.Copy();
 			TurnSummary shown = EconomySimulation.Preview(p, def, b, season);
@@ -773,9 +564,36 @@ public partial class EconomyCheck : Node
 		// The one the player is really watching: a province eating its granary shows a minus, not a
 		// blank, and three seasons of the year that is the honest reading.
 		ProvinceEconomy winter = Province();
-		EconomySimulation.Deploy(winter, def, b, Season.Winter);
+		Labour.FarmsFirst(winter, def, b, Season.Winter);
 		Is("a province eating its stores reads as a loss",
 			EconomySimulation.Preview(winter, def, b, Season.Winter).GrainChange < 0, true);
+	}
+
+	/// <summary>As in Lords of the Realm, a county has a quarry or a mine and never both: what it
+	/// cannot dig it buys, or takes from the neighbour who can. Every campaign's every county.</summary>
+	private void StoneOrIron()
+	{
+		const string Campaigns = "res://data/campaigns";
+		foreach (string campaign in DirAccess.GetDirectoriesAt(Campaigns))
+		{
+			string folder = $"{Campaigns}/{campaign}/provinces";
+			if (!DirAccess.DirExistsAbsolute(folder))
+			{
+				continue;
+			}
+
+			foreach (string file in DirAccess.GetFilesAt(folder))
+			{
+				if (!file.EndsWith(".tres"))
+				{
+					continue;
+				}
+
+				var county = GD.Load<ProvinceDefinition>($"{folder}/{file}");
+				Is($"{county.ProvinceName} digs stone or iron, not both",
+					county.StoneWorkerCapacity > 0 && county.IronWorkerCapacity > 0, false);
+			}
+		}
 	}
 
 	// --- all four seasons of it --------------------------------------------------------------------
@@ -790,18 +608,16 @@ public partial class EconomyCheck : Node
 		ProvinceEconomy p = ProvinceEconomy.FromDefinition(def);
 		int opened = p.Grain;
 
-		foreach (Season season in new[] { Season.Spring, Season.Summer, Season.Autumn, Season.Winter })
+		foreach (Season season in new[] { Season.Winter, Season.Spring, Season.Summer, Season.Autumn, Season.Winter })
 		{
-			EconomySimulation.Deploy(p, def, b, season);
+			Labour.FarmsFirst(p, def, b, season);
 			if (season == Season.Autumn)
 			{
-				Is("the harvest takes every hand Kingsreach has", p.GrainWorkers, p.Workers);
-				Is("  leaving nobody in the quarry", p.StoneWorkers, 0);
-				Is("  nor at the woodpile", p.WoodWorkers, 0);
+				Is("the harvest has reapers for all of it", p.GrainWorkers * 3 / 2 >= p.StandingCrop, true);
 			}
 
 			TurnSummary s = EconomySimulation.RunTurn(p, def, b, season);
-			Is($"  {season.ToString().ToLowerInvariant()} feeds the province", s.FoodShort, 0);
+			Is($"  {season.ToString().ToLowerInvariant()} feeds the province", s.Achieved >= RationLevel.Normal, true);
 		}
 
 		Is("a worked year leaves more bread than it began with", p.Grain > opened, true);
@@ -831,12 +647,7 @@ public partial class EconomyCheck : Node
 	private static ProvinceEconomy Rested(ProvinceDefinition def, GameBalance b)
 	{
 		ProvinceEconomy province = Province();
-		for (int field = 0; field < province.Fertility.Length; field++)
-		{
-			province.Fertility[field] = 0.5f;
-		}
-
-		EconomySimulation.Deploy(province, def, b, Season.Spring);
+		Labour.FarmsFirst(province, def, b, Season.Spring);
 		return province;
 	}
 
@@ -850,7 +661,7 @@ public partial class EconomyCheck : Node
 		}
 
 		province.Grain = 4000; // nothing here is about hunger
-		EconomySimulation.Deploy(province, def, b, Season.Winter);
+		Labour.FarmsFirst(province, def, b, Season.Winter);
 		return EconomySimulation.RunTurn(province, def, b, Season.Winter).GoldChange;
 	}
 

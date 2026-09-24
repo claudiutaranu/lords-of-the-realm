@@ -36,6 +36,8 @@ public partial class BattleCheck : Node
 		TheReckoning(b);
 		TheOrphans(b);
 		TheSiege(b);
+		OpenCountry(b);
+		TheTownTurnsOut(b);
 
 		GD.Print(_failed == 0
 			? "\nthe fighting: all checks passed"
@@ -280,6 +282,34 @@ public partial class BattleCheck : Node
 	/// pinned down here is that it ENDS: a siege that never resolves is worse than no siege at all,
 	/// because a lord would sit an army in front of a gate for the rest of the campaign waiting for
 	/// something the engine was never going to do.</summary>
+	/// <summary>Two companies meeting away from any gate: a fight, and the one that breaks is gone, but
+	/// no county changes hands.</summary>
+	private void OpenCountry(GameBalance b)
+	{
+		TurnManager turns = Realm(b, out ProvinceEconomy crown, out ProvinceEconomy watch);
+		crown.Muster("sword", 200, b.MarchReach);
+		watch.Muster("peasant", 20, b.MarchReach);
+		FieldArmy ours = crown.Armies[0];
+		FieldArmy theirs = watch.Armies[0];
+		Battle.Result day = turns.Engage(ours, theirs);
+		Is("two hundred swords break twenty peasants in open country", day.AttackerWon, true);
+		Is("  and the broken company is gone", watch.Armies.Count, 0);
+		Is("  and nobody's county changed hands", turns.AnyProvince("Valmere").Realm, "northern-watch");
+	}
+
+	/// <summary>A held town with nobody of its lord's standing in it still defends itself: its own
+	/// people turn out, and the ones who fall come off its roll.</summary>
+	private void TheTownTurnsOut(GameBalance b)
+	{
+		TurnManager turns = Realm(b, out ProvinceEconomy crown, out ProvinceEconomy watch);
+		Is("an empty town turns out a militia", turns.DefendersOf("Valmere").Men > 0, true);
+		int people = watch.Population;
+		crown.Muster("sword", 300, b.MarchReach);
+		FieldArmy ours = crown.Armies[0];
+		turns.Attack(ours, "Valmere", new Vector2(900, 200), walls: false);
+		Is("  and the men it loses are its own people", watch.Population < people || turns.AnyProvince("Valmere").Realm == "royal-crown", true);
+	}
+
 	private void TheSiege(GameBalance b)
 	{
 		TurnManager turns = Realm(b, out ProvinceEconomy crown, out ProvinceEconomy watch);
@@ -350,6 +380,7 @@ public partial class BattleCheck : Node
 		ProvinceDefinition definition = Definition("Valmere");
 		ProvinceEconomy paying = ProvinceEconomy.FromDefinition(definition);
 		paying.Grain = 2000;
+		paying.Tax = 5;
 		paying.Castle["spear"] = 20;
 		ProvinceEconomy shut = paying.Copy();
 		shut.BesiegedFrom = "Kingsreach#1";
@@ -357,7 +388,10 @@ public partial class BattleCheck : Node
 		EconomySimulation.RunTurn(paying, definition, b, Season.Summer);
 		EconomySimulation.RunTurn(shut, definition, b, Season.Summer);
 		Is("a besieged county pays its lord nothing", paying.Gold - shut.Gold, due);
-		Is("  and its granary is not feeding the men behind the gate", shut.Grain > paying.Grain, true);
+		// The men on the walls never eat from the county's granary, siege or none: the original keeps
+		// the garrison out of the stores.
+		Is("  and its granary feeds nobody behind the gate", shut.Grain, paying.Grain);
+		Is("  and paid something while it was open", due > 0, true);
 	}
 
 	// --- scaffolding -------------------------------------------------------------------------------
@@ -376,6 +410,9 @@ public partial class BattleCheck : Node
 
 		crown = turns.AnyProvince("Kingsreach");
 		watch = turns.AnyProvince("Valmere");
+		// Counties open untaxed, as in the original: the war is paid for out of the chest.
+		crown.Gold = 20000;
+		watch.Gold = 20000;
 		crown.Armies.Clear();
 		watch.Armies.Clear();
 		watch.Castle.Clear();

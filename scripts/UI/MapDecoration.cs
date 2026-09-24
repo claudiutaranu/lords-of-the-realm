@@ -139,6 +139,7 @@ public partial class MapDecoration : Node3D
 	/// enough to be a march and not a jump, quick enough that a lord who has ordered four of them is
 	/// not waiting on the map.</summary>
 	public const float StrideSeconds = 0.16f;
+	public const float RivalStrideSeconds = 0.05f;
 
 	private const float CattleLength = 1.25f;
 
@@ -174,6 +175,10 @@ public partial class MapDecoration : Node3D
 		{ new("6d9a3c"), new("5f8c33"), new("6b8438"), new("c4ccc6") };
 	private static readonly Color[] FallowBySeason =
 		{ new("9d9a5a"), new("a89f58"), new("9a8d4f"), new("bcbcb2") };
+	// Ground the flood tore up: wet silt with the river's grey in it, darker than any earth a
+	// plough turns, so a lord sees from the map which field he has to send the reclaimers to.
+	private static readonly Color[] WasteBySeason =
+		{ new("4d4c42"), new("5a5446"), new("55503f"), new("9ea3a4") };
 
 	private CampaignMap3D _map;
 	private Image _props;
@@ -457,7 +462,7 @@ public partial class MapDecoration : Node3D
 
 		// How much of a full crop is standing: what was sown against what the county's grain fields
 		// would have taken, after the summer has had whatever the weeders did not stop it having.
-		int wanted = province.FieldsUnder(FieldUse.Grain) * GameBalance.Engine.SeedPerField;
+		int wanted = province.FieldsUnder(FieldUse.Grain) * Husbandry.MostSacksAField * Husbandry.CropPerSack;
 		float fullness = wanted <= 0 ? 0f : Mathf.Clamp((float)province.StandingCrop / wanted, 0f, 1f);
 
 		// Whichever ran out first: the ground the province was found, or the fields it holds.
@@ -474,7 +479,7 @@ public partial class MapDecoration : Node3D
 
 			// The soil of a sown quarter is the crop's own colour, a shade down from the ears
 			// standing on it, so the rows have something to be rows of.
-			AddPlot(surface, plots[field], yaw, GroundOf(use, season, province.Fertility[field]),
+			AddPlot(surface, plots[field], yaw, GroundOf(use, season, (province.Soil + 100) / 200f),
 				GrainBySeason[(int)season].Darkened(0.32f), quarters);
 
 			// Corn only where corn was actually sown. The simulation buys its seed out of the
@@ -890,6 +895,11 @@ public partial class MapDecoration : Node3D
 	/// map, not only find out in a bad autumn.</summary>
 	private static Color GroundOf(FieldUse use, Season season, float heart)
 	{
+		if (use == FieldUse.Waste)
+		{
+			return WasteBySeason[(int)season];
+		}
+
 		Color ground = use switch
 		{
 			FieldUse.Grain => TilledBySeason[(int)season],
@@ -980,7 +990,7 @@ public partial class MapDecoration : Node3D
 
 	private static Works PlanFor(string fort) => fort switch
 	{
-		"small-palisade" => new Works("settlements/fort-palisadea", 1.0f),
+		"small-palisade" => new Works("settlements/lionwatch-palisade", 1.0f),
 		"medium-fort" => new Works("settlements/fort-palisadeb", 1.05f),
 		"large-fort" => new Works("settlements/fort-palisadec", 1.1f),
 		"small-castle" => new Works("settlements/fort-keepa", 1.1f),
@@ -1116,7 +1126,10 @@ public partial class MapDecoration : Node3D
 	/// The men have already moved in the ledger by the time this runs. This is the walk, not the
 	/// march: if it were the other way round, a lord could close the game mid-stride and find his
 	/// army had never left.</summary>
-	public void WalkArmy(string army, List<Vector2> road, System.Action arrived)
+	/// <param name="stride">Seconds a stride takes: a lord's own company walks at StrideSeconds, the
+	/// rivals' at RivalStrideSeconds — watching another lord's whole turn at a marching pace was most
+	/// of the wait between seasons.</param>
+	public void WalkArmy(string army, List<Vector2> road, System.Action arrived, float stride = StrideSeconds)
 	{
 		if (!_armies.TryGetValue(army, out Node3D piece) || piece.GetChildCount() == 0
 			|| road.Count == 0)
@@ -1132,7 +1145,23 @@ public partial class MapDecoration : Node3D
 			((GeometryInstance3D)rank).SetInstanceShaderParameter("walking", 1f);
 		}
 
+		// The map may redraw its banners while this one is still on the road — another march, a
+		// battle settled — and the piece walking here is freed under the tween. Then the walk is
+		// over: it stops, and the arrival is still reported, once.
 		Tween walk = CreateTween();
+		bool over = false;
+		void Arrive()
+		{
+			if (over)
+			{
+				return;
+			}
+
+			over = true;
+			walk.Kill();
+			arrived();
+		}
+
 		foreach (Vector2 step in road)
 		{
 			Vector3 ground = _map.WorldAt(step) + (Vector3.Up * stands);
@@ -1140,23 +1169,32 @@ public partial class MapDecoration : Node3D
 			// worse than one who does not move his legs at all. The model is made facing +z.
 			walk.TweenCallback(Callable.From(() =>
 			{
+				if (!IsInstanceValid(piece))
+				{
+					Arrive();
+					return;
+				}
+
 				Vector3 ahead = ground - piece.Position;
 				if (ahead.LengthSquared() > 0.0001f)
 				{
 					piece.Rotation = new Vector3(0f, Mathf.Atan2(ahead.X, ahead.Z), 0f);
 				}
 			}));
-			walk.TweenProperty(piece, "position", ground, StrideSeconds);
+			walk.TweenProperty(piece, "position", ground, stride);
 		}
 
 		walk.TweenCallback(Callable.From(() =>
 		{
-			foreach (Node rank in piece.GetChildren())
+			if (IsInstanceValid(piece))
 			{
-				((GeometryInstance3D)rank).SetInstanceShaderParameter("walking", 0f);
+				foreach (Node rank in piece.GetChildren())
+				{
+					((GeometryInstance3D)rank).SetInstanceShaderParameter("walking", 0f);
+				}
 			}
 
-			arrived();
+			Arrive();
 		}));
 	}
 
@@ -1166,6 +1204,20 @@ public partial class MapDecoration : Node3D
 	/// <summary>Whether a map pixel is on the ground a county's castle stands on (CastleSite).</summary>
 	public bool AtCastle(string province, Vector2 pixel) =>
 		_settlementSites.TryGetValue(province, out Vector2 seat) && pixel.DistanceTo(CastleSite(seat)) <= CastleReach;
+
+	/// <summary>The county whose castle ground this map pixel is on, or empty.</summary>
+	public string CastleAt(Vector2 pixel)
+	{
+		foreach (string province in _settlementSites.Keys)
+		{
+			if (AtCastle(province, pixel))
+			{
+				return province;
+			}
+		}
+
+		return "";
+	}
 
 	public string TownAt(Vector2 pixel)
 	{

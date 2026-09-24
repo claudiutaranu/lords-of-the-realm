@@ -84,8 +84,9 @@ void fragment() {
 	// margin of 0.03 and 0.16 — so the colour alone picks it out.
 	float cloth = smoothstep(0.03, 0.10, colour.b - max(colour.r, colour.g));
 	// The flying flag, and only it: blue cloth the flag's mark reaches. The banners hung on the
-	// walls carry no mark and stay.
-	if (flag_flown < 0.5 && on_flag > 0.0 && cloth > 0.5) {
+	// walls carry no mark and stay. Any cloth at all, not most of it: the forts' flags are painted a
+	// darker blue than the village's and sit low on the ramp, and a half-measure left them flying.
+	if (flag_flown < 0.5 && on_flag > 0.0 && cloth > 0.0) {
 		discard;
 	}
 	colour = mix(colour, lord_color * (colour.b / CLOTH_VALUE), cloth);

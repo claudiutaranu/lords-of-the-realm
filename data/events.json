@@ -151,6 +151,10 @@
 		"heading": "The County Is Lost",
 		"text": "It is taken, my lord. {came} men under another lord's banner came against our {stood} {where}, and we lost {ourlost}. {theirleft} of theirs hold the gate now, and the people pay their taxes to them. What men of ours were elsewhere have fallen back to the counties we still hold."
 	},
+	"rival-took": {
+		"heading": "A Rival Grows",
+		"text": "Word from over the hills, my lord: {county} has opened its gate to another lord. {came} of his men marched on it, and his banner flies there now. He holds {theirs} counties to our {ours}, and every one he takes is one we shall have to take from him."
+	},
 	"field-lost": {
 		"heading": "Beaten in the Field, Holding at the Gate",
 		"text": "They came for us in the open, my lord: {came} men against our {stood}, and ours broke. We lost {ourlost}. The {walls} on the walls still hold the gate, and {theirleft} of theirs are camped before it."

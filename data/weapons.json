@@ -1,37 +1,33 @@
 {
-	"_comment": "What a blacksmith can forge. Engine data, not a campaign's: every realm's smithy works the same. 'cost' is paid out of the province's own stockpile (gold, grain, cattle, wood, stone, iron), 'batch' is how many the order delivers, and the four stats are 0..10 bars. Every number here is placeholder balance, meant to be tuned.",
+	"_comment": "What a blacksmith can forge. Engine data, not a campaign's: every realm's smithy works the same. 'cost' is what ONE takes out of the province's own stores — the recipes Lords of the Realm's guides give, iron and timber only, still to be confirmed against the original's table — and the four stats are 0..10 bars. How many a season the forge turns out is the smiths' (GameBalance.SmithsPerWeapon), not the file's.",
 	"items": [
 		{
 			"key": "bow",
 			"name": "Bows",
 			"blurb": "Cheap to make and quick to learn. Thins a charge long before it reaches the line.",
 			"attack": 6, "range": 8, "defence": 2, "speed": 6,
-			"turns": 1, "batch": 10,
-			"cost": { "wood": 25, "gold": 10 }
+			"cost": { "wood": 13 }
 		},
 		{
 			"key": "crossbow",
 			"name": "Crossbows",
 			"blurb": "Slow to wind, but a bolt goes through mail where an arrow turns. Anyone can be taught to aim one.",
 			"attack": 8, "range": 7, "defence": 2, "speed": 3,
-			"turns": 2, "batch": 10,
-			"cost": { "wood": 30, "iron": 12 }
+			"cost": { "iron": 10, "wood": 6 }
 		},
 		{
 			"key": "sword",
 			"name": "Swords",
 			"blurb": "Well-balanced swords for disciplined infantry. Reliable in close combat and easy to arm in large numbers.",
 			"attack": 7, "range": 1, "defence": 6, "speed": 5,
-			"turns": 2, "batch": 10,
-			"cost": { "iron": 25, "wood": 10 }
+			"cost": { "iron": 10, "wood": 3 }
 		},
 		{
 			"key": "spear",
 			"name": "Pikes",
 			"blurb": "A hedge of points that horses will not ride into. Little use once a line is broken.",
 			"attack": 5, "range": 3, "defence": 7, "speed": 4,
-			"turns": 1, "batch": 10,
-			"cost": { "wood": 30, "iron": 8 }
+			"cost": { "iron": 3, "wood": 6 }
 		},
 		{
 			"key": "horse",
@@ -39,16 +35,14 @@
 			"icon": "helmet",
 			"blurb": "The costliest thing a province can raise, and the only one that decides a field in a single charge.",
 			"attack": 9, "range": 1, "defence": 6, "speed": 9,
-			"turns": 3, "batch": 5,
-			"cost": { "gold": 60, "iron": 30, "cattle": 4 }
+			"cost": { "iron": 18, "wood": 4 }
 		},
 		{
 			"key": "mace",
 			"name": "Maces",
 			"blurb": "Crude, heavy, and indifferent to armour. What a smith forges when there is iron but no time.",
 			"attack": 8, "range": 1, "defence": 4, "speed": 4,
-			"turns": 2, "batch": 10,
-			"cost": { "iron": 35, "wood": 5 }
+			"cost": { "iron": 4, "wood": 4 }
 		}
 	]
 }

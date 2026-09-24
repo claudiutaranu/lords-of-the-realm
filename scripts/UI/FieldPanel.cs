@@ -97,25 +97,25 @@ public partial class FieldPanel : CountyPanel
 			row.QueueFree();
 		}
 
-		// The one figure that belongs to THIS field and to nothing else. Everything under it is the
-		// county's, because a herd and a harvest are the county's — which is how the old game read
-		// too: one field's page, the shire's numbers.
-		Row("Heart of the land", $"{Mathf.RoundToInt(_province.Fertility[_field] * 100f)}%",
-			_province.Fertility[_field] < _balance.FertilityFloor + 0.1f ? Chrome.Short : Chrome.Bright);
+		// The county's soil, as the original keeps it: one figure for all its land, which is what a
+		// field's page shows alongside the shire's other numbers.
+		Row("Heart of the land", $"{_province.Soil:+0;-0;0}", _province.Soil < 0 ? Chrome.Short : Chrome.Bright);
 
 		TurnSummary next = EconomySimulation.Preview(_province, _definition, _balance, _season);
 		switch (use)
 		{
 			case FieldUse.Grain: Corn(next); break;
 			case FieldUse.Pasture: Herd(next); break;
+			case FieldUse.Waste: Torn(); break;
 			default: Resting(); break;
 		}
 
 		// The use it is already under is not on offer: a button that does nothing is a button the
-		// player presses once and then distrusts the other two.
+		// player presses once and then distrusts the other two. A flooded field is under nothing
+		// the lord can choose until it is mended.
 		for (int choice = 0; choice < _choices.GetChildCount(); choice++)
 		{
-			((Button)_choices.GetChild(choice)).Disabled = (FieldUse)Order[choice] == use;
+			((Button)_choices.GetChild(choice)).Disabled = use == FieldUse.Waste || (FieldUse)Order[choice] == use;
 		}
 	}
 
@@ -128,7 +128,7 @@ public partial class FieldPanel : CountyPanel
 		// Seed and harvest are not the same sack. Twenty in the ground come back as hundreds, so the
 		// two lines are named for what they are — a page that called both of them "grain" would look
 		// like it was contradicting itself every autumn.
-		Row("Seed in the ground", Some(_province.StandingCrop, "sacks"), Chrome.Bright);
+		Row("Crop in the ground", Some(_province.StandingCrop, "sacks"), Chrome.Bright);
 
 		// And the harvest only when there is one to report. Outside autumn the honest answer is when
 		// it comes, not a figure worked out from a year that has not happened: the reapers have to be
@@ -136,13 +136,14 @@ public partial class FieldPanel : CountyPanel
 		Row("Harvest", _season == Season.Autumn ? Some(next.Harvest, "sacks") : "comes in autumn",
 			_season == Season.Autumn ? Chrome.Gain : Chrome.Dim);
 		Row("Hands at the plough", Hands(ResourceType.Grain, _province.GrainWorkers), Chrome.Bright);
-		Row("The land loses each cropped year", $"-{Mathf.RoundToInt(_balance.FertilityCropped * 100f)}%", Chrome.Short);
+		Row("Each field cropped costs the soil", "−3 a season", Chrome.Short);
 	}
 
 	private void Herd(TurnSummary next)
 	{
-		int room = _province.FieldsUnder(FieldUse.Pasture) * _balance.CowsPerField;
-		int calves = next.CattleChange + next.Slaughtered;
+		int pastures = _province.FieldsUnder(FieldUse.Pasture);
+		int room = pastures * 10; // head a field carries before the herd starts to crowd (Husbandry)
+		int calves = next.Calved;
 
 		Row("The herd", $"{_province.Cattle:N0} animals", Chrome.Bright);
 		Row("Room on the pasture", $"{room:N0} animals", room < _province.Cattle ? Chrome.Short : Chrome.Bright);
@@ -155,9 +156,18 @@ public partial class FieldPanel : CountyPanel
 			next.CattleChange < 0 ? Chrome.Short : Chrome.Gain);
 	}
 
+	private void Torn()
+	{
+		int seasons = EconomySimulation.SeasonsToMend(_province, _balance, _season);
+		Row("Work left to mend it", $"{_province.FieldRepair:N0}", Chrome.Short);
+		Row("Reclaimers on it", $"{_province.ReclaimWorkers:N0}", Chrome.Bright);
+		Row("Fit to sow again", seasons < 0 ? "not while nobody mends it" : $"in {seasons} season{(seasons == 1 ? "" : "s")}",
+			seasons < 0 ? Chrome.Short : Chrome.Soft);
+	}
+
 	private void Resting()
 	{
-		Row("It gains each year", $"+{Mathf.RoundToInt(_balance.FertilityRested * 100f)}%", Chrome.Gain);
+		Row("Each field resting feeds the soil", "+6 a season", Chrome.Gain);
 		Row("Nothing is sown here", "and nothing grazes", Chrome.Dim);
 	}
 
@@ -176,8 +186,9 @@ public partial class FieldPanel : CountyPanel
 			return "no pasture at all";
 		}
 
+		// The original's own bands, by head a pasture field: ten, twenty, thirty.
 		float packed = (float)herd / room;
-		return packed < 0.5f ? "Low" : packed < 1f ? "Fair" : packed < 1.5f ? "Crowded" : "Packed in";
+		return packed <= 1f ? "Low" : packed <= 2f ? "Average" : packed <= 3f ? "Crowded" : "Massively crowded";
 	}
 
 	private void Row(string name, string value, Color colour)
@@ -196,6 +207,7 @@ public partial class FieldPanel : CountyPanel
 	{
 		FieldUse.Grain => "Grain",
 		FieldUse.Pasture => "Cattle",
+		FieldUse.Waste => "Flooded",
 		_ => "Resting",
 	};
 }

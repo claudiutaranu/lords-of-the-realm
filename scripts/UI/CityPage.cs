@@ -5,12 +5,12 @@ using Godot;
 /// <summary>The province, seen from above: its land, and where its people are on it.
 ///
 /// This is the screen the economy is played on. Every site the province works carries a plaque with
-/// its name, the hands on it, and the two buttons that move them — so putting the harvest ahead of
-/// the quarry is one press on the thing itself rather than a trip to a menu that lists them. In the
+/// its name and its people in figures (WorkerFigures), the way Lords of the Realm draws a county:
+/// gold for somebody at work, a hollow ring for a place the work still has. Pressing a site takes it
+/// in hand and the panel beside it (CitySitePanel) says what it makes and moves its figures. In the
 /// middle stands the count nobody wants: the hands with nowhere to be.
 ///
-/// A site that also has a room behind it opens it when its name is pressed. The two do not get in
-/// each other's way: the buttons move people, the name opens the door.
+/// A site that also has a room behind it offers the door in its panel.
 ///
 /// The land is bare until somebody draws it. A site shows its own picture the day
 /// assets/city/buildings/&lt;key&gt;.png is dropped in; until then its plaque stands on grass, which
@@ -20,11 +20,11 @@ public partial class CityPage : RoomPage
 	private const string DataPath = "res://data/buildings.json";
 
 	/// <summary>One thing on the province's land. <paramref name="Works"/> is the industry its
-	/// plaque hands people to, and is absent for a site that is only a door — a smithy takes an
-	/// order, not a workforce. <paramref name="Needs"/> is what the province must actually have for
-	/// the place to exist at all.</summary>
+	/// plaque hands people to; the masons (<paramref name="Builds"/>) and the smiths
+	/// (<paramref name="Smiths"/>) are trades without one. <paramref name="Needs"/> is what the
+	/// province must actually have for the place to exist at all.</summary>
 	private record Site(string Key, string Name, string Blurb, string Icon, string Room,
-		ResourceType? Works, bool Builds, string Needs, Vector2 Spot, float Height,
+		ResourceType? Works, bool Builds, bool Smiths, string Needs, Vector2 Spot, float Height,
 		BuildingArt.Rotor Turning);
 
 	/// <summary>How tall a site's picture stands, as a fraction of the land, for a site that has not
@@ -37,12 +37,23 @@ public partial class CityPage : RoomPage
 	/// the plot worth looking at — so it is measured from the building's own height.</summary>
 	private const float PlaqueInset = 0.025f;
 
+	/// <summary>How far down the page a plaque's middle must stand to clear the stores along the top.</summary>
+	private const float HighestPlaque = 0.16f;
+
 	/// <summary>How far the plaque of the site in hand stands off its building.</summary>
 	private const float ChosenLift = 14f;
 
-	/// <summary>Hands move five at a time. One at a time is honest and unusable: an autumn harvest
-	/// asks for two hundred and forty of them.</summary>
-	private const int Step = 5;
+	/// <summary>How many figures a plaque draws before it says the rest in a number: an autumn
+	/// harvest can ask for most of the county, and twenty rings across a plate hide the field.</summary>
+	private const int MostOnPlaque = 6;
+
+	private const int PlaqueFigure = 24;
+
+	/// <summary>How tall a painted banner stands on the land.</summary>
+	private const float BannerHeight = 76f;
+
+	/// <summary>How far across the land a site stands before its panel opens on the left instead.</summary>
+	private const float DockLeftPast = 0.6f;
 
 	/// <summary>What a count reads when the site has more hands on it than it can use.</summary>
 	private static readonly Color Spare = new("6f93c4");
@@ -94,6 +105,7 @@ public partial class CityPage : RoomPage
 				fields.TryGetValue("room", out Variant room) ? room.AsString() : null,
 				fields.TryGetValue("works", out Variant works) ? Industry(works.AsString()) : null,
 				fields.ContainsKey("masons"),
+				fields.ContainsKey("smiths"),
 				fields.TryGetValue("site", out Variant needs) ? needs.AsString() : null,
 				new Vector2((float)spot[0], (float)spot[1]),
 				fields.TryGetValue("scale", out Variant scale) ? (float)scale : TileHeight,
@@ -115,9 +127,16 @@ public partial class CityPage : RoomPage
 			// moves, because one site gaining hands changes what every other one can still be given.
 			var holder = new Control { MouseFilter = MouseFilterEnum.Ignore };
 			AddChild(holder);
-			Chrome.Anchor(holder, site.Spot - new Vector2(0f, site.Height - PlaqueInset), 1, 1);
+			// Never so high that the banner runs under the stores along the top of the page.
+			Vector2 plaque = site.Spot - new Vector2(0f, site.Height - PlaqueInset);
+			Chrome.Anchor(holder, new Vector2(plaque.X, Mathf.Max(plaque.Y, HighestPlaque)), 1, 1);
 			_plaques[site.Key] = holder;
 		}
+
+		// The panel over the land, not under it: a site's plaque hanging across the panel that is
+		// reading that site is the one thing on the page nobody can read past.
+		Control chrome = Body.GetParent().GetParent<Control>();
+		MoveChild(chrome, GetChildCount() - 1);
 	}
 
 	/// <summary>The province's name in the top corner, under its lord's colours: what a lord would
@@ -173,14 +192,23 @@ public partial class CityPage : RoomPage
 	{
 	}
 
-	/// <summary>The panel in the corner reads the season rather than a chosen site. On a screen
-	/// where everything says its own name and carries its own count there is nothing left to add
-	/// about one of them, and a great deal to say about the season they are all working in.</summary>
+	/// <summary>The panel in the corner reads the site in hand, and with none in hand the season
+	/// they are all working in.</summary>
 	protected override void ShowDetail()
 	{
 		ClearDetail();
 		if (_definition == null)
 		{
+			return;
+		}
+
+		// On the side of the page away from the site in hand, so the panel never hides the very
+		// building it is talking about.
+		Site chosen = _sites.Find(site => site.Key == _chosen);
+		Body.Alignment = chosen is { Spot.X: > DockLeftPast } ? BoxContainer.AlignmentMode.Begin : BoxContainer.AlignmentMode.End;
+		if (chosen != null)
+		{
+			ShowSite(chosen);
 			return;
 		}
 
@@ -214,23 +242,12 @@ public partial class CityPage : RoomPage
 		note.CustomMinimumSize = new Vector2(0, 62);
 		Detail.AddChild(note);
 
-		Site chosen = _sites.Find(site => site.Key == _chosen);
-		if (chosen?.Room != null)
-		{
-			string room = chosen.Room;
-			var door = new Button { Text = $"{chosen.Name}  ›", CustomMinimumSize = new Vector2(0, 46) };
-			door.AddThemeFontSizeOverride("font_size", 18);
-			door.TooltipText = chosen.Blurb;
-			door.Pressed += () => RoomChosen?.Invoke(room);
-			Detail.AddChild(door);
-		}
-
 		var spread = new Button { Text = "Set them to work", CustomMinimumSize = new Vector2(0, 46) };
 		spread.AddThemeFontSizeOverride("font_size", 18);
-		spread.TooltipText = "Fills every site to what it can use, bread first.";
+		spread.TooltipText = "Enough on the farm for every field and beast this season, the rest to the industry.";
 		spread.Pressed += () =>
 		{
-			EconomySimulation.Deploy(Province, _definition, _balance, _season);
+			Labour.FarmsFirst(Province, _definition, _balance, _season);
 			Rebuild();
 		};
 
@@ -284,6 +301,11 @@ public partial class CityPage : RoomPage
 			return (float)Province.BuildWorkers / Mathf.Max(1, _balance.MasonsPerBuildSeason);
 		}
 
+		if (site.Smiths)
+		{
+			return Province.Forging.Length == 0 ? 0f : Mathf.Min(1f, Province.SmithWorkers / (float)Mathf.Max(1, Wanted(site)));
+		}
+
 		if (site.Works == null)
 		{
 			return 1f; // a place with no hands on it at all is drawn as it was painted
@@ -318,29 +340,29 @@ public partial class CityPage : RoomPage
 		}
 	}
 
-	/// <summary>One site's plaque: its name, the hands on it, and the two buttons that move them.
+	/// <summary>One site's plaque: its name and its figures.
 	///
-	/// The count sits inside the plate with the name rather than beside it on the grass. A number
-	/// painted straight onto a sunlit field is a number nobody can read, and this screen is nothing
-	/// but numbers on a sunlit field.</summary>
+	/// The figures sit inside the plate with the name rather than beside it on the grass. Anything
+	/// painted straight onto a sunlit field is something nobody can read.</summary>
 	private Control Row(Site site)
 	{
+		if (CityArt.HasPlaque(site.Key))
+		{
+			return Banner(site);
+		}
+
 		var row = new HBoxContainer();
 		row.AddThemeConstantOverride("separation", 8);
 
 		var named = new Button
 		{
-			TooltipText = site.Room == null ? site.Blurb : $"{site.Blurb}\n\nPress to go in.",
+			TooltipText = site.Blurb,
 			FocusMode = FocusModeEnum.None,
 		};
 
-		// The name is the door. A site with nothing behind it is still drawn as a plate, so the two
-		// kinds stand together without one of them looking broken — it simply has nothing wired to
-		// it, rather than being disabled, which Godot would grey out.
-		// Every plaque takes its site in hand. Where there is a room behind it, the panel in the
-		// corner offers the door — rather than the plaque being a door and a handle at once, which
-		// would mean pressing the thing you want to give people to walks you out of the screen you
-		// are giving them on.
+		// Every plaque takes its site in hand. Where there is a room behind it, the panel offers the
+		// door — rather than the plaque being a door and a handle at once, which would mean pressing
+		// the thing you want to give people to walks you out of the screen you are giving them on.
 		string key = site.Key;
 		named.Pressed += () => Choose(key);
 
@@ -363,119 +385,135 @@ public partial class CityPage : RoomPage
 		name.VerticalAlignment = VerticalAlignment.Center;
 		plate.AddChild(name);
 
-		// The masons are a trade like the others as far as this plate is concerned: they have men on
-		// them and an appetite, and the appetite happens to be whatever is left of the wall.
-		int on = site.Builds ? Province.BuildWorkers : site.Works == null ? 0 : Allocated(site.Works.Value);
-		int demand = 0;
-		int spare = 0;
-		if (_definition != null)
-		{
-			spare = Province.Workers - Province.AllocatedWorkers;
-			if (site.Builds)
-			{
-				demand = EconomySimulation.Masons(Province);
-			}
-			else if (site.Works != null)
-			{
-				demand = EconomySimulation.Demand(site.Works.Value, Province, _definition, _balance, _season);
-			}
-		}
-
-		// The idle count is the one number here that is read rather than set.
-		int shown = site.Key == "idle" && _definition != null
-			? EconomySimulation.Idle(Province, _definition, _balance, _season)
-			: on;
-
-		// Short-handed reads red and over-manned reads cool, the way Lords of the Realm marks its own
-		// production: the first costs you the season's yield, the second only costs you hands you
-		// could have had somewhere else.
-		// A site nobody is on is not short-handed, it is shut: a province that has put every hand
-		// into the harvest should not read as five things going wrong at once.
-		string reads = null;
-		Color tint = Soft;
+		// Ground being mended counts seasons, not people.
 		if (mending != 0)
 		{
-			reads = mending > 0 ? mending.ToString() : "\u2014";
-			tint = mending > 0 ? Cream : Short;
+			Label seasons = Line(mending > 0 ? mending.ToString() : "\u2014", 19, mending > 0 ? Cream : Short);
+			seasons.VerticalAlignment = VerticalAlignment.Center;
+			plate.AddChild(seasons);
 		}
-		else if (site.Works != null || site.Builds || site.Key == "idle")
+		else if (_definition != null && (Staffed(site) || site.Key == "idle"))
 		{
-			reads = shown.ToString("N0");
-			tint = site.Key == "idle" ? (shown > 0 ? Short : Soft)
-				: on == 0 ? Soft : on < demand ? Short : on > demand ? Spare : Bright;
-		}
-
-		if (reads != null)
-		{
-			Label count = Line(reads, 19, tint);
-			count.HorizontalAlignment = HorizontalAlignment.Right;
-			count.VerticalAlignment = VerticalAlignment.Center;
-			count.CustomMinimumSize = new Vector2(44, 0);
-			plate.AddChild(count);
+			plate.AddChild(PlaqueFigures(site));
 		}
 
 		Chrome.DressPlaque(named, lit: site.Key == _chosen);
 		named.CustomMinimumSize = new Vector2(plate.GetCombinedMinimumSize().X + 34, 46);
 		row.AddChild(named);
-
-		if (site.Builds)
-		{
-			row.AddChild(Chrome.Plate("−", 38, () => Mason(key, -Step, demand, spare)));
-			row.AddChild(Chrome.Plate("+", 38, () => Mason(key, Step, demand, spare)));
-			return row;
-		}
-
-		if (site.Works == null)
-		{
-			return row;
-		}
-
-		ResourceType works = site.Works.Value;
-		row.AddChild(Chrome.Plate("−", 38, () => Move(key, works, -Step, demand, spare)));
-		row.AddChild(Chrome.Plate("+", 38, () => Move(key, works, Step, demand, spare)));
 		return row;
 	}
 
-	/// <summary>Takes one site in hand: its plaque lights, and so does the building itself. Nothing
-	/// else follows from it — this screen has no detail to show about one site that the site is not
-	/// already saying — but a player moving hands about wants to see which plot he is moving them
-	/// on to, and on a picture this busy the name alone is not enough.</summary>
+	/// <summary>A site that has a painted banner: its name written on the banner's bar, and its figures
+	/// hung under it on a dark strip of their own — the banner is gold on blue, and gold figures
+	/// laid across it would be lost in it.</summary>
+	private Control Banner(Site site)
+	{
+		var column = new VBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
+		column.AddThemeConstantOverride("separation", 2);
+
+		var art = GD.Load<Texture2D>(CityArt.Plaque(site.Key));
+		var banner = new TextureButton
+		{
+			TextureNormal = art,
+			IgnoreTextureSize = true,
+			StretchMode = TextureButton.StretchModeEnum.KeepAspectCentered,
+			CustomMinimumSize = new Vector2(BannerHeight * art.GetWidth() / (float)art.GetHeight(), BannerHeight),
+			TooltipText = site.Blurb,
+			FocusMode = FocusModeEnum.None,
+			SizeFlagsHorizontal = SizeFlags.ShrinkCenter,
+			// The site in hand glows a little warmer than the rest.
+			Modulate = site.Key == _chosen ? new Color(1.25f, 1.18f, 1.05f) : Colors.White,
+		};
+		string key = site.Key;
+		banner.Pressed += () => Choose(key);
+
+		// On the bar, clear of the shield on the left and the point on the right. The shield ends a
+		// little past a quarter of the way along on every one of these banners, so one set of margins
+		// fits them all.
+		Label name = Line(site.Name.ToUpperInvariant(), 22, Cream);
+		name.HorizontalAlignment = HorizontalAlignment.Center;
+		name.VerticalAlignment = VerticalAlignment.Center;
+		name.MouseFilter = MouseFilterEnum.Ignore;
+		banner.AddChild(name);
+		name.AnchorLeft = 0.30f;
+		name.AnchorRight = 0.90f;
+		name.AnchorTop = 0.30f;
+		name.AnchorBottom = 0.76f;
+		GoldTitle.Apply(name);
+		column.AddChild(banner);
+
+		if (_definition != null && (Staffed(site) || site.Key == "idle"))
+		{
+			var strip = new PanelContainer { SizeFlagsHorizontal = SizeFlags.ShrinkCenter, MouseFilter = MouseFilterEnum.Ignore };
+			strip.AddThemeStyleboxOverride("panel", new StyleBoxFlat
+			{
+				BgColor = new Color(0.04f, 0.05f, 0.09f, 0.85f),
+				BorderColor = new Color(0.72f, 0.58f, 0.30f, 0.9f),
+				BorderWidthLeft = 1,
+				BorderWidthTop = 1,
+				BorderWidthRight = 1,
+				BorderWidthBottom = 1,
+				CornerRadiusTopLeft = 16,
+				CornerRadiusTopRight = 16,
+				CornerRadiusBottomLeft = 16,
+				CornerRadiusBottomRight = 16,
+				ContentMarginLeft = 8,
+				ContentMarginRight = 8,
+				ContentMarginTop = 4,
+				ContentMarginBottom = 4,
+			});
+			strip.AddChild(PlaqueFigures(site));
+			column.AddChild(strip);
+		}
+
+		return column;
+	}
+
+	/// <summary>The site's people on its plaque, in figures while there are few enough to draw and
+	/// in a count of them past that. Short-handed reads red and over-manned reads cool, the way
+	/// Lords of the Realm marks its own: the first costs the season's yield, the second only costs
+	/// hands that could be somewhere else. The hollow rings are the places the work still has, the
+	/// ghost figures Lords of the Realm draws under a trade that is short.</summary>
+	private Control PlaqueFigures(Site site)
+	{
+		int people = Province.Workers;
+		int on = site.Key == "idle" ? EconomySimulation.Idle(Province, _definition, _balance, _season) : On(site);
+		int wanted = site.Key == "idle" ? on : Wanted(site);
+		int onFigures = WorkerFigures.Of(on, people);
+		int wantedFigures = WorkerFigures.Of(wanted, people);
+
+		var figures = new HBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
+		figures.AddThemeConstantOverride("separation", 3);
+		if (Mathf.Max(onFigures, wantedFigures) <= MostOnPlaque)
+		{
+			for (int figure = 0; figure < Mathf.Max(onFigures, wantedFigures); figure++)
+			{
+				Control token = WorkerFigures.Token(figure < onFigures, PlaqueFigure);
+				token.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+				figures.AddChild(token);
+			}
+
+			return figures;
+		}
+
+		Control one = WorkerFigures.Token(onFigures > 0, PlaqueFigure);
+		one.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+		figures.AddChild(one);
+		Color tint = site.Key == "idle" ? Short : onFigures < wantedFigures ? Short : onFigures > wantedFigures ? Spare : Bright;
+		Label count = Line(site.Key == "idle" ? $"{onFigures}" : $"{onFigures}/{wantedFigures}", 18, tint);
+		count.VerticalAlignment = VerticalAlignment.Center;
+		figures.AddChild(count);
+		return figures;
+	}
+
+	/// <summary>Takes one site in hand, or lets it go: its plaque lifts, the building lights, and the
+	/// panel turns to it. Pressed again, the panel goes back to the season.</summary>
 	private void Choose(string key)
 	{
 		_chosen = _chosen == key ? null : key;
 		foreach ((string at, BuildingArt tile) in _tiles)
 		{
 			tile.Light(at == _chosen);
-		}
-
-		Rebuild();
-	}
-
-	/// <summary>Moves hands on or off a site. It is never given more than it can use, nor more than
-	/// the province has left standing about.</summary>
-	/// <summary>Moves hands on or off the scaffolding. Same rule as any other trade: never more than
-	/// the work left on the wall, never more than the county has standing about.</summary>
-	private void Mason(string key, int by, int demand, int spare)
-	{
-		int on = Province.BuildWorkers;
-		Province.BuildWorkers = Mathf.Clamp(on + by, 0, Mathf.Min(demand, on + spare));
-		if (_chosen != key)
-		{
-			Choose(key);
-			return;
-		}
-
-		Rebuild();
-	}
-
-	private void Move(string key, ResourceType works, int by, int demand, int spare)
-	{
-		int on = Allocated(works);
-		Allocate(works, Mathf.Clamp(on + by, 0, Mathf.Min(demand, on + spare)));
-		if (_chosen != key)
-		{
-			Choose(key);
-			return;
 		}
 
 		Rebuild();
@@ -566,16 +604,4 @@ public partial class CityPage : RoomPage
 		ResourceType.Stone => Province.StoneWorkers,
 		_ => Province.IronWorkers,
 	};
-
-	private void Allocate(ResourceType works, int hands)
-	{
-		switch (works)
-		{
-			case ResourceType.Grain: Province.GrainWorkers = hands; break;
-			case ResourceType.Cattle: Province.CattleWorkers = hands; break;
-			case ResourceType.Wood: Province.WoodWorkers = hands; break;
-			case ResourceType.Stone: Province.StoneWorkers = hands; break;
-			default: Province.IronWorkers = hands; break;
-		}
-	}
 }

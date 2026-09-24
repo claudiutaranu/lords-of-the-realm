@@ -30,7 +30,7 @@ public enum Difficulty
 }
 
 /// <summary>What the lord allows each of his people to eat, as a multiple of what one of them needs
-/// to be fed properly. Indexes GameBalance's ration tables; order must match them.
+/// to be fed properly: Lords of the Realm's six steps, in its order (Livelihood.Tier reads it).
 ///
 /// Multiples and not adjectives, because that is the decision: a county fed double is a county that
 /// eats twice the bread and thinks the better of its lord for it, and both halves of that have to be
@@ -38,6 +38,7 @@ public enum Difficulty
 public enum RationLevel
 {
 	None,
+	Quarter,
 	Half,
 	Normal,
 	Double,
@@ -52,4 +53,7 @@ public enum FieldUse
 	Fallow,
 	Grain,
 	Pasture,
+	/// <summary>Torn up by a flood: nothing grows on it and nothing grazes it until the reclaimers
+	/// have put it right, and the lord cannot order it under anything else in the meantime.</summary>
+	Waste,
 }
