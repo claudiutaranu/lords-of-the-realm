@@ -41,7 +41,7 @@ public static class EconomySimulation
 		CollectTaxes(province, balance);
 		PayTheGarrison(province, balance, summary);
 		ForgeWeapons(province);
-		RaiseFortification(province, balance);
+		RaiseFortification(province, balance, summary);
 		SettleLoyalty(province, balance, summary);
 		MovePeople(province, balance, summary);
 
@@ -547,7 +547,7 @@ public static class EconomySimulation
 	/// the old one on the season it is finished. It was paid for when the order was placed, so
 	/// nothing is spent here — a province that falls on hard times still gets the castle it already
 	/// bought.</summary>
-	private static void RaiseFortification(ProvinceEconomy p, GameBalance b)
+	private static void RaiseFortification(ProvinceEconomy p, GameBalance b, TurnSummary summary)
 	{
 		if (p.Building.Length == 0)
 		{
@@ -566,6 +566,7 @@ public static class EconomySimulation
 		}
 
 		p.Fortification = p.Building;
+		summary.WallRaised = p.Building;
 		p.Building = "";
 		p.BuildWorkers = 0;
 	}

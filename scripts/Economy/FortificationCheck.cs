@@ -97,10 +97,11 @@ public partial class FortificationCheck : Node
 
 		// And the turn is what finishes it: four seasons on, the new wall replaces the old.
 		province.BuildSeasonsLeft = 1;
-		EconomySimulation.RunTurn(province, new ProvinceDefinition { ProvinceName = "Kingsreach" },
-			balance, Season.Spring);
+		TurnSummary finished = EconomySimulation.RunTurn(province,
+			new ProvinceDefinition { ProvinceName = "Kingsreach" }, balance, Season.Spring);
 		Is("the last season raises the wall", province.Fortification, "large-castle");
 		Is("and clears the work in hand", province.Building, "");
+		Is("and the season says so, for the steward to announce", finished.WallRaised, "large-castle");
 
 		Garrisoning(balance);
 

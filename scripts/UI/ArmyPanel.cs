@@ -11,46 +11,23 @@ using Godot;
 ///
 /// Everyone's men, not only the player's: what a lord can count from a hilltop is how many they are
 /// and what they carry, and that is the one honest thing about another man's army.</summary>
-public partial class ArmyPanel : Control
+public partial class ArmyPanel : PaintedPanel
 {
-	private const string FramePath = "res://assets/ui/army-panel.png";
 	private const string CaptainPath = "res://assets/ui/army-captain.png";
 	private const string IconDirectory = "res://assets/ui/icons";
-	private const float FadeSeconds = 0.16f;
 
-	/// <summary>How big the panel is drawn, and the margins inside its painted frame: the art is a
-	/// wide gold border with a ribbon across the top. Wide because a company is read in two columns
-	/// and a lord should not have to lean in: the whole thing is lettered at the size the map's own
-	/// furniture is, over ground that is moving.
-	///
-	/// The title is lettered ON the painted ribbon, so the top margin is the drop to the field
-	/// underneath it rather than the frame's own edge, and the foot is deep enough that the orders
-	/// stand inside the border instead of on it.</summary>
-	private static readonly Vector2 PanelSize = new(1200, 1010);
-	private const int FrameInset = 74;
+	/// <summary>How big the panel is drawn. Wide because a company is read in two columns and a lord
+	/// should not have to lean in: the whole thing is lettered at the size the map's own furniture
+	/// is, over ground that is moving.</summary>
+	private static readonly Vector2 Drawn = new(1200, 1010);
+
+	/// <summary>The drop from the painted ribbon to the field underneath it.</summary>
 	private const int RibbonDrop = 40;
 
-	/// <summary>Where the painted frame's writing begins and ends, as a share of however tall the
-	/// frame is drawn. Shares and not a number of pixels, because the ribbon across its top and the
-	/// rail across its foot are part of the picture: a panel cut shorter for a smaller company draws
-	/// them nearer together, and the title has to stay on the ribbon rather than under it.</summary>
-	private const float RibbonShare = 0.119f;
-	private const float FootShare = 0.154f;
-	private const float CloseShare = 0.127f;
 	private static readonly Rect2 CrestRegion = new(174, 94, 908, 1070);
 
-	/// <summary>The one yard every man on the roster stands in, and the tile he stands in it on. One
-	/// ground for all of them on purpose — the roster is a list of who is here, and seven different
-	/// skies behind seven rows makes it a gallery instead.
-	///
-	/// The tile's shape is also the crop: the portraits are full-length, and as much of one as a tile
-	/// this wide can hold is the man from the waist up. A row three fingers high has no business
-	/// showing a soldier's boots.</summary>
-	private const string RosterGround = "res://assets/units/backgrounds/courtyard.jpg";
+	/// <summary>The tile each man on the roster stands on.</summary>
 	private static readonly Vector2 PortraitTile = new(110, 64);
-
-	/// <summary>How much sky is left over a man's head when the tile is cut.</summary>
-	private const int HeadRoom = 24;
 
 	/// <summary>How the roster is laid out. Shared with the drawing of the panel itself, which is cut
 	/// to the number of rows this company actually fills.</summary>
@@ -65,7 +42,6 @@ public partial class ArmyPanel : Control
 	public event System.Action<FieldArmy> GarrisonPressed;
 	public event System.Action<FieldArmy> DisbandPressed;
 
-	private Label _title;
 	private Label _subtitle;
 	private Label _standing;
 	private TextureRect _crest;
@@ -81,18 +57,6 @@ public partial class ArmyPanel : Control
 	/// whoever else their county has standing somewhere else.</summary>
 	private FieldArmy _army;
 
-	/// <summary>What holds the panel in the middle. Of the MAP and not of the screen: the lord's
-	/// furniture stands down the right-hand side, and a panel centred on the window is a panel
-	/// sitting a hand's width off the ground it is about.</summary>
-	private CenterContainer _centred;
-
-	/// <summary>The painted frame and the writing inside it. Held because the panel is drawn to fit
-	/// what this company actually is: a lord with three kinds of man under him gets a shorter panel
-	/// than one with seven, rather than a hand's depth of empty blue under his roster.</summary>
-	private TextureRect _frame;
-	private VBoxContainer _column;
-	private MarginContainer _inside;
-	private Button _close;
 	private Button _march;
 	private Button _split;
 	private Button _garrison;
@@ -105,81 +69,25 @@ public partial class ArmyPanel : Control
 	/// <summary>The word on the Disband plate, which is how it asks a second time.</summary>
 	private Label _disbandWord;
 
-	public override void _Ready()
+	protected override Vector2 PanelSize => Drawn;
+
+	protected override void Furnish()
 	{
-		Chrome.Fill(this);
-		MouseFilter = MouseFilterEnum.Stop;
-		Visible = false;
-		Modulate = new Color(1, 1, 1, 0);
-
-		AddChild(new ColorRect
-		{
-			Color = new Color(0, 0, 0, 0.5f),
-			MouseFilter = MouseFilterEnum.Ignore,
-			AnchorRight = 1,
-			AnchorBottom = 1,
-		});
-
-		_centred = new CenterContainer();
-		Chrome.Fill(_centred);
-		_centred.MouseFilter = MouseFilterEnum.Ignore;
-		AddChild(_centred);
-
-		_frame = new TextureRect
-		{
-			Texture = GD.Load<Texture2D>(FramePath),
-			CustomMinimumSize = PanelSize,
-			ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
-			StretchMode = TextureRect.StretchModeEnum.Scale,
-			MouseFilter = MouseFilterEnum.Stop,
-		};
-		_centred.AddChild(_frame);
-
-		var inside = new MarginContainer();
-		Chrome.Fill(inside);
-		inside.AddThemeConstantOverride("margin_left", FrameInset);
-		inside.AddThemeConstantOverride("margin_right", FrameInset);
-		_inside = inside;
-		_frame.AddChild(inside);
-
-		_column = new VBoxContainer();
-		_column.AddThemeConstantOverride("separation", 3);
-		inside.AddChild(_column);
-
-		// On the ribbon the frame is painted with.
-		_title = Chrome.Line("", 36, Chrome.Cream);
-		_title.HorizontalAlignment = HorizontalAlignment.Center;
-		GoldTitle.Apply(_title);
-		_column.AddChild(_title);
-
 		// Under the painted ribbon, not on its fringe.
-		_column.AddChild(new Control { CustomMinimumSize = new Vector2(0, RibbonDrop) });
+		Column.AddChild(new Control { CustomMinimumSize = new Vector2(0, RibbonDrop) });
 		_subtitle = Chrome.Line("", 20, Chrome.Soft);
 		_subtitle.HorizontalAlignment = HorizontalAlignment.Center;
-		_column.AddChild(_subtitle);
+		Column.AddChild(_subtitle);
 
-		_column.AddChild(Head());
-		_column.AddChild(Readings());
-		_column.AddChild(Heading("Unit roster"));
-		_column.AddChild(Roster());
-		_column.AddChild(Tally());
+		Column.AddChild(Head());
+		Column.AddChild(Readings());
+		Column.AddChild(Heading("Unit roster"));
+		Column.AddChild(Roster());
+		Column.AddChild(Tally());
 
 		// Whatever the frame has left over sits here, so the orders stay on its bottom rail.
-		_column.AddChild(new Control { SizeFlagsVertical = SizeFlags.ExpandFill });
-		_column.AddChild(Orders());
-
-		// The way out, in the corner of the frame, where a painted panel keeps it.
-		_close = new Button
-		{
-			Text = "✕",
-			CustomMinimumSize = new Vector2(38, 38),
-			Flat = true,
-		};
-		_close.AddThemeFontSizeOverride("font_size", 24);
-		_close.AddThemeColorOverride("font_color", Chrome.Cream);
-		_close.Pressed += Close;
-		_frame.AddChild(_close);
-		Rail(PanelSize.Y);
+		Column.AddChild(new Control { SizeFlagsVertical = SizeFlags.ExpandFill });
+		Column.AddChild(Orders());
 	}
 
 	/// <summary>The captain's portrait, whose men these are, and the realm's crest.</summary>
@@ -277,7 +185,7 @@ public partial class ArmyPanel : Control
 			var row = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
 			row.AddThemeConstantOverride("separation", 10);
 			row.CustomMinimumSize = new Vector2(0, PortraitTile.Y + 8);
-			row.AddChild(Portrait(kind));
+			row.AddChild(UnitArt.Tile(kind, PortraitTile));
 			Label name = Chrome.Line(Units.Of(kind).Name, 20, Chrome.Bright);
 			name.SizeFlagsHorizontal = SizeFlags.ExpandFill;
 			name.VerticalAlignment = VerticalAlignment.Center;
@@ -295,72 +203,6 @@ public partial class ArmyPanel : Control
 
 		return grid;
 	}
-
-	/// <summary>A soldier, standing on ground rather than on nothing: the yard behind him and the
-	/// man himself over it, cut off at the belt so the row shows a face and not a full-length figure
-	/// three fingers high. The portraits are cut-outs, so without the yard the row would be a man
-	/// hanging in the dark.</summary>
-	private static Control Portrait(string kind)
-	{
-		var tile = new PanelContainer { ClipContents = true, CustomMinimumSize = PortraitTile };
-		tile.AddThemeStyleboxOverride("panel", new StyleBoxEmpty());
-		tile.AddChild(Fill(GD.Load<Texture2D>(RosterGround)));
-
-		string painted = UnitArt.Portrait(kind);
-		if (ResourceLoader.Exists(painted))
-		{
-			var man = GD.Load<Texture2D>(painted);
-			float tall = man.GetWidth() * PortraitTile.Y / PortraitTile.X;
-			tile.AddChild(Fill(new AtlasTexture
-			{
-				Atlas = man,
-				Region = new Rect2(0, Mathf.Min(HeadTop(man), man.GetHeight() - tall), man.GetWidth(), tall),
-			}));
-		}
-
-		return Chrome.Framed(tile, 2);
-	}
-
-	/// <summary>How far down the man's head begins, so the tile is cut just above it instead of at
-	/// the top of the picture. He stands at a different height in every portrait — a rider's head is
-	/// near the top edge, a peasant's a fifth of the way down — so this is read off the picture
-	/// rather than written down beside it, and art that is redrawn cannot drift from a number nobody
-	/// remembers.
-	///
-	/// Only the middle of the frame is looked at, and coarsely: a spear held upright is not a head,
-	/// and every fiftieth pixel says where a man starts as well as all of them would.</summary>
-	private static int HeadTop(Texture2D portrait)
-	{
-		Image drawn = portrait.GetImage();
-		int from = drawn.GetWidth() * 35 / 100;
-		int to = drawn.GetWidth() * 68 / 100;
-		for (int y = 0; y < drawn.GetHeight(); y += 2)
-		{
-			int solid = 0;
-			for (int x = from; x < to; x += 3)
-			{
-				solid += drawn.GetPixel(x, y).A > 0.25f ? 1 : 0;
-			}
-
-			// A sixth of the band covered is a head and not the fringe of a banner behind him.
-			if (solid * 18 > to - from)
-			{
-				return Mathf.Max(0, y - HeadRoom);
-			}
-		}
-
-		return 0;
-	}
-
-	/// <summary>One layer of the tile. A PanelContainer lays every child over the same rect, so the
-	/// ground goes in first and the man stands on it.</summary>
-	private static TextureRect Fill(Texture2D texture) => new()
-	{
-		Texture = texture,
-		ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
-		StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered,
-		MouseFilter = MouseFilterEnum.Ignore,
-	};
 
 	private Control Tally()
 	{
@@ -390,7 +232,7 @@ public partial class ArmyPanel : Control
 		var row = new HBoxContainer();
 		row.AddThemeConstantOverride("separation", 12);
 
-		_march = Order("Move", "footsteps", () =>
+		_march = Chrome.Order("Move", "footsteps", () =>
 		{
 			FieldArmy marching = _army;
 			Close();
@@ -398,7 +240,7 @@ public partial class ArmyPanel : Control
 		}, out Label _);
 		row.AddChild(_march);
 
-		_split = Order("Split Army", "company", () =>
+		_split = Chrome.Order("Split Army", "company", () =>
 		{
 			FieldArmy splitting = _army;
 			Close();
@@ -406,7 +248,7 @@ public partial class ArmyPanel : Control
 		}, out Label _);
 		row.AddChild(_split);
 
-		_garrison = Order("Garrison", "castle", () =>
+		_garrison = Chrome.Order("Garrison", "castle", () =>
 		{
 			FieldArmy manning = _army;
 			Close();
@@ -414,7 +256,7 @@ public partial class ArmyPanel : Control
 		}, out Label _);
 		row.AddChild(_garrison);
 
-		_disband = Order("Disband", "morale", () =>
+		_disband = Chrome.Order("Disband", "morale", () =>
 		{
 			if (!_disbandAsked)
 			{
@@ -431,39 +273,6 @@ public partial class ArmyPanel : Control
 		return row;
 	}
 
-	/// <summary>One order on its gilded plate. What is written on it is pinned to the plate by hand
-	/// rather than set as the button's own text and icon: a Button spreads those to its two ends, and
-	/// on a plate this wide that leaves the icon stranded a hand's width from the word it belongs to.
-	/// Here they travel together, centred.</summary>
-	private static Button Order(string text, string icon, System.Action pressed, out Label word)
-	{
-		var order = new Button
-		{
-			CustomMinimumSize = new Vector2(0, 56),
-			SizeFlagsHorizontal = SizeFlags.ExpandFill,
-		};
-		order.Pressed += pressed;
-
-		var said = new HBoxContainer
-		{
-			MouseFilter = MouseFilterEnum.Ignore,
-			Alignment = BoxContainer.AlignmentMode.Center,
-		};
-		said.AddThemeConstantOverride("separation", 12);
-		said.SetAnchorsPreset(LayoutPreset.FullRect);
-		order.AddChild(said);
-
-		if (icon.Length > 0)
-		{
-			said.AddChild(Chrome.Icon(icon, 44));
-		}
-
-		word = Chrome.Line(text, 24, Chrome.Bright);
-		word.VerticalAlignment = VerticalAlignment.Center;
-		said.AddChild(word);
-		return order;
-	}
-
 	/// <summary>Offers the walls of the county the company is standing in, when the map says they
 	/// will take it. Asked after Show, which does not know whose walls are whose.</summary>
 	public void OfferWalls(bool open) => _garrison.Visible = open;
@@ -475,7 +284,7 @@ public partial class ArmyPanel : Control
 		string realmKey, bool yours)
 	{
 		_army = army;
-		_title.Text = army.County.Length > 0 && army.County != army.Home
+		Title.Text = army.County.Length > 0 && army.County != army.Home
 			? $"{army.Home} in {army.County}"
 			: army.Home;
 
@@ -530,19 +339,11 @@ public partial class ArmyPanel : Control
 		// than asked of the container, which is not told until the next frame that some are gone.
 		// The rows that go take their share of the frame with them: what is cut is the rows themselves
 		// plus the ribbon and rail that would have been drawn around them.
-		float gone = (Rows(_roster.Count) - Rows(kinds)) * (rowHigh + RosterGap)
-			/ (1f - RibbonShare - FootShare);
-		_frame.CustomMinimumSize = new Vector2(PanelSize.X, PanelSize.Y - gone);
-		Rail(PanelSize.Y - gone);
+		float gone = (Rows(_roster.Count) - Rows(kinds)) * (rowHigh + RosterGap) / Writable;
+		Draw(PanelSize.Y - gone);
 
-		// Centred on the ground and not on the window: the lord's furniture takes the right-hand side
-		// of the screen, so the panel goes in the middle of what is left of the map.
-		Control furniture = GetParent()?.GetNodeOrNull<Control>("Sidebar");
-		_centred.OffsetRight = furniture is { Visible: true } ? -furniture.Size.X : 0f;
 		_disbandWord.Text = "Disband";
-		MoveToFront();
-		Visible = true;
-		CreateTween().TweenProperty(this, "modulate:a", 1.0, FadeSeconds);
+		Reveal();
 	}
 
 	/// <summary>Which company this is, in words. Past a handful it is simply numbered: a lord with
@@ -557,44 +358,6 @@ public partial class ArmyPanel : Control
 		_ => $"No. {id}",
 	};
 
-	/// <summary>Sets the writing away from the painted ribbon at the top and the rail at the foot,
-	/// for a frame drawn this tall.</summary>
-	private void Rail(float high)
-	{
-		_inside.AddThemeConstantOverride("margin_top", Mathf.RoundToInt(high * RibbonShare));
-		_inside.AddThemeConstantOverride("margin_bottom", Mathf.RoundToInt(high * FootShare));
-
-		// The way out rides in the frame's own top corner, which comes down with it.
-		_close.Position = new Vector2(PanelSize.X - 134f, high * CloseShare);
-	}
-
 	/// <summary>How many rows that many kinds of man fill.</summary>
 	private static int Rows(int kinds) => Mathf.CeilToInt(kinds / (float)RosterColumns);
-
-	private void Close()
-	{
-		Tween tween = CreateTween();
-		tween.TweenProperty(this, "modulate:a", 0.0, FadeSeconds);
-		tween.TweenCallback(Callable.From(() => Visible = false));
-	}
-
-	/// <summary>A press on the dimmed map behind closes it, and so does Escape: nothing here is
-	/// confirmed or cancelled.</summary>
-	public override void _GuiInput(InputEvent @event)
-	{
-		if (Visible && @event is InputEventMouseButton { Pressed: true })
-		{
-			Close();
-			AcceptEvent();
-		}
-	}
-
-	public override void _UnhandledKeyInput(InputEvent @event)
-	{
-		if (Visible && @event.IsActionPressed("ui_cancel"))
-		{
-			Close();
-			GetViewport().SetInputAsHandled();
-		}
-	}
 }

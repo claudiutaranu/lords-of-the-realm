@@ -28,6 +28,8 @@ public partial class CampaignMapPage : Control
 	private const string LeaveFarewellPath = "res://assets/audio/quit-farewell.mp3";
 	private const string OpeningVoicePath = "res://assets/audio/campaign-opening-briefing.mp3";
 	private const string SavingVoicePath = "res://assets/audio/saving-game.mp3";
+	private const string CastleCompleteVoicePath = "res://assets/audio/castle-complete.mp3";
+	private const string DisbandVoicePath = "res://assets/audio/disband-troops.mp3";
 	private const string SquareButtonPath = "res://assets/ui/button-square.png";
 	private const string MercenaryBadgePath = "res://assets/ui/icons/mercenaries.png";
 	private const string ProvincesDataFile = "provinces.json";
@@ -143,6 +145,10 @@ public partial class CampaignMapPage : Control
 	/// <summary>One line the turn owes the player that the advisor has no words for — men walking
 	/// away unpaid, so far. Shown once he is done talking.</summary>
 	private string _turnNote = "";
+
+	/// <summary>Whether the masons finished a wall this season, which the steward announces once the
+	/// advisor has had his say — spoken over him, one of the two would not be heard.</summary>
+	private bool _wallRaised;
 
 	/// <summary>Whether the next click on a county is a destination rather than a selection. One flag
 	/// and not a mode with its own screen: the lord has already said march, and the only thing left
@@ -362,6 +368,7 @@ public partial class CampaignMapPage : Control
 			// apart by.
 			home.Population += army.Strength;
 			home.Disband(army);
+			Narrator.Say(DisbandVoicePath);
 			ShowArmies();
 			_sidebar.Refresh();
 			ShowSaveToast($"{army.Strength:N0} men of {army.Home} have gone back to the fields");
@@ -386,6 +393,12 @@ public partial class CampaignMapPage : Control
 			{
 				ShowSaveToast(_turnNote);
 				_turnNote = "";
+			}
+
+			if (_wallRaised)
+			{
+				Narrator.Say(CastleCompleteVoicePath);
+				_wallRaised = false;
 			}
 		};
 
@@ -773,7 +786,8 @@ public partial class CampaignMapPage : Control
 			// taking is, and that is the one place the fighting happens.
 			if (Contested(army, into, strides[^1]))
 			{
-				_battle.Open(_turnManager, _balance, army, into, strides[^1]);
+				_battle.Open(_turnManager, _balance, army, into, strides[^1],
+					ColoursOf(_turnManager.RealmOf(army)), ColoursOf(HolderOf(_provinces[county])));
 				return;
 			}
 
@@ -1263,7 +1277,9 @@ public partial class CampaignMapPage : Control
 		tween.TweenProperty(_turnTransition, "modulate:a", 1.0, TurnFadeInSeconds);
 		tween.TweenCallback(Callable.From(() =>
 		{
-			_turnNote = MenLost(_turnManager.AdvanceTurn());
+			List<TurnSummary> summaries = _turnManager.AdvanceTurn();
+			_turnNote = MenLost(summaries);
+			_wallRaised = summaries.Exists(summary => summary.WallRaised.Length > 0);
 			UpdateTurnDisplay();
 			SelectProvince(_selected != null ? _markers.IndexOf(_selected) : 0);
 
@@ -1410,6 +1426,11 @@ public partial class CampaignMapPage : Control
 				_realms[HolderOf(province)].Accent);
 		}
 	}
+
+	private BattlePanel.Colours ColoursOf(string realmKey) =>
+		_realms.TryGetValue(realmKey, out RealmData realm)
+			? new BattlePanel.Colours(realm.Name, realmKey, realm.Accent)
+			: new BattlePanel.Colours(realmKey, realmKey, Chrome.Dim);
 
 	/// <summary>Who holds a county now, which after a march is not who the campaign file says. The
 	/// authored realm is only the opening position; the runtime one is the answer to "whose is this".</summary>

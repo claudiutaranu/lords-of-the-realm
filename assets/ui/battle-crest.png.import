@@ -2,24 +2,20 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dtx16bxq0lnka"
-path.s3tc="res://.godot/imported/fort-keepa_0.png-40fe2f18fc916f0d9b8727eef546bb96.s3tc.ctex"
+uid="uid://drqpljouwkpdk"
+path="res://.godot/imported/battle-crest.png-d5859a21cd4ddd236b43fe13ac1084dd.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
-"vram_texture": true
-}
-generator_parameters={
-"md5": "543c086539bddd2bfbb8fa64c0421c48"
+"vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/models/settlements/fort-keepa_0.png"
-dest_files=["res://.godot/imported/fort-keepa_0.png-40fe2f18fc916f0d9b8727eef546bb96.s3tc.ctex"]
+source_file="res://assets/ui/battle-crest.png"
+dest_files=["res://.godot/imported/battle-crest.png-d5859a21cd4ddd236b43fe13ac1084dd.ctex"]
 
 [params]
 
-compress/mode=2
+compress/mode=0
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -27,7 +23,7 @@ compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=true
+mipmaps/generate=false
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""
@@ -41,4 +37,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=0
+detect_3d/compress_to=1

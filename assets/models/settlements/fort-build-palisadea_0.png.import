@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dqxacxn3amc87"
-path="res://.godot/imported/fort-build-palisadea_0.png-5a6f0190d08bbae1dc1f48cc2c60a6a4.ctex"
+path.s3tc="res://.godot/imported/fort-build-palisadea_0.png-5a6f0190d08bbae1dc1f48cc2c60a6a4.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "fea6e0185c844baa8a932a70a14a6404"
@@ -14,11 +15,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/settlements/fort-build-palisadea_0.png"
-dest_files=["res://.godot/imported/fort-build-palisadea_0.png-5a6f0190d08bbae1dc1f48cc2c60a6a4.ctex"]
+dest_files=["res://.godot/imported/fort-build-palisadea_0.png-5a6f0190d08bbae1dc1f48cc2c60a6a4.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -40,4 +41,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=1
+detect_3d/compress_to=0

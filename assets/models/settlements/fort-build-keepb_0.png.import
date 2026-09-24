@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://w628m1pgcqh6"
-path="res://.godot/imported/fort-build-keepb_0.png-fa313a9168ae4c88c0018025a973d9fd.ctex"
+path.s3tc="res://.godot/imported/fort-build-keepb_0.png-fa313a9168ae4c88c0018025a973d9fd.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "9687a7026f867ac024531b801cb422ac"
@@ -14,11 +15,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/settlements/fort-build-keepb_0.png"
-dest_files=["res://.godot/imported/fort-build-keepb_0.png-fa313a9168ae4c88c0018025a973d9fd.ctex"]
+dest_files=["res://.godot/imported/fort-build-keepb_0.png-fa313a9168ae4c88c0018025a973d9fd.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -40,4 +41,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=1
+detect_3d/compress_to=0

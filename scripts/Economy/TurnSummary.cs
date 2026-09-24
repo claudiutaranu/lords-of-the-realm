@@ -54,6 +54,10 @@ public class TurnSummary
 	/// owed, and how many walked away because the treasury could not find it.</summary>
 	public int SoldierFood, Wages, Deserted;
 
+	/// <summary>The wall the masons finished this season, or empty. Kept because it happens behind
+	/// the turn's curtain: the steward has to be able to say so after it lifts.</summary>
+	public string WallRaised = "";
+
 	/// <summary>Hands that did nothing: allocated to a task that could not use them, or never
 	/// allocated at all.</summary>
 	public int IdleWorkers;

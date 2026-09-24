@@ -152,6 +152,39 @@ public static class Chrome
 		return button;
 	}
 
+	/// <summary>One order on its gilded plate. What is written on it is pinned to the plate by hand
+	/// rather than set as the button's own text and icon: a Button spreads those to its two ends, and
+	/// on a plate this wide that leaves the icon stranded a hand's width from the word it belongs to.
+	/// Here they travel together, centred.</summary>
+	public static Button Order(string text, string icon, Action pressed, out Label word)
+	{
+		var order = new Button
+		{
+			CustomMinimumSize = new Vector2(0, 56),
+			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+		};
+		order.Pressed += pressed;
+
+		var said = new HBoxContainer
+		{
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+			Alignment = BoxContainer.AlignmentMode.Center,
+		};
+		said.AddThemeConstantOverride("separation", 12);
+		said.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		order.AddChild(said);
+
+		if (icon.Length > 0)
+		{
+			said.AddChild(Icon(icon, 44));
+		}
+
+		word = Line(text, 24, Bright);
+		word.VerticalAlignment = VerticalAlignment.Center;
+		said.AddChild(word);
+		return order;
+	}
+
 	/// <summary>The plaque a sign is painted on: dark oak on the wall, or lit by the room when it is
 	/// the one in hand. The lit one carries a gold edge and a warm glow; the rest sit back in the
 	/// dark and lift a little under the cursor, so the wall answers the mouse.</summary>

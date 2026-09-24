@@ -16,13 +16,14 @@ public static class Units
 
 	/// <summary>One kind of soldier. <paramref name="Mounted"/> is what a man cannot take up a
 	/// ladder: horses are useless against a wall, and the data says so rather than a string
-	/// comparison somewhere in the battle deciding it.</summary>
+	/// comparison somewhere in the battle deciding it. <paramref name="Icon"/> is his glyph under
+	/// assets/ui/icons, which is his own key unless the file says otherwise.</summary>
 	public readonly record struct Unit(string Name, int Attack, int Range, int Defence, int Speed,
-		bool Mounted);
+		bool Mounted, string Icon);
 
 	/// <summary>A man nobody has written down. Not zero: a company that fought as nothing would make
 	/// a typo in a save file into a massacre, and this way it fights badly and is noticed.</summary>
-	private static readonly Unit Unknown = new("Men", 1, 1, 1, 1, false);
+	private static readonly Unit Unknown = new("Men", 1, 1, 1, 1, false, "men");
 
 	private static Dictionary<string, Unit> _units;
 
@@ -59,13 +60,15 @@ public static class Units
 		foreach (Variant entry in file.Data.AsGodotDictionary()["items"].AsGodotArray())
 		{
 			Godot.Collections.Dictionary man = entry.AsGodotDictionary();
-			units[man["key"].AsString()] = new Unit(
+			string key = man["key"].AsString();
+			units[key] = new Unit(
 				man["name"].AsString(),
 				man["attack"].AsInt32(),
 				man["range"].AsInt32(),
 				man["defence"].AsInt32(),
 				man["speed"].AsInt32(),
-				man.TryGetValue("mounted", out Variant mounted) && mounted.AsBool());
+				man.TryGetValue("mounted", out Variant mounted) && mounted.AsBool(),
+				man.TryGetValue("icon", out Variant icon) ? icon.AsString() : key);
 		}
 
 		return units;

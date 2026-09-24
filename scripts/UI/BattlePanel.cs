@@ -1,8 +1,9 @@
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 
 /// <summary>The moment before, and the moment after. Two armies laid out facing each other, every
-/// reason the day will go the way it goes written between them, and one button.
+/// reason the day will go the way it goes written under them, and the orders.
 ///
 /// It is the whole of what an auto-calculated battle can be. A lord who fights his own battles sees
 /// why he lost; a lord whose captain fights them has to be TOLD why, before he commits and not
@@ -15,14 +16,25 @@ using Godot;
 /// the open is fought first; if they fall back behind their walls, the same panel comes back asking
 /// a second and much worse question. A lord may stop between the two — that is what a beaten field
 /// army and an unbroken castle is FOR, and walking away from it is a real answer.</summary>
-public partial class BattlePanel : CountyPanel
+public partial class BattlePanel : PaintedPanel
 {
 	/// <summary>Raised whenever the ledger has moved — men dead, a county changed hands — so the map
 	/// above can redraw its banners and its borders. Not raised for a lord who looked and left.</summary>
 	public event System.Action Settled;
 
-	private const int CardSide = 88;
-	private const int CardTall = 152;
+	/// <summary>Whose colours one side of the table is flown under, as the map names them.</summary>
+	public readonly record struct Colours(string Name, string Key, Color Accent);
+
+	private const string CrestPath = "res://assets/ui/battle-crest.png";
+	private static readonly Vector2 Drawn = new(1240, 1050);
+
+	/// <summary>The drop from the painted ribbon to the county's name under it.</summary>
+	private const int RibbonDrop = 16;
+	private const int MiddleWide = 320;
+
+	/// <summary>How many roster lines the question, the crossed swords and the captain's verdict need
+	/// between them before the frame may be cut any shorter.</summary>
+	private const int MiddleRows = 4;
 
 	private static readonly Color Ours = new("d8b26b");
 	private static readonly Color Theirs = new("9c5148");
@@ -33,110 +45,121 @@ public partial class BattlePanel : CountyPanel
 	private FieldArmy _attacker;
 	private string _county = "";
 	private Vector2 _at;
+	private Colours _us;
+	private Colours _them;
 
 	/// <summary>Whether the fight on the table is the one at the walls. Read off the county rather
 	/// than chosen: there is nothing to storm while anybody is still standing in the open.</summary>
 	private bool _walls;
 
-	private HBoxContainer _hosts;
-	private VBoxContainer _ourHost;
-	private VBoxContainer _theirHost;
-	private Label _ourCount;
-	private Label _theirCount;
+	private Label _where;
+	private BattleSide _ourSide;
+	private BattleSide _theirSide;
+	private Label _question;
+	private Label _verdict;
 	private ColorRect _ourWeight;
 	private ColorRect _theirWeight;
 	private GridContainer _terms;
-	private Label _verdict;
-	private HBoxContainer _orders;
 	private Button _attack;
+	private Label _attackWord;
 	private Button _siege;
+	private Label _leaveWord;
 
-	protected override int Width => 780;
+	protected override Vector2 PanelSize => Drawn;
 
 	/// <summary>Puts two armies in front of the lord. <paramref name="at"/> is where his men are
 	/// standing, which is where they will be standing if the county falls.</summary>
-	public void Open(TurnManager turns, GameBalance balance, FieldArmy from, string county, Vector2 at)
+	public void Open(TurnManager turns, GameBalance balance, FieldArmy from, string county, Vector2 at,
+		Colours us, Colours them)
 	{
 		_turns = turns;
 		_balance = balance;
 		_attacker = from;
 		_county = county;
 		_at = at;
+		_us = us;
+		_them = them;
 		Lay();
-		Reveal(county);
+		Reveal();
 	}
 
 	protected override void Furnish()
 	{
-		_hosts = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-		_hosts.AddThemeConstantOverride("separation", 22);
-		Column.AddChild(_hosts);
+		Title.Text = "A Battle Awaits";
+		Column.AddChild(new Control { CustomMinimumSize = new Vector2(0, RibbonDrop) });
+		_where = Chrome.Line("", 20, Chrome.Soft);
+		_where.HorizontalAlignment = HorizontalAlignment.Center;
+		Column.AddChild(_where);
 
-		(_ourHost, _ourCount) = Host();
-		(_theirHost, _theirCount) = Host();
-		_hosts.AddChild(_ourHost);
-		_hosts.AddChild(_theirHost);
+		var table = new HBoxContainer();
+		table.AddThemeConstantOverride("separation", 18);
+		Column.AddChild(table);
 
-		var weights = new HBoxContainer { CustomMinimumSize = new Vector2(0, 14) };
+		_ourSide = new BattleSide(far: false);
+		_theirSide = new BattleSide(far: true);
+		table.AddChild(_ourSide.Root);
+		table.AddChild(Middle());
+		table.AddChild(_theirSide.Root);
+
+		var reckoning = new VBoxContainer();
+		reckoning.AddThemeConstantOverride("separation", 8);
+		var weights = new HBoxContainer { CustomMinimumSize = new Vector2(0, 12) };
 		weights.AddThemeConstantOverride("separation", 3);
-		Column.AddChild(weights);
 		_ourWeight = new ColorRect { Color = Ours, SizeFlagsHorizontal = SizeFlags.ExpandFill };
 		_theirWeight = new ColorRect { Color = Theirs, SizeFlagsHorizontal = SizeFlags.ExpandFill };
 		weights.AddChild(_ourWeight);
 		weights.AddChild(_theirWeight);
+		reckoning.AddChild(weights);
 
-		_terms = new GridContainer { Columns = 2 };
+		_terms = new GridContainer { Columns = 4 };
 		_terms.AddThemeConstantOverride("h_separation", 18);
-		_terms.AddThemeConstantOverride("v_separation", 6);
-		Column.AddChild(_terms);
+		_terms.AddThemeConstantOverride("v_separation", 4);
+		reckoning.AddChild(_terms);
+		Column.AddChild(Chrome.Framed(reckoning, 8));
+
+		// Whatever the frame has left over sits here, so the orders stay on its bottom rail.
+		Column.AddChild(new Control { SizeFlagsVertical = SizeFlags.ExpandFill });
+		var orders = new HBoxContainer();
+		orders.AddThemeConstantOverride("separation", 16);
+		Column.AddChild(orders);
+
+		_attack = Chrome.Order("Take the Field", "crossed-swords", Strike, out _attackWord);
+		_siege = Chrome.Order("Lay Siege", "castle", Sit, out Label _);
+		orders.AddChild(_attack);
+		orders.AddChild(_siege);
+		orders.AddChild(Chrome.Order("Retreat", "footsteps", Close, out _leaveWord));
+	}
+
+	/// <summary>Between the two armies: the question, the crossed swords, and what the captain makes
+	/// of it.</summary>
+	private Control Middle()
+	{
+		var middle = new VBoxContainer { CustomMinimumSize = new Vector2(MiddleWide, 0) };
+		middle.AddThemeConstantOverride("separation", 10);
+
+		_question = Chrome.Line("", 22, Chrome.Cream);
+		_question.HorizontalAlignment = HorizontalAlignment.Center;
+		_question.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+		middle.AddChild(_question);
+
+		Control rule = Chrome.Rule(MiddleWide / 2);
+		rule.SizeFlagsHorizontal = SizeFlags.ShrinkCenter;
+		middle.AddChild(rule);
+
+		middle.AddChild(new TextureRect
+		{
+			Texture = GD.Load<Texture2D>(CrestPath),
+			SizeFlagsVertical = SizeFlags.ExpandFill,
+			ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+			StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+			MouseFilter = MouseFilterEnum.Ignore,
+		});
 
 		_verdict = Chrome.Line("", 20, Chrome.Cream);
 		_verdict.HorizontalAlignment = HorizontalAlignment.Center;
 		_verdict.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-		Column.AddChild(_verdict);
-
-		_orders = new HBoxContainer();
-		_orders.AddThemeConstantOverride("separation", 12);
-		Column.AddChild(_orders);
-
-		_attack = Order("Attack", Strike);
-		_siege = Order("Sit down before the gate", Sit);
-	}
-
-	private Button Order(string what, System.Action pressed)
-	{
-		var order = new Button
-		{
-			Text = what,
-			CustomMinimumSize = new Vector2(0, 46),
-			SizeFlagsHorizontal = SizeFlags.ExpandFill,
-		};
-		order.AddThemeFontSizeOverride("font_size", 19);
-		order.Pressed += pressed;
-		_orders.AddChild(order);
-		return order;
-	}
-
-	/// <summary>One army's side of the table: a heading, a row of companies, and a count.</summary>
-	private static (VBoxContainer Host, Label Count) Host()
-	{
-		var host = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-		host.AddThemeConstantOverride("separation", 8);
-
-		Label title = Chrome.Line("", 18, Chrome.Cream);
-		title.HorizontalAlignment = HorizontalAlignment.Center;
-		title.Name = "Title";
-		host.AddChild(title);
-
-		var companies = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center };
-		companies.AddThemeConstantOverride("separation", 6);
-		companies.Name = "Companies";
-		host.AddChild(companies);
-
-		Label count = Chrome.Line("", 17, Chrome.Soft);
-		count.HorizontalAlignment = HorizontalAlignment.Center;
-		host.AddChild(count);
-		return (host, count);
+		middle.AddChild(_verdict);
+		return middle;
 	}
 
 	/// <summary>Draws the table as the county stands right now. Called when the panel opens and
@@ -158,8 +181,9 @@ public partial class BattlePanel : CountyPanel
 		Dictionary<string, int> holding = _walls ? against.Castle : against.Field;
 		bool spent = ours.MarchLeft <= 0f;
 
-		Fill(_ourHost, _ourCount, ours.Home, ours.Men);
-		Fill(_theirHost, _theirCount, _county, holding);
+		_where.Text = _county;
+		_question.Text = _walls ? "Will you storm the walls?" : "Will you take the field?";
+		ShowSides(ours.Men, holding);
 
 		(float mine, float theirs) = Battle.Weighed(ours.Men, against, _walls, spent, _balance);
 		_ourWeight.SizeFlagsStretchRatio = Mathf.Max(0.02f, mine);
@@ -183,7 +207,8 @@ public partial class BattlePanel : CountyPanel
 
 		_verdict.AddThemeColorOverride("font_color", Chrome.Cream);
 		_attack.Visible = true;
-		_attack.Text = _walls ? "Storm the walls" : ProvinceEconomy.Men(holding) == 0 ? "March in" : "Attack";
+		_attackWord.Text = _walls ? "Storm the Walls" : ProvinceEconomy.Men(holding) == 0 ? "March In" : "Take the Field";
+		_leaveWord.Text = "Retreat";
 
 		// Sitting down in front of it is the other way, and against the stone rungs it is the only
 		// way. It costs the army every season it lasts — they are standing here and nowhere else —
@@ -191,30 +216,17 @@ public partial class BattlePanel : CountyPanel
 		_siege.Visible = _walls && ProvinceEconomy.Men(against.Castle) > 0;
 	}
 
-	private static void Fill(VBoxContainer host, Label count, string name, Dictionary<string, int> roster)
+	/// <summary>Both halves of the table, and the frame cut to the longer of them: a skirmish between
+	/// two kinds of man is not served on a table laid for seven.</summary>
+	private void ShowSides(Dictionary<string, int> ours, Dictionary<string, int> theirs)
 	{
-		host.GetNode<Label>("Title").Text = name.ToUpperInvariant();
+		(int mine, float high) = _ourSide.Show(_us.Name, $"Men of {_attacker.Home}", _us.Key, _us.Accent, ours);
+		(int yours, float _) = _theirSide.Show(_them.Name,
+			_walls ? $"On the walls of {_county}" : $"Holding {_county}", _them.Key, _them.Accent, theirs);
 
-		var companies = host.GetNode<HBoxContainer>("Companies");
-		foreach (Node old in companies.GetChildren())
-		{
-			old.QueueFree();
-		}
-
-		foreach ((string unit, int men) in roster)
-		{
-			Units.Unit kind = Units.Of(unit);
-			(Control tile, VBoxContainer stack) = UnitCard.Build(unit, kind.Name, CardTall, titled: false);
-			tile.CustomMinimumSize = new Vector2(CardSide, CardTall);
-			tile.SizeFlagsHorizontal = SizeFlags.ShrinkCenter;
-			Label tally = Chrome.Line(men.ToString("N0"), 18, Chrome.Bright);
-			tally.HorizontalAlignment = HorizontalAlignment.Center;
-			stack.AddChild(tally);
-			companies.AddChild(tile);
-		}
-
-		int all = ProvinceEconomy.Men(roster);
-		count.Text = all == 1 ? "1 man" : $"{all:N0} men";
+		// The middle column has a floor of its own, so a table this short stops shrinking there.
+		int kinds = Mathf.Max(MiddleRows, Mathf.Max(mine, yours));
+		Draw(PanelSize.Y - ((Units.All().Count() - kinds) * high / Writable));
 	}
 
 	/// <summary>Every reason the day will go the way it goes, in the order a captain would say them.
@@ -321,10 +333,12 @@ public partial class BattlePanel : CountyPanel
 
 		Note("Our men hold the ground and nothing else, for as long as it takes");
 		Note("The county pays its lord nothing while we sit here");
+		_question.Text = "";
 		_verdict.Text = $"We sit down before {_county}.";
 		_verdict.AddThemeColorOverride("font_color", Chrome.Cream);
 		_attack.Visible = false;
 		_siege.Visible = false;
+		_leaveWord.Text = "Done";
 	}
 
 	/// <summary>Fights the one on the table, and says what it cost. Whether the county has changed
@@ -344,8 +358,6 @@ public partial class BattlePanel : CountyPanel
 			old.QueueFree();
 		}
 
-		Fill(_ourHost, _ourCount, _attacker.Home, _attacker.Men);
-
 		// A county that has just fallen answers with OUR men — they are the ones standing on it now
 		// — so asking it who is defending it would report our own army a second time, in the enemy's
 		// column. Taken is taken: there is nobody left on that side of the table.
@@ -353,12 +365,12 @@ public partial class BattlePanel : CountyPanel
 			? new Defenders(new Dictionary<string, int>(), new Dictionary<string, int>(), "", 0f)
 			: _turns.DefendersOf(_county);
 
-		Fill(_theirHost, _theirCount, _county,
-			ProvinceEconomy.Men(left.Field) > 0 ? left.Field : left.Castle);
+		ShowSides(_attacker.Men, ProvinceEconomy.Men(left.Field) > 0 ? left.Field : left.Castle);
 
 		Note($"We lost {day.AttackerFell:N0}");
 		Note($"They lost {day.DefenderFell:N0}");
 
+		_question.Text = "";
 		_verdict.Text = taken
 			? $"{_county} is yours."
 			: fellBack
@@ -371,10 +383,12 @@ public partial class BattlePanel : CountyPanel
 		// back with more men next season.
 		_attack.Visible = fellBack && ProvinceEconomy.Men(left.Castle) > 0;
 		_siege.Visible = _attack.Visible;
+		_leaveWord.Text = _attack.Visible ? "Retreat" : "Done";
 		if (_attack.Visible)
 		{
 			_walls = true;
-			_attack.Text = "Storm the walls";
+			_question.Text = "Will you storm the walls?";
+			_attackWord.Text = "Storm the Walls";
 		}
 	}
 }
