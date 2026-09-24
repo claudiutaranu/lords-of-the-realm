@@ -30,6 +30,12 @@ uniform vec2 flag_pole = vec2(0.0);
 // How far the flag is turned round its pole to fly with the wind, since every village is set a few
 // degrees off it (MapDecoration). Per instance, like the lord's colour.
 instance uniform float flag_turn = 0.0;
+// Whether the flag is flying at all. A castle with nobody on its walls flies nothing, so an empty
+// castle reads as one from the next valley: the cloth is simply not drawn, and its pole stands bare.
+// Not by folding the cloth onto the pole — a few vertices off the flag read the flag's mark from the
+// texture across a chart's border, and folding them in drew spikes across the walls. Per instance;
+// a village always flies its lord's.
+instance uniform float flag_flown = 1.0;
 uniform float flag_amplitude = 0.05;
 uniform float flag_wavelength = 0.32;
 uniform float flag_speed = 2.6;
@@ -37,10 +43,12 @@ uniform float fold_shading = 0.18;
 
 varying vec3 world_normal;
 varying float fold;
+varying float on_flag;
 
 void vertex() {
 	float sway = textureLod(albedo_texture, UV, 0.0).a;
 	fold = 0.0;
+	on_flag = sway;
 	if (sway > 0.0) {
 		mat2 turn = mat2(vec2(cos(flag_turn), sin(flag_turn)), vec2(-sin(flag_turn), cos(flag_turn)));
 		VERTEX.xz = flag_pole + turn * (VERTEX.xz - flag_pole);
@@ -75,6 +83,11 @@ void fragment() {
 	// village comes near it — measured on the bake, the count of blue texels barely moves between a
 	// margin of 0.03 and 0.16 — so the colour alone picks it out.
 	float cloth = smoothstep(0.03, 0.10, colour.b - max(colour.r, colour.g));
+	// The flying flag, and only it: blue cloth the flag's mark reaches. The banners hung on the
+	// walls carry no mark and stay.
+	if (flag_flown < 0.5 && on_flag > 0.0 && cloth > 0.5) {
+		discard;
+	}
 	colour = mix(colour, lord_color * (colour.b / CLOTH_VALUE), cloth);
 
 	float autumn = clamp(1.0 - abs(season - 2.0), 0.0, 1.0);

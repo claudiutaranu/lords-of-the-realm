@@ -1458,8 +1458,10 @@ public partial class MapDecoration : Node3D
 	/// An empty key takes it down and leaves an open village, which is what a province that has
 	/// never built looks like. While the masons are at work (<paramref name="building"/>) it is the
 	/// rung going up that stands there, half-raised in its scaffolding, and not the one it replaces:
-	/// the old wall comes down when the new one is begun.</summary>
-	public void SetFortification(string province, Vector2 seatPixel, string fort, string building, Color lord)
+	/// the old wall comes down when the new one is begun. Its flag flies only while there are men
+	/// on the walls (<paramref name="manned"/>).</summary>
+	public void SetFortification(string province, Vector2 seatPixel, string fort, string building, Color lord,
+		bool manned)
 	{
 		if (_forts.TryGetValue(province, out Node3D standing))
 		{
@@ -1507,6 +1509,7 @@ public partial class MapDecoration : Node3D
 		};
 		works.AddChild(castle);
 		castle.SetInstanceShaderParameter("lord_color", lord);
+		castle.SetInstanceShaderParameter("flag_flown", manned ? 1f : 0f);
 	}
 
 	/// <summary>The pack models about a metre tall where this map's props are two or three, so every

@@ -1524,6 +1524,7 @@ public partial class CampaignMapPage : Control
 		string county = army.County;
 		int up = _turnManager.Garrison(army, going);
 		ShowArmies();
+		ShowFortifications(); // men on the walls, so the flag goes up
 		_sidebar.Refresh();
 		ShowSaveToast($"{up:N0} men go up onto the walls of {county}");
 	}
@@ -1537,7 +1538,7 @@ public partial class CampaignMapPage : Control
 			ProvinceEconomy economy = _turnManager.AnyProvince(province.Name);
 			_world.SetFortification(province.Name, province.TownPosition, economy?.Fortification ?? "",
 				economy?.Building ?? "",
-				_realms[HolderOf(province)].Accent);
+				_realms[HolderOf(province)].Accent, economy is { CastleMen: > 0 });
 		}
 	}
 
