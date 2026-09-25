@@ -494,6 +494,10 @@ public partial class EconomyCheck : Node
 		FieldArmy only = all.Armies[0];
 		Is("a company cannot walk off entire", all.Split(only, new Dictionary<string, int> { ["spear"] = 10 }) == null, true);
 		Is("  nor cut into nobody", all.Split(only, new Dictionary<string, int> { ["spear"] = 0 }) == null, true);
+		FieldArmy band = all.Raise(0f);
+		band.Men["swiss"] = 100;
+		Is("  and a hired band is not cut at all", all.Split(band, new Dictionary<string, int> { ["swiss"] = 40 }) == null, true);
+		all.Disband(band);
 		Is("  and more than he has is only what he has",
 			all.Split(only, new Dictionary<string, int> { ["spear"] = 99 }) == null, true);
 		Is("  so his company is untouched", all.Armies.Count, 1);

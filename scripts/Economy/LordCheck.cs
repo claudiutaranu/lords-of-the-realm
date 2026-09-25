@@ -509,6 +509,10 @@ public partial class LordCheck : Node
 		LordArms.Arm(hiring, b, Difficulty.Hard, _ => "north", Counter(b, Season.Summer));
 		Is("a lord with the gold hires the band in his county", hiring.MercenaryMen, 0);
 		Is("  and they stand in his field", hiring.FieldMen >= Mercenaries.Find("scottish").Men, true);
+		Is("  under their own name, not as his spearmen",
+			hiring.Armies.Exists(army => army.Men.GetValueOrDefault("scottish") == Mercenaries.Find("scottish").Men), true);
+		Is("  a kind of their own, on the band's own bars", Units.Of("scottish").Name, "Scottish Pikemen");
+		Is("  and known for hired men", Units.IsHired("scottish") && !Units.IsHired("spear"), true);
 
 		ProvinceEconomy sullen = County(def);
 		sullen.Loyalty = b.LordLevyAbove - 1f;

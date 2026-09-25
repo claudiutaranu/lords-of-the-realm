@@ -38,6 +38,7 @@ public partial class BattleCheck : Node
 		TheSiege(b);
 		OpenCountry(b);
 		TheTownTurnsOut(b);
+		TheHiredBand(b);
 
 		GD.Print(_failed == 0
 			? "\nthe fighting: all checks passed"
@@ -457,6 +458,35 @@ public partial class BattleCheck : Node
 		Is("  but the company that was away is still in the field", abroad.Strength, 25);
 		Is("  on the books of another of its own lord's counties", abroad.Home, "Frostgate");
 		Is("  and it is still his", turns.RealmOf(abroad), "northern-watch");
+	}
+
+	/// <summary>A hired band keeps its own banner, even at the gate it holds beside the county's own
+	/// men — and the dead of that day still come off both of them, not off a roll nobody stands in.</summary>
+	private void TheHiredBand(GameBalance b)
+	{
+		var turns = new TurnManager(b,
+			new List<ProvinceDefinition> { Definition("Kingsreach"), Definition("Valmere") },
+			new Dictionary<string, string> { ["Kingsreach"] = "royal-crown", ["Valmere"] = "northern-watch" },
+			"royal-crown", Difficulty.Medium);
+		ProvinceEconomy crown = turns.AnyProvince("Kingsreach");
+		ProvinceEconomy watch = turns.AnyProvince("Valmere");
+		crown.Armies.Clear();
+		watch.Armies.Clear();
+		watch.Castle.Clear();
+
+		FieldArmy own = watch.Raise(b.MarchReach);
+		own.Men["spear"] = 100;
+		FieldArmy band = watch.Raise(b.MarchReach);
+		band.Men["swiss"] = 100;
+		Is("a hired band is never joined to the county's own men", turns.Merge(own, band), false);
+		Is("  nor they to it", turns.Merge(band, own), false);
+
+		crown.Muster("sword", 80, b.MarchReach);
+		Battle.Result day = turns.Attack(crown.Armies[0], "Valmere", new Vector2(900, 200), walls: false);
+		Is("  it holds the gate beside them under its own banner", watch.Armies.Count, 2);
+		Is("  and the day's dead come off the two of them",
+			200 - own.Strength - band.Strength, day.DefenderFell);
+		Is("  and some of them off the band", band.Strength < 100 || day.DefenderFell == 0, true);
 	}
 
 	private static ProvinceDefinition Definition(string name) => new()

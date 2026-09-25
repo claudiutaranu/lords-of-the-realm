@@ -322,6 +322,8 @@ public partial class CampaignMap3D : Node3D
 	/// <summary>A storm over a map pixel, for the few seasons the weather is the news.</summary>
 	public void Rain(Vector2 mapPixel) => _rain.Shower(MapToWorld(mapPixel));
 
+	public void StopRain() => _rain.StopAll();
+
 	/// <summary>Puts a working site (quarry, pasture, lumber camp) on a province's ground.</summary>
 	public void AddSite(Vector2 seatPixel, MapDecoration.SiteKind kind, float weight) =>
 		_decoration.AddSite(seatPixel, kind, weight);

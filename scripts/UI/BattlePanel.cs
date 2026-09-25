@@ -253,7 +253,8 @@ public partial class BattlePanel : PaintedPanel
 
 		// The middle column has a floor of its own, so a table this short stops shrinking there.
 		int kinds = Mathf.Max(MiddleRows, Mathf.Max(mine, yours));
-		Draw(PanelSize.Y - ((Units.All().Count() - kinds) * high / Writable));
+		// The art is laid for the county's own kinds; a hired band is a row past them.
+		Draw(PanelSize.Y - ((Units.All().Count(kind => !Units.IsHired(kind)) - kinds) * high / Writable));
 	}
 
 	/// <summary>Every reason the day will go the way it goes, in the order a captain would say them.

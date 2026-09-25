@@ -1,18 +1,13 @@
 using Godot;
 
-/// <summary>Rain over one county while the advisor tells the lord what it did. It is weather for the
-/// eye only — the flood has already been rolled and paid for by the time anybody sees a drop, as in
+/// <summary>Rain over a flooded county for the season the river rose in: from the turn the flood
+/// comes until the next one. It is weather for the eye only — the flood has already been rolled and paid for by the time anybody sees a drop, as in
 /// Lords of the Realm, where the river rose without warning.
 ///
 /// Rain and no storm cloud: a cloud belongs at the height of the others, and from the map's camera
 /// anything that high hangs over the next county north of the rain it is supposed to be dropping.</summary>
 public partial class MapRain : Node3D
 {
-	// Long enough to outlast the advisor reading the flood out, short enough that a lord who
-	// dismissed him at once is not left under a storm for the rest of the season.
-	private const float StormSeconds = 14f;
-	private const float GatherSeconds = 1.5f;
-	private const float ClearSeconds = 3f;
 	// About the width of a county's fields and village, in world units.
 	private const float StormRadius = 9f;
 	private const float FallSpeed = 30f;
@@ -49,7 +44,8 @@ public partial class MapRain : Node3D
 	public void SetZoom(float distance) =>
 		_drop.Size = new Vector2(DropWidthPerDistance * distance, DropLength);
 
-	/// <summary>Rains on <paramref name="ground"/> for a while, and stops on its own.</summary>
+	/// <summary>Rains on <paramref name="ground"/> until <see cref="StopAll"/>. Started behind the turn
+	/// curtain, so it is already falling at full strength when the map is seen again.</summary>
 	public void Shower(Vector3 ground)
 	{
 		// A drop lives as long as it takes to reach the ground, and a little over: the county is not
@@ -59,7 +55,6 @@ public partial class MapRain : Node3D
 		var rain = new GpuParticles3D
 		{
 			Amount = Drops,
-			AmountRatio = 0f,
 			Lifetime = RainHeight * 1.15f / FallSpeed,
 			VisibilityAabb = new Aabb(new Vector3(-StormRadius * 2f, -RainHeight - 2f, -StormRadius * 2f),
 				new Vector3(StormRadius * 4f, RainHeight + 4f, StormRadius * 4f)),
@@ -85,11 +80,15 @@ public partial class MapRain : Node3D
 			Position = ground + new Vector3(-wind.X * RainHeight, RainHeight, -wind.Y * RainHeight),
 		};
 		AddChild(rain);
+	}
 
-		Tween weather = CreateTween();
-		weather.TweenProperty(rain, "amount_ratio", 1f, GatherSeconds);
-		weather.TweenInterval(StormSeconds);
-		weather.TweenProperty(rain, "amount_ratio", 0f, ClearSeconds);
-		weather.TweenCallback(Callable.From(rain.QueueFree));
+	/// <summary>The season is over and so is its weather. Called behind the turn curtain, so the
+	/// rain is simply gone rather than fading.</summary>
+	public void StopAll()
+	{
+		foreach (Node rain in GetChildren())
+		{
+			rain.QueueFree();
+		}
 	}
 }

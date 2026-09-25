@@ -9,6 +9,10 @@ using Godot;
 /// them. A second set of numbers kept somewhere else for the fighting would make every card in the
 /// barracks a decoration.
 ///
+/// A hired band is a kind of its own, as in Lords of the Realm: Swiss Pikemen are not spearmen, they
+/// fight on the band's own bars (mercenaries.json) and carry its name onto every roster, so a lord
+/// looking at his company can see who in it is hired. They take the look of the kind they fight as.
+///
 /// Loaded once and kept, the same way <see cref="Fortifications"/> keeps the wall ladder.</summary>
 public static class Units
 {
@@ -39,7 +43,10 @@ public static class Units
 		return Unknown;
 	}
 
-	/// <summary>Every kind there is, in the order the file lists them — which is the order the yard
+	/// <summary>Whether this kind is a hired band rather than the county's own men.</summary>
+	public static bool IsHired(string unit) => Mercenaries.Find(unit) != null;
+
+	/// <summary>Every kind there is, in the order the file lists them, then the hired bands — which is the order the yard
 	/// deals them out in, so a muster reads the same on both screens.</summary>
 	public static IEnumerable<string> All()
 	{
@@ -69,6 +76,12 @@ public static class Units
 				man["speed"].AsInt32(),
 				man.TryGetValue("mounted", out Variant mounted) && mounted.AsBool(),
 				man.TryGetValue("icon", out Variant icon) ? icon.AsString() : key);
+		}
+
+		foreach (MercenaryBand band in Mercenaries.All)
+		{
+			Unit like = units.GetValueOrDefault(band.Unit, Unknown);
+			units[band.Key] = new Unit(band.Name, band.Attack, band.Range, band.Defence, band.Speed, like.Mounted, like.Icon);
 		}
 
 		return units;

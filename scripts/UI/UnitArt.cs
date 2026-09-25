@@ -24,9 +24,13 @@ public static class UnitArt
 	/// <summary>How much sky is left over a man's head when the tile is cut.</summary>
 	private const int HeadRoom = 24;
 
-	public static string Portrait(string unit) => $"{Directory}/{unit}.png";
+	public static string Portrait(string unit) => $"{Directory}/{Drawn(unit)}.png";
 
-	public static string Backdrop(string unit) => $"{Directory}/backgrounds/{Ground(unit)}.jpg";
+	public static string Backdrop(string unit) => $"{Directory}/backgrounds/{Ground(Drawn(unit))}.jpg";
+
+	/// <summary>Whose picture a kind wears: a hired band is painted as the kind it fights as, since
+	/// nobody has painted a Swiss.</summary>
+	private static string Drawn(string unit) => Mercenaries.Find(unit)?.Unit ?? unit;
 
 	private static string Ground(string unit) => unit switch
 	{

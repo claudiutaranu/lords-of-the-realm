@@ -109,7 +109,7 @@ public static class LordArms
 
 		p.Gold -= band.Gold;
 		FieldArmy company = p.Raise(b.MarchReach);
-		company.Men[band.Unit] = men;
+		company.Men[band.Key] = men;
 		Mercenaries.Hire(p, men);
 		return men;
 	}

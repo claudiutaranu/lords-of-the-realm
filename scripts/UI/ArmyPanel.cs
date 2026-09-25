@@ -189,7 +189,25 @@ public partial class ArmyPanel : PaintedPanel
 			Label name = Chrome.Line(Units.Of(kind).Name, 20, Chrome.Bright);
 			name.SizeFlagsHorizontal = SizeFlags.ExpandFill;
 			name.VerticalAlignment = VerticalAlignment.Center;
-			row.AddChild(name);
+			if (Units.IsHired(kind))
+			{
+				// Said on the row itself, under the band's name: which of these men are hired is
+				// the first thing a lord asks of a company he is paying a captain for.
+				var named = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, Alignment = BoxContainer.AlignmentMode.Center };
+				named.AddThemeConstantOverride("separation", 0);
+				named.AddChild(name);
+				var tag = new HBoxContainer();
+				tag.AddThemeConstantOverride("separation", 6);
+				tag.AddChild(Chrome.Icon("mercenaries", 18));
+				tag.AddChild(Chrome.Line("Mercenaries", 14, Chrome.Cream));
+				named.AddChild(tag);
+				row.AddChild(named);
+			}
+			else
+			{
+				row.AddChild(name);
+			}
+
 			Label count = Chrome.Line("0", 24, Chrome.Bright);
 			count.HorizontalAlignment = HorizontalAlignment.Right;
 			count.CustomMinimumSize = new Vector2(56, 0);
@@ -323,13 +341,18 @@ public partial class ArmyPanel : PaintedPanel
 		_wages.Text = Mathf.CeilToInt(army.Strength * balance.WagePerSoldier).ToString("N0");
 		_paces.Text = Mathf.RoundToInt(army.MarchLeft / balance.MarchCostByRoad).ToString("N0");
 		_total.Text = $"{army.Strength:N0} men under arms";
-		_mercenaries.Text = county is { MercenaryMen: > 0 }
-			? $"{county.MercenaryMen:N0} hired, {county.MercenarySeasonsLeft} season"
-				+ (county.MercenarySeasonsLeft == 1 ? " left" : "s left")
-			: "No mercenaries in this company";
+		int hired = 0;
+		foreach ((string kind, int men) in army.Men)
+		{
+			hired += Units.IsHired(kind) ? men : 0;
+		}
+
+		_mercenaries.Text = hired == 0 ? "No mercenaries in this company"
+			: hired == army.Strength ? "A hired company, under its own banner"
+			: $"{hired:N0} of them hired";
 
 		_march.Visible = yours && army.Strength > 0 && army.MarchLeft > 0f;
-		_split.Visible = yours && army.Strength > 1;
+		_split.Visible = yours && army.Strength > 1 && !army.IsHired;
 		_garrison.Visible = false;
 		_disband.Visible = yours;
 		_disbandAsked = false;
@@ -339,7 +362,14 @@ public partial class ArmyPanel : PaintedPanel
 		// than asked of the container, which is not told until the next frame that some are gone.
 		// The rows that go take their share of the frame with them: what is cut is the rows themselves
 		// plus the ribbon and rail that would have been drawn around them.
-		float gone = (Rows(_roster.Count) - Rows(kinds)) * (rowHigh + RosterGap) / Writable;
+		// The art is laid for the county's own kinds; a hired band is a row past them.
+		int laid = 0;
+		foreach (string kind in _roster.Keys)
+		{
+			laid += Units.IsHired(kind) ? 0 : 1;
+		}
+
+		float gone = (Rows(laid) - Rows(kinds)) * (rowHigh + RosterGap) / Writable;
 		Draw(PanelSize.Y - gone);
 
 		_disbandWord.Text = "Disband";

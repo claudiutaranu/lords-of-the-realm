@@ -393,16 +393,22 @@ public partial class CampaignMapPage : Control
 
 			// Sent home is sent HOME. They were taken out of the county's people the day they were
 			// raised, so a lord who lets an army go gets his hands back into the fields — otherwise
-			// disbanding would quietly be the most expensive thing on the panel.
-			// ponytail: hired men walk into the county's people with everybody else — the band is
-			// counted on the county and not on the company, so there is nothing here to tell them
-			// apart by.
-			home.Population += army.Strength;
+			// disbanding would quietly be the most expensive thing on the panel. Hired men were never
+			// the county's: paid off, they walk away down the road.
+			int ours = 0;
+			foreach ((string unit, int men) in army.Men)
+			{
+				ours += Units.IsHired(unit) ? 0 : men;
+			}
+
+			home.Population += ours;
 			home.Disband(army);
 			Narrator.Say(DisbandVoicePath);
 			ShowArmies();
 			_sidebar.Refresh();
-			ShowSaveToast($"{army.Strength:N0} men of {army.Home} have gone back to the fields");
+			ShowSaveToast(ours == army.Strength
+				? $"{ours:N0} men of {army.Home} have gone back to the fields"
+				: $"{ours:N0} men of {army.Home} have gone back to the fields, and {army.Strength - ours:N0} hired men have gone their way");
 		};
 
 		_fields = new FieldPanel();
@@ -729,6 +735,25 @@ public partial class CampaignMapPage : Control
 
 	/// <summary>Where a company is standing. Men just raised have never been put anywhere, and they
 	/// are at their own county's seat — which is where they were raised.</summary>
+	/// <summary>Where a company's banner is drawn: where it stands, unless that is a town's own square,
+	/// where the village and its ring would swallow it — which is exactly where a company that has
+	/// just carried a town is standing, and two hundred Swiss "vanished" the day they won. Drawn on
+	/// the town's muster ground instead; the company itself is still in the square, for every
+	/// march, fight and gate that reads its position.</summary>
+	private Vector2 BannerPixel(FieldArmy army)
+	{
+		Vector2 at = ArmyPixel(army);
+		string town = _world.TownAt(at);
+		ProvinceData village = town.Length == 0 ? null : _provinces.Find(province => province.Name == town);
+		return village == null ? at
+			: village.TownPosition + (MusterGround.Normalized() * BesideTheTown).Rotated((army.Id - 1) * MusterApart);
+	}
+
+	/// <summary>How far off a town's square a company standing in it is drawn: past the village's own
+	/// ring, and inside the clearing the woods leave round it (TownRing + 14), so the banner is
+	/// neither in the houses nor in the trees.</summary>
+	private const float BesideTheTown = MapDecoration.TownRing + 8f;
+
 	private Vector2 ArmyPixel(FieldArmy army)
 	{
 		var at = new Vector2(army.X, army.Y);
@@ -790,9 +815,15 @@ public partial class CampaignMapPage : Control
 	/// What the join is offered over: men who could see each other across the same field.</summary>
 	private FieldArmy Beside(FieldArmy army)
 	{
+		// A hired band is never joined to anybody (TurnManager.Merge), so there is nothing to ask.
+		if (army.IsHired)
+		{
+			return null;
+		}
+
 		foreach (FieldArmy other in _turnManager.Armies())
 		{
-			if (other != army && other.Strength > 0 && other.County == army.County
+			if (other != army && other.Strength > 0 && !other.IsHired && other.County == army.County
 				&& _turnManager.RealmOf(other) == _playerRealm
 				&& ArmyPixel(other).DistanceTo(ArmyPixel(army)) <= JoinReach)
 			{
@@ -1468,6 +1499,19 @@ public partial class CampaignMapPage : Control
 
 			Season season = _turnManager.CurrentSeason;
 			_world.SetSeason(season); // the map turns over here too, while nothing of it is visible
+
+			// Last season's rain stops with it, and this season's is already falling when the
+			// curtain lifts: over every county the river rose in, a rival's too, which the lord
+			// sees rained on and is not told about.
+			_world.StopRain();
+			foreach (string county in _turnManager.Flooded)
+			{
+				ProvinceData flooded = _provinces.Find(province => province.Name == county);
+				if (flooded != null)
+				{
+					_world.Rain(flooded.TownPosition);
+				}
+			}
 			GetNode<Label>("%TransitionSeason").Text = season.ToString();
 			GetNode<Label>("%TransitionTurn").Text = $"Turn {_turnManager.Turn}";
 			GetNode<Label>("%TransitionFlavor").Text = season switch
@@ -1490,17 +1534,6 @@ public partial class CampaignMapPage : Control
 			// ended this season is told that, and nothing else.
 			if (!Fell())
 			{
-				// The rain falls while he describes it, over the county it drowned — and over a
-				// rival's county too, which he sees rained on and is not told about.
-				foreach (string county in _turnManager.Flooded)
-				{
-					ProvinceData flooded = _provinces.Find(province => province.Name == county);
-					if (flooded != null)
-					{
-						_world.Rain(flooded.TownPosition);
-					}
-				}
-
 				_advisor.Tell(_turnManager.News);
 			}
 		}));
@@ -1682,7 +1715,7 @@ public partial class CampaignMapPage : Control
 			standing.Add(army.Key);
 
 			// Where the men actually are, which after a march is a hillside and not a market square.
-			_world.SetArmy(army.Key, ArmyPixel(army), true,
+			_world.SetArmy(army.Key, BannerPixel(army), true,
 				_realms.TryGetValue(realm, out RealmData lord) ? lord.Accent : Colors.White, army.Strength);
 		}
 

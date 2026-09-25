@@ -43,4 +43,24 @@ public class FieldArmy
 
 	[System.Text.Json.Serialization.JsonIgnore]
 	public int Strength => ProvinceEconomy.Men(Men);
+
+	/// <summary>Whether any of these men are a hired band. A band marches under its own banner and
+	/// is never folded into the county's own men (TurnManager.Merge): a lord has to be able to see
+	/// which of his companies he is paying a captain for.</summary>
+	[System.Text.Json.Serialization.JsonIgnore]
+	public bool IsHired
+	{
+		get
+		{
+			foreach (string unit in Men.Keys)
+			{
+				if (Units.IsHired(unit))
+				{
+					return true;
+				}
+			}
+
+			return false;
+		}
+	}
 }

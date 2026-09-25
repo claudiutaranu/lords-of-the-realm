@@ -332,17 +332,19 @@ public partial class RecruitsPage : ProductionPage
 
 	protected override void Begin(Item item, int count)
 	{
-		// Raised the day they are paid for. Hired men fall in as the company they already are: forty
-		// Scots stand in the muster as forty swordsmen, because the roster is kept in units and not
-		// in nationalities.
-		bool hired = item.Key == _band?.Key;
-		string unit = hired ? _band.Unit : item.Key;
-		_raised ??= Province.Raise(GameBalance.Engine.MarchReach);
-		_raised.Men[unit] = _raised.Men.GetValueOrDefault(unit) + count;
-		if (hired)
+		// Raised the day they are paid for. Hired men fall in as the band they are: a hundred Scots
+		// stand on the roster as Scottish Pikemen, on their own bars, and not as a hundred of the
+		// county's spearmen nobody can tell apart from the ones it raised. A band is its own company,
+		// under its own banner, whatever else is raised the same day.
+		if (item.Key == _band?.Key)
 		{
+			Province.Raise(GameBalance.Engine.MarchReach).Men[item.Key] = count;
 			Mercenaries.Hire(Province, count);
+			return;
 		}
+
+		_raised ??= Province.Raise(GameBalance.Engine.MarchReach);
+		_raised.Men[item.Key] = _raised.Men.GetValueOrDefault(item.Key) + count;
 	}
 
 	/// <summary>The two things that limit an intake, read directly over the roster: the people there

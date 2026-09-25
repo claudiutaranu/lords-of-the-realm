@@ -273,7 +273,7 @@ public class TurnManager
 	public bool Merge(FieldArmy into, FieldArmy from)
 	{
 		if (into == null || from == null || into == from || into.County != from.County
-			|| RealmOf(into) != RealmOf(from))
+			|| RealmOf(into) != RealmOf(from) || into.IsHired || from.IsHired)
 		{
 			return false;
 		}
@@ -379,7 +379,8 @@ public class TurnManager
 		return there;
 	}
 
-	/// <summary>Puts every company the holder has in a county under one banner, because a battle for
+	/// <summary>Puts every company the holder has in a county under one banner — every one but a
+	/// hired band, which answers to its own captain and keeps its own (Merge) — because a battle for
 	/// a county is one battle: men caught in the same field fight it together or they are beaten in
 	/// detail by the same enemy on the same afternoon. Called before anything that can kill them, so
 	/// what the fighting takes off comes off men who are really there.</summary>
@@ -528,7 +529,16 @@ public class TurnManager
 
 		Bury(army.Men, day.AttackerLosses);
 		here.Bury();
-		Bury(walls ? against.Castle : against.Field, day.DefenderLosses);
+		if (!walls && StandingIn(county) is { Count: > 1 } companies)
+		{
+			// A hired band keeps its own banner even at the gate it holds with the rest (Merge),
+			// so the field it fought in is several companies: the dead come off each of them.
+			BuryAcross(companies, day.DefenderLosses);
+		}
+		else
+		{
+			Bury(walls ? against.Castle : against.Field, day.DefenderLosses);
+		}
 
 		// A held town that turned out for itself lost its own people, and does not turn out again this
 		// season if it broke.
@@ -694,6 +704,29 @@ public class TurnManager
 	/// <summary>Takes a battle's dead off a roster. A company wiped out is gone from it rather than
 	/// left standing at nought men, so everything that counts companies counts the ones there
 	/// are.</summary>
+	/// <summary>The dead of one field shared out over the companies that stood in it, kind by kind,
+	/// each giving what it has until the roll is met; the empty ones are struck off.</summary>
+	private void BuryAcross(List<FieldArmy> companies, Dictionary<string, int> fallen)
+	{
+		var owed = new Dictionary<string, int>(fallen);
+		foreach (FieldArmy company in companies)
+		{
+			var lost = new Dictionary<string, int>();
+			foreach ((string unit, int men) in owed)
+			{
+				lost[unit] = Mathf.Min(men, company.Men.GetValueOrDefault(unit));
+			}
+
+			foreach ((string unit, int men) in lost)
+			{
+				owed[unit] -= men;
+			}
+
+			Bury(company.Men, lost);
+			_provincesByName.GetValueOrDefault(company.Home)?.Bury();
+		}
+	}
+
 	private static void Bury(Dictionary<string, int> roster, Dictionary<string, int> fallen)
 	{
 		foreach ((string unit, int men) in fallen)
