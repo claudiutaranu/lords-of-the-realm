@@ -44,7 +44,7 @@ public static class EconomySimulation
 
 		Husbandry.Rest(province);
 		Husbandry.WorkTheFields(province, season, summary);
-		MendTheGround(province, balance, season);
+		Husbandry.Reclaim(province, balance);
 		Husbandry.TendTheHerd(province, season, summary);
 		ForgeWeapons(province, balance, summary);
 		Dig(province, definition, balance, season);
@@ -89,20 +89,6 @@ public static class EconomySimulation
 		_ => 0,
 	};
 
-	/// <summary>How many more seasons the torn ground needs at the strength the lord has on it now.
-	/// Zero when there is nothing to mend, and -1 when the fields have nobody to spare, which is a
-	/// field that lies open for as long as he leaves it that way.</summary>
-	public static int SeasonsToMend(ProvinceEconomy province, GameBalance balance, Season season)
-	{
-		if (province.FieldRepair <= 0)
-		{
-			return 0;
-		}
-
-		int mending = Mathf.Min(province.ReclaimWorkers, balance.ReclaimPerSeason);
-		return mending > 0 ? Mathf.CeilToInt((float)province.FieldRepair / mending) : -1;
-	}
-
 	/// <summary>What fraction of a task actually got done: all of it when the hands are there, and
 	/// proportionally less when they are not. A task nobody can work — no fields under grain, no
 	/// herd to keep — is not short-handed, it is simply not happening, and reads as zero.</summary>
@@ -115,7 +101,7 @@ public static class EconomySimulation
 	public static int Idle(ProvinceEconomy province, ProvinceDefinition definition, GameBalance balance, Season season)
 	{
 		int idle = province.Workers - province.AllocatedWorkers
-			+ Mathf.Max(0, province.ReclaimWorkers - Mathf.Min(province.FieldRepair, balance.ReclaimPerSeason))
+			+ Mathf.Max(0, province.ReclaimWorkers - Husbandry.ReclaimWork(province, balance))
 			+ Mathf.Max(0, province.BuildWorkers - Masons(province))
 			+ Mathf.Max(0, province.SmithWorkers - Smiths(province, balance));
 		foreach (ResourceType type in new[] { ResourceType.Grain, ResourceType.Cattle, ResourceType.Wood, ResourceType.Stone, ResourceType.Iron })
@@ -151,54 +137,6 @@ public static class EconomySimulation
 	/// the site is. Nothing where the county has none of it, however many are sent.</summary>
 	private static int Dug(string site, int hands, int capacity, float perHand, float seasonal, ProvinceEconomy p) =>
 		capacity <= 0 ? 0 : Mathf.RoundToInt(hands * perHand * seasonal * p.EfficiencyOf(site) / 100f);
-
-	/// <summary>The reclaimers at work on ground the water tore up. The work is counted in
-	/// hand-seasons, no more than ReclaimPerSeason of them in one season — twice the reclaimers,
-	/// half the seasons, up to that. Each FieldRepairWork of it done hands one wasted field back as
-	/// fallow, and not a season before the work on it is finished.</summary>
-	private static void MendTheGround(ProvinceEconomy p, GameBalance b, Season season)
-	{
-		if (p.FieldRepair <= 0)
-		{
-			return;
-		}
-
-		p.FieldRepair = Mathf.Max(0, p.FieldRepair - Mathf.Min(p.ReclaimWorkers, b.ReclaimPerSeason));
-		int stillTorn = Mathf.CeilToInt((float)p.FieldRepair / b.FieldRepairWork);
-		for (int field = 0; field < p.Fields.Length && p.FieldsUnder(FieldUse.Waste) > stillTorn; field++)
-		{
-			if (p.Fields[field] == FieldUse.Waste)
-			{
-				p.Fields[field] = FieldUse.Fallow;
-			}
-		}
-	}
-
-	/// <summary>The river over its banks, as Lords of the Realm had it: one field under grain is torn
-	/// up and lies waste until the reclaimers have mended it, and the corn standing on it goes with
-	/// the water. The rest of the crop stands.</summary>
-	/// <returns>The field the water took, or -1 when there was no grain for it to take.</returns>
-	public static int Flood(ProvinceEconomy p, GameBalance b)
-	{
-		int worst = -1;
-		for (int field = 0; field < p.Fields.Length; field++)
-		{
-			if (p.Fields[field] == FieldUse.Grain && worst < 0)
-			{
-				worst = field;
-			}
-		}
-
-		if (worst < 0)
-		{
-			return -1;
-		}
-
-		p.StandingCrop = Mathf.Max(0, p.StandingCrop - p.StandingCrop / p.FieldsUnder(FieldUse.Grain));
-		p.Fields[worst] = FieldUse.Waste;
-		p.FieldRepair += b.FieldRepairWork;
-		return worst;
-	}
 
 	// --- what goes into the people ----------------------------------------------------------------
 
@@ -480,11 +418,21 @@ public static class EconomySimulation
 	/// before the seed goes down.</summary>
 	public static void SetField(ProvinceEconomy province, int field, FieldUse use)
 	{
-		// Waste is the flood's to make and the reclaimers' to undo; no order turns a field into it
-		// or out of it.
+		// Waste is the weather's to make. The lord's only orders over it are to set the reclaimers
+		// on it, or to call them off; and a field struck this very season takes no order at all.
 		FieldUse was = province.Fields[field];
-		if (was == use || was == FieldUse.Waste || use == FieldUse.Waste)
+		bool ruined = was is FieldUse.Waste or FieldUse.Reclaiming;
+		bool allowed = was == FieldUse.Waste ? use == FieldUse.Reclaiming
+			: was == FieldUse.Reclaiming ? use == FieldUse.Waste
+			: use is FieldUse.Fallow or FieldUse.Grain or FieldUse.Pasture;
+		if (was == use || !allowed || field == province.Weathered)
 		{
+			return;
+		}
+
+		if (ruined)
+		{
+			province.Fields[field] = use;
 			return;
 		}
 

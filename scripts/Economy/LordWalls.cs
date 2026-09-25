@@ -108,7 +108,7 @@ public static class LordWalls
 			return;
 		}
 
-		var home = p.Armies.FindAll(army => army.County == p.ProvinceName);
+		var home = p.Armies.FindAll(army => army.County == p.ProvinceName && !army.Raider);
 		home.Sort((x, y) => y.Strength != x.Strength ? y.Strength.CompareTo(x.Strength) : x.Id.CompareTo(y.Id));
 		foreach (FieldArmy army in home)
 		{

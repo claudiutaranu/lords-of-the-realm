@@ -155,6 +155,10 @@
 		"heading": "A Rival Grows",
 		"text": "Word from over the hills, my lord: {county} has opened its gate to another lord. {came} of his men marched on it, and his banner flies there now. He holds {theirs} counties to our {ours}, and every one he takes is one we shall have to take from him."
 	},
+	"fields-trampled": {
+		"heading": "Soldiers in the Fields",
+		"text": "Another lord's soldiers have marched across {county}, my lord, and not by the roads: {harm}. They took nothing they could not carry and spoiled what they could not."
+	},
 	"field-lost": {
 		"heading": "Beaten in the Field, Holding at the Gate",
 		"text": "They came for us in the open, my lord: {came} men against our {stood}, and ours broke. We lost {ourlost}. The {walls} on the walls still hold the gate, and {theirleft} of theirs are camped before it."

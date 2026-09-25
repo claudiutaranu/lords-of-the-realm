@@ -56,6 +56,21 @@ grown by half the county's `Soil` in spring and summer, reaped 3 sacks per 2 rea
 field and herdsmen (three a head, six useful; a cow feeds five off her milk). Moving house goes to the happiest neighbour
 (provinces.json "neighbours"). Market prices are the original's (sell/buy, spread ⅓).
 
+The weather is the original's (`Climate`), not a random event: every held county keeps a `Dryness`
+(+8 spring, +24 summer, +12 autumn, −12 winter, less 0–15 by chance, an extra swing over one county
+and half of it over its neighbours) and the season's `Weather` is read off its band — flood, storms,
+cloudy, sunny, drought, frost in the cold seasons. `TurnManager` rolls it before the counties' season
+(pipeline step 3). A flood or a drought ruins a field (`FieldUse.Waste`, and it takes no order the
+season it is struck); the weather moves the sowing, growing and reaping and the herd. Waste lies until
+the lord orders it `Reclaiming` (`FieldPanel`: Reclaim/Abandon): `FieldReclaimWork` (400, the original's 800 halved at
+the user's word) hand-seasons a field, 200 at most
+a season, furthest-on first (`Husbandry.Reclaim`). An army's march is cut at the first of another
+lord's sown or grazed fields on its road (`TurnManager.FirstSpoil`): it lays that one field waste —
+its corn or its herd lost — and that is the company's season (`Trample`, `MarchLeft` 0; one field a
+season). The field is `Waste`, drawn black like any ruined field, and is reclaimed like one but with
+only `TrampledReclaimWork` (200) of it to do (the user's call: the original only takes the crop). One halted on a quarry, mine or wood shuts it for `OccupiedSeasons`. The map's plots and
+sites reach the turn through `Survey`.
+
 Labour is Lords of the Realm's allocator (`Labour`): nine jobs (grain, cattle, reclaim, castle, iron,
 stone, wood, smith, idle), dealt from scratch against saved proportions — `IndustryShare` (25 to
 open) and each job's part of its half (`Shares`, in hundredths of a percent so a moved figure does
@@ -131,6 +146,10 @@ The men live in **companies** (`FieldArmy`), not in one roster per county:
   Without dice `LordAI` builds nothing, which is how the older checks still run it. An open town
   (a county he has just taken) skips the dice: its palisade goes up the first season he can pay,
   buying the timber at market out of what is above his reserve.
+- Each lord keeps one raid out (`LordsCampaign.Raid`, the original AI's step 10): `LordRaidMen`
+  peasants from his most peopled county, walking over his nearest enemy's fields and diggings for
+  `LordRaidSeasons` (`Trample` does the harm), then home, where they go back to the county. A raid
+  (`FieldArmy.Raider`) keeps its banner like a hired band, takes no gate, and can be caught in the open.
 - A lord who takes a county settles it for `LordSettles` seasons before marching on the next, and
   the player hears of it ("rival-took"). Without it the Northern Watch had the whole empty country
   in five seasons on Medium and the player's seat by the fourth year.

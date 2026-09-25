@@ -53,7 +53,22 @@ public enum FieldUse
 	Fallow,
 	Grain,
 	Pasture,
-	/// <summary>Torn up by a flood: nothing grows on it and nothing grazes it until the reclaimers
-	/// have put it right, and the lord cannot order it under anything else in the meantime.</summary>
+	/// <summary>Ruined by a flood or a drought: nothing grows on it and nothing grazes it, and it
+	/// stays so until the lord sets the reclaimers on it.</summary>
 	Waste,
+	/// <summary>Waste the reclaimers are at work on (Husbandry.Reclaim): fallow again once they have
+	/// put FieldReclaimWork hand-seasons into it.</summary>
+	Reclaiming,
+}
+
+/// <summary>A county's sky for the season (Climate): read off how dry the county has been, and
+/// what moves its crop and its herd.</summary>
+public enum Weather
+{
+	Cloudy,
+	Sunny,
+	Storms,
+	Flooding,
+	Drought,
+	Frost,
 }

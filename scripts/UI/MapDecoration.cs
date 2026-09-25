@@ -175,10 +175,11 @@ public partial class MapDecoration : Node3D
 		{ new("6d9a3c"), new("5f8c33"), new("6b8438"), new("c4ccc6") };
 	private static readonly Color[] FallowBySeason =
 		{ new("9d9a5a"), new("a89f58"), new("9a8d4f"), new("bcbcb2") };
-	// Ground the flood tore up: wet silt with the river's grey in it, darker than any earth a
-	// plough turns, so a lord sees from the map which field he has to send the reclaimers to.
+	// Ground laid waste — by a flood, a drought or soldiers — churned black, darker than any earth a
+	// plough turns, so a lord sees from the map which field he has to send the reclaimers to. It
+	// takes no snow: a field that black under a white county is the one thing on it to mend.
 	private static readonly Color[] WasteBySeason =
-		{ new("4d4c42"), new("5a5446"), new("55503f"), new("9ea3a4") };
+		{ new("221d18"), new("241e18"), new("231c16"), new("2a2520") };
 
 	private CampaignMap3D _map;
 	private Image _props;
@@ -338,7 +339,7 @@ public partial class MapDecoration : Node3D
 	/// it from being ploughed straight through the diggings. A bite the size of the prop and no
 	/// more: pushing the sites out past the farmland instead would put half of them in the next
 	/// county, which on a map of eight provinces is a lie about who owns the ore.</summary>
-	public void AddSite(Vector2 seatPixel, SiteKind kind, float weight)
+	public void AddSite(string province, Vector2 seatPixel, SiteKind kind, float weight)
 	{
 		// A handful, never a field of them: these mark what a province works, they are not the
 		// industry itself.
@@ -361,6 +362,7 @@ public partial class MapDecoration : Node3D
 
 			transforms.Add(PropTransform(pixel, _rng.RandfRange(0.9f, 1.15f)));
 			_clearings.Add((pixel, 9f)); // its own footprint: a plot may abut a quarry, never cover it
+			_sites.Add((province, pixel, kind));
 		}
 
 		(Mesh mesh, Color color) = kind switch
@@ -385,6 +387,42 @@ public partial class MapDecoration : Node3D
 	/// Rebuilt whole rather than patched, because the cheapest thing that can be right is one that
 	/// only draws the present state: ten plots is nothing to build, and a patched one would have to
 	/// know which field changed and what season it changed in.</summary>
+	/// <summary>Every working site laid, with the county it is worked for: an army halted on one
+	/// shuts it (TurnManager.Trample).</summary>
+	private readonly List<(string Province, Vector2 At, SiteKind Kind)> _sites = new();
+
+	/// <summary>How near a halt counts as standing on a site: its own footprint and a little over.</summary>
+	private const float SiteReach = 14f;
+
+	/// <summary>Every field and diggings a county has on the map: where a raid goes to do harm.</summary>
+	public List<Vector2> GroundOf(string province)
+	{
+		var ground = new List<Vector2>(_plots.GetValueOrDefault(province) ?? new List<Vector2>());
+		foreach ((string owner, Vector2 at, SiteKind _) in _sites)
+		{
+			if (owner == province)
+			{
+				ground.Add(at);
+			}
+		}
+
+		return ground;
+	}
+
+	/// <summary>The site a map pixel is standing on, and whose it is, or nothing.</summary>
+	public (string Province, SiteKind Kind)? SiteAt(Vector2 pixel)
+	{
+		foreach ((string province, Vector2 at, SiteKind kind) in _sites)
+		{
+			if (pixel.DistanceTo(at) <= SiteReach)
+			{
+				return (province, kind);
+			}
+		}
+
+		return null;
+	}
+
 	/// <summary>Which of a county's fields a map pixel fell on, or -1 for the ground between them.
 	/// Answered off the plot centres this class already keeps rather than by giving every plot a
 	/// collision body: the plots are one mesh on purpose — a hundred and sixty little bodies to
@@ -474,6 +512,7 @@ public partial class MapDecoration : Node3D
 		for (int field = 0; field < Mathf.Min(plots.Count, uses.Length); field++)
 		{
 			FieldUse use = uses[field];
+
 			bool sowable = use == FieldUse.Grain && model != null && province.StandingCrop > 0;
 			int quarters = sowable ? Quarters(fullness) : 0;
 
@@ -895,7 +934,7 @@ public partial class MapDecoration : Node3D
 	/// map, not only find out in a bad autumn.</summary>
 	private static Color GroundOf(FieldUse use, Season season, float heart)
 	{
-		if (use == FieldUse.Waste)
+		if (use is FieldUse.Waste or FieldUse.Reclaiming)
 		{
 			return WasteBySeason[(int)season];
 		}

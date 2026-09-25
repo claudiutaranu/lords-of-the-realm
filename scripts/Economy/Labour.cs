@@ -23,6 +23,14 @@ public static class Labour
 	public const string Iron = "iron";
 	public const string Stone = "stone";
 	public const string Wood = "wood";
+
+	/// <summary>A diggings as the steward names it.</summary>
+	public static string SiteName(string site) => site switch
+	{
+		Iron => "mine",
+		Stone => "quarry",
+		_ => "woodcutters' camp",
+	};
 	public const string Smith = "smith";
 
 	/// <summary>The farm half and the industry half, in the order the original numbers its jobs.</summary>
@@ -195,7 +203,7 @@ public static class Labour
 	{
 		Grain => EconomySimulation.Demand(ResourceType.Grain, p, def, b, season),
 		Cattle => EconomySimulation.Demand(ResourceType.Cattle, p, def, b, season),
-		Reclaim => Mathf.Min(p.FieldRepair, b.ReclaimPerSeason),
+		Reclaim => Husbandry.ReclaimWork(p, b),
 		// ponytail: the original gives the masons nobody until every load of stone and timber is
 		// on site; here the wall is paid for when it is ordered, so they can start at once.
 		Castle => EconomySimulation.Masons(p),
@@ -207,9 +215,10 @@ public static class Labour
 	};
 
 	/// <summary>A diggings is either there and open, and takes all comers, or it takes nobody. The
-	/// county's capacity for it says only whether the ore or the stone or the wood is there at all.</summary>
+	/// county's capacity for it says only whether the ore or the stone or the wood is there at all;
+	/// one an enemy army has stood on is shut for its seasons (ProvinceEconomy.Occupied).</summary>
 	private static int Open(ProvinceEconomy p, string site, int capacity) =>
-		capacity > 0 && !p.IsShut(site) ? Bottomless : 0;
+		capacity > 0 && !p.IsShut(site) && !p.Occupied.ContainsKey(site) ? Bottomless : 0;
 
 	/// <summary>The fewest a job needs before it is short-handed, for the screen alone — the deal
 	/// never reads it. The fields, the herd, the reclaiming, the scaffolding and the anvil need what

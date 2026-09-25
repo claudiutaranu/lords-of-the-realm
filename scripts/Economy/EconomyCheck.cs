@@ -298,11 +298,12 @@ public partial class EconomyCheck : Node
 		Labour.Ask(busy, def, b, Season.Spring, Labour.Grain, busy.GrainWorkers + 20);
 		Is("a figure for the fields leaves the herd its need", busy.CattleWorkers, herdNow);
 
-		// Torn ground has reclaimers of its own, and the reapers are not taken off the harvest for it.
+		// Waste being reclaimed has reclaimers of its own, and the reapers are not taken off the harvest
+		// for it: a season's most for the one field.
 		ProvinceEconomy torn = Province();
-		torn.FieldRepair = 300;
+		torn.Fields[0] = FieldUse.Reclaiming;
 		Labour.Divide(torn, def, b, Season.Summer, 0);
-		Is("torn ground is dealt reclaimers", torn.ReclaimWorkers, b.ReclaimPerSeason);
+		Is("waste being reclaimed is dealt reclaimers", torn.ReclaimWorkers, b.ReclaimPerSeason);
 
 		// Every county, every season, in a year of turns: nine jobs, and every hand on exactly one.
 		ProvinceEconomy year = Province();
@@ -363,46 +364,53 @@ public partial class EconomyCheck : Node
 
 	private void Mending(GameBalance b, ProvinceDefinition def)
 	{
-		// Torn ground is the reclaimers' job, not the reapers': a field full of reapers mends nothing.
+		// Waste lies as it is until the lord orders it reclaimed: no reclaimers are wanted for it.
 		ProvinceEconomy torn = Province();
-		torn.FieldRepair = 400;
+		torn.Fields[0] = FieldUse.Waste;
+		Is("waste nobody has ordered reclaimed wants no reclaimers", Husbandry.ReclaimWork(torn, b), 0);
+		EconomySimulation.SetField(torn, 0, FieldUse.Grain);
+		Is("  and no order sows it", torn.Fields[0], FieldUse.Waste);
+		EconomySimulation.SetField(torn, 0, FieldUse.Reclaiming);
+		Is("  but it can be set to reclaiming", torn.Fields[0], FieldUse.Reclaiming);
+		EconomySimulation.SetField(torn, 0, FieldUse.Waste);
+		Is("  and abandoned again", torn.Fields[0], FieldUse.Waste);
+
+		torn.Weathered = 0;
+		EconomySimulation.SetField(torn, 0, FieldUse.Reclaiming);
+		Is("a field struck this season takes no order", torn.Fields[0], FieldUse.Waste);
+		torn.Weathered = -1;
+		EconomySimulation.SetField(torn, 0, FieldUse.Reclaiming);
+
+		// Eight hundred hand-seasons, no more than two hundred of them a season.
 		torn.GrainWorkers = 520;
-		Is("reapers mend nothing", EconomySimulation.SeasonsToMend(torn, b, Season.Summer), -1);
+		torn.ReclaimWorkers = 0;
+		Is("reapers reclaim nothing", Husbandry.SeasonsToReclaim(torn, b), -1);
+		int atMost = b.FieldReclaimWork / b.ReclaimPerSeason;
+		torn.ReclaimWorkers = b.ReclaimPerSeason / 2;
+		Is("half a season's most of reclaimers takes twice the seasons", Husbandry.SeasonsToReclaim(torn, b), 2 * atMost);
+		torn.ReclaimWorkers = b.ReclaimPerSeason;
+		Is("  a season's most, the fewest", Husbandry.SeasonsToReclaim(torn, b), atMost);
+		torn.ReclaimWorkers = 2 * b.ReclaimPerSeason;
+		Is("  and no faster than a field's most", Husbandry.SeasonsToReclaim(torn, b), atMost);
 
-		torn.ReclaimWorkers = 100;
-		Is("a hundred reclaimers is four seasons", EconomySimulation.SeasonsToMend(torn, b, Season.Summer), 4);
+		// Two fields at it: the furthest on first, and what it cannot take goes on to the next.
+		ProvinceEconomy two = Province();
+		two.Fields[0] = FieldUse.Reclaiming;
+		two.Fields[1] = FieldUse.Reclaiming;
+		two.Reclaimed[1] = 100;
+		two.ReclaimWorkers = b.ReclaimPerSeason + 100;
+		Husbandry.Reclaim(two, b);
+		Is("the furthest-on field takes its season's most", two.Reclaimed[1], 100 + b.ReclaimPerSeason);
+		Is("  and the rest goes on to the next", two.Reclaimed[0], 100);
 
-		torn.ReclaimWorkers = 200;
-		Is("twice the reclaimers, half the seasons", EconomySimulation.SeasonsToMend(torn, b, Season.Summer), 2);
-
-		torn.ReclaimWorkers = 400;
-		Is("  but no faster than a season's most", EconomySimulation.SeasonsToMend(torn, b, Season.Summer), 2);
-
-		torn.ReclaimWorkers = 200;
-		EconomySimulation.RunTurn(torn, def, b, Season.Summer);
-		Is("  and a season of them takes its share off", torn.FieldRepair, 200);
-
-		// The flood takes one field under grain, and only that field's corn with it.
-		ProvinceEconomy drowned = Province();
-		int grainFields = drowned.FieldsUnder(FieldUse.Grain);
-		drowned.StandingCrop = grainFields * 100;
-		Is("the flood takes a field under grain", EconomySimulation.Flood(drowned, b), 0);
-		Is("  which lies waste", drowned.Fields[0] == FieldUse.Waste, true);
-		Is("  and one field fewer is under grain", drowned.FieldsUnder(FieldUse.Grain), grainFields - 1);
-		Is("  and only its corn is lost", drowned.StandingCrop, (grainFields - 1) * 100);
-		Is("  and it has to be mended", drowned.FieldRepair, b.FieldRepairWork);
-
-		EconomySimulation.SetField(drowned, 0, FieldUse.Grain);
-		Is("no order sows a flooded field", drowned.Fields[0] == FieldUse.Waste, true);
-
-		// It is handed back on the turn the work is finished, not before it.
-		drowned.ReclaimWorkers = b.ReclaimPerSeason;
-		EconomySimulation.RunTurn(drowned, def, b, Season.Summer);
-		Is("half the work leaves it waste", drowned.Fields[0] == FieldUse.Waste, true);
-		drowned.ReclaimWorkers = b.ReclaimPerSeason;
-		EconomySimulation.RunTurn(drowned, def, b, Season.Summer);
-		Is("the last season closes the work", drowned.FieldRepair, 0);
-		Is("  and hands the field back to rest", drowned.Fields[0] == FieldUse.Fallow, true);
+		// And the field is land again the season the work is done, resting.
+		ProvinceEconomy mended = Province();
+		mended.Fields[0] = FieldUse.Reclaiming;
+		mended.Reclaimed[0] = b.FieldReclaimWork - b.ReclaimPerSeason;
+		mended.ReclaimWorkers = b.ReclaimPerSeason;
+		Husbandry.Reclaim(mended, b);
+		Is("the last season closes the work", mended.Fields[0], FieldUse.Fallow);
+		Is("  and forgets it", mended.Reclaimed.ContainsKey(0), false);
 	}
 
 	// --- the herd ----------------------------------------------------------------------------------
@@ -496,6 +504,11 @@ public partial class EconomyCheck : Node
 		Is("  nor cut into nobody", all.Split(only, new Dictionary<string, int> { ["spear"] = 0 }) == null, true);
 		FieldArmy band = all.Raise(0f);
 		band.Men["swiss"] = 100;
+		FieldArmy last = all.Raise(0f);
+		int lastId = last.Id;
+		all.Disband(last);
+		Is("a company's number is never given out again", all.Raise(0f).Id, lastId + 1);
+		all.Disband(all.Armies[^1]);
 		Is("  and a hired band is not cut at all", all.Split(band, new Dictionary<string, int> { ["swiss"] = 40 }) == null, true);
 		all.Disband(band);
 		Is("  and more than he has is only what he has",

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Godot;
 
 /// <summary>The fields and the herd by Lords of the Realm's own rules (docs/lotr2-engine-checklist.md,
@@ -7,7 +8,10 @@ using Godot;
 /// hands can manage — and the crop is twelve times the seed. Spring and summer each cap it at what
 /// the hands can tend and grow it by half the county's soil; autumn reaps what the reapers can carry
 /// in. The soil is one figure for the county, −100 to 100, fed by fields left fallow and spent by
-/// fields cropped.
+/// fields cropped. The season's weather (Climate) moves the crop at each of the three.
+///
+/// A field a flood or a drought ruined lies waste until the lord sets reclaimers on it: eight
+/// hundred hand-seasons, no more than two hundred of them a season, the furthest-on field first.
 ///
 /// The herd breeds and dies by how crowded its pasture is, and by whether it has herdsmen enough —
 /// three a head, and a cow feeds five people off her milk.</summary>
@@ -66,7 +70,7 @@ public static class Husbandry
 				}
 
 				p.Grain -= sacks;
-				p.StandingCrop = sacks * CropPerSack;
+				p.StandingCrop = Climate.Sown(sacks * CropPerSack, p.Weather);
 				p.SownFields = fields;
 				summary.Sown = sacks;
 				break;
@@ -75,6 +79,7 @@ public static class Husbandry
 			case Season.Summer:
 				p.StandingCrop = Mathf.Min(p.StandingCrop, hands * TendedPerMan);
 				p.StandingCrop += Livelihood.Pct(p.StandingCrop, p.Soil / 2);
+				p.StandingCrop = Climate.Grown(p.StandingCrop, p.Weather);
 				break;
 
 			case Season.Autumn:
@@ -85,7 +90,7 @@ public static class Husbandry
 					standing = standing * p.FieldsUnder(FieldUse.Grain) / p.SownFields;
 				}
 
-				summary.Harvest = Mathf.Min(standing, hands / 2 * 3);
+				summary.Harvest = Climate.Reaped(Mathf.Min(standing, hands / 2 * 3), p.Weather);
 				p.Grain += summary.Harvest;
 				p.StandingCrop = 0;
 				break;
@@ -105,6 +110,106 @@ public static class Husbandry
 		Season.Autumn => Livelihood.DivCeil(p.StandingCrop * 2, 3),
 		_ => Livelihood.DivCeil(p.StandingCrop, TendedPerMan),
 	};
+
+	// --- the waste -----------------------------------------------------------------------------
+
+	/// <summary>The reclaimers' season: every hand on it a hand-season, into the furthest-on field
+	/// first, no more than ReclaimPerSeason into any one; what one field cannot take goes on to the
+	/// next. A field that reaches FieldReclaimWork is land again, resting.</summary>
+	public static void Reclaim(ProvinceEconomy p, GameBalance b)
+	{
+		int hands = p.ReclaimWorkers;
+		foreach (int field in Reclaiming(p))
+		{
+			if (hands <= 0)
+			{
+				break;
+			}
+
+			int done = p.Reclaimed.GetValueOrDefault(field);
+			int put = Mathf.Min(hands, Mathf.Min(b.ReclaimPerSeason, b.FieldReclaimWork - done));
+			hands -= put;
+			if (done + put >= b.FieldReclaimWork)
+			{
+				p.Fields[field] = FieldUse.Fallow;
+				p.Reclaimed.Remove(field);
+			}
+			else
+			{
+				p.Reclaimed[field] = done + put;
+			}
+		}
+	}
+
+	/// <summary>The most hands the reclaimers can use this season: each field being reclaimed takes
+	/// what is left of it, up to a season's most.</summary>
+	public static int ReclaimWork(ProvinceEconomy p, GameBalance b)
+	{
+		int work = 0;
+		foreach (int field in Reclaiming(p))
+		{
+			work += Mathf.Min(b.ReclaimPerSeason, b.FieldReclaimWork - p.Reclaimed.GetValueOrDefault(field));
+		}
+
+		return work;
+	}
+
+	/// <summary>Hand-seasons still to go into the fields being reclaimed.</summary>
+	public static int ReclaimLeft(ProvinceEconomy p, GameBalance b)
+	{
+		int left = 0;
+		foreach (int field in Reclaiming(p))
+		{
+			left += b.FieldReclaimWork - p.Reclaimed.GetValueOrDefault(field);
+		}
+
+		return left;
+	}
+
+	/// <summary>Seasons until the fields being reclaimed are all land again at the hands on them now;
+	/// zero with nothing to reclaim, -1 with nobody on it.</summary>
+	public static int SeasonsToReclaim(ProvinceEconomy p, GameBalance b)
+	{
+		ProvinceEconomy copy = p.Copy();
+		for (int season = 0; season < MostSeasonsReckoned; season++)
+		{
+			if (ReclaimWork(copy, b) == 0)
+			{
+				return season;
+			}
+
+			if (copy.ReclaimWorkers <= 0)
+			{
+				return -1;
+			}
+
+			Reclaim(copy, b);
+		}
+
+		return -1;
+	}
+
+	private const int MostSeasonsReckoned = 400;
+
+	/// <summary>The fields under reclamation, furthest on first.</summary>
+	private static List<int> Reclaiming(ProvinceEconomy p)
+	{
+		var fields = new List<int>();
+		for (int field = 0; field < p.Fields.Length; field++)
+		{
+			if (p.Fields[field] == FieldUse.Reclaiming)
+			{
+				fields.Add(field);
+			}
+		}
+
+		fields.Sort((x, y) =>
+		{
+			int further = p.Reclaimed.GetValueOrDefault(y).CompareTo(p.Reclaimed.GetValueOrDefault(x));
+			return further != 0 ? further : x.CompareTo(y);
+		});
+		return fields;
+	}
 
 	// --- the herd ------------------------------------------------------------------------------
 
@@ -171,6 +276,10 @@ public static class Husbandry
 		{
 			deaths = deaths * 3 / 2;
 		}
+
+		int weather = Climate.Herd(p.Weather);
+		births += Mathf.Max(0, weather);
+		deaths += Mathf.Max(0, -weather);
 
 		int born = herd * births / 10_000;
 		int died = herd * deaths / 10_000;

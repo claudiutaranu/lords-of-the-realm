@@ -325,8 +325,12 @@ public partial class CampaignMap3D : Node3D
 	public void StopRain() => _rain.StopAll();
 
 	/// <summary>Puts a working site (quarry, pasture, lumber camp) on a province's ground.</summary>
-	public void AddSite(Vector2 seatPixel, MapDecoration.SiteKind kind, float weight) =>
-		_decoration.AddSite(seatPixel, kind, weight);
+	public void AddSite(string province, Vector2 seatPixel, MapDecoration.SiteKind kind, float weight) =>
+		_decoration.AddSite(province, seatPixel, kind, weight);
+
+	public (string Province, MapDecoration.SiteKind Kind)? SiteAt(Vector2 mapPixel) => _decoration.SiteAt(mapPixel);
+
+	public System.Collections.Generic.List<Vector2> GroundOf(string province) => _decoration.GroundOf(province);
 
 	/// <summary>Raises a province's village on its seat — what the map pin points at — flying its
 	/// lord's colour, or hands an existing one's banners to a new lord.</summary>

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Godot;
 
 /// <summary>One field of one county: what is on it, what that is doing this year, and the three
@@ -26,7 +27,9 @@ public partial class FieldPanel : CountyPanel
 
 	private Label _under;
 	private GridContainer _table;
+	private Label _prompt;
 	private HBoxContainer _choices;
+	private HBoxContainer _waste;
 
 	protected override int Width => 480;
 
@@ -44,20 +47,31 @@ public partial class FieldPanel : CountyPanel
 		rule.SizeFlagsHorizontal = SizeFlags.ExpandFill;
 		Column.AddChild(rule);
 
-		Column.AddChild(Chrome.Line("Put this field under", 18, Chrome.Dim));
+		_prompt = Chrome.Line("", 18, Chrome.Dim);
+		Column.AddChild(_prompt);
 
 		_choices = new HBoxContainer();
 		_choices.AddThemeConstantOverride("separation", 10);
 		Column.AddChild(_choices);
-
 		foreach (FieldUse use in new[] { FieldUse.Fallow, FieldUse.Grain, FieldUse.Pasture })
 		{
-			FieldUse chosen = use;
-			var button = new Button { Text = Name(use), CustomMinimumSize = new Vector2(0, 44), SizeFlagsHorizontal = SizeFlags.ExpandFill };
-			button.AddThemeFontSizeOverride("font_size", 17);
-			button.Pressed += () => Turn(chosen);
-			_choices.AddChild(button);
+			_choices.AddChild(Choice(Name(use), use));
 		}
+
+		// Waste has its own two orders, as in the original: set the reclaimers on it, or call them off.
+		_waste = new HBoxContainer();
+		_waste.AddThemeConstantOverride("separation", 10);
+		Column.AddChild(_waste);
+		_waste.AddChild(Choice("Reclaim", FieldUse.Reclaiming));
+		_waste.AddChild(Choice("Abandon", FieldUse.Waste));
+	}
+
+	private Button Choice(string text, FieldUse use)
+	{
+		var button = new Button { Text = text, CustomMinimumSize = new Vector2(0, 44), SizeFlagsHorizontal = SizeFlags.ExpandFill };
+		button.AddThemeFontSizeOverride("font_size", 17);
+		button.Pressed += () => Turn(use);
+		return button;
 	}
 
 	public void Open(ProvinceEconomy province, ProvinceDefinition definition, GameBalance balance,
@@ -106,17 +120,34 @@ public partial class FieldPanel : CountyPanel
 		{
 			case FieldUse.Grain: Corn(next); break;
 			case FieldUse.Pasture: Herd(next); break;
-			case FieldUse.Waste: Torn(); break;
+			case FieldUse.Waste or FieldUse.Reclaiming: Torn(use); break;
 			default: Resting(); break;
 		}
 
 		// The use it is already under is not on offer: a button that does nothing is a button the
-		// player presses once and then distrusts the other two. A flooded field is under nothing
-		// the lord can choose until it is mended.
+		// player presses once and then distrusts the others. Waste is offered only the reclaimers,
+		// and a field the weather struck this season is offered nothing at all.
+		bool ruined = use is FieldUse.Waste or FieldUse.Reclaiming;
+		bool struck = _field == _province.Weathered;
+		_choices.Visible = !ruined;
+		_waste.Visible = ruined;
+		_prompt.Text = struck ? "Struck this season: no order can be given it until the next"
+			: ruined ? "Set the reclaimers on it" : "Put this field under";
+		foreach (HBoxContainer row in new[] { _choices, _waste })
+		{
+			foreach (Node child in row.GetChildren())
+			{
+				((Button)child).Disabled = struck;
+			}
+		}
+
 		for (int choice = 0; choice < _choices.GetChildCount(); choice++)
 		{
-			((Button)_choices.GetChild(choice)).Disabled = use == FieldUse.Waste || (FieldUse)Order[choice] == use;
+			((Button)_choices.GetChild(choice)).Disabled |= (FieldUse)Order[choice] == use;
 		}
+
+		((Button)_waste.GetChild(0)).Disabled |= use == FieldUse.Reclaiming;
+		((Button)_waste.GetChild(1)).Disabled |= use == FieldUse.Waste;
 	}
 
 	private static readonly int[] Order = { (int)FieldUse.Fallow, (int)FieldUse.Grain, (int)FieldUse.Pasture };
@@ -156,12 +187,19 @@ public partial class FieldPanel : CountyPanel
 			next.CattleChange < 0 ? Chrome.Short : Chrome.Gain);
 	}
 
-	private void Torn()
+	private void Torn(FieldUse use)
 	{
-		int seasons = EconomySimulation.SeasonsToMend(_province, _balance, _season);
-		Row("Work left to mend it", $"{_province.FieldRepair:N0}", Chrome.Short);
-		Row("Reclaimers on it", $"{_province.ReclaimWorkers:N0}", Chrome.Bright);
-		Row("Fit to sow again", seasons < 0 ? "not while nobody mends it" : $"in {seasons} season{(seasons == 1 ? "" : "s")}",
+		int done = _province.Reclaimed.GetValueOrDefault(_field);
+		Row("Reclaimed", $"{done:N0} of {_balance.FieldReclaimWork:N0}", Chrome.Bright);
+		if (use == FieldUse.Waste)
+		{
+			Row("Reclaimers on it", "none: it has not been ordered", Chrome.Short);
+			return;
+		}
+
+		int seasons = Husbandry.SeasonsToReclaim(_province, _balance);
+		Row("Reclaimers in the county", $"{_province.ReclaimWorkers:N0}", Chrome.Bright);
+		Row("Fit to sow again", seasons < 0 ? "not while nobody works it" : $"in {seasons} season{(seasons == 1 ? "" : "s")}",
 			seasons < 0 ? Chrome.Short : Chrome.Soft);
 	}
 
@@ -207,7 +245,8 @@ public partial class FieldPanel : CountyPanel
 	{
 		FieldUse.Grain => "Grain",
 		FieldUse.Pasture => "Cattle",
-		FieldUse.Waste => "Flooded",
+		FieldUse.Waste => "Waste",
+		FieldUse.Reclaiming => "Being reclaimed",
 		_ => "Resting",
 	};
 }

@@ -202,9 +202,10 @@ public partial class CityPage
 
 		if (site.Key == "field")
 		{
-			int mending = EconomySimulation.SeasonsToMend(Province, _balance, _season);
-			return ("food", mending == 0 ? "The ground is in good heart"
-				: mending < 0 ? "Torn ground, and nobody reclaiming it"
+			int mending = Husbandry.SeasonsToReclaim(Province, _balance);
+			return ("food", mending == 0
+				? Province.FieldsUnder(FieldUse.Waste) > 0 ? "Waste ground, and no order to reclaim it" : "The ground is in good heart"
+				: mending < 0 ? "Ground to reclaim, and nobody on it"
 				: $"Reclaimed in {mending} season{(mending == 1 ? "" : "s")}");
 		}
 
@@ -231,8 +232,8 @@ public partial class CityPage
 			return new[]
 			{
 				("Reclaiming", Province.ReclaimWorkers.ToString("N0")),
-				("Work left", Province.FieldRepair.ToString("N0")),
-				("Most in one season", _balance.ReclaimPerSeason.ToString("N0")),
+				("Work left", Husbandry.ReclaimLeft(Province, _balance).ToString("N0")),
+				("Most a field in one season", _balance.ReclaimPerSeason.ToString("N0")),
 			};
 		}
 

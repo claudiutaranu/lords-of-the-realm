@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Godot;
 
 /// <summary>The fields and the herd by Lords of the Realm's own rules (Husbandry).</summary>
@@ -85,5 +86,53 @@ public partial class EconomyCheck
 		}
 
 		Is("a worked year ends with more grain than it began", year.Grain > opened - 100, true);
+
+		TheSky();
+	}
+
+	/// <summary>The weather (Climate): read off how dry a county has been, ruining a field at either
+	/// end, and moving the crop and the herd.</summary>
+	private void TheSky()
+	{
+		ProvinceEconomy sky = Province();
+		sky.ProvinceName = ""; // no climate of its own: the bands as the original reads them
+		foreach ((int dry, Season season, Weather weather) in new[]
+		{
+			(3, Season.Summer, Weather.Flooding), (10, Season.Summer, Weather.Storms), (50, Season.Summer, Weather.Cloudy),
+			(80, Season.Summer, Weather.Sunny), (80, Season.Spring, Weather.Frost), (96, Season.Summer, Weather.Drought),
+			(96, Season.Winter, Weather.Frost),
+		})
+		{
+			sky.Dryness = dry;
+			Is($"a dryness of {dry} entering {season.ToString().ToLowerInvariant()} is {weather}", Climate.Read(sky, season), weather);
+		}
+
+		// A dry county in a dry summer: a drought, a field ruined, and the sky starts again.
+		ProvinceEconomy parched = Province();
+		parched.ProvinceName = "";
+		parched.Dryness = 200;
+		parched.StandingCrop = 100 * parched.FieldsUnder(FieldUse.Grain);
+		int sown = parched.FieldsUnder(FieldUse.Grain);
+		var ruined = Climate.Turn(new List<ProvinceEconomy> { parched }, Season.Summer, new GameBalance(),
+			new RandomNumberGenerator { Seed = 7 }, _ => new List<string>());
+		Is("a summer that dry is a drought", parched.Weather, Weather.Drought);
+		Is("  that ruins a field", ruined.Count, 1);
+		Is("  under grain, which lies waste", parched.FieldsUnder(FieldUse.Grain), sown - 1);
+		Is("  and takes its corn with it", parched.StandingCrop, 100 * (sown - 1));
+		Is("  and the lord cannot give it an order this season", parched.Weathered, ruined[0].Field);
+		Is("  and the sky starts again from the far side", parched.Dryness, 70);
+
+		Is("a flooded sowing keeps a quarter", Climate.Sown(120, Weather.Flooding), 30);
+		Is("a sunny growing season grows half again", Climate.Grown(100, Weather.Sunny), 150);
+		Is("a stormy harvest brings in half", Climate.Reaped(100, Weather.Storms), 50);
+
+		ProvinceEconomy sunny = Province();
+		ProvinceEconomy cloudy = Province();
+		sunny.Cattle = cloudy.Cattle = 20;
+		sunny.CattleWorkers = cloudy.CattleWorkers = Husbandry.Herdsmen(20);
+		sunny.Weather = Weather.Sunny;
+		Husbandry.TendTheHerd(sunny, Season.Summer, new TurnSummary());
+		Husbandry.TendTheHerd(cloudy, Season.Summer, new TurnSummary());
+		Is("the herd breeds better under the sun", sunny.Cattle > cloudy.Cattle, true);
 	}
 }

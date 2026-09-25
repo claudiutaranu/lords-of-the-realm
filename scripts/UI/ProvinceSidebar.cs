@@ -58,6 +58,7 @@ public partial class ProvinceSidebar : VBoxContainer
 	private TextureRect _crest;
 	private Label _name;
 	private Label _realm;
+	private string _realmName = "";
 	private Label _population;
 	private Label _loyalty;
 	private Label _tax;
@@ -126,6 +127,7 @@ public partial class ProvinceSidebar : VBoxContainer
 	public void ShowHeader(string provinceName, string realmName, string realmKey, Color accent)
 	{
 		_name.Text = provinceName;
+		_realmName = realmName;
 		_realm.Text = realmName;
 		_accent.Color = accent;
 
@@ -153,6 +155,12 @@ public partial class ProvinceSidebar : VBoxContainer
 	{
 		bool held = _economy != null;
 		_held.Visible = held;
+
+		// The sky over the county, under whose it is: the one thing about the season a lord cannot
+		// order, and the one his harvest turns on.
+		_realm.Text = held ? $"{_realmName}  ·  {_economy.Weather}" : _realmName;
+		_realm.TooltipText = held ? Sky(_economy.Weather) : "";
+		_realm.MouseFilter = held ? MouseFilterEnum.Pass : MouseFilterEnum.Ignore;
 		_foreign.Visible = !held;
 		_population.Text = held ? _economy.Population.ToString("N0") : "—";
 		_loyalty.Text = held ? Mathf.RoundToInt(_economy.Loyalty).ToString() : "—";
@@ -274,6 +282,17 @@ public partial class ProvinceSidebar : VBoxContainer
 		_realm = Small("", Waiting);
 		titles.AddChild(_realm);
 	}
+
+	/// <summary>What the season's weather is doing to the county, as Climate reckons it.</summary>
+	private static string Sky(Weather weather) => weather switch
+	{
+		Weather.Sunny => "Sunny: the corn grows by half again, the harvest comes in half as much again, the herd breeds",
+		Weather.Storms => "Storms: half the seed and half the harvest are lost, and the herd suffers",
+		Weather.Flooding => "Flooding: a field is ruined, the crop is drowned, the herd dies",
+		Weather.Drought => "Drought: a field is ruined, the corn withers to half, the herd dies",
+		Weather.Frost => "Frost: half the seed and half the harvest are lost",
+		_ => "Cloudy: the land goes on as it would",
+	};
 
 	// Population, loyalty, tax, ration: the four numbers a lord is judged on, in one strip.
 	private void BuildStats()

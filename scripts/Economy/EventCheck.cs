@@ -345,7 +345,9 @@ public partial class EventCheck : Node
 		for (int season = 0; season < 24; season++)
 		{
 			turns.AdvanceTurn();
-			int world = turns.News.FindAll(item => !item.FromThePeople).Count;
+			// The world's rolled disasters only: the weather is the sky's own step (Climate), not one of them.
+			int world = turns.News.FindAll(item => !item.FromThePeople
+				&& !item.Said.Id.StartsWith("flood") && !item.Said.Id.StartsWith("drought")).Count;
 			most = Mathf.Max(most, world);
 			if (world > 0)
 			{
@@ -367,8 +369,6 @@ public partial class EventCheck : Node
 
 		PlagueWeight = 0f,
 		PlagueWeightHungry = 0f,
-		FloodWeight = 0f,
-		DroughtWeight = 0f,
 		RatsWeight = 0f,
 		MurrainWeight = 0f,
 		BanditWeight = 0f,

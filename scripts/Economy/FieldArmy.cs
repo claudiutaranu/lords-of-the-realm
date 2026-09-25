@@ -36,6 +36,18 @@ public class FieldArmy
 	/// belong at their county's seat, which is where they were raised.</summary>
 	public float X, Y;
 
+	/// <summary>A rival lord's raid (LordsCampaign.Raid): a band of peasants sent over another lord's
+	/// land to tread his fields and hold his diggings, not to take his town. It keeps its own banner,
+	/// never falls in with his army, and goes home when <see cref="RaidLeft"/> runs out.</summary>
+	public bool Raider;
+
+	/// <summary>Seasons a raid has left before it turns for home.</summary>
+	public int RaidLeft;
+
+	/// <summary>The turn this company last trod another lord's field bare (TurnManager.Trample): one
+	/// a season, and it spends the rest of the season's legs doing it.</summary>
+	public int SpoiledTurn;
+
 	/// <summary>How the map and the screens name one army. The county alone no longer picks one
 	/// out.</summary>
 	[System.Text.Json.Serialization.JsonIgnore]
@@ -43,6 +55,10 @@ public class FieldArmy
 
 	[System.Text.Json.Serialization.JsonIgnore]
 	public int Strength => ProvinceEconomy.Men(Men);
+
+	/// <summary>Whether this company is never folded into another: a hired band, or a raid.</summary>
+	[System.Text.Json.Serialization.JsonIgnore]
+	public bool KeepsItsBanner => Raider || IsHired;
 
 	/// <summary>Whether any of these men are a hired band. A band marches under its own banner and
 	/// is never folded into the county's own men (TurnManager.Merge): a lord has to be able to see

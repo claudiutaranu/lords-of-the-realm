@@ -23,8 +23,7 @@ public partial class GameBalance : Resource
 	/// warm up season on season, and that curve belongs here once the original's table is read.</summary>
 	[Export] public int SmithsPerWeapon = 2;
 
-	/// <summary>The most hand-seasons of reclaiming torn ground takes in one season: the original's
-	/// two hundred to a field.</summary>
+	/// <summary>The most hand-seasons one waste field takes in a season: the original's two hundred.</summary>
 	[Export] public int ReclaimPerSeason = 200;
 
 	/// <summary>How practised a site is the first season it is worked, in percent, and how much of
@@ -175,8 +174,6 @@ public partial class GameBalance : Resource
 	/// and these only settle which of the open ones the season brings. Zero switches one off.</summary>
 	[Export] public float PlagueWeight = 1f;
 	[Export] public float PlagueWeightHungry = 4f;
-	[Export] public float FloodWeight = 2f;
-	[Export] public float DroughtWeight = 2f;
 	[Export] public float RatsWeight = 3f;
 	[Export] public float MurrainWeight = 3f;
 	[Export] public float BanditWeight = 3f;
@@ -197,14 +194,24 @@ public partial class GameBalance : Resource
 	[Export] public float PlagueDeathRate = 0.09f;
 	[Export] public float PlagueLoyaltyLoss = 6f;
 
-	/// <summary>What one flooded field takes to put right, counted in hand-seasons. The reclaimers
-	/// take this down every turn, so how long a field lies waste is the lord's own answer to how many
-	/// men he spares for it rather than a timer he waits out. Four hundred is two seasons at the
-	/// most a season will take, and forever for a county that has moved everybody into the mine.
-	/// The flood is a spring event and the drought a summer one, because both are only worth
-	/// anything while there is a crop in the ground to take.</summary>
-	[Export] public int FieldRepairWork = 400;
-	[Export] public float DroughtCropLoss = 0.5f;
+	/// <summary>What one waste field takes to put right, in hand-seasons, no more than ReclaimPerSeason
+	/// of it in a season. The original's is eight hundred, four seasons at the least; halved at the
+	/// user's word, because a flood that cost a field for a year read as a punishment rather than
+	/// as weather.</summary>
+	[Export] public int FieldReclaimWork = 400;
+
+	/// <summary>What a field soldiers trod to waste takes to put right: ground churned, not washed
+	/// away, so a season of a field's most (Husbandry.Reclaim) mends it. Counted as that much left of
+	/// FieldReclaimWork.</summary>
+	[Export] public int TrampledReclaimWork = 200;
+
+	/// <summary>Seasons a quarry, mine or wood stays shut after an enemy army halted on it, as in the
+	/// original.</summary>
+	[Export] public int OccupiedSeasons = 3;
+
+	/// <summary>The extra swing of the sky over one county a season and, half of it, its neighbours
+	/// (Climate). ponytail: the original's size for it is not known.</summary>
+	[Export] public int WeatherSwing = 16;
 
 	/// <summary>Soil below this has been cropped past its rest, which is what makes a flood the
 	/// lord's fault rather than the rain's; above <see cref="GoodHeart"/> the land is in condition
@@ -446,6 +453,12 @@ public partial class GameBalance : Resource
 	/// <summary>Whether a lord comes for the player's counties at all (1) or only for the empty
 	/// country (0), and whether he will sit down before a gate he cannot storm.</summary>
 	[Export] public int[] LordWillAttackPlayer = { 0, 1, 1 };
+
+	/// <summary>The original's raid (its AI's step 10): about fifty peasants a lord sends over his
+	/// nearest enemy's land to tread his fields, for LordRaidSeasons, one raid out at a time.
+	/// ponytail: how long a raid stays out is not known from the original.</summary>
+	[Export] public int LordRaidMen = 50;
+	[Export] public int LordRaidSeasons = 4;
 	[Export] public int[] LordBesieges = { 0, 1, 1 };
 
 	/// <summary>The share of his taxes a lord will spend on wages, which caps his army whatever his

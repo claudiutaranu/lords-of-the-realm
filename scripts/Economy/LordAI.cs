@@ -118,6 +118,16 @@ public static class LordAI
 	/// is already sown throws the seed away with it.</summary>
 	private static void Plough(ProvinceEconomy p, GameBalance b, Season season, Difficulty skill)
 	{
+		// Waste is set to reclaiming the season after the weather took it, whatever the season: a
+		// lord who leaves a ruined field lying has one field fewer for good.
+		for (int field = 0; field < p.Fields.Length; field++)
+		{
+			if (p.Fields[field] == FieldUse.Waste)
+			{
+				EconomySimulation.SetField(p, field, FieldUse.Reclaiming);
+			}
+		}
+
 		if (season != Season.Winter)
 		{
 			return;

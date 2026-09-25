@@ -25,6 +25,7 @@ public sealed class LordsCampaign
 	private readonly System.Func<Vector2, string> _countyAt;
 	private readonly Dictionary<string, Vector2> _towns;
 	private readonly float _reach;
+	private readonly System.Func<string, List<Vector2>> _groundOf;
 	private readonly RandomNumberGenerator _dice = new();
 
 	/// <summary>How many counties each lord held last season, and the turn each may march again after
@@ -36,8 +37,11 @@ public sealed class LordsCampaign
 	/// <param name="towns">The village of every county that can be taken, by name.</param>
 	/// <param name="reach">How close to a village counts as standing at its gate
 	/// (MapDecoration.TownRing).</param>
-	public LordsCampaign(Way way, System.Func<Vector2, string> countyAt, Dictionary<string, Vector2> towns, float reach)
+	/// <param name="groundOf">A county's fields and diggings, as map pixels: where a raid goes.</param>
+	public LordsCampaign(Way way, System.Func<Vector2, string> countyAt, Dictionary<string, Vector2> towns, float reach,
+		System.Func<string, List<Vector2>> groundOf = null)
 	{
+		_groundOf = groundOf;
 		_way = way;
 		_countyAt = countyAt;
 		_towns = towns;
@@ -61,12 +65,14 @@ public sealed class LordsCampaign
 		}
 
 		Settle(turns, b, skill);
+		Raid(turns, b, skill, walked);
 		var marched = new HashSet<FieldArmy>();
 		Rally(turns, walked, marched);
 		foreach (FieldArmy army in turns.Armies())
 		{
 			string realm = turns.RealmOf(army);
-			if (army.Strength == 0 || realm == turns.PlayerRealm || realm.Length == 0 || marched.Contains(army))
+			if (army.Strength == 0 || realm == turns.PlayerRealm || realm.Length == 0 || marched.Contains(army)
+				|| army.Raider)
 			{
 				continue;
 			}
@@ -161,6 +167,123 @@ public sealed class LordsCampaign
 		return news;
 	}
 
+	/// <summary>The raids (the original AI's step 10): each lord keeps one band of about fifty
+	/// peasants out over his nearest enemy's land, walking from one of his fields or diggings to the
+	/// next a season — treading the corn, scattering the herd, shutting the mine it halts on
+	/// (TurnManager.Trample) — for LordRaidSeasons, and then home, where the men go back to the
+	/// county. It fights nobody unless somebody comes for it. With no map ground to walk to, no raids.</summary>
+	private void Raid(TurnManager turns, GameBalance b, int skill, List<RivalMarch> walked)
+	{
+		if (_groundOf == null)
+		{
+			return;
+		}
+
+		var sent = new HashSet<string>();
+		foreach (FieldArmy raid in new List<FieldArmy>(turns.Armies()))
+		{
+			if (!raid.Raider || raid.Strength == 0)
+			{
+				continue;
+			}
+
+			string realm = turns.RealmOf(raid);
+			sent.Add(realm);
+			if (raid.RaidLeft > 0)
+			{
+				string prey = Prey(turns, raid, realm, b, skill);
+				if (prey != null)
+				{
+					Harry(turns, raid, prey, walked);
+					raid.RaidLeft--;
+					continue;
+				}
+
+				raid.RaidLeft = 0;
+			}
+
+			// Home, and back to the fields they were taken from.
+			if (raid.County == raid.Home && Pixel(raid).DistanceTo(_towns.GetValueOrDefault(raid.Home, Pixel(raid))) <= Gathering)
+			{
+				ProvinceEconomy home = turns.AnyProvince(raid.Home);
+				home.Population += raid.Strength;
+				home.Disband(raid);
+			}
+			else if (_towns.TryGetValue(raid.Home, out Vector2 seat))
+			{
+				Go(turns, raid, seat, walked, _reach * 2f);
+			}
+		}
+
+		foreach (ProvinceEconomy county in turns.Provinces)
+		{
+			string realm = county.Realm;
+			if (realm == turns.PlayerRealm || realm.Length == 0 || sent.Contains(realm)
+				|| county.Population < b.LordRaidMen * 4 || county.BesiegedFrom.Length > 0)
+			{
+				continue;
+			}
+
+			// Sent from his most peopled county, which can best spare fifty farmhands.
+			ProvinceEconomy biggest = turns.Provinces.FindAll(other => other.Realm == realm)
+				.OrderByDescending(other => other.Population).First();
+			if (biggest != county)
+			{
+				continue;
+			}
+
+			var raid = county.Raise(b.MarchReach);
+			raid.Men["peasant"] = b.LordRaidMen;
+			raid.Raider = true;
+			raid.RaidLeft = b.LordRaidSeasons;
+			string prey = Prey(turns, raid, realm, b, skill);
+			if (prey == null)
+			{
+				county.Disband(raid);
+				continue;
+			}
+
+			county.Population -= b.LordRaidMen;
+			sent.Add(realm);
+			Harry(turns, raid, prey, walked);
+		}
+	}
+
+	/// <summary>The nearest county of another lord's a raid could go over: the player's only if his
+	/// difficulty lets the lord come for him at all. Nobody's land has no year to spoil.</summary>
+	private string Prey(TurnManager turns, FieldArmy raid, string realm, GameBalance b, int skill)
+	{
+		Vector2 here = Pixel(raid);
+		string best = null;
+		float nearest = float.MaxValue;
+		foreach (ProvinceEconomy county in turns.Provinces)
+		{
+			if (county.Realm == realm || !_towns.TryGetValue(county.ProvinceName, out Vector2 town)
+				|| (county.Realm == turns.PlayerRealm && b.LordWillAttackPlayer[skill] == 0))
+			{
+				continue;
+			}
+
+			float far = here.DistanceTo(town);
+			if (far < nearest)
+			{
+				best = county.ProvinceName;
+				nearest = far;
+			}
+		}
+
+		return best;
+	}
+
+	/// <summary>A season of harrying: to one of the county's fields or diggings, picked by chance,
+	/// over whatever else of it lies on the road.</summary>
+	private void Harry(TurnManager turns, FieldArmy raid, string prey, List<RivalMarch> walked)
+	{
+		List<Vector2> ground = _groundOf(prey);
+		Vector2 to = ground.Count > 0 ? ground[_dice.RandiRange(0, ground.Count - 1)] : _towns[prey];
+		Go(turns, raid, to, walked);
+	}
+
 	/// <summary>A lord who holds more counties than he did last season took one, and sits down to
 	/// settle it for LordSettles seasons.</summary>
 	private void Settle(TurnManager turns, GameBalance b, int skill)
@@ -193,7 +316,7 @@ public sealed class LordsCampaign
 	private static void Gather(TurnManager turns)
 	{
 		var companies = turns.Armies().FindAll(army => army.Strength > 0 && turns.RealmOf(army) != turns.PlayerRealm
-			&& Besieging(turns, army).Length == 0);
+			&& !army.KeepsItsBanner && Besieging(turns, army).Length == 0);
 		companies.Sort((x, y) => y.Strength != x.Strength ? y.Strength.CompareTo(x.Strength) : string.CompareOrdinal(x.Key, y.Key));
 		var hosts = new Dictionary<(string Realm, string County), FieldArmy>();
 		foreach (FieldArmy army in companies)
@@ -219,7 +342,8 @@ public sealed class LordsCampaign
 		foreach (FieldArmy army in turns.Armies())
 		{
 			string realm = turns.RealmOf(army);
-			if (army.Strength == 0 || realm == turns.PlayerRealm || realm.Length == 0 || Besieging(turns, army).Length > 0)
+			if (army.Strength == 0 || realm == turns.PlayerRealm || realm.Length == 0 || army.Raider
+				|| Besieging(turns, army).Length > 0)
 			{
 				continue;
 			}
@@ -233,7 +357,7 @@ public sealed class LordsCampaign
 		foreach (FieldArmy army in new List<FieldArmy>(turns.Armies()))
 		{
 			string realm = turns.RealmOf(army);
-			if (!mains.TryGetValue(realm, out FieldArmy main) || army == main || army.Strength == 0
+			if (!mains.TryGetValue(realm, out FieldArmy main) || army == main || army.Strength == 0 || army.Raider
 				|| army.County == main.County || Besieging(turns, army).Length > 0 || !_towns.ContainsKey(main.County))
 			{
 				continue;
@@ -252,7 +376,7 @@ public sealed class LordsCampaign
 	/// <summary>Every company of a lord's that can be sent: in the field, with men in it, and not
 	/// keeping a siege.</summary>
 	private static List<FieldArmy> Free(TurnManager turns, string realm) =>
-		turns.Armies().FindAll(army => army.Strength > 0 && turns.RealmOf(army) == realm
+		turns.Armies().FindAll(army => army.Strength > 0 && turns.RealmOf(army) == realm && !army.Raider
 			&& Besieging(turns, army).Length == 0);
 
 	private static Dictionary<string, int> Roster(List<FieldArmy> companies)
@@ -274,7 +398,7 @@ public sealed class LordsCampaign
 	private static List<FieldArmy> Host(TurnManager turns, FieldArmy army)
 	{
 		string realm = turns.RealmOf(army);
-		return turns.Armies().FindAll(other => other.Strength > 0 && other.County == army.County
+		return turns.Armies().FindAll(other => other.Strength > 0 && other.County == army.County && !other.Raider
 			&& turns.RealmOf(other) == realm && Besieging(turns, other).Length == 0);
 	}
 
@@ -382,14 +506,19 @@ public sealed class LordsCampaign
 
 	/// <summary>As far along the road as this season's legs carry them — or, <paramref name="gather"/>,
 	/// no nearer the gate than the assembly point, to wait there for the rest of the host.</summary>
-	private void Walk(TurnManager turns, FieldArmy army, string target, List<RivalMarch> walked, bool gather = false)
+	private void Walk(TurnManager turns, FieldArmy army, string target, List<RivalMarch> walked, bool gather = false) =>
+		Go(turns, army, _towns[target], walked, gather ? Gathering * 0.6f : 0f);
+
+	/// <summary>Along the road towards a map pixel, as far as this season's legs carry them, and no
+	/// nearer it than <paramref name="stopShort"/>; trampling whatever is another lord's on the way.</summary>
+	private void Go(TurnManager turns, FieldArmy army, Vector2 to, List<RivalMarch> walked, float stopShort = 0f)
 	{
 		Vector2 from = Pixel(army);
-		List<(Vector2 At, float Spent)> road = _way(from, _towns[target]);
+		List<(Vector2 At, float Spent)> road = _way(from, to);
 		int halt = -1;
 		for (int step = 0; step < road.Count; step++)
 		{
-			bool tooNear = gather && road[step].At.DistanceTo(_towns[target]) < Gathering * 0.6f;
+			bool tooNear = road[step].At.DistanceTo(to) < stopShort;
 			if (road[step].Spent <= army.MarchLeft && !tooNear)
 			{
 				halt = step;
@@ -401,6 +530,10 @@ public sealed class LordsCampaign
 			return;
 		}
 
+		// A field of another lord's on the way is where the march ends: trodden bare, and the season
+		// spent doing it.
+		int spoil = turns.FirstSpoil(army, road.ConvertAll(step => step.At).GetRange(0, halt + 1));
+		halt = spoil > 0 ? spoil : halt;
 		(Vector2 at, float spent) = road[halt];
 		string county = _countyAt(at);
 		if (county.Length > 0 && turns.March(army, county, at, spent))
@@ -412,6 +545,7 @@ public sealed class LordsCampaign
 			}
 
 			walked.Add(new RivalMarch(army.Key, from, steps));
+			turns.Trample(army, steps);
 		}
 	}
 

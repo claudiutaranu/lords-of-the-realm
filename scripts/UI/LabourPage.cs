@@ -242,7 +242,7 @@ public partial class LabourPage : RoomPage
 	{
 		FieldUse.Grain => "food",
 		FieldUse.Pasture => "livestock",
-		FieldUse.Waste => "pitchfork",
+		FieldUse.Waste or FieldUse.Reclaiming => "pitchfork",
 		_ => "laurel",
 	};
 
@@ -250,7 +250,8 @@ public partial class LabourPage : RoomPage
 	{
 		FieldUse.Grain => "Grain",
 		FieldUse.Pasture => "Pasture",
-		FieldUse.Waste => "Flooded",
+		FieldUse.Waste => "Waste",
+		FieldUse.Reclaiming => "Reclaiming",
 		_ => "Fallow",
 	};
 
@@ -258,7 +259,8 @@ public partial class LabourPage : RoomPage
 	{
 		FieldUse.Grain => "Sown in spring, reaped in autumn. Takes heart out of the land.",
 		FieldUse.Pasture => "Room for twenty head. Gives back half of what grain takes.",
-		FieldUse.Waste => "Torn up by the flood. Nothing will grow on it until the reclaimers have mended it.",
+		FieldUse.Waste => "Ruined by flood or drought. Nothing grows on it until it is reclaimed.",
+		FieldUse.Reclaiming => "The reclaimers are at it: a few seasons' work and it is land again.",
 		_ => "Resting. Two fields under grain to one at rest comes out level.",
 	};
 

@@ -616,7 +616,8 @@ public partial class LordCheck : Node
 	/// in a row, a neutral one between his and the player's.</summary>
 	private void TheirWar()
 	{
-		(TurnManager turns, FieldArmy host) Board(Difficulty skill, bool surveyed, int menInHost, int settles = 0)
+		(TurnManager turns, FieldArmy host) Board(Difficulty skill, bool surveyed, int menInHost, int settles = 0,
+			bool raids = false)
 		{
 			var b = new GameBalance { WorldEventChance = 0f, MercenaryChance = 0f };
 			b.LordFirstMarch = new[] { 0, 0, 0 };
@@ -634,8 +635,13 @@ public partial class LordCheck : Node
 			};
 			if (surveyed)
 			{
+				// The player's one field lies forty paces off his town, which is where a raid goes.
+				var southField = new Vector2(500, 140);
 				board.Survey(Straight, pixel => pixel.X < 200 ? "North" : pixel.X < 400 ? "Middle" : "South",
-					towns, 38f);
+					towns, 38f,
+					raids ? pixel => pixel.DistanceTo(southField) < 15f ? ("South", 0) : ("", -1) : null,
+					null,
+					raids ? county => county == "South" ? new List<Vector2> { southField } : new List<Vector2>() : null);
 			}
 
 			// A chest that pays for the host, so it is his orders being tested and not his wages.
@@ -692,6 +698,27 @@ public partial class LordCheck : Node
 		Is("a lord takes the empty county", settling.AnyProvince("Middle")?.Realm, "north");
 		Is("  and the player hears his rival has grown", heard, true);
 		Is("  and he settles it before he comes for the player", settling.AnyProvince("South")?.Realm, "crown");
+
+		// A lord sends a raid of peasants over the player's land — the original's step 10 — which
+		// treads his corn, and comes home when its seasons are up.
+		(TurnManager raided, FieldArmy _) = Board(Difficulty.Hard, surveyed: true, menInHost: 10, settles: 100, raids: true);
+		ProvinceEconomy south = raided.AnyProvince("South");
+		south.Fields[0] = FieldUse.Grain;
+		south.StandingCrop = 100 * south.FieldsUnder(FieldUse.Grain);
+		int standing = south.StandingCrop;
+		raided.AdvanceTurn();
+		FieldArmy raid = raided.Armies().Find(army => army.Raider);
+		Is("a lord sends a raid over the player's land", raid?.Men.GetValueOrDefault("peasant"), new GameBalance().LordRaidMen);
+		Is("  under its own banner", raided.AnyProvince("North").Armies.FindAll(army => army.Raider).Count, 1);
+		Is("  and it treads his corn", south.Fields[0] == FieldUse.Waste || south.StandingCrop < standing
+			|| raided.News.Exists(item => item.Said.Id == "fields-trampled"), true);
+		Is("  and he is told", raided.News.Exists(item => item.Said.Id == "fields-trampled"), true);
+		for (int season = 0; season < new GameBalance().LordRaidSeasons + 3; season++)
+		{
+			raided.AdvanceTurn();
+		}
+
+		Is("  and it goes home when its seasons are up", raided.Armies().Contains(raid), false);
 
 		// And the other way a reign ends: every county in revolt and not a man under arms.
 		ProvinceEconomy risen = hard.Provinces.Find(county => county.Realm != "crown");

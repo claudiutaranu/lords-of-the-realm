@@ -287,7 +287,7 @@ public partial class CityPage : RoomPage
 
 		if (site.Key == "field")
 		{
-			return EconomySimulation.SeasonsToMend(Province, _balance, _season) > 0 ? 1f : 0f;
+			return Husbandry.SeasonsToReclaim(Province, _balance) > 0 ? 1f : 0f;
 		}
 
 		if (site.Key == "idle")
@@ -378,7 +378,7 @@ public partial class CityPage : RoomPage
 		// Ground being put right says so, and says how many more seasons it has at the strength the
 		// lord has on it. A dash where the figure goes is a field nobody can be spared for.
 		int mending = site.Key == "field" && _definition != null
-			? EconomySimulation.SeasonsToMend(Province, _balance, _season)
+			? Husbandry.SeasonsToReclaim(Province, _balance)
 			: 0;
 
 		Label name = Line(mending == 0 ? site.Name : "Mending", 18, Cream);

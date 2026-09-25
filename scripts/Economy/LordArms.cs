@@ -136,7 +136,7 @@ public static class LordArms
 	/// raised them, largest company first.</summary>
 	private static void MusterOut(ProvinceEconomy p, int surplus, System.Func<string, string> realmOf)
 	{
-		var home = p.Armies.FindAll(army => realmOf(army.County) == p.Realm);
+		var home = p.Armies.FindAll(army => realmOf(army.County) == p.Realm && !army.Raider);
 		home.Sort((x, y) => y.Strength != x.Strength ? y.Strength.CompareTo(x.Strength) : x.Id.CompareTo(y.Id));
 		foreach (FieldArmy army in home)
 		{

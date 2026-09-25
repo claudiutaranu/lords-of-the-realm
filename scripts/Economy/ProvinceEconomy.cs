@@ -183,14 +183,21 @@ public class ProvinceEconomy
 	/// banner cannot land on a different company later.</summary>
 	private int NextId()
 	{
-		int id = 1;
+		// Counted, not read off who is standing: the highest company killed or disbanded would
+		// otherwise hand its number to the next one raised, and an order still held for the dead
+		// company would land on the new one. A save from before the count starts from its companies.
+		int id = LastArmyId + 1;
 		foreach (FieldArmy standing in Armies)
 		{
 			id = standing.Id >= id ? standing.Id + 1 : id;
 		}
 
+		LastArmyId = id;
 		return id;
 	}
+
+	/// <summary>The last company number this county gave out.</summary>
+	public int LastArmyId;
 
 	/// <summary>The army of that id, or null. Saves and screens hold on to armies by name and id
 	/// rather than by reference, because the object can be gone by the time they ask again.</summary>
@@ -473,10 +480,23 @@ public class ProvinceEconomy
 	/// of the harvest.</summary>
 	public int SownFields;
 
-	/// <summary>Work left before ground the water tore up is fit to sow again, in hand-seasons.
-	/// While it stands above zero the field lies turned over and the men are out on it; zero is
-	/// land in good heart.</summary>
-	public int FieldRepair;
+	/// <summary>Hand-seasons put into each waste field so far, by field (Husbandry.Reclaim): eight
+	/// hundred and it is land again.</summary>
+	public Dictionary<int, int> Reclaimed = new();
+
+	/// <summary>How dry the county has been (Climate): the season's weather is read off it.</summary>
+	public int Dryness = Climate.Opening;
+
+	/// <summary>The season's weather over the county.</summary>
+	public Weather Weather = Weather.Cloudy;
+
+	/// <summary>The field this season's flood or drought ruined, or -1: a field just struck takes no
+	/// order until the season has turned.</summary>
+	public int Weathered = -1;
+
+	/// <summary>Sites an enemy army has stood on, and the seasons each stays shut (Labour.Sites).</summary>
+	public Dictionary<string, int> Occupied = new();
+
 
 	public int FieldsUnder(FieldUse use)
 	{
@@ -569,6 +589,8 @@ public class ProvinceEconomy
 		// is given, and the purse is the one where that would be a theft rather than a reading.
 		copy.Purse = new Treasury { Gold = Purse.Gold };
 		copy.Fields = (FieldUse[])Fields.Clone();
+		copy.Reclaimed = new Dictionary<int, int>(Reclaimed);
+		copy.Occupied = new Dictionary<string, int>(Occupied);
 		copy.Armoury = new Dictionary<string, int>(Armoury);
 		copy.Shares = new Dictionary<string, int>(Shares);
 		copy.Shut = new List<string>(Shut);
@@ -585,6 +607,9 @@ public class ProvinceEconomy
 				MarchLeft = standing.MarchLeft,
 				X = standing.X,
 				Y = standing.Y,
+				Raider = standing.Raider,
+				RaidLeft = standing.RaidLeft,
+				SpoiledTurn = standing.SpoiledTurn,
 			});
 		}
 

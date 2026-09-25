@@ -528,11 +528,8 @@ public partial class CampaignMapPage : Control
 			}
 		}
 
-		_turnManager.Survey((from, to) => _ground.Way(from, to, float.MaxValue), pixel =>
-		{
-			int county = _world.CountyAt(pixel);
-			return county >= 0 && county < _provinces.Count ? _provinces[county].Name : "";
-		}, towns, MapDecoration.TownRing);
+		_turnManager.Survey((from, to) => _ground.Way(from, to, float.MaxValue), CountyNameAt, towns,
+			MapDecoration.TownRing, FieldUnder, SiteUnder, _world.GroundOf);
 
 		// What the counties are growing — the first thing back on the ground, because a field is not
 		// decoration: it is the one thing out here a lord changes from a screen and then sees from the
@@ -834,6 +831,29 @@ public partial class CampaignMapPage : Control
 		return null;
 	}
 
+	private string CountyNameAt(Vector2 pixel)
+	{
+		int county = _world.CountyAt(pixel);
+		return county >= 0 && county < _provinces.Count ? _provinces[county].Name : "";
+	}
+
+	/// <summary>The county field under a map pixel, for a march to trample: the county's own plots,
+	/// read off whichever county the ground is in.</summary>
+	private (string County, int Field) FieldUnder(Vector2 pixel)
+	{
+		string county = CountyNameAt(pixel);
+		return county.Length == 0 ? ("", -1) : (county, _world.PlotAt(county, pixel));
+	}
+
+	/// <summary>The diggings under a map pixel, by the labour job that works it.</summary>
+	private (string County, string Site) SiteUnder(Vector2 pixel) => _world.SiteAt(pixel) switch
+	{
+		(string county, MapDecoration.SiteKind.Wood) => (county, Labour.Wood),
+		(string county, MapDecoration.SiteKind.Stone) => (county, Labour.Stone),
+		(string county, MapDecoration.SiteKind.Iron) => (county, Labour.Iron),
+		_ => ("", ""),
+	};
+
 	/// <summary>Sends the men where the cursor was pointing. Everything about the ground was settled
 	/// when the trail was drawn; this pays for it and walks it.</summary>
 	private bool March(FieldArmy army, Vector2 where)
@@ -861,6 +881,15 @@ public partial class CampaignMapPage : Control
 		// is not refused — it is obeyed for as long as there are legs for it, which is what a lord
 		// pointing at the horizon actually means.
 		road = road.GetRange(0, halt + 1);
+
+		// And no further than the first of another lord's fields on the way: the men stop to tread it
+		// bare, and that is their season.
+		int spoil = _turnManager.FirstSpoil(army, road.ConvertAll(step => step.At));
+		if (spoil > 0)
+		{
+			road = road.GetRange(0, spoil + 1);
+		}
+
 		int county = _world.CountyAt(road[^1].At);
 		string into = county >= 0 && county < _provinces.Count ? _provinces[county].Name : "";
 		if (into.Length == 0 || !_turnManager.March(army, into, road[^1].At, road[^1].Spent))
@@ -882,12 +911,15 @@ public partial class CampaignMapPage : Control
 			strides.Add(step);
 		}
 
+		// Over another lord's fields they tread his corn and scatter his herd as they go.
+		_turnManager.Trample(army, strides);
+
 		_world.WalkArmy(army.Key, strides, () =>
 		{
 			ShowArmies();
 			ShowFortifications();
 			ShowSettlements();
-			ShowFields(_provinces[county]);
+			ShowFields(); // and every field the road crossed, trodden black if it was another lord's
 			SelectProvince(county);
 			LayGround(); // a county taken is a county open to walk through
 			Conquered();
@@ -1423,6 +1455,7 @@ public partial class CampaignMapPage : Control
 			ShowArmies();
 			ShowFortifications();
 			ShowSettlements();
+			ShowFields(); // the fields their roads crossed lie trodden black
 			LayGround(); // a county they took is somebody else's ground now
 			if (!Fell())
 			{
@@ -1502,12 +1535,12 @@ public partial class CampaignMapPage : Control
 
 			// Last season's rain stops with it, and this season's is already falling when the
 			// curtain lifts: over every county the river rose in, a rival's too, which the lord
-			// sees rained on and is not told about.
+			// sees rained on and is not told about. Never in winter — what falls then is snow.
 			_world.StopRain();
 			foreach (string county in _turnManager.Flooded)
 			{
 				ProvinceData flooded = _provinces.Find(province => province.Name == county);
-				if (flooded != null)
+				if (flooded != null && season != Season.Winter)
 				{
 					_world.Rain(flooded.TownPosition);
 				}
@@ -1583,7 +1616,7 @@ public partial class CampaignMapPage : Control
 		System.Array.Sort(industries, (left, right) => right.Weight.CompareTo(left.Weight));
 		for (int i = 0; i < 2; i++)
 		{
-			_world.AddSite(seat, industries[i].Kind, industries[i].Weight);
+			_world.AddSite(definition.ProvinceName, seat, industries[i].Kind, industries[i].Weight);
 		}
 	}
 

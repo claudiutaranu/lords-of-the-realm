@@ -11,13 +11,14 @@ public record GameEvent(string Id, string Heading, string Text, string Voice);
 /// decides who is cut when a turn carries more news than it can tell.</summary>
 public record FiredEvent(string ProvinceName, GameEvent Said, bool FromThePeople);
 
-/// <summary>What happens to a province besides its own arithmetic: the plague, the weather, the
-/// rats, and the people's answer to how they are being ruled.
+/// <summary>What happens to a province besides its own arithmetic: the plague, the rats, and the
+/// people's answer to how they are being ruled. The weather is not a roll here: it is the sky's own
+/// (Climate), and a flood or a drought is told the season it comes.
 ///
 /// Two kinds of thing live here and they are not the same kind of thing.
 ///
-/// The world's events — plague, drought, flood, rats, murrain, brigands — are rolled for and then
-/// DO something: they kill, they drown a crop, they empty a granary. Chance is only half of each
+/// The world's events — plague, rats, murrain, brigands — are rolled for and then DO something:
+/// they kill, they empty a granary. Chance is only half of each
 /// one; the other half is the state the province has put itself in, because a granary spilling onto
 /// the floor is what brings the rats and a crowded pasture is what breeds murrain. A lord should be
 /// able to see one coming.
@@ -201,22 +202,6 @@ public static class EventEngine
 				p.Population = Mathf.Max(0, p.Population - Mathf.RoundToInt(p.Population * b.PlagueDeathRate));
 				Move(p, summary, -b.PlagueLoyaltyLoss);
 			});
-
-		// Weather takes the crop, so it is only on the table while there is one standing.
-		if (season == Season.Spring && p.StandingCrop > 0)
-		{
-			// Land cropped year on year holds no water. The advisor says which flood this was,
-			// because one of them is the lord's rotation and the other is just rain.
-			bool exhausted = p.Soil < b.TiredSoil;
-			Offer(choices, b.FloodWeight, "flood", exhausted ? "flood-overworked-fields" : "flood-01",
-				() => EconomySimulation.Flood(p, b));
-		}
-
-		if (season == Season.Summer && p.StandingCrop > 0)
-		{
-			Offer(choices, b.DroughtWeight, "drought", "drought-01",
-				() => p.StandingCrop = Mathf.RoundToInt(p.StandingCrop * (1f - b.DroughtCropLoss)));
-		}
 
 		// The rats come for a granary that is overfull, which is the lord's own hoarding: grain in
 		// the barn past what the people can eat is grain he should have sold.
