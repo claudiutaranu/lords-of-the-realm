@@ -14,6 +14,7 @@ public partial class NavRail : PanelContainer
 		Trade,
 		Military,
 		Court,
+		Diplomacy,
 	}
 
 	public event Action<Section> SectionChosen;
@@ -25,6 +26,7 @@ public partial class NavRail : PanelContainer
 		Wire("%TradeButton", Section.Trade);
 		Wire("%MilitaryButton", Section.Military);
 		Wire("%CourtButton", Section.Court);
+		Wire("%DiplomacyButton", Section.Diplomacy);
 	}
 
 	private void Wire(string buttonPath, Section section)

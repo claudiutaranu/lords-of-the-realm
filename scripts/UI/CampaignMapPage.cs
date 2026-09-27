@@ -147,6 +147,8 @@ public partial class CampaignMapPage : Control
 	private RationPanel _rations;
 	private SupplyPanel _supply;
 	private StorePanel _stores;
+	private LetterPanel _letters;
+	private DiplomacyPanel _diplomacy;
 	private FieldPanel _fields;
 	/// <summary>One line the turn owes the player that the advisor has no words for — men walking
 	/// away unpaid, so far. Shown once he is done talking.</summary>
@@ -313,6 +315,12 @@ public partial class CampaignMapPage : Control
 			ShowSaveToast($"The carts leave {cart.From} for {cart.To}: {seasons} season{(seasons == 1 ? "" : "s")} on the road");
 		};
 
+		_letters = new LetterPanel();
+		AddChild(_letters);
+		_diplomacy = new DiplomacyPanel();
+		AddChild(_diplomacy);
+		_diplomacy.Wrote += () => _goldLabel.Text = _turnManager.PlayerGold.ToString("N0");
+
 		_stores = new StorePanel();
 		AddChild(_stores);
 		_sidebar.StorePressed += OpenStore;
@@ -447,9 +455,10 @@ public partial class CampaignMapPage : Control
 				ShowFields(_provinces[_markers.IndexOf(_selected)]);
 			}
 		};
-		// Anything the turn has to report that is not the advisor's waits until he has finished, or
-		// it is shown behind him and read by nobody.
-		_advisor.Emptied += () =>
+		// The lords' letters come after the advisor has finished, and anything else the turn has to
+		// report after them, or it is shown behind them and read by nobody.
+		_advisor.Emptied += () => _letters.Read(_turnManager, _turnManager.Diplomacy.TakeLetters(), RealmName);
+		_letters.Emptied += () =>
 		{
 			if (_turnNote.Length > 0)
 			{
@@ -1202,6 +1211,10 @@ public partial class CampaignMapPage : Control
 			_conquest.Announce(taken);
 		}
 	}
+
+	private string RealmName(string realm) => _realms.TryGetValue(realm, out RealmData data) ? data.Name : realm;
+
+	private Color RealmAccent(string realm) => _realms.TryGetValue(realm, out RealmData data) ? data.Accent : Colors.White;
 
 	private ProvinceData Selected() =>
 		_provinces[_selected != null ? _markers.IndexOf(_selected) : 0];
@@ -1987,6 +2000,12 @@ public partial class CampaignMapPage : Control
 		if (section == NavRail.Section.Court)
 		{
 			OpenHall();
+			return;
+		}
+
+		if (section == NavRail.Section.Diplomacy)
+		{
+			_diplomacy.Open(_turnManager, RealmName, RealmAccent);
 			return;
 		}
 

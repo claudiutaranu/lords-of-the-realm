@@ -40,6 +40,11 @@ public partial class Diplomacy
 	{
 		var read = new List<Letter>(Inbox);
 		Inbox.Clear();
+		foreach (Letter letter in read)
+		{
+			Keep(letter);
+		}
+
 		return read;
 	}
 
@@ -211,7 +216,8 @@ public partial class Diplomacy
 			// The player is looked at first, so that on a tie it is him the lord writes to.
 			string best = "";
 			int bestStanding = int.MinValue;
-			if (AllyOf(player).Length == 0 && !AtWar(realm, player) && StandingOf(realm, player) >= b.LordOffersAt)
+			if (IsAllianceOpen(rivals.Count) && AllyOf(player).Length == 0 && !AtWar(realm, player)
+				&& StandingOf(realm, player) >= b.LordOffersAt)
 			{
 				best = player;
 				bestStanding = StandingOf(realm, player);

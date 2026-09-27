@@ -66,6 +66,11 @@ public partial class TurnManager
 	/// <summary>The realm the player is, for whoever has to tell his men from everybody else's.</summary>
 	public string PlayerRealm => _playerRealm;
 
+	public GameBalance Balance => _balance;
+
+	/// <summary>What the player's realm has in its one purse, or nothing once he holds no county.</summary>
+	public int PlayerGold => _provincesByName.Values.FirstOrDefault(p => p.Realm == _playerRealm)?.Purse.Gold ?? 0;
+
 	/// <summary>True once the reign is over: the player holds no county at all, or every county he
 	/// holds has risen against him (happiness at nothing) and he has not one man under arms left to
 	/// hold any of them down.</summary>
@@ -1301,7 +1306,7 @@ public partial class TurnManager
 	{
 		Treasury purse = _provincesByName.Values.FirstOrDefault(p => p.Realm == _playerRealm)?.Purse;
 		if (letter.From != _playerRealm || purse == null || purse.Gold < letter.Gold
-			|| !Diplomacy.Send(letter))
+			|| !Diplomacy.Send(letter, Rivals().Count))
 		{
 			return false;
 		}

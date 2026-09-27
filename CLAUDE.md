@@ -190,7 +190,14 @@ The men live in **companies** (`FieldArmy`), not in one roster per county:
   pair, the seven letters, one alliance a lord, the grudge that ends it, two warnings and then a war
   that is never made up. The player's letters go out through `TurnManager.Write` (a gift is paid
   as it is sent) and are answered at the start of `RivalsTurn`; the replies wait in `Inbox`.
+- No alliance with fewer than two rival lords (`Diplomacy.IsAllianceOpen`): swearing to the only
+  other lord would leave nobody to fight and the map unwinnable, so on the first map the Margrave
+  neither offers nor is offered one (the user's call).
 - The original's numbers are kept where they are known; the rest are `GameBalance` and marked [I].
+- The lords' letters are laid straight on the map when the season opens, after the advisor
+  (`LetterPanel`, one at a time; an offer carries Accept/Refuse). `DiplomacyPanel` (the scroll on the
+  nav rail) is each lord's card: regard, alliance/warnings/war, the letters he can be sent this
+  season, and the last of `Diplomacy.Kept`, the correspondence both ways.
 
 ## Saves
 

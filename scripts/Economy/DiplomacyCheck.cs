@@ -13,6 +13,10 @@ public partial class DiplomacyCheck : Node
 	private const string Watch = "watch";
 	private const string Marsh = "marsh";
 
+	/// <summary>The realm these checks write in has two rival lords, Watch and Marsh, which is what an
+	/// alliance needs to be made at all (Diplomacy.IsAllianceOpen).</summary>
+	private const int Rivals = 2;
+
 	private int _failed;
 
 	public override void _Ready()
@@ -42,7 +46,7 @@ public partial class DiplomacyCheck : Node
 		string[] said = { "compliment-pleased", "compliment-pleased", "compliment-weary", "compliment-weary" };
 		for (int letter = 0; letter < after.Length; letter++)
 		{
-			d.Send(new Letter(Player, Watch, Diplomacy.Compliment));
+			d.Send(new Letter(Player, Watch, Diplomacy.Compliment), Rivals);
 			Letter reply = Season(d, b)[0];
 			Is($"compliment {letter + 1} leaves him at {after[letter]}", d.StandingOf(Player, Watch), after[letter]);
 			Is($"  and he says so", reply.Kind, said[letter]);
@@ -53,21 +57,21 @@ public partial class DiplomacyCheck : Node
 	{
 		var b = new GameBalance();
 		var d = new Diplomacy();
-		d.Send(new Letter(Player, Watch, Diplomacy.Gift, Gold: 500));
+		d.Send(new Letter(Player, Watch, Diplomacy.Gift, Gold: 500), Rivals);
 		Is("five hundred crowns thank him five points", Season(d, b)[0].Kind, "gift-thanks");
 		Is("  as the standing shows", d.StandingOf(Player, Watch), 5);
 
-		d.Send(new Letter(Player, Watch, Diplomacy.Gift, Gold: 300));
+		d.Send(new Letter(Player, Watch, Diplomacy.Gift, Gold: 300), Rivals);
 		Is("a smaller gift than the last is a slight", Season(d, b)[0].Kind, "gift-slight");
 		Is("  and costs eight", d.StandingOf(Player, Watch), -3);
 
-		d.Send(new Letter(Player, Watch, Diplomacy.Gift, Gold: 9000));
+		d.Send(new Letter(Player, Watch, Diplomacy.Gift, Gold: 9000), Rivals);
 		Season(d, b);
 		Is("no gift buys more than ten points", d.StandingOf(Player, Watch), 7);
 
-		Is("an empty purse is no gift", d.Send(new Letter(Player, Watch, Diplomacy.Gift, Gold: 0)), false);
-		d.Send(new Letter(Player, Watch, Diplomacy.Insult));
-		Is("one letter a lord a season", d.Send(new Letter(Player, Watch, Diplomacy.Compliment)), false);
+		Is("an empty purse is no gift", d.Send(new Letter(Player, Watch, Diplomacy.Gift, Gold: 0), Rivals), false);
+		d.Send(new Letter(Player, Watch, Diplomacy.Insult), Rivals);
+		Is("one letter a lord a season", d.Send(new Letter(Player, Watch, Diplomacy.Compliment), Rivals), false);
 		Season(d, b);
 		Is("an insult costs ten", d.StandingOf(Player, Watch), -3);
 	}
@@ -76,18 +80,18 @@ public partial class DiplomacyCheck : Node
 	{
 		var b = new GameBalance();
 		var d = new Diplomacy();
-		d.Send(new Letter(Player, Watch, Diplomacy.OfferAlliance));
+		d.Send(new Letter(Player, Watch, Diplomacy.OfferAlliance), Rivals);
 		Is("a lord who does not know you refuses", Season(d, b)[0].Kind, "alliance-no");
 
 		d.Move(Player, Watch, b.AllianceAt, b);
-		d.Send(new Letter(Player, Watch, Diplomacy.OfferAlliance));
+		d.Send(new Letter(Player, Watch, Diplomacy.OfferAlliance), Rivals);
 		Is("one who thinks well enough of you swears", Season(d, b)[0].Kind, "alliance-yes");
 		Is("  and is your ally", d.AllyOf(Player), Watch);
-		Is("an ally is written the three errands", d.Writable(Player, Watch).Contains(Diplomacy.AskAttack), true);
+		Is("an ally is written the three errands", d.Writable(Player, Watch, Rivals).Contains(Diplomacy.AskAttack), true);
 		Is("  and alliance is offered to nobody else while it stands",
-			d.Writable(Player, Marsh).Contains(Diplomacy.OfferAlliance), false);
+			d.Writable(Player, Marsh, Rivals).Contains(Diplomacy.OfferAlliance), false);
 
-		d.Send(new Letter(Player, Watch, Diplomacy.BreakAlliance));
+		d.Send(new Letter(Player, Watch, Diplomacy.BreakAlliance), Rivals);
 		Is("breaking it is answered", Season(d, b)[0].Kind, "alliance-ended");
 		Is("  and ends it", d.AllyOf(Watch), "");
 		Is("  and costs ten", d.StandingOf(Player, Watch), 0);
@@ -111,7 +115,7 @@ public partial class DiplomacyCheck : Node
 		var b = new GameBalance();
 		var d = new Diplomacy();
 		d.Move(Player, Watch, b.AllianceAt, b);
-		d.Send(new Letter(Player, Watch, Diplomacy.OfferAlliance));
+		d.Send(new Letter(Player, Watch, Diplomacy.OfferAlliance), Rivals);
 		Season(d, b, Short());
 		Season(d, b, Short());
 		Is("an alliance stands while the grudge is under his limit", d.AllyOf(Player), Watch);
@@ -130,7 +134,7 @@ public partial class DiplomacyCheck : Node
 		Is("  and then declares war", Season(d, b)[0].Kind, "war");
 		Is("  which stands", d.AtWar(Player, Watch), true);
 		d.Move(Player, Watch, 60, b);
-		Is("and is never made up into an alliance", d.Writable(Player, Watch).Contains(Diplomacy.OfferAlliance), false);
+		Is("and is never made up into an alliance", d.Writable(Player, Watch, Rivals).Contains(Diplomacy.OfferAlliance), false);
 	}
 
 	private void Courting()
@@ -140,14 +144,31 @@ public partial class DiplomacyCheck : Node
 		Lord margrave = Lords.Find("margrave");
 		Is("the Margrave is on the roster", margrave?.Title, "The Margrave");
 		var seated = new Dictionary<string, Lord> { [Watch] = margrave };
+		var both = new List<string> { Watch, Marsh };
+		// Thought of better than the other lord, whom he comes round to a point a season, so it is the
+		// player he writes to.
+		d.Move(Watch, Player, 20, b);
 		for (int turn = 1; turn < margrave.OffersAllianceEvery; turn++)
 		{
-			d.Season(turn, Player, new List<string> { Watch }, seated, b);
+			d.Season(turn, Player, both, seated, b);
 		}
 
 		Is("he does not offer before his time", d.Offers.Count, 0);
-		d.Season(margrave.OffersAllianceEvery, Player, new List<string> { Watch }, seated, b);
+
+		// Alone with the player in the realm, he never offers: there would be nobody left to fight.
+		var alone = new Diplomacy();
+		alone.Season(margrave.OffersAllianceEvery, Player, new List<string> { Watch }, seated, b);
+		Is("the only rival lord offers no alliance", alone.Offers.Count, 0);
+		Is("  and is offered none", alone.Writable(Player, Watch, 1).Contains(Diplomacy.OfferAlliance), false);
+		Is("  but is still written to", alone.Writable(Player, Watch, 1).Contains(Diplomacy.Gift), true);
+
+		d.Season(margrave.OffersAllianceEvery, Player, both, seated, b);
 		Is("  and does on it", d.TakeLetters().Exists(letter => letter.Kind == "alliance-offer"), true);
+		Is("  and the letter is kept for the diplomacy page", d.Kept.Exists(letter => letter.Kind == "alliance-offer"), true);
+		d.Decline(Watch);
+		Is("an offer turned down is off the table", d.Offers.Count, 0);
+		Is("  and cannot be taken after", d.Accept(Player, Watch), false);
+		d.Offers.Add(Watch);
 		Is("the offer can be taken", d.Accept(Player, Watch), true);
 		Is("  and he is sworn", d.AllyOf(Watch), Player);
 		Is("his line for it is his own", margrave.Says("gift-thanks", 1500).StartsWith($"{1500:N0} crowns"), true);
@@ -158,12 +179,12 @@ public partial class DiplomacyCheck : Node
 		var b = new GameBalance();
 		var d = new Diplomacy();
 		d.Move(Player, Watch, b.AllianceAt, b);
-		d.Send(new Letter(Player, Watch, Diplomacy.OfferAlliance));
+		d.Send(new Letter(Player, Watch, Diplomacy.OfferAlliance), Rivals);
 		Season(d, b);
-		d.Send(new Letter(Player, Watch, Diplomacy.AskAttack, About: Marsh));
+		d.Send(new Letter(Player, Watch, Diplomacy.AskAttack, About: Marsh), Rivals);
 		Is("an ally agrees to march", Season(d, b)[0].Kind, "attack-yes");
 		Is("  on the realm named", d.Errands.GetValueOrDefault(Watch), Marsh);
-		d.Send(new Letter(Player, Watch, Diplomacy.AskAttack, About: Watch));
+		d.Send(new Letter(Player, Watch, Diplomacy.AskAttack, About: Watch), Rivals);
 		Is("but never on himself", Season(d, b)[0].Kind, "attack-no");
 	}
 
@@ -192,7 +213,7 @@ public partial class DiplomacyCheck : Node
 		var b = new GameBalance();
 		var d = new Diplomacy();
 		d.Move(Player, Watch, -12, b);
-		d.Send(new Letter(Player, Watch, Diplomacy.Gift, Gold: 400));
+		d.Send(new Letter(Player, Watch, Diplomacy.Gift, Gold: 400), Rivals);
 		d.Wars.Add(Diplomacy.Pair(Watch, Marsh));
 		SaveGame.Write("Check", turn: 3, provinces: new() { new ProvinceEconomy { ProvinceName = "Ash" } },
 			new Dictionary<string, float>(), Difficulty.Medium, d);

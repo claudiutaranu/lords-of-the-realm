@@ -56,6 +56,13 @@ public partial class Diplomacy
 	public List<Letter> Outbox = new();
 	public List<Letter> Inbox = new();
 
+	/// <summary>The player's correspondence, both ways, oldest first: what the diplomacy page reads
+	/// back to him. Letters read are otherwise gone (TakeLetters).</summary>
+	public List<Letter> Kept = new();
+
+	/// <summary>How many letters the correspondence keeps before the oldest are let go.</summary>
+	private const int LettersKept = 40;
+
 	public static string Pair(string a, string b) => string.CompareOrdinal(a, b) < 0 ? $"{a}|{b}" : $"{b}|{a}";
 
 	private static string From(string from, string to) => $"{from}>{to}";
@@ -66,10 +73,16 @@ public partial class Diplomacy
 
 	public bool AtWar(string a, string b) => Wars.Contains(Pair(a, b));
 
+	/// <summary>An alliance is against somebody. With one rival lord in the whole realm, swearing to
+	/// him would leave nobody to fight and no way to win the map, so no alliance is made or offered
+	/// until there are at least two (the user's call; the original always had four lords).</summary>
+	public static bool IsAllianceOpen(int rivals) => rivals > 1;
+
 	/// <summary>What the player can write to a lord this season: the four the original offers any
 	/// lord, and the three that only an ally is written. An alliance is not offered to a lord already
-	/// sworn to somebody, nor to one at war, and one letter a lord a season is all that goes out.</summary>
-	public List<string> Writable(string player, string lord)
+	/// sworn to somebody, nor to one at war, nor where there is no third lord to be sworn against,
+	/// and one letter a lord a season is all that goes out.</summary>
+	public List<string> Writable(string player, string lord, int rivals)
 	{
 		var kinds = new List<string>();
 		if (Outbox.Exists(letter => letter.To == lord))
@@ -82,7 +95,7 @@ public partial class Diplomacy
 		{
 			kinds.AddRange(new[] { BreakAlliance, AskHelp, AskAttack });
 		}
-		else if (AllyOf(player).Length == 0 && AllyOf(lord).Length == 0 && !AtWar(player, lord))
+		else if (IsAllianceOpen(rivals) && AllyOf(player).Length == 0 && AllyOf(lord).Length == 0 && !AtWar(player, lord))
 		{
 			kinds.Add(OfferAlliance);
 		}
@@ -92,15 +105,29 @@ public partial class Diplomacy
 
 	/// <summary>Sends a letter, if it is one that can be written this season. A gift's gold is the
 	/// caller's to take out of the purse: this book does not hold anybody's treasury.</summary>
-	public bool Send(Letter letter)
+	public bool Send(Letter letter, int rivals)
 	{
-		if (!Writable(letter.From, letter.To).Contains(letter.Kind) || (letter.Kind == Gift && letter.Gold <= 0))
+		if (!Writable(letter.From, letter.To, rivals).Contains(letter.Kind) || (letter.Kind == Gift && letter.Gold <= 0))
 		{
 			return false;
 		}
 
 		Outbox.Add(letter);
+		Keep(letter);
 		return true;
+	}
+
+	/// <summary>The player turns a lord's offer down. It would lapse at the season's end anyway; this
+	/// only takes it off the table now, so the page stops asking.</summary>
+	public void Decline(string lord) => Offers.Remove(lord);
+
+	private void Keep(Letter letter)
+	{
+		Kept.Add(letter);
+		if (Kept.Count > LettersKept)
+		{
+			Kept.RemoveRange(0, Kept.Count - LettersKept);
+		}
 	}
 
 	/// <summary>The player takes a lord's offer of alliance, while it still stands.</summary>

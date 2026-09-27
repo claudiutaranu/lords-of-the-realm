@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3]
+[gd_scene load_steps=16 format=3]
 
 [ext_resource type="Script" path="res://scripts/UI/NavRail.cs" id="1_script"]
 [ext_resource type="Theme" path="res://theme/main-menu.tres" id="2_theme"]
@@ -9,6 +9,7 @@
 [ext_resource type="Texture2D" path="res://assets/ui/icons/shield.png" id="7_shield"]
 [ext_resource type="Texture2D" path="res://assets/ui/icons/laurel.png" id="8_laurel"]
 [ext_resource type="Texture2D" path="res://assets/ui/icons/scales.png" id="9_scales"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/scroll.png" id="10_scroll"]
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_bar"]
 
@@ -168,6 +169,31 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 texture = ExtResource("8_laurel")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="DiplomacyButton" type="Button" parent="Margin/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(56, 56)
+layout_mode = 2
+tooltip_text = "Diplomacy"
+
+[node name="Icon" type="TextureRect" parent="Margin/Buttons/DiplomacyButton"]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -15.0
+offset_top = -15.0
+offset_right = 15.0
+offset_bottom = 15.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("10_scroll")
 expand_mode = 1
 stretch_mode = 5
 

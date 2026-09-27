@@ -78,11 +78,30 @@ public abstract partial class CountyPanel : Control
 		CreateTween().TweenProperty(this, "modulate:a", 1.0, FadeSeconds);
 	}
 
+	/// <summary>Raised once the panel has faded out, whichever way it was closed: what waits behind a
+	/// table (the next letter, the rest of the season's news) comes after it, not through it.</summary>
+	public event System.Action Closed;
+
+	private bool _isClosing;
+
 	protected void Close()
 	{
+		// A second click while it fades is not a second closing: the letter behind it would be
+		// skipped unread.
+		if (_isClosing)
+		{
+			return;
+		}
+
+		_isClosing = true;
 		Tween tween = CreateTween();
 		tween.TweenProperty(this, "modulate:a", 0.0, FadeSeconds);
-		tween.TweenCallback(Callable.From(() => Visible = false));
+		tween.TweenCallback(Callable.From(() =>
+		{
+			Visible = false;
+			_isClosing = false;
+			Closed?.Invoke();
+		}));
 	}
 
 	/// <summary>A click on the dimmed map behind closes it, and so does Escape. Nothing here is
