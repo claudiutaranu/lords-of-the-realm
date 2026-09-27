@@ -1956,6 +1956,9 @@ public partial class CampaignMapPage : Control
 				// Walls are what developing a province means so far, so Province Affairs opens onto
 				// them. It becomes a door of its own once there is more than one thing behind it.
 				case "provinces": OpenRoom(FortificationsScenePath, "build"); break;
+				case "diplomacy": _diplomacy.Open(_turnManager, RealmName, RealmAccent); break;
+				// The same way out as the crest menu's, so the campaign rides along to the options and back.
+				case "settings": GetNode<Button>("%OptionsButton").EmitSignal(BaseButton.SignalName.Pressed); break;
 				default: ShowSaveToast($"{door} is not built yet"); break;
 			}
 		};
@@ -1967,65 +1970,20 @@ public partial class CampaignMapPage : Control
 		};
 	}
 
-	// naming what belongs there. Replace a case with a real panel as that system gets built.
+	/// <summary>Where each button on the nav rail leads. Four open a room of the province in hand —
+	/// the hammer is the smithy, not the town, which is reached the way you would reach it, by
+	/// walking into it off the map with a second press on the seat already in hand.</summary>
 	private void ShowSection(NavRail.Section section)
 	{
-		// Three of them open onto a room of the province in hand rather than onto a panel of text.
-		// The hammer is the smithy, not the town. The town is reached the way you would reach it —
-		// by walking into it off the map, with a second press on the seat already in hand.
-		if (section == NavRail.Section.Buildings)
+		switch (section)
 		{
-			OpenRoom(BlacksmithScenePath, "forge");
-			return;
+			case NavRail.Section.Buildings: OpenRoom(BlacksmithScenePath, "forge"); break;
+			case NavRail.Section.Military: OpenRoom(RecruitsScenePath, "raise men"); break;
+			case NavRail.Section.Fortifications: OpenRoom(FortificationsScenePath, "build"); break;
+			case NavRail.Section.Trade: OpenRoom(MarketScenePath, "trade"); break;
+			case NavRail.Section.Court: OpenHall(); break;
+			case NavRail.Section.Diplomacy: _diplomacy.Open(_turnManager, RealmName, RealmAccent); break;
 		}
-
-		if (section == NavRail.Section.Military)
-		{
-			OpenRoom(RecruitsScenePath, "raise men");
-			return;
-		}
-
-		if (section == NavRail.Section.Fortifications)
-		{
-			OpenRoom(FortificationsScenePath, "build");
-			return;
-		}
-
-		if (section == NavRail.Section.Trade)
-		{
-			OpenRoom(MarketScenePath, "trade");
-			return;
-		}
-
-		if (section == NavRail.Section.Court)
-		{
-			OpenHall();
-			return;
-		}
-
-		if (section == NavRail.Section.Diplomacy)
-		{
-			_diplomacy.Open(_turnManager, RealmName, RealmAccent);
-			return;
-		}
-
-		_sectionTitle.Text = section switch
-		{
-			NavRail.Section.Fortifications => "Fortifications",
-			NavRail.Section.Military => "Military",
-			NavRail.Section.Buildings => "Buildings",
-			NavRail.Section.Court => "Court",
-			_ => "Trade",
-		};
-		_sectionBody.Text = section switch
-		{
-			NavRail.Section.Fortifications => "The walls of every province, and what they cost to raise. Not built yet.",
-			NavRail.Section.Military => "Every army you command, where it stands and what it costs. Not built yet.",
-			NavRail.Section.Buildings => "What each province has raised, and what it can raise next. Not built yet.",
-			NavRail.Section.Court => "Your lords, advisors and heirs. Not built yet.",
-			_ => "What the realm buys, sells and ships, and at what price. Not built yet.",
-		};
-		_sectionPanel.Visible = true;
 	}
 
 	private void UpdateTurnDisplay()

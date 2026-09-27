@@ -43,36 +43,17 @@ public partial class GameBalance : Resource
 	[Export] public int MasonsPerBuildSeason = 200;
 
 	[Export] public float PeoplePerGrain = 10f;
-	[Export] public float BasePopulationGrowthRate = 0.01f;
-
-	/// <summary>Seasons of bread a county wants in the barn before it has children at the full rate;
-	/// below it, births fall in step with the barn.</summary>
-	[Export] public float BirthsWantBarnSeasons = 1f;
-	/// <summary>What one head pays the reeve for each point of tax, a season. A county of a thousand
-	/// on the rate it calls fair brings in a hundred and fifty crowns, and every point above that is
-	/// thirty more — so the tax is the lord's main lever on his income, and a heavy one really is
-	/// worth the goodwill it burns.</summary>
-	[Export] public float GoldPerHeadPerTaxPoint = 0.03f;
-
-	[Export] public float StarvationPopulationLossPerDeficit = 0.075f;
-	[Export] public float StarvationLoyaltyLossPerDeficit = 25f;
 
 	// [Spring, Summer, Autumn, Winter]
 	[Export] public float[] WoodSeasonMultiplier = { 1.00f, 1.00f, 1.00f, 0.80f };
 	[Export] public float[] StoneSeasonMultiplier = { 1.00f, 1.00f, 1.00f, 0.70f };
 	[Export] public float[] IronSeasonMultiplier = { 1.00f, 1.00f, 1.00f, 0.80f };
 
-	/// <summary>Who moves, and how fast. A content province is somewhere people walk towards; a
-	/// resented one empties from the edges long before it revolts.</summary>
+	/// <summary>The goodwill above which a county draws people in and below which it starts to lose
+	/// them: a content province is somewhere people walk towards; a resented one empties from the
+	/// edges long before it revolts.</summary>
 	[Export] public float ImmigrationAbove = 72f;
 	[Export] public float EmigrationBelow = 35f;
-	[Export] public float ImmigrationRate = 0.006f;
-	[Export] public float EmigrationRate = 0.012f;
-
-	/// <summary>How much faster a county at no goodwill at all empties than one that has only just
-	/// crossed the line. A flat rate makes losing a county entirely look exactly like being mildly
-	/// disliked, and the lord cannot tell from the number which one he has.</summary>
-	[Export] public float EmigrationDepthMultiple = 2f;
 
 	// [None, Low, Normal, High, Severe]
 	/// <summary>The rate a county thinks is fair, and the most a lord is allowed to ask. Below the
@@ -86,27 +67,6 @@ public partial class GameBalance : Resource
 	/// ten percent and not at thirty.</summary>
 	[Export] public int FairTaxPercent = 5;
 	[Export] public int MostTaxPercent = 40;
-
-	/// <summary>Goodwill a season for each point the rate sits away from fair. Signed by which side
-	/// of fair it falls on: a light hand is worth something, a heavy one costs.
-	///
-	/// One heart a point, which is the old game's own slope: +5 at nothing, -12 at seventeen, and
-	/// every point in between exactly one apart. A gentler line is not a kinder game, it is a game
-	/// where the tax is not a decision — at a fifth of this a lord could sit on a punitive rate for
-	/// twenty years and shrug off what it cost him.</summary>
-	[Export] public float LoyaltyPerTaxPoint = 1f;
-
-	/// <summary>The most goodwill a light hand can be worth in one season. With the fair rate at five
-	/// and a heart a point, taking nothing at all is already the best a lord can do and comes to
-	/// exactly this — so the cap is not shaping the curve, it is standing behind it in case somebody
-	/// moves the fair rate later and turns a light hand into a way of buying a county outright.</summary>
-	[Export] public float TaxGoodwillCap = 5f;
-
-	/// <summary>How much of a county's resentment at a heavy tax is felt in the lord's OTHER
-	/// counties. Word travels: a realm that squeezes one shire is a realm the next shire expects to
-	/// be squeezed by. It is what stops a lord parking one county on a punitive rate, letting it rot,
-	/// and running the rest of his realm as though nothing were happening.</summary>
-	[Export] public float OtherCountiesTaxShare = 0.2f;
 
 	// What one unit of each store is worth at market, between what the merchant asks and what he
 	// offers: Lords of the Realm II's own prices (sell/buy — a cow 12/24, a sack 2/4, stone 2/4, iron
@@ -300,14 +260,6 @@ public partial class GameBalance : Resource
 	[Export] public float[] MilitiaArmed = { 0.15f, 0.25f, 0.3f };
 
 	[Export] public float GarrisonTolerated = 0.05f;
-	[Export] public float GarrisonLoyaltyPerTenth = 4f;
-
-	/// <summary>What an intake of men costs in goodwill, per hundred taken, and how much of that the
-	/// county forgets each season. Sons taken for war are a real grievance in this game's ancestor
-	/// and the advisor has a line for it, so it has to be a real number here or the line would be
-	/// an accusation with nothing behind it.</summary>
-	[Export] public float ConscriptionLoyaltyPerHundred = 7f;
-	[Export] public float ConscriptionForgetRate = 0.34f;
 
 	// --- what a battle does ------------------------------------------------------------------------
 
@@ -531,19 +483,4 @@ public partial class GameBalance : Resource
 	/// can before he declares a war that is never made up; and the letters an inbox holds.</summary>
 	[Export] public int WarWarnings = 2;
 	[Export] public int InboxSize = 5;
-
-	// [None, Half, Normal, Double, Triple] — the multiples themselves, so the food a county eats is
-	// literally the ration its lord set. A county fed double eats twice the bread; there is no
-	// separate fudge factor between the word on the panel and the hole in the granary.
-	[Export] public float[] RationFoodMultiplier = { 0f, 0.5f, 1.0f, 2.0f, 3.0f };
-
-	/// <summary>Births, against the ordinary ration. A well-fed county grows and a hungry one does
-	/// not, which is the slow half of what the ration buys.</summary>
-	[Export] public float[] RationGrowthMultiplier = { 0f, 0.5f, 1.0f, 1.5f, 2.0f };
-
-	/// <summary>And the fast half: what the table does to their goodwill each season. Feeding a
-	/// county well is the lord's answer to a tax he cannot afford to cut — it costs grain instead of
-	/// crowns, which is exactly the trade the old game was built on. Worth less than the tax can take
-	/// away, on purpose: bread makes a hard rate bearable, it does not make it free.</summary>
-	[Export] public float[] RationLoyaltyDelta = { -15f, -6f, 0f, 3f, 5f };
 }

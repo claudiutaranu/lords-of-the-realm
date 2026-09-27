@@ -1,8 +1,7 @@
-/// <summary>Resources tracked by the economy in Phase 1. Weapons/horses join once the
-/// Blacksmith (Phase 2) exists — no unused members before there's a producer for them.</summary>
+/// <summary>The five stores a county works for. Gold is the realm's one purse, not a county's store,
+/// and weapons are racked by name in the armoury (weapons.json), so neither is here.</summary>
 public enum ResourceType
 {
-	Gold,
 	Grain,
 	Cattle,
 	Wood,

@@ -140,14 +140,15 @@ public partial class LordCheck : Node
 		// back the next at any price, and starved in the twenty years after. What the county is about
 		// to eat is not surplus.
 		ProvinceEconomy feast = County(def);
-		int need = Mathf.CeilToInt(feast.Population / b.PeoplePerGrain)
-			+ Mathf.CeilToInt(feast.Soldiers / b.PeoplePerGrain * b.SoldierAppetite);
+		int need = LordAI.Meal(feast, RationLevel.Normal);
 		int reserve = Mathf.CeilToInt(need * b.LordGrainSeasons[(int)Difficulty.Medium]);
 		feast.Grain = reserve + need + 10;
 		LordAI.TakeTurn(feast, def, b, Counter(b, Season.Spring), Season.Spring, Difficulty.Medium);
-		int meal = Mathf.CeilToInt(feast.Population / b.PeoplePerGrain * b.RationFoodMultiplier[(int)feast.Ration])
-			+ Mathf.CeilToInt(feast.Fed / b.PeoplePerGrain * b.SoldierAppetite);
+		// The meal as the table serves it, worked out here from the rule and not from LordAI.
+		int meal = Livelihood.DivCeil(Mathf.Max(0, Livelihood.Portions(feast.Population + feast.FieldMen, feast.Ration)
+			- (feast.Cattle * Livelihood.FedByDairy)), Livelihood.FedBySack);
 		Is("a lord does not sell the bread his county is about to eat", feast.Grain >= reserve + meal, true);
+		Is("  and reckons his meal the way the table serves it", LordAI.Meal(feast, feast.Ration), meal);
 
 		// A county short of bread buys it and does not haggle — the purse is the only ceiling.
 		ProvinceEconomy hungry = County(def);

@@ -69,7 +69,7 @@ public static class LordAI
 		// feast came out of the reserve, and the market bought it back.
 		int reserve = Reserve(p, b, skill);
 		p.Ration = p.Grain * 2 < reserve ? RationLevel.Half
-			: p.Grain >= reserve + Meal(p, b, RationLevel.Double) ? RationLevel.Double
+			: p.Grain >= reserve + Meal(p, RationLevel.Double) ? RationLevel.Double
 			: RationLevel.Normal;
 	}
 
@@ -277,7 +277,7 @@ public static class LordAI
 	/// it he will buy, so this one number is his whole food policy — and how many seasons ahead he
 	/// counts is most of what separates a lord who survives a bad year from one who does not.</summary>
 	private static int Reserve(ProvinceEconomy p, GameBalance b, Difficulty skill) =>
-		Mathf.CeilToInt(Need(p, b) * b.LordGrainSeasons[(int)skill]);
+		Mathf.CeilToInt(Need(p) * b.LordGrainSeasons[(int)skill]);
 
 	/// <summary>What stays in the barn whatever the market offers: the reserve, and on top of it the
 	/// meal the county is about to eat on the ration he has just set. He used to sell everything
@@ -285,18 +285,17 @@ public static class LordAI
 	/// table laid emptied his own barn in a season and bought it back the next at any price, and
 	/// the Northern Watch starved to death in twenty years without a blow being struck.</summary>
 	private static int Kept(ProvinceEconomy p, GameBalance b, Difficulty skill) =>
-		Reserve(p, b, skill) + Meal(p, b, p.Ration);
+		Reserve(p, b, skill) + Meal(p, p.Ration);
 
-	/// <summary>What the county eats in a season on a given ration, the garrison with it — the same
-	/// arithmetic the meal itself is served by (EconomySimulation.Eat).</summary>
-	private static int Meal(ProvinceEconomy p, GameBalance b, RationLevel ration) =>
-		Mathf.CeilToInt(p.Population / b.PeoplePerGrain * b.RationFoodMultiplier[(int)ration])
-		+ Mathf.CeilToInt(p.Fed / b.PeoplePerGrain * b.SoldierAppetite);
+	/// <summary>The sacks the county eats in a season on a given ration, by the meal's own rule
+	/// (Livelihood.Eat): the people and the men in the field, their portions less what the dairy
+	/// feeds, a sack to six. Counted as all bread — a lord who keeps back for beef he then does not
+	/// kill has only kept a little too much. The castle's watch is not in it: it eats the castle's
+	/// own stores, and only under siege.</summary>
+	public static int Meal(ProvinceEconomy p, RationLevel ration) =>
+		Livelihood.DivCeil(Mathf.Max(0, Livelihood.Portions(p.Population + p.FieldMen, ration)
+			- (p.Cattle * Livelihood.FedByDairy)), Livelihood.FedBySack);
 
-	/// <summary>One season's bread at the ordinary ration: the people on it, and the garrison, which
-	/// is not on it. Read off the same constants the simulation actually eats by rather than a second
-	/// set that would drift from them.</summary>
-	private static int Need(ProvinceEconomy p, GameBalance b) =>
-		Mathf.CeilToInt(p.Population / b.PeoplePerGrain)
-		+ Mathf.CeilToInt(p.Soldiers / b.PeoplePerGrain * b.SoldierAppetite);
+	/// <summary>One season's bread at the ordinary ration.</summary>
+	private static int Need(ProvinceEconomy p) => Meal(p, RationLevel.Normal);
 }
