@@ -31,6 +31,7 @@ public partial class EconomyCheck : Node
 		Projection(b, def);
 		TheYear(b);
 		StoneOrIron();
+		Carts(b);
 
 		GD.Print(_failed == 0
 			? "\nprovince economy: all checks passed"
@@ -290,13 +291,19 @@ public partial class EconomyCheck : Node
 		Is("  and not off the mine", winter.IronWorkers, ironNow);
 		Is("  and is exactly one figure", winter.WoodWorkers, woodNow + 20);
 
-		// With nobody idle, the figure comes from a job with more than it needs — never off a herd
-		// that would fall below what it needs.
+		// Only the idle can be put to work, as in Lords of the Realm: asking for more than stand
+		// about gives what idle there are, and nobody is pulled off another job for the rest.
 		ProvinceEconomy busy = Province();
 		Labour.Divide(busy, def, b, Season.Spring, 25);
 		int herdNow = busy.CattleWorkers;
-		Labour.Ask(busy, def, b, Season.Spring, Labour.Grain, busy.GrainWorkers + 20);
-		Is("a figure for the fields leaves the herd its need", busy.CattleWorkers, herdNow);
+		int busyWood = busy.WoodWorkers;
+		int busyIdle = EconomySimulation.Idle(busy, def, b, Season.Spring);
+		int busyGrain = busy.GrainWorkers;
+		Labour.Ask(busy, def, b, Season.Spring, Labour.Grain, busy.Workers);
+		Is("a figure for the fields comes only from the idle", busy.GrainWorkers,
+			Mathf.Min(busyGrain + busyIdle, Labour.Ceiling(busy, def, b, Season.Spring, Labour.Grain)));
+		Is("  and leaves the herd alone", busy.CattleWorkers, herdNow);
+		Is("  and the woods", busy.WoodWorkers, busyWood);
 
 		// Waste being reclaimed has reclaimers of its own, and the reapers are not taken off the harvest
 		// for it: a season's most for the one field.

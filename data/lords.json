@@ -1,0 +1,101 @@
+{
+	"_comment": "The four lords of the realm, once, for every campaign. A campaign's provinces.json only names which of them holds a realm ('lord': 'margrave'); nothing about a lord is written twice. Each keeps the personality of one of Lords of the Realm II's four (Knight, Baron, Countess, Bishop) under a title of our own. 'offersAllianceEvery' is the original's (12/10/8/4 turns); 'grudgeLimit' — how many turns of alliance he stomachs before the grudge breaks it — is not known from the original and is ours [I]. 'letters' are what he writes back, by what he is answering; {gold} is filled with a gift's size.",
+	"lords": {
+		"marshal": {
+			"title": "The Marshal",
+			"personality": "knight",
+			"offersAllianceEvery": 12,
+			"grudgeLimit": 20,
+			"letters": {
+				"gift-thanks": "Your {gold} crowns are received. A soldier does not forget who paid his men.",
+				"gift-slight": "You sent me less than you have sent before. I count, my lord. Everyone in a camp counts.",
+				"compliment-pleased": "Kind words. I will have them read to the men at supper.",
+				"compliment-weary": "Enough letters. Send me something I can feed a horse on.",
+				"insult": "Say it to my face, on a field of your choosing. I will be there before you.",
+				"alliance-yes": "Your counsel is good. We will fight together, and we shall win together.",
+				"alliance-no": "I do not put my banner beside a man I do not yet know. Not this year.",
+				"alliance-offer": "My lord, the roads are dangerous and we both keep an army on them. Let them march the same way.",
+				"alliance-broken": "I have carried you long enough. From this day my men march for me alone.",
+				"alliance-ended": "So be it. I will remember who broke faith first.",
+				"help-yes": "My men are already saddled. Tell me where the enemy stands.",
+				"help-no": "I cannot spare a lance this season. Hold your walls.",
+				"attack-yes": "A fair request. I will ride on them before the season is out.",
+				"attack-no": "I will not throw my men at that gate for another lord's quarrel.",
+				"warning": "You try my patience, my lord. The next insult is answered with steel.",
+				"war": "Enough. From today there is war between us, and it ends with one of us."
+			}
+		},
+		"margrave": {
+			"title": "The Margrave",
+			"personality": "baron",
+			"offersAllianceEvery": 10,
+			"grudgeLimit": 14,
+			"letters": {
+				"gift-thanks": "{gold} crowns. The border is an expensive thing to keep, and you have helped keep it.",
+				"gift-slight": "A smaller purse than last time. Is the Crown poorer, or am I worth less to it?",
+				"compliment-pleased": "The March has few friends. It is good to hear from one.",
+				"compliment-weary": "Your clerk writes well. My walls are not built of letters.",
+				"insult": "I have hanged men on the border for less than you have written.",
+				"alliance-yes": "Your counsel is good. We will fight together, and we shall win together.",
+				"alliance-no": "The March stands alone until I have reason to think otherwise.",
+				"alliance-offer": "Two lords watching the same road should watch it together. What say you?",
+				"alliance-broken": "Our friendship has cost me more than it has paid. The March stands alone again.",
+				"alliance-ended": "You break your word lightly. The March will not forget it.",
+				"help-yes": "The Watch will come. See that there is bread for them when they arrive.",
+				"help-no": "My own border is burning. I have no men to send you.",
+				"attack-yes": "They have been a thorn in the March for years. Gladly.",
+				"attack-no": "I have no quarrel with them yet, and I will not buy one for you.",
+				"warning": "Mind your words. The March has a long memory and a short temper.",
+				"war": "You have made an enemy on your northern border. Sleep lightly."
+			}
+		},
+		"duchess": {
+			"title": "The Duchess",
+			"personality": "countess",
+			"offersAllianceEvery": 8,
+			"grudgeLimit": 16,
+			"letters": {
+				"gift-thanks": "How generous — {gold} crowns. I shall think of you warmly, and often.",
+				"gift-slight": "A lighter gift than your last. I do notice these things, my lord.",
+				"compliment-pleased": "You flatter me, and I allow it. Do write again.",
+				"compliment-weary": "Sweet words go stale when there are too many of them.",
+				"insult": "How very common of you. I had expected better manners from a crown.",
+				"alliance-yes": "Your counsel is good. We will fight together, and we shall win together.",
+				"alliance-no": "I am touched, but I do not bind myself so easily.",
+				"alliance-offer": "My lord, we would do better as friends than as neighbours. Shall we be friends?",
+				"alliance-broken": "I find our arrangement no longer suits me. Do not take it to heart.",
+				"alliance-ended": "How disappointing. I had thought better of you.",
+				"help-yes": "Of course. My captains will be with you shortly.",
+				"help-no": "I would love to, truly, but my own lands need every man I have.",
+				"attack-yes": "They have been tiresome. I will see to it.",
+				"attack-no": "I have no wish to make that enemy. Ask me something else.",
+				"warning": "You are making this very difficult, my lord. Do take care.",
+				"war": "Then you leave me no choice. Consider us at war."
+			}
+		},
+		"abbot": {
+			"title": "The Abbot",
+			"personality": "bishop",
+			"offersAllianceEvery": 4,
+			"grudgeLimit": 10,
+			"letters": {
+				"gift-thanks": "{gold} crowns for the abbey. Heaven sees what you give, my son, and so do I.",
+				"gift-slight": "Less than you gave before. The Lord loves a cheerful giver, and a consistent one.",
+				"compliment-pleased": "Bless you, my son. You shall be remembered at Vespers.",
+				"compliment-weary": "Flattery is a small sin, but you commit it very often.",
+				"insult": "I will pray for you. Pray that it is all I do.",
+				"alliance-yes": "Your counsel is good. We will fight together, and we shall win together.",
+				"alliance-no": "The abbey does not yet trust you, my son. Show us a better heart.",
+				"alliance-offer": "My son, the abbey has need of friends in these wicked times. Will you be one?",
+				"alliance-broken": "The brothers and I have prayed on it. We can no longer stand beside you.",
+				"alliance-ended": "You break a vow as easily as bread. God is watching, my son.",
+				"help-yes": "The abbey's men will march under the cross to your side.",
+				"help-no": "Our men are few and our walls are old. We cannot come.",
+				"attack-yes": "Their lord is no friend of the Church. It shall be done.",
+				"attack-no": "I will not bless that war. Find another sword.",
+				"warning": "Repent, my son, while there is still time to.",
+				"war": "You are cast out. Let every man of the abbey take up arms against you."
+			}
+		}
+	}
+}

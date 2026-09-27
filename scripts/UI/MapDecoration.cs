@@ -73,13 +73,13 @@ public partial class MapDecoration : Node3D
 	// What a field is drawn as: a plot this many world units on a side, with a hedge band around it,
 	// laid on a lattice of cells this far apart. Sized against the cottages beside it — a plot is a
 	// strip a family works, not an estate, and two of them side by side should read as two fields
-	// rather than as two counties. The gap is the hedge between neighbours, so it is nearly nothing:
-	// what makes a patchwork is plots that touch.
+	// rather than as two counties. There is no gap: neighbours share a hedge, as the original's fields
+	// share a fence, and what makes a patchwork is plots that touch.
 	// A field's side, in world units. Smaller than it was: at 2.6 a county's ten fields were a
 	// patchwork a fifth of the way across the island, and the plots read as tiles laid on the map
 	// rather than as fields in it.
 	private const float PlotSize = 2.0f;
-	private const float PlotGap = 0.25f;
+	private const float PlotGap = 0f;
 	private const float PlotBorder = 0.07f;  // share of the plot its hedge band takes, each side
 	private const float PlotLift = 0.12f;    // clear of the terrain
 	private const int PlotRings = 7;         // lattice cells searched either way of the seat
@@ -628,6 +628,43 @@ public partial class MapDecoration : Node3D
 		Vector2 Centre(Vector2I square) => seat + new Vector2(
 			(square.X + 0.5f) * cell, (square.Y + 0.5f) * cell).Rotated(yaw);
 
+		// Whether a cell can be ploughed at all, asked once: the one-block search below asks it of
+		// the same cells from many starting points.
+		var ploughable = new Dictionary<Vector2I, bool>();
+		bool Ploughable(Vector2I square)
+		{
+			if (!ploughable.TryGetValue(square, out bool can))
+			{
+				can = Mathf.Abs(square.X) <= PlotRings && Mathf.Abs(square.Y) <= PlotRings
+					&& !OnSeatGround(seat, Centre(square)) && CanPlough(Centre(square), yaw, openGroundOnly: false, county);
+				ploughable[square] = can;
+			}
+
+			return can;
+		}
+
+		// One patchwork first, as the original lays a county's fields: the nearest open cell from
+		// which every field fits in one block, grown closest-to-the-first-cell first so it comes out
+		// square rather than as a snake along a valley.
+		foreach (bool openOnly in new[] { true, false })
+		{
+			foreach (Vector2I first in cells)
+			{
+				if (openOnly && !CanPlough(Centre(first), yaw, openGroundOnly: true, county))
+				{
+					continue;
+				}
+
+				List<Vector2I> block = Block(first, wanted, Ploughable);
+				if (block.Count >= wanted)
+				{
+					return block.ConvertAll(Centre);
+				}
+			}
+		}
+
+		// Broken ground with no room for one block: two or three smaller ones, each grown from the
+		// nearest cell still free.
 		var taken = new List<Vector2I>();
 		for (int pass = 0; pass < 2 && taken.Count < wanted; pass++)
 		{
@@ -686,6 +723,51 @@ public partial class MapDecoration : Node3D
 
 	/// <summary>Whether a plot would touch the ground the seat keeps for its town or its castle.
 	/// Judged on the plot's reach, half its diagonal, so no corner of a field clips a roof.</summary>
+	/// <summary>A block of ploughable cells grown from one, always taking next the free neighbour
+	/// nearest the first cell (ties by the cell's own coordinates, so a rebuild lays the same block).</summary>
+	private static List<Vector2I> Block(Vector2I first, int wanted, System.Func<Vector2I, bool> ploughable)
+	{
+		var block = new List<Vector2I>();
+		var seen = new HashSet<Vector2I> { first };
+		var frontier = new List<Vector2I> { first };
+		while (frontier.Count > 0 && block.Count < wanted)
+		{
+			int best = 0;
+			for (int i = 1; i < frontier.Count; i++)
+			{
+				if (Closer(frontier[i], frontier[best], first))
+				{
+					best = i;
+				}
+			}
+
+			Vector2I square = frontier[best];
+			frontier.RemoveAt(best);
+			if (!ploughable(square))
+			{
+				continue;
+			}
+
+			block.Add(square);
+			foreach (Vector2I side in new[] { Vector2I.Right, Vector2I.Down, Vector2I.Left, Vector2I.Up })
+			{
+				if (seen.Add(square + side))
+				{
+					frontier.Add(square + side);
+				}
+			}
+		}
+
+		return block;
+	}
+
+	private static bool Closer(Vector2I a, Vector2I b, Vector2I to)
+	{
+		int da = (a - to).LengthSquared();
+		int db = (b - to).LengthSquared();
+		return da != db ? da < db : a.X != b.X ? a.X < b.X : a.Y < b.Y;
+	}
+
 	private bool OnSeatGround(Vector2 seat, Vector2 plot)
 	{
 		float reach = PlotSize * 0.71f * _map.PixelsPerUnit;

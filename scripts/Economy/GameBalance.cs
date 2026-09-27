@@ -495,6 +495,43 @@ public partial class GameBalance : Resource
 	/// <summary>How many battles a lord fights in his head before deciding one in the field.</summary>
 	[Export] public int LordOddsTrials = 40;
 
+	// --- the lords' letters (Diplomacy) ---------------------------------------------------------
+
+	/// <summary>How far two lords can think well or ill of each other, either way — the original's
+	/// −30..+30. Between two of the other lords it mends by DiplomacyMends a season on its own;
+	/// towards the player it never does.</summary>
+	[Export] public int DiplomacyStandingMost = 30;
+	[Export] public int DiplomacyMends = 1;
+
+	/// <summary>What a gift smaller than the biggest one ever sent to that lord costs: the original's
+	/// −8. What a big enough one earns is not known from it — a point a hundred crowns, no more than
+	/// ten points a letter, is ours [I].</summary>
+	[Export] public int GiftSlight = -8;
+	[Export] public int GoldPerGoodwill = 100;
+	[Export] public int GiftMostGoodwill = 10;
+
+	/// <summary>The first, second and third compliment to a lord, and every one after that: the
+	/// original's +15, +8, then −4 a letter once a lord has had three. What the third earns is not
+	/// clear from it; nothing is ours [I].</summary>
+	[Export] public int[] ComplimentGoodwill = { 15, 8, 0 };
+	[Export] public int ComplimentWeary = -4;
+
+	/// <summary>What an insult, and an alliance broken by the player, cost [I].</summary>
+	[Export] public int InsultGoodwill = -10;
+	[Export] public int BreakGoodwill = -10;
+
+	/// <summary>The standing a lord wants before he takes an offered alliance, before he offers one of
+	/// his own, and before he marches at an ally's asking. None of the three is known from the
+	/// original [I].</summary>
+	[Export] public int AllianceAt = 10;
+	[Export] public int LordOffersAt = 0;
+	[Export] public int ErrandAt = 0;
+
+	/// <summary>Warnings a lord writes, a season apiece, while he thinks as ill of the player as he
+	/// can before he declares a war that is never made up; and the letters an inbox holds.</summary>
+	[Export] public int WarWarnings = 2;
+	[Export] public int InboxSize = 5;
+
 	// [None, Half, Normal, Double, Triple] — the multiples themselves, so the food a county eats is
 	// literally the ration its lord set. A county fed double eats twice the bread; there is no
 	// separate fudge factor between the word on the panel and the hole in the granary.

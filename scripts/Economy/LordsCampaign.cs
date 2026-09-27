@@ -737,7 +737,7 @@ public sealed class LordsCampaign
 
 	/// <summary>Where the company stands: where it was last marched to, or its own village if it has
 	/// never been sent anywhere.</summary>
-	private Vector2 Pixel(FieldArmy army)
+	public Vector2 Pixel(FieldArmy army)
 	{
 		var at = new Vector2(army.X, army.Y);
 		return at != Vector2.Zero ? at : _towns.GetValueOrDefault(army.Home);

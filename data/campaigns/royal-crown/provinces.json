@@ -9,7 +9,8 @@
   },
   "northern-watch": {
    "name": "The Northern Watch",
-   "accent": "5f8fc9"
+   "accent": "5f8fc9",
+   "lord": "margrave"
   },
   "neutral": {
    "name": "Unclaimed",

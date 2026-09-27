@@ -28,7 +28,7 @@ considerate greșeli.
 | Comerț: negustori | 1 | 4 | 1 | 2 |
 | Armate pe hartă | 3 | 13 | 3 | 5 |
 | Asedii și bătălii | 1 | 4 | 0 | 11 |
-| AI și diplomație | 0 | 3 | 0 | 10 |
+| AI și diplomație | 6 | 3 | 0 | 4 |
 | Scor, victorie, campanie, opțiuni | 0 | 2 | 0 | 4 |
 | Goluri și decizii | 0 | 2 | 0 | 13 |
 | **Total** | **15** | **118** | **9** | **94** |
@@ -536,12 +536,12 @@ La noi e o singură piață fixă, `Market.cs`, comună tuturor lorzilor (`TurnM
 
 **Diplomație**
 
-- [ ] LIPSĂ — Standing −30…+30 pe pereche.
-- [ ] LIPSĂ — Cele 7 mesaje, inbox cu 5 sloturi, răspuns în turul următor.
-- [ ] LIPSĂ — Cadoul comparat cu maximul trimis vreodată.
-- [ ] LIPSĂ — Complimente +15, +8, apoi −4.
-- [ ] LIPSĂ — Alianțe exclusive și „grudge”.
-- [ ] LIPSĂ — Avertismente, apoi război permanent.
+- [x] OK — `Diplomacy.cs` — Standing −30…+30 pe pereche (`DiplomacyStandingMost`); +1/tur între AI-uri, niciodată spre om (`Mend`).
+- [x] OK — `Diplomacy.cs`, `DiplomacySeason.cs` — Cele 7 mesaje, inbox cu 5 sloturi (`InboxSize`), răspuns în turul următor (în `RivalsTurn`). Efectul pe război al lui „cere ajutor”/„cere atac” e doar notat (`Errands`) până îl citește `LordsCampaign`.
+- [x] OK — `DiplomacySeason.cs` `Answer` — Cadoul comparat cu maximul trimis vreodată, prea mic = −8. Cât aduce unul destul de mare (1 punct/100 de coroane, maxim 10) e al nostru [I].
+- [x] OK — Complimente +15, +8, apoi −4. Al treilea dă 0 [I] (`ComplimentGoodwill`).
+- [x] OK — Alianțe exclusive și „grudge” pe lord (`data/lords.json` "grudgeLimit" [I]); ofertele lordului la 12/10/8/4 ture.
+- [x] OK — `Warn` — 2 avertismente (`WarWarnings`), apoi război permanent.
 - [ ] DIFERIT — `data/campaigns/royal-crown/provinces.json:4-17` — Culorile sunt fixate per regat în datele campaniei (`accent`), nu alese ca cel mai mic scut liber cu lordul derivat din scut.
 
 ## Scor, victorie, campanie, opțiuni

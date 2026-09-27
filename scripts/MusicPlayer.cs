@@ -8,6 +8,8 @@ public partial class MusicPlayer : AudioStreamPlayer
 		"res://assets/audio/dawn-over-the-kingdom.mp3",
 		"res://assets/audio/dawn-over-the-wall.mp3",
 		"res://assets/audio/march-of-the-brave.mp3",
+		"res://assets/audio/pastoral-dawn.mp3",
+		"res://assets/audio/castles-at-dawn.mp3",
 	};
 
 	private readonly RandomNumberGenerator _rng = new();

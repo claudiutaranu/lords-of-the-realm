@@ -104,6 +104,8 @@ public partial class CampaignMapPage : Control
 		Vector2 TownPosition);
 
 	private readonly Dictionary<string, RealmData> _realms = new();
+	// Which of the four lords (data/lords.json) holds each realm on this map.
+	private readonly Dictionary<string, string> _lordOf = new();
 	// Which realm is yours. The others' provinces, and the unclaimed ones, run on nobody's orders yet.
 	private string _playerRealm = "";
 	// And which realm means nobody. A province of this realm is not simulated at all — it is not
@@ -143,6 +145,8 @@ public partial class CampaignMapPage : Control
 	private TaxPanel _taxes;
 	private HappinessPanel _happiness;
 	private RationPanel _rations;
+	private SupplyPanel _supply;
+	private StorePanel _stores;
 	private FieldPanel _fields;
 	/// <summary>One line the turn owes the player that the advisor has no words for — men walking
 	/// away unpaid, so far. Shown once he is done talking.</summary>
@@ -247,6 +251,7 @@ public partial class CampaignMapPage : Control
 		{
 			RivalWallsUpTo = _rivalWallsUpTo,
 			Neighbours = _neighbours,
+			LordOf = _lordOf,
 		};
 		// Read before the pending save is consumed: it is the only thing that tells a campaign
 		// being started from a campaign being resumed.
@@ -254,7 +259,7 @@ public partial class CampaignMapPage : Control
 		if (SaveGame.Pending != null)
 		{
 			_turnManager.Restore(SaveGame.Pending.Turn, SaveGame.Pending.Provinces, SaveGame.Pending.Prices,
-				SaveGame.Pending.Difficulty);
+				SaveGame.Pending.Difficulty, SaveGame.Pending.Diplomacy, SaveGame.Pending.Shipments);
 			SaveGame.Pending = null; // consumed, so starting a fresh campaign later doesn't reopen it
 		}
 
@@ -297,6 +302,21 @@ public partial class CampaignMapPage : Control
 		AddChild(_rations);
 		_rations.Changed += _sidebar.Refresh;
 		_sidebar.RationPressed += OpenRations;
+
+		// A cart sent is a county's barn lighter and a mark on the road.
+		_supply = new SupplyPanel();
+		AddChild(_supply);
+		_supply.Dispatched += cart =>
+		{
+			_sidebar.Refresh();
+			int seasons = _turnManager.SupplySeasons(cart.From, cart.To);
+			ShowSaveToast($"The carts leave {cart.From} for {cart.To}: {seasons} season{(seasons == 1 ? "" : "s")} on the road");
+		};
+
+		_stores = new StorePanel();
+		AddChild(_stores);
+		_sidebar.StorePressed += OpenStore;
+		_stores.SupplyPressed += OpenSupply;
 		_sidebar.MarchPressed += () =>
 		{
 			if (_selected != null)
@@ -323,6 +343,11 @@ public partial class CampaignMapPage : Control
 		_trail = new MarchTrail();
 		Control markerLayer = GetNode<Control>("%Markers");
 		markerLayer.AddChild(_trail);
+
+		// The carts on the road, among the pins for the same reason as the trail.
+		var carts = new CartMarkers();
+		markerLayer.AddChild(carts);
+		carts.Watch(_world, () => _turnManager.Shipments);
 
 		AddChild(_marchLabel);
 
@@ -482,7 +507,8 @@ public partial class CampaignMapPage : Control
 			// voice that starts once the work is already done is a voice answering nothing.
 			Narrator.Say(SavingVoicePath);
 			SaveGame.Write(Campaign.Name, _turnManager.Turn, _turnManager.Provinces,
-				_turnManager.Market.Pressure, _turnManager.Difficulty);
+				_turnManager.Market.Pressure, _turnManager.Difficulty, _turnManager.Diplomacy,
+				_turnManager.Shipments);
 			gameMenu.Visible = false; // out of the way, so the confirmation lands on the map itself
 			ShowSaveToast($"Saved · Turn {_turnManager.Turn}");
 		};
@@ -500,7 +526,8 @@ public partial class CampaignMapPage : Control
 			// Options is its own scene, so the running campaign rides along in memory rather
 			// than through a file, and comes back when Back returns here.
 			SaveGame.Pending = SaveGame.Snapshot(Campaign.Name, _turnManager.Turn, _turnManager.Provinces,
-				_turnManager.Market.Pressure, _turnManager.Difficulty);
+				_turnManager.Market.Pressure, _turnManager.Difficulty, _turnManager.Diplomacy,
+				_turnManager.Shipments);
 			OptionsPage.ReturnScenePath = SelfScenePath;
 			SceneRouter.GoTo(this, OptionsScenePath);
 		};
@@ -994,6 +1021,33 @@ public partial class CampaignMapPage : Control
 	/// <summary>What the county is given to eat. It needs the land as well as the ledger, because
 	/// what the season will actually take is worked out by playing the season on a copy of the
 	/// county — and a county's year depends on the fields it has.</summary>
+	private void OpenStore(ResourceType type)
+	{
+		ProvinceData province = Selected();
+		ProvinceEconomy economy = _turnManager.GetProvince(province.Name);
+		if (economy != null && _definitionsByName.TryGetValue(province.Name, out ProvinceDefinition definition))
+		{
+			_stores.Open(type, economy, definition, _balance, _turnManager.CurrentSeason);
+		}
+	}
+
+	/// <summary>The carts, loaded out of the county in hand for another of the lord's.</summary>
+	private void OpenSupply()
+	{
+		ProvinceData province = Selected();
+		ProvinceEconomy economy = _turnManager.GetProvince(province.Name);
+		if (economy == null)
+		{
+			ShowSaveToast($"{province.Name} is not yours to send from");
+			return;
+		}
+
+		if (!_supply.Open(_turnManager, economy))
+		{
+			ShowSaveToast("You hold no other county to send to");
+		}
+	}
+
 	private void OpenRations()
 	{
 		ProvinceData province = Selected();
@@ -1322,6 +1376,10 @@ public partial class CampaignMapPage : Control
 			Godot.Collections.Dictionary fields = realm.Value.AsGodotDictionary();
 			_realms[realm.Key.AsString()] =
 				new RealmData(fields["name"].AsString(), new Color(fields["accent"].AsString()));
+			if (fields.TryGetValue("lord", out Variant lord))
+			{
+				_lordOf[realm.Key.AsString()] = lord.AsString();
+			}
 		}
 
 		Dictionary<string, Vector2> yards = LoadYards();

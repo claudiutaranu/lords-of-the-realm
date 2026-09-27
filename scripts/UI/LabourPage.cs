@@ -265,12 +265,12 @@ public partial class LabourPage : RoomPage
 	};
 
 	/// <summary>One task: what it is, how many hands are on it, and what they are worth. The stepper
-	/// asks for hands (Labour.Ask) and runs to what the task can use or to its half of the county,
-	/// whichever comes first — there is no way to put a hundred men on a job with work for twenty.</summary>
+	/// asks for hands (Labour.Ask) and runs to what the task can use or to the idle there are to put on
+	/// it, whichever comes first — there is no way to put a hundred men on a job with work for twenty.</summary>
 	private Control Row(Work work)
 	{
 		string job = Labour.JobOf(work.Type);
-		int demand = Labour.Most(Province, _definition, _balance, _season, job);
+		int demand = Mathf.Min(Labour.Ceiling(Province, _definition, _balance, _season, job), Province.Workers);
 		int on = Allocated(work.Type);
 
 		var row = new HBoxContainer();
@@ -298,7 +298,7 @@ public partial class LabourPage : RoomPage
 		// The slider runs to what the job can use, so its position reads as "how much of this job is
 		// manned" — which is the thing worth knowing.
 		// A figure at a time, as on the province screen (WorkerFigures).
-		Control stepper = Stepper(null, on, WorkerFigures.Size(Province.Workers), demand, hands =>
+		Control stepper = Stepper(null, on, WorkerFigures.Size(Province.Workers), Labour.Most(Province, _definition, _balance, _season, job), hands =>
 		{
 			Labour.Ask(Province, _definition, _balance, _season, job, hands);
 			Rebuild();

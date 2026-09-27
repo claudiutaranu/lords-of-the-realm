@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 
 /// <summary>Owns the runtime economy of every province somebody holds — the player's and every
@@ -14,7 +15,7 @@ using Godot;
 /// The player's counties and the lords' run through the same EconomySimulation, in the same loop,
 /// on the same season. The only difference is who gives the orders in the moment before it runs:
 /// the player spent his turn doing it, and <see cref="LordAI"/> does it for everybody else.</summary>
-public class TurnManager
+public partial class TurnManager
 {
 	/// <summary>What a county with no lord puts in the way of one who wants it, by the keys
 	/// recruits.json uses: its farmhands, and the town's own watch of bowmen and spears.</summary>
@@ -54,6 +55,13 @@ public class TurnManager
 	/// <summary>The highest rung of the ladder the other lords may build, by key; empty for all of it.
 	/// The campaign's to say (provinces.json "rivalWallsUpTo").</summary>
 	public string RivalWallsUpTo { get; set; } = "";
+
+	/// <summary>Which of the four lords (Lords) sits in each realm, by key — the campaign's to say
+	/// (provinces.json "lord"). A realm with nobody seated writes no letters.</summary>
+	public Dictionary<string, string> LordOf { get; set; } = new();
+
+	/// <summary>The letters between the realms: who thinks what of whom, who is sworn to whom.</summary>
+	public Diplomacy Diplomacy { get; private set; } = new();
 
 	/// <summary>The realm the player is, for whoever has to tell his men from everybody else's.</summary>
 	public string PlayerRealm => _playerRealm;
@@ -97,6 +105,9 @@ public class TurnManager
 		System.Func<string, List<Vector2>> groundOf = null)
 	{
 		_campaign = new LordsCampaign(way, countyAt, towns, reach, groundOf);
+		_way = way;
+		_towns = towns;
+		_gateReach = reach;
 		_fieldAt = fieldAt;
 		_siteAt = siteAt;
 	}
@@ -1098,10 +1109,14 @@ public class TurnManager
 	/// written before a province was added or renamed still loads: the missing one simply keeps
 	/// the starting values the definitions gave it.</summary>
 	public void Restore(int turn, List<ProvinceEconomy> provinces, Dictionary<string, float> prices,
-		Difficulty difficulty)
+		Difficulty difficulty, Diplomacy diplomacy = null, List<Shipment> shipments = null)
 	{
 		Turn = turn;
 		Difficulty = difficulty;
+		// A save written before there were letters: nobody has written anybody anything yet.
+		Diplomacy = diplomacy ?? new Diplomacy();
+		// Nor carts: a save from before there were any has none on the road.
+		Shipments = shipments ?? new List<Shipment>();
 		// A save written before the market moved carries no prices, and an empty book is exactly
 		// right for it: every store simply sits at what it is worth.
 		Market.Pressure = prices ?? new Dictionary<string, float>();
@@ -1206,6 +1221,10 @@ public class TurnManager
 		_rivalsTookTurn = Turn;
 		Season season = CurrentSeason;
 
+		// Letters first, as the original's lords read their inbox before they set a tax: a lord
+		// the player has just sworn to does not march on him the same season.
+		Diplomacy.Season(Turn, _playerRealm, Rivals(), SeatedLords(), _balance);
+
 		// Every rival gives his orders before ANY county is run. Two passes rather than one, because
 		// a lord's tax is felt in his neighbours' counties as well as his own: run them one at a
 		// time and whether a rate counted this season or next would depend on which province happens
@@ -1243,6 +1262,52 @@ public class TurnManager
 		}
 
 		return walked;
+	}
+
+	/// <summary>The realms the other lords hold, in the campaign's authored order.</summary>
+	public List<string> Rivals()
+	{
+		var rivals = new List<string>();
+		foreach (ProvinceDefinition definition in _definitions)
+		{
+			string realm = _provincesByName[definition.ProvinceName].Realm;
+			if (realm.Length > 0 && realm != _playerRealm && !rivals.Contains(realm))
+			{
+				rivals.Add(realm);
+			}
+		}
+
+		return rivals;
+	}
+
+	private Dictionary<string, Lord> SeatedLords()
+	{
+		var seated = new Dictionary<string, Lord>();
+		foreach ((string realm, string key) in LordOf)
+		{
+			Lord lord = Lords.Find(key);
+			if (lord != null)
+			{
+				seated[realm] = lord;
+			}
+		}
+
+		return seated;
+	}
+
+	/// <summary>The player writes to a lord. A gift is paid out of his purse as it is sent, and is not
+	/// sent at all if the purse cannot cover it.</summary>
+	public bool Write(Letter letter)
+	{
+		Treasury purse = _provincesByName.Values.FirstOrDefault(p => p.Realm == _playerRealm)?.Purse;
+		if (letter.From != _playerRealm || purse == null || purse.Gold < letter.Gold
+			|| !Diplomacy.Send(letter))
+		{
+			return false;
+		}
+
+		purse.Gold -= letter.Kind == Diplomacy.Gift ? letter.Gold : 0;
+		return true;
 	}
 
 	/// <summary>The season's weather over every held county (Climate), and what the lord hears of
@@ -1292,6 +1357,11 @@ public class TurnManager
 	{
 		// Nobody watched them take their turn — the checks, a harness — so they take it now.
 		RivalsTurn();
+
+		// The carts roll after the rivals have marched, so a company that halted on the road is
+		// standing there when they come by; and before the counties' season, so what they bring in
+		// is in the granary the county eats from.
+		Haul();
 
 		Season season = CurrentSeason;
 		var summaries = new List<TurnSummary>(_definitions.Count);

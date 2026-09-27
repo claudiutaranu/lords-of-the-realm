@@ -162,5 +162,17 @@
 	"field-lost": {
 		"heading": "Beaten in the Field, Holding at the Gate",
 		"text": "They came for us in the open, my lord: {came} men against our {stood}, and ours broke. We lost {ourlost}. The {walls} on the walls still hold the gate, and {theirleft} of theirs are camped before it."
+	},
+	"supply-arrived": {
+		"heading": "The Carts Are In",
+		"text": "The carts from {from} have come in, my lord, and {goods} are unloaded into the stores of {county}."
+	},
+	"supply-turned": {
+		"heading": "The Carts Turn Back",
+		"text": "{county} is not ours to send to any more, my lord. The carts that set out for it have turned about on the road, and are making for {from} again."
+	},
+	"supply-lost": {
+		"heading": "The Carts Are Lost",
+		"text": "The carts from {from} will not come in, my lord: {why}, and {goods} are gone with them."
 	}
 }

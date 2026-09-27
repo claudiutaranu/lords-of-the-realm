@@ -83,7 +83,11 @@ public class SaveGame
 	/// <summary>4: a county's men live in companies of their own (<see cref="FieldArmy"/>) rather
 	/// than in one roster with one budget of ground. A file written at 3 still loads — ProvinceEconomy
 	/// reads its old roster, march and position into the one company it describes.</summary>
-	public int Version { get; set; } = 4;
+	/// <summary>5: the lords' letters (<see cref="Diplomacy"/>). A file written at 4 opens with nobody
+	/// having written anybody anything.</summary>
+	/// <summary>6: the lord's carts on the road (<see cref="Shipment"/>). A file written at 5 opens
+	/// with none out.</summary>
+	public int Version { get; set; } = 6;
 
 	public string CampaignName { get; set; } = "";
 
@@ -101,11 +105,21 @@ public class SaveGame
 	/// the lot, save, reload, sell it again at the price it started at.</summary>
 	public Dictionary<string, float> Prices { get; set; } = new();
 
+	/// <summary>Who thinks what of whom, who is sworn to whom, and the letters still on the road.</summary>
+	public Diplomacy Diplomacy { get; set; } = new();
+
+	/// <summary>The carts on the road. Their goods are in no county's stores until they arrive, so a
+	/// save that dropped them would quietly burn the granary they carry.</summary>
+	public List<Shipment> Shipments { get; set; } = new();
+
 	public string SavedAtDisplay => Time.GetDatetimeStringFromUnixTime(SavedAtUnix, true).Replace("T", " ");
 
 	public static SaveGame Snapshot(string campaignName, int turn, List<ProvinceEconomy> provinces,
-		Dictionary<string, float> prices, Difficulty difficulty) => new()
+		Dictionary<string, float> prices, Difficulty difficulty, Diplomacy diplomacy = null,
+		List<Shipment> shipments = null) => new()
 	{
+		Diplomacy = diplomacy ?? new Diplomacy(),
+		Shipments = shipments ?? new List<Shipment>(),
 		CampaignName = campaignName,
 		Difficulty = difficulty,
 		Turn = turn,
@@ -121,10 +135,11 @@ public class SaveGame
 		DirAccess.RemoveAbsolute(ProjectSettings.GlobalizePath($"{SaveDirectory}/{save.SavedAtUnix}.json"));
 
 	public static void Write(string campaignName, int turn, List<ProvinceEconomy> provinces,
-		Dictionary<string, float> prices, Difficulty difficulty)
+		Dictionary<string, float> prices, Difficulty difficulty, Diplomacy diplomacy = null,
+		List<Shipment> shipments = null)
 	{
 		DirAccess.MakeDirRecursiveAbsolute(SaveDirectory);
-		SaveGame save = Snapshot(campaignName, turn, provinces, prices, difficulty);
+		SaveGame save = Snapshot(campaignName, turn, provinces, prices, difficulty, diplomacy, shipments);
 
 		// Unix seconds name the file, so two saves a second apart never collide and the same
 		// second overwrites itself rather than piling up duplicates of one state.

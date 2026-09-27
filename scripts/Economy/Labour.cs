@@ -234,10 +234,10 @@ public static class Labour
 	/// the deal gives them — the way dragging a figure rewrites them in the original.
 	///
 	/// A figure taken off a job stands idle: its share is simply not given to anybody else. A figure
-	/// put on one comes from whoever can best spare it — the idle of either half, then a job with
-	/// more than it needs, and only last from a job that needs every man it has, this side of the
-	/// bar before the other. Whenever it comes from across the bar, the bar moves to fetch it. Asking
-	/// for hands at a site he had shut opens it.</summary>
+	/// put on one comes from the idle and only from the idle, as in Lords of the Realm — nobody is
+	/// pulled off another job behind the lord's back; he takes them off it himself first. When the
+	/// idle it draws on stand across the bar, the bar moves to fetch them. Asking for hands at a site
+	/// he had shut opens it.</summary>
 	public static void Ask(ProvinceEconomy p, ProvinceDefinition def, GameBalance b, Season season,
 		string job, int hands)
 	{
@@ -274,27 +274,14 @@ public static class Labour
 		want[job] = target;
 		if (need > 0)
 		{
-			// The idle first, wherever they stand — a figure fetched from the other half moves the bar.
+			// The idle alone, wherever they stand — a figure fetched from the other half moves the bar.
 			need -= Draw(ref ownIdle, need);
 			int fetched = Draw(ref otherIdle, need);
 			need -= fetched;
 
-			// Then whoever has more than his job needs, this side of the bar before the other.
-			need -= Spare(p, def, b, season, own, job, want, need, beyondNeedOnly: true);
-			int spared = Spare(p, def, b, season, other, job, want, need, beyondNeedOnly: true);
-			need -= spared;
-			fetched += spared;
 			ownHalf += fetched;
 			otherHalf -= fetched;
-
-			// Last, from whoever has anybody at all: this side of the bar first, then the other — a
-			// figure dragged from the reapers to the woodpile goes, harvest or no harvest.
-			need -= Spare(p, def, b, season, own, job, want, need, beyondNeedOnly: false);
-			int taken = Spare(p, def, b, season, other, job, want, need, beyondNeedOnly: false);
-			need -= taken;
-			ownHalf += taken;
-			otherHalf -= taken;
-			want[job] -= need; // nobody left anywhere to give
+			want[job] -= need; // as in the original, only the idle can be put to work
 		}
 
 		// The bar moves only when a figure crossed it — and then in whole percents of the county,
@@ -330,52 +317,6 @@ public static class Labour
 		return taken;
 	}
 
-	/// <summary>Takes up to <paramref name="need"/> hands off the jobs of a half, in proportion to
-	/// what each can give: everything past what it needs, or with <paramref name="beyondNeedOnly"/>
-	/// off, everything it has.</summary>
-	private static int Spare(ProvinceEconomy p, ProvinceDefinition def, GameBalance b, Season season,
-		string[] jobs, string asking, Dictionary<string, int> want, int need, bool beyondNeedOnly)
-	{
-		if (need <= 0)
-		{
-			return 0;
-		}
-
-		var spare = new Dictionary<string, int>();
-		int total = 0;
-		foreach (string job in jobs)
-		{
-			if (job == asking)
-			{
-				continue;
-			}
-
-			spare[job] = Mathf.Max(0, want[job] - (beyondNeedOnly ? Wanted(p, def, b, season, job) : 0));
-			total += spare[job];
-		}
-
-		int taking = Mathf.Min(need, total);
-		int taken = 0;
-		foreach ((string job, int can) in spare)
-		{
-			int off = total == 0 ? 0 : Mathf.Min(can, (int)((long)taking * can / total));
-			want[job] -= off;
-			taken += off;
-		}
-
-		// Whole men only: the odd ones come off whoever still has the most to give.
-		foreach ((string job, int _) in spare)
-		{
-			while (taken < taking && want[job] - (beyondNeedOnly ? Wanted(p, def, b, season, job) : 0) > 0)
-			{
-				want[job]--;
-				taken++;
-			}
-		}
-
-		return taken;
-	}
-
 	/// <summary>Writes a half's shares from the hands wanted on each job, rounded up so the deal
 	/// never comes out a man short of what was asked; a job's own ceiling takes off any excess.</summary>
 	private static void Proportion(ProvinceEconomy p, string[] jobs, int half, Dictionary<string, int> want)
@@ -386,9 +327,11 @@ public static class Labour
 		}
 	}
 
-	/// <summary>The most one job could be given: what it can use, and never more than the county.</summary>
+	/// <summary>The most one job could be given now: what it has and every idle hand, never past what
+	/// it can use.</summary>
 	public static int Most(ProvinceEconomy p, ProvinceDefinition def, GameBalance b, Season season, string job) =>
-		Mathf.Min(Ceiling(p, def, b, season, job), Mathf.Max(0, p.Workers));
+		Mathf.Min(Ceiling(p, def, b, season, job),
+			Mathf.Min(Mathf.Max(0, p.Workers), Hands(p, job) + EconomySimulation.Idle(p, def, b, season)));
 
 	public static string JobOf(ResourceType type) => type switch
 	{

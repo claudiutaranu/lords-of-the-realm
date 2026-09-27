@@ -39,7 +39,7 @@ public partial class ProvinceSidebar : VBoxContainer
 	// willing to be led — joins the grid the moment assets/units/peasant.png is dropped in.
 	/// <summary>What the smithy makes and the yard arms its men out of, in the order the armoury
 	/// counts them.</summary>
-	private static readonly (string Weapon, string Icon)[] Arms =
+	internal static readonly (string Weapon, string Icon)[] Arms =
 	{
 		("sword", "sword"),
 		("bow", "bow"),
@@ -66,9 +66,11 @@ public partial class ProvinceSidebar : VBoxContainer
 	private Button _march;
 	private readonly Dictionary<ResourceType, Label> _stock = new();
 	private readonly Dictionary<ResourceType, Label> _yield = new();
+	private readonly Dictionary<ResourceType, TextureRect> _stockIcon = new();
 	private readonly List<(Control Divider, Control Cell, Label Count, Label Yield, string Weapon)> _armoury = new();
 	private Control _armouryFrame;
 	private LabourBar _labour;
+	private WorksStrip _works;
 	private Control _labourFrame;
 
 	/// <summary>The lord wants a word with the reeve about the tax. Raised rather than handled here:
@@ -81,6 +83,9 @@ public partial class ProvinceSidebar : VBoxContainer
 
 	/// <summary>And with whoever feeds them.</summary>
 	public event System.Action RationPressed;
+
+	/// <summary>And with whoever keeps one of the stores: the cow, the basket, the woodpile.</summary>
+	public event System.Action<ResourceType> StorePressed;
 
 	/// <summary>The lord wants his men to march. The sidebar knows they exist and that they have a
 	/// move left; where they are going is the map's question, not this panel's.</summary>
@@ -104,6 +109,8 @@ public partial class ProvinceSidebar : VBoxContainer
 		AddChild(_held);
 		BuildStats();
 		BuildResources();
+		_works = new WorksStrip();
+		_held.AddChild(_works);
 		BuildLabour();
 		BuildArmoury();
 		BuildMarch();
@@ -179,8 +186,14 @@ public partial class ProvinceSidebar : VBoxContainer
 
 		_ration.Text = held ? _economy.Ration.ToString() : "—";
 
-		foreach ((ResourceType type, string _) in Resources)
+		foreach ((ResourceType type, string icon) in Resources)
 		{
+			// The loaf or the cow ringed in red while its work is short of hands, as in the original.
+			// The diggings are never short (Labour.Wanted).
+			string job = Labour.JobOf(type);
+			bool isWanting = held && Labour.Wanted(_economy, _definition, _balance, _season, job) > Labour.Hands(_economy, job);
+			var picture = GD.Load<Texture2D>($"{IconDirectory}/{icon}.png");
+			_stockIcon[type].Texture = isWanting ? Stroke.Ringed(picture, Stroke.Wanting, 34) : picture;
 			if (!held)
 			{
 				_stock[type].Text = "—";
@@ -212,6 +225,7 @@ public partial class ProvinceSidebar : VBoxContainer
 		}
 
 		_labour.Show(held ? _economy : null, _definition, _balance, _season);
+		_works.Show(held ? _economy : null, _balance);
 		_labourFrame.Visible = held;
 
 		// The weapons waiting in the armoury, not the men holding them: an army raised in the yard
@@ -369,7 +383,8 @@ public partial class ProvinceSidebar : VBoxContainer
 
 			var cell = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
 			cell.AddThemeConstantOverride("separation", 2);
-			cell.AddChild(Centered(Icon(icon, 34)));
+			_stockIcon[type] = Icon(icon, 34);
+			cell.AddChild(Centered(_stockIcon[type]));
 
 			var stock = new Label { HorizontalAlignment = HorizontalAlignment.Center };
 			stock.AddThemeFontSizeOverride("font_size", 24);
@@ -383,6 +398,20 @@ public partial class ProvinceSidebar : VBoxContainer
 			_stock[type] = stock;
 			_yield[type] = yield;
 			row.AddChild(cell);
+
+			// A click on the cow or the basket asks after that store, as in the original.
+			cell.MouseFilter = MouseFilterEnum.Stop;
+			cell.TooltipText = "Ask after this store";
+			cell.MouseEntered += () => stock.AddThemeColorOverride("font_color", Chrome.Bright);
+			cell.MouseExited += () => stock.AddThemeColorOverride("font_color", Cream);
+			ResourceType asked = type;
+			cell.GuiInput += pointer =>
+			{
+				if (pointer is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left })
+				{
+					StorePressed?.Invoke(asked);
+				}
+			};
 		}
 	}
 

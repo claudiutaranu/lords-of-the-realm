@@ -29,7 +29,7 @@ public partial class CityPage
 
 	/// <summary>Asks for one figure's worth more or fewer on a site. The proportions are rewritten to
 	/// match and the county dealt again (Labour.Ask), so the figure comes from, or goes back to, the
-	/// rest of the site's half — and asking at a site the lord had shut opens it.</summary>
+	/// idle — and asking at a site the lord had shut opens it.</summary>
 	private void Shift(Site site, int figures)
 	{
 		string job = JobOf(site);

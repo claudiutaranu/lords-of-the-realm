@@ -21,6 +21,10 @@ public class TurnSummary
 	/// <summary>What the herd gained this season, net of what died of it.</summary>
 	public int Calved;
 
+	/// <summary>The two halves of it, which the herd's table shows apart: a herd holding level may be
+	/// calving well and dying as fast.</summary>
+	public int CalvesBorn, CowsDied;
+
 	/// <summary>What the smithy turned out this season, of whatever it is making (Forging).</summary>
 	public int Forged;
 

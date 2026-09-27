@@ -2,9 +2,11 @@ using System;
 using Godot;
 
 /// <summary>Lords of the Realm's own labour bar: the wheat at one end, the hammer at the other, one
-/// long bar between them, and the county's hands slid along it — the farm from the wheat up to the
-/// grip, the industry from there to the hammer (Labour.Divide), dealt again the moment it moves. Under it, the hands on the
-/// farm, the hands in the industry, and whoever neither can use.
+/// long bar between them, and the county's one peasant standing on it. Pushed toward the wheat he
+/// sends hands to the farm, toward the hammer to the industry (Labour.Divide), dealt again the moment
+/// he moves — the grip stands at the industry's share, so the arrow beside the wheat is the one that
+/// feeds the county. Under it, the hands on the farm, the hands in the industry, and whoever neither
+/// can use.
 ///
 /// It keeps nothing of its own: the grip is where the county's IndustryShare is, every time the bar
 /// is shown.</summary>
@@ -29,6 +31,9 @@ public partial class LabourBar : VBoxContainer
 	private Label _farmShort;
 	private Label _industryShort;
 	private bool _reading;
+	private TextureRect _wheat;
+	private TextureRect _hammer;
+	private Texture2D _grip;
 
 	/// <summary>What a county with men standing about is written in.</summary>
 	private static readonly Color Short = new("d98f6a");
@@ -42,7 +47,8 @@ public partial class LabourBar : VBoxContainer
 		row.AddThemeConstantOverride("separation", 6);
 		AddChild(row);
 
-		row.AddChild(Chrome.Icon("food", 30));
+		_wheat = Chrome.Icon("food", 30);
+		row.AddChild(_wheat);
 
 		_bar = new HSlider
 		{
@@ -52,13 +58,11 @@ public partial class LabourBar : VBoxContainer
 			SizeFlagsHorizontal = SizeFlags.ExpandFill,
 			SizeFlagsVertical = SizeFlags.ShrinkCenter,
 			CustomMinimumSize = new Vector2(40, 0),
-			TooltipText = "The farm to the left, the industry to the right.",
+			TooltipText = "Toward the wheat: more on the farm. Toward the hammer: more in the industry.",
 		};
 
 		// The grip is one of the county's people, as in Lords of the Realm: the man is what is moved.
-		var grip = GD.Load<Texture2D>("res://assets/ui/icons/worker-grip.png");
-		_bar.AddThemeIconOverride("grabber", grip);
-		_bar.AddThemeIconOverride("grabber_highlight", grip);
+		_grip = GD.Load<Texture2D>("res://assets/ui/icons/worker-grip.png");
 
 		_bar.ValueChanged += share =>
 		{
@@ -68,14 +72,21 @@ public partial class LabourBar : VBoxContainer
 				return;
 			}
 
-			Labour.Divide(_province, _definition, _balance, _season, 100 - (int)share);
+			Labour.Divide(_province, _definition, _balance, _season, (int)share);
 			Counts();
 			Moved?.Invoke();
 		};
 
+		// No fill behind the grip: it would run from the wheat to the peasant and read as the farm's
+		// share, which is the other end of the bar from where the farm's share now lies.
+		_bar.AddThemeStyleboxOverride("grabber_area", new StyleBoxEmpty());
+		_bar.AddThemeStyleboxOverride("grabber_area_highlight", new StyleBoxEmpty());
 		_bar.DragEnded += _ => Settled?.Invoke();
+		row.AddChild(Nudge("◀", -1));
 		row.AddChild(_bar);
-		row.AddChild(Chrome.Icon("hammer", 30));
+		row.AddChild(Nudge("▶", 1));
+		_hammer = Chrome.Icon("hammer", 30);
+		row.AddChild(_hammer);
 
 		// The hands under each end, and between them whoever neither end can use.
 		var counts = new HBoxContainer();
@@ -111,6 +122,15 @@ public partial class LabourBar : VBoxContainer
 		wants.AddChild(_industryShort);
 	}
 
+	/// <summary>The original's arrows at either end of the bar: a percent of the county a click, held
+	/// to keep it walking, for the lord who wants the grip exactly where he means it.</summary>
+	private Button Nudge(string arrow, int step)
+	{
+		Button nudge = Chrome.Repeating(arrow, 28, () => _bar.Value += step);
+		nudge.ButtonUp += () => Settled?.Invoke();
+		return nudge;
+	}
+
 	/// <summary>How many more hands a half's jobs could use before none of them is short. The
 	/// diggings are never short (Labour.Wanted), so the industry's want is the masons' and the smiths'.</summary>
 	private int Missing(string[] jobs)
@@ -140,9 +160,7 @@ public partial class LabourBar : VBoxContainer
 		}
 
 		_reading = true;
-		// The farm fills the bar from the wheat up to the grip, the industry the rest of the way to the
-		// hammer — so the grip stands at the farm's share, not the industry's.
-		_bar.Value = 100 - province.IndustryShare;
+		_bar.Value = province.IndustryShare;
 		_reading = false;
 		Counts();
 	}
@@ -161,6 +179,36 @@ public partial class LabourBar : VBoxContainer
 		int industry = Missing(Labour.Industry);
 		_farmShort.Text = farm > 0 ? $"{farm:N0} short" : "";
 		_industryShort.Text = industry > 0 ? $"{industry:N0} short" : "";
+
+		// As in the original: the peasant is ringed in blue while men stand about; an end of the bar
+		// is ringed in red while its work wants hands, and in blue while it has more than its work
+		// can use and the rest of them are standing idle on its side.
+		Texture2D grip = spare > 0 ? Stroke.Ringed(_grip, Stroke.Idle, _grip.GetWidth()) : _grip;
+		_bar.AddThemeIconOverride("grabber", grip);
+		_bar.AddThemeIconOverride("grabber_highlight", grip);
+		int industryHalf = Labour.Pct(_province.Workers, _province.IndustryShare);
+		Ring(_wheat, "food", farm, _province.Workers - industryHalf - OnJobs(Labour.Farm));
+		Ring(_hammer, "hammer", industry, industryHalf - OnJobs(Labour.Industry));
+	}
+
+	private int OnJobs(string[] jobs)
+	{
+		int hands = 0;
+		foreach (string job in jobs)
+		{
+			hands += Labour.Hands(_province, job);
+		}
+
+		return hands;
+	}
+
+	private static void Ring(TextureRect end, string icon, int missing, int idle)
+	{
+		var picture = GD.Load<Texture2D>($"{Chrome.IconDirectory}/{icon}.png");
+		int side = (int)end.CustomMinimumSize.X;
+		end.Texture = missing > 0 ? Stroke.Ringed(picture, Stroke.Wanting, side)
+			: idle > 0 ? Stroke.Ringed(picture, Stroke.Idle, side)
+			: picture;
 	}
 
 	private static Label Count(HorizontalAlignment side)

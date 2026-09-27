@@ -215,16 +215,20 @@ public static class Husbandry
 
 	/// <summary>Births and deaths in hundredths of a percent a season, by how many head stand on
 	/// each pasture field.</summary>
-	private static (int Births, int Deaths) Crowding(int herd, int pastures)
+	private static (int Births, int Deaths) Crowding(int herd, int pastures) => CrowdingBand(herd, pastures) switch
+	{
+		0 => (1400, 100),
+		1 => (900, 300),
+		2 => (500, 500),
+		_ => (200, 700),
+	};
+
+	/// <summary>How crowded the pasture is, light to overcrowded (0 to 3): up to ten head a field,
+	/// twenty, thirty, or more.</summary>
+	public static int CrowdingBand(int herd, int pastures)
 	{
 		int perField = pastures <= 0 ? int.MaxValue : Livelihood.DivCeil(herd, pastures);
-		return perField switch
-		{
-			<= 10 => (1400, 100),
-			<= 20 => (900, 300),
-			<= 30 => (500, 500),
-			_ => (200, 700),
-		};
+		return perField <= 10 ? 0 : perField <= 20 ? 1 : perField <= 30 ? 2 : 3;
 	}
 
 	/// <summary>Herdsmen a herd wants to be fully tended: three to every head, as the original reckons
@@ -249,6 +253,7 @@ public static class Husbandry
 		{
 			p.Cattle = herd < 6 ? 0 : herd / 2;
 			summary.Calved = 0;
+			summary.CowsDied = herd - p.Cattle;
 			return;
 		}
 
@@ -285,5 +290,7 @@ public static class Husbandry
 		int died = herd * deaths / 10_000;
 		p.Cattle = Mathf.Max(0, herd + born - died);
 		summary.Calved = born - died;
+		summary.CalvesBorn = born;
+		summary.CowsDied = died;
 	}
 }

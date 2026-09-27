@@ -8,8 +8,8 @@ everything else is hand-built UI over a turn-based economy.
 - Build with `dotnet build`. Scenes run through the Godot mono binary (find it with
   `mdfind -name Godot_mono.app`; on this machine it lives under an AppTranslocation temp path that
   changes when the app is moved).
-- **Six check suites, and they all have to pass before anything is called done:**
-  `scene/checks/{economy,lord,battle,fortification,market,events}-check.tscn`, each run headless:
+- **Seven check suites, and they all have to pass before anything is called done:**
+  `scene/checks/{economy,lord,battle,fortification,market,events,diplomacy}-check.tscn`, each run headless:
   `"$GODOT" --headless --path . scene/checks/battle-check.tscn`. They print `all checks passed` or
   `N FAILED`.
 - Checks share `user://saves` with the player. Write a save in a check only through `SaveGame.Write`
@@ -77,11 +77,17 @@ open) and each job's part of its half (`Shares`, in hundredths of a percent so a
 not round the others about) — twice a season inside `RunTurn` and again at the end of
 `TurnManager`'s season. A job takes its share or its useful ceiling, whichever is less; a share a
 job cannot use walks on inside the half; shares the lord left unassigned are idle by his choice.
-`Labour.Ask` (a figure moved): taken off stands idle; put on comes from the idle (either half, the
-bar moves), then from jobs above their need, never first from a herd or a field at its need. The diggings have no ceiling, only presence and
+`Labour.Ask` (a figure moved): taken off stands idle; put on comes from the idle and only the idle
+(either half, the bar moves), as in the original; `Labour.Most` is where + stops. The diggings have no ceiling, only presence and
 the lord's on/off (`Shut`); each site has an efficiency that climbs from 15% while it is worked.
 Nobody writes a `*Workers` field by hand any more: the screens call `Labour.Ask`/`Divide`/`Toggle`,
 the rivals `Labour.FarmsFirst`. A county digs stone or iron, never both (`EconomyCheck.StoneOrIron`).
+
+Stores move between the lord's counties only by cart (`Shipment`, `TurnManagerSupply`, `SupplyPanel`,
+opened from a store's panel): anything a county keeps but gold — the five stores and its armoury
+(the original carted only grain and cattle; the user's call). The goods leave on dispatch, roll a
+`MarchReach` a season along `MarchGrid`'s roads (`Haul`, at the start of `AdvanceTurn`), unload on
+arrival, turn home if the destination falls, and are lost to another lord's company on the road.
 
 The smithy works as Lords of the Realm's does: `Forging` names the one weapon a county makes, every
 season, as many as its `SmithWorkers` (a labour-bar trade like the masons) and its stores pay for,
@@ -174,9 +180,22 @@ The men live in **companies** (`FieldArmy`), not in one roster per county:
   too. A road steeper than the grid allows is drawn but cannot be walked — that once shut the whole
   north off.
 
+## Diplomacy
+
+- There are four lords in the whole game, written once in `data/lords.json` (`Lords`): the Marshal,
+  the Margrave, the Duchess and the Abbot, carrying Lords of the Realm's Knight, Baron, Countess and
+  Bishop. A campaign never describes a lord; its realm names one (`provinces.json` `"lord"`), and
+  `TurnManager.LordOf` seats him. The first map has one: the Northern Watch is the Margrave.
+- `Diplomacy` is keyed by realm, so one rival or four play the same rules: standing −30..+30 a
+  pair, the seven letters, one alliance a lord, the grudge that ends it, two warnings and then a war
+  that is never made up. The player's letters go out through `TurnManager.Write` (a gift is paid
+  as it is sent) and are answered at the start of `RivalsTurn`; the replies wait in `Inbox`.
+- The original's numbers are kept where they are known; the rest are `GameBalance` and marked [I].
+
 ## Saves
 
-`SaveGame` writes `user://saves/<unix>.json`, version 4. Companies are saved; a version-3 file still
+`SaveGame` writes `user://saves/<unix>.json`, version 5 (the lords' letters, `Diplomacy`; a version-4
+file opens with nobody having written anybody). Companies are saved; a version-3 file still
 opens — `ProvinceEconomy.Garrison/MarchLeft/ArmyX/ArmyY` are read-only-on-the-way-in properties that
 fill the one company such a file describes.
 
