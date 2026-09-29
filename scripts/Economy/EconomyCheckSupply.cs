@@ -9,10 +9,10 @@ public partial class EconomyCheck
 {
 	private void Carts(GameBalance b)
 	{
-		// Two counties of the crown twelve hundred paces apart on a straight road: two full seasons'
-		// reach and a bit, so three seasons on the road.
+		// Two counties of the crown two seasons' reach and a bit apart on a straight road, so three
+		// seasons on the road.
 		TurnManager turns = Carting(b, out ProvinceEconomy home, out ProvinceEconomy far);
-		Is("twelve hundred paces is three seasons on the road", turns.SupplySeasons("Home", "Far"), 3);
+		Is("two reaches and a bit is three seasons on the road", turns.SupplySeasons("Home", "Far"), 3);
 		Is("  and there is no road to a county off the map", turns.SupplySeasons("Home", "Nowhere"), -1);
 
 		int grain = home.Grain;
@@ -103,7 +103,8 @@ public partial class EconomyCheck
 		var towns = new Dictionary<string, Vector2>
 		{
 			["Home"] = Vector2.Zero,
-			["Far"] = new Vector2(1200f, 0f),
+			// Two full seasons' reach and a bit, whatever the reach is.
+			["Far"] = new Vector2(b.MarchReach * 2.3f, 0f),
 			["Rival"] = new Vector2(0f, 6000f),
 		};
 		var definitions = new List<ProvinceDefinition>();

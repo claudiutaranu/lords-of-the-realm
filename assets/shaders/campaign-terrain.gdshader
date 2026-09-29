@@ -133,6 +133,7 @@ uniform sampler2D campaign_id_map : filter_nearest, repeat_disable;
 uniform vec2 campaign_map_size = vec2(192.0, 128.0);
 // World height of the waterline, in the same units v_vertex is in.
 uniform float campaign_sea_level = 3.25;
+uniform vec3 campaign_road_color : source_color = vec3(0.78, 0.72, 0.58);
 // Snow the SEASON lays down, which is a different thing from the snow that is always on the crest:
 // that one is painted into the control map as a real texture, because it is part of the mountain.
 // A season is a state the map is in, so it is laid over whatever the ground happens to be.
@@ -651,11 +652,16 @@ void fragment() {
 		track += weights[i] * (float(DECODE_BASE(control[i]) == CAMPAIGN_PATH_SLOT) * (1.0 - over)
 			+ float(DECODE_OVER(control[i]) == CAMPAIGN_PATH_SLOT) * over);
 	}
-	float grassy = smoothstep(0.55, 0.92, w_normal.y) * (1.0 - track);
+	// Only the heart of the painted track is road; its verges are given back to the grass, so the
+	// road reads as a thin trodden thread rather than the full width the terrain can paint.
+	float road = smoothstep(0.62, 0.95, track);
+	float grassy = smoothstep(0.55, 0.92, w_normal.y) * (1.0 - road);
 
 	// New growth, deep summer, turned leaf, dead ground. It lives on the grass, so it stops at the
 	// rock instead of washing the whole map one colour.
-	float spring = clamp(1.0 - abs(season), 0.0, 1.0);
+	// A season in between is a blend of its two neighbours, and the year goes round: 3.5 is half
+	// winter and half the spring after it, which is season 4 as much as season 0.
+	float spring = clamp(1.0 - min(abs(season), abs(season - 4.0)), 0.0, 1.0);
 	float summer = clamp(1.0 - abs(season - 1.0), 0.0, 1.0);
 	float autumn = clamp(1.0 - abs(season - 2.0), 0.0, 1.0);
 	float winter = clamp(1.0 - abs(season - 3.0), 0.0, 1.0);
@@ -671,10 +677,15 @@ void fragment() {
 	// campaign opens in; the others are read against it.
 	vec3 season_tone = spring * vec3(0.58, 1.53, 0.22)
 		+ summer * vec3(0.30, 0.90, 0.24)
-		+ autumn * vec3(2.05, 1.10, 0.27)
+		+ autumn * vec3(1.55, 1.08, 0.40)
 		+ winter * vec3(1.05, 1.00, 0.86);
 	float turf_light = dot(campaign_albedo, vec3(0.2126, 0.7152, 0.0722));
 	campaign_albedo = mix(campaign_albedo, turf_light * season_tone, grassy * 0.85);
+
+	// The road is a pale dry track of trodden earth, lighter than the country it runs through, the
+	// way a road reads from a hill: a thin light thread, not a brown ditch. Only its middle is
+	// taken right over; the verge keeps some of the ground's own colour.
+	campaign_albedo = mix(campaign_albedo, campaign_road_color * (0.85 + 0.3 * turf_light), road * 0.9);
 
 	// Winter takes the lowland too: everywhere but the cliffs, which are too steep to hold it, and
 	// the beach, which the surf keeps clear.

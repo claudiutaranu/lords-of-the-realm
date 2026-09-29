@@ -18,10 +18,12 @@ public partial class GameBalance : Resource
 	[Export] public float StoneYieldPerWorker = 0.3f;
 	[Export] public float IronYieldPerWorker = 0.25f;
 
-	/// <summary>Hands at the anvil for one weapon a season. The original's rate is not known;
+	/// <summary>Hands at the anvil for one weapon a season — one: at two, a county's smithy armed so
+	/// few men a season that an army was years in the making (the user's call). The original's rate
+	/// is not known;
 	/// ponytail: a flat rate with no efficiency ramp — Lords of the Realm's sites start near 15% and
 	/// warm up season on season, and that curve belongs here once the original's table is read.</summary>
-	[Export] public int SmithsPerWeapon = 2;
+	[Export] public int SmithsPerWeapon = 1;
 
 	/// <summary>The most hand-seasons one waste field takes in a season: the original's two hundred.</summary>
 	[Export] public int ReclaimPerSeason = 200;
@@ -215,10 +217,10 @@ public partial class GameBalance : Resource
 	[Export] public float SoldierAppetite = 1.6f;
 
 	/// <summary>How much ground an army covers in a season, counted in map pixels of road. About a
-	/// county and a half of good road, or half that across country — enough to answer trouble next
-	/// door and not enough to be everywhere, which is what makes holding ground a decision rather
-	/// than a formality.</summary>
-	[Export] public float MarchReach = 520f;
+	/// county of good road, or half that across country — enough to answer trouble next door and
+	/// not enough to be everywhere, which is what makes holding ground a decision rather than a
+	/// formality. (520 until the user asked for a third less.)</summary>
+	[Export] public float MarchReach = 364f;
 
 	/// <summary>What a pace of ground costs an army: one along a road, more than twice that over open
 	/// country. An army is not held to the roads — it is only slowed by leaving them, which is the
@@ -269,15 +271,15 @@ public partial class GameBalance : Resource
 	/// would be a field nobody could have read beforehand.</summary>
 	[Export] public float BattleBite = 0.12f;
 
-	/// <summary>How much of what it brought a side loses before it breaks. Armies do not fight to
-	/// the last man and never have — they come apart, and the ones who can run, run. It is also what
-	/// makes a won battle affordable: the winner buries a fraction of what the loser does.</summary>
-	[Export] public float BattleBreakPoint = 0.35f;
+	/// <summary>How long the day is, in exchanges. Battles are fought to the last man (the user's
+	/// call), so this is only the end of a day nobody could finish — an assault on a wall that lets
+	/// too few at it to carry it — and the ground stays with whoever was standing on it.</summary>
+	[Export] public int BattleMostRounds = 150;
 
-	/// <summary>How long the day is. An attack that has not carried by the end of it has not carried
-	/// — the ground stays with whoever was standing on it, which is what withdrawing from a wall
-	/// looks like from the outside.</summary>
-	[Export] public int BattleMostRounds = 12;
+	/// <summary>How long a day at the walls is, in exchanges. Short: the men who could get at the
+	/// wall have had their chance by nightfall, and an assault that has not cleared it has failed.
+	/// This, and the frontage, is what a castle is for.</summary>
+	[Export] public int AssaultMostRounds = 12;
 
 	/// <summary>How far THE DAY swings either side of what the numbers say — rolled once for each
 	/// army when it forms up, and not again.
@@ -289,6 +291,22 @@ public partial class GameBalance : Resource
 	/// slept — a real uncertainty a lord has to leave room for, and the reason to bring more men
 	/// than he strictly needs.</summary>
 	[Export] public float BattleLuck = 0.15f;
+
+	/// <summary>A battle the lord fights himself (<see cref="FieldBattle"/>), man against man. How much
+	/// health a man has, what one blow that lands takes off it, how long a swing takes and how long
+	/// a bow or a crossbow takes to draw again — and what an arrow is worth against a blow. Whether a
+	/// blow lands is the two cards' attack against defence, so these are the same for every kind. [I]</summary>
+	[Export] public float FieldManHealth = 100f;
+	[Export] public float FieldHitDamage = 25f;
+	[Export] public float FieldSwingSeconds = 1.6f;
+	[Export] public float FieldReloadSeconds = 4f;
+	[Export] public float FieldShotRate = 0.8f;
+
+	/// <summary>How long the day lasts on the field, in seconds, and how many of them the captain's
+	/// rounds are reckoned as. A field where both sides still stand at sundown is a day neither
+	/// side won. [I]</summary>
+	[Export] public float FieldDaySeconds = 600f;
+	[Export] public float FieldRoundSeconds = 20f;
 
 	/// <summary>How much of a starving garrison is lost each season once the larder is out, and how
 	/// many of those seasons they hold before the gate opens. Men do not sit behind a wall until the
@@ -383,7 +401,7 @@ public partial class GameBalance : Resource
 	/// <summary>The share of his people a lord keeps in the field, the watch on his gates aside.
 	/// About one in eight is what it takes to beat a neutral county's militia once the town keeps a
 	/// watch of bows and spears (MilitiaArmed); a hard lord keeps half as many again.</summary>
-	[Export] public float[] LordArmyShare = { 0.15f, 0.25f, 0.35f };
+	[Export] public float[] LordArmyShare = { 0.18f, 0.35f, 0.45f };
 
 	/// <summary>How sure a lord wants to be before he attacks, as the share of days he would carry.
 	/// A hard lord takes a real risk. The easy lord is as careful as the middling one: what makes
@@ -440,7 +458,7 @@ public partial class GameBalance : Resource
 	/// difficulty. A lord who paid his men from his taxes alone sat on fifty thousand crowns with
 	/// forty men in the field; one who spent half his chest a season took the player's seat in five
 	/// years on middling.</summary>
-	[Export] public float[] LordTreasuryShare = { 0f, 0.01f, 0.03f };
+	[Export] public float[] LordTreasuryShare = { 0.01f, 0.03f, 0.05f };
 	[Export] public int LordGoldReserve = 500;
 	[Export] public float[] LordWarChest = { 0.1f, 0.25f, 0.5f };
 

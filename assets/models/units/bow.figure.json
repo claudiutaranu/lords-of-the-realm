@@ -1,0 +1,44 @@
+{
+ "vertices": 32191,
+ "indices": 107535,
+ "rows": 102,
+ "fps": 15,
+ "texture_width": 4096,
+ "texture_height": 802,
+ "offsets": {
+  "points": 0,
+  "normals": 386292,
+  "uv": 772584,
+  "indices": 1030112,
+  "positions": 1460252,
+  "turned": 27740188
+ },
+ "height": 1.9021294382109772,
+ "clips": {
+  "walk_loop": {
+   "start": 0,
+   "frames": 16,
+   "seconds": 1.0666667222976685,
+   "loop": true
+  },
+  "idle_loop": {
+   "start": 17,
+   "frames": 30,
+   "seconds": 2.0,
+   "loop": true
+  },
+  "death": {
+   "start": 48,
+   "frames": 24,
+   "seconds": 1.600000023841858,
+   "loop": false
+  },
+  "shoot": {
+   "start": 72,
+   "frames": 30,
+   "seconds": 2.0,
+   "loop": false
+  }
+ },
+ "cloth_value": 0.07618538148130785
+}

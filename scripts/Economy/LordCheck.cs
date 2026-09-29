@@ -709,11 +709,14 @@ public partial class LordCheck : Node
 		int standing = south.StandingCrop;
 		raided.AdvanceTurn();
 		FieldArmy raid = raided.Armies().Find(army => army.Raider);
+		// Two counties off is more than a season's walk: it is on his land by the next.
+		bool trodden = raided.News.Exists(item => item.Said.Id == "fields-trampled");
+		raided.AdvanceTurn();
+		trodden |= raided.News.Exists(item => item.Said.Id == "fields-trampled");
 		Is("a lord sends a raid over the player's land", raid?.Men.GetValueOrDefault("peasant"), new GameBalance().LordRaidMen);
 		Is("  under its own banner", raided.AnyProvince("North").Armies.FindAll(army => army.Raider).Count, 1);
-		Is("  and it treads his corn", south.Fields[0] == FieldUse.Waste || south.StandingCrop < standing
-			|| raided.News.Exists(item => item.Said.Id == "fields-trampled"), true);
-		Is("  and he is told", raided.News.Exists(item => item.Said.Id == "fields-trampled"), true);
+		Is("  and it treads his corn", south.Fields[0] == FieldUse.Waste || south.StandingCrop < standing || trodden, true);
+		Is("  and he is told", trodden, true);
 		for (int season = 0; season < new GameBalance().LordRaidSeasons + 3; season++)
 		{
 			raided.AdvanceTurn();

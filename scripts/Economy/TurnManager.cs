@@ -661,8 +661,11 @@ public partial class TurnManager
 	///
 	/// The county changes hands the moment there is nobody left to stop it and not before, which is
 	/// what a castle is for: a lord can lose every man he had outside his walls and still hold his
-	/// county, as long as somebody is standing on them.</summary>
-	public Battle.Result Attack(FieldArmy army, string county, Vector2 at, bool walls)
+	/// county, as long as somebody is standing on them.
+	///
+	/// <paramref name="fought"/> is a day the lord fought in the field himself (<see cref="FieldBattle"/>):
+	/// it is written into the ledger exactly as the captain's reckoning would have been.</summary>
+	public Battle.Result Attack(FieldArmy army, string county, Vector2 at, bool walls, Battle.Result? fought = null)
 	{
 		ProvinceEconomy here = army == null ? null : _provincesByName.GetValueOrDefault(army.Home);
 		if (here == null || army.Strength == 0)
@@ -681,9 +684,9 @@ public partial class TurnManager
 		ProvinceEconomy town = _provincesByName.GetValueOrDefault(county);
 		bool turnedOut = !walls && town != null && StandingIn(county).Count == 0;
 		Defenders against = DefendersOf(county);
-		Battle.Result day = walls
+		Battle.Result day = fought ?? (walls
 			? Battle.OnTheWalls(army.Men, against, spent, _balance, _rng)
-			: Battle.InTheField(army.Men, against, spent, _balance, _rng);
+			: Battle.InTheField(army.Men, against, spent, _balance, _rng));
 
 		Bury(army.Men, day.AttackerLosses);
 		here.Bury();
@@ -727,8 +730,9 @@ public partial class TurnManager
 
 	/// <summary>One company falls on another in open country, away from any gate: the same day in the
 	/// field a county's defence is, with the other company standing in for the county's. Nothing
-	/// changes hands; whichever side breaks is gone.</summary>
-	public Battle.Result Engage(FieldArmy army, FieldArmy enemy)
+	/// changes hands; whichever side breaks is gone. <paramref name="fought"/> is a day the lord
+	/// fought himself, as for <see cref="Attack"/>.</summary>
+	public Battle.Result Engage(FieldArmy army, FieldArmy enemy, Battle.Result? fought = null)
 	{
 		ProvinceEconomy here = army == null ? null : _provincesByName.GetValueOrDefault(army.Home);
 		ProvinceEconomy there = enemy == null ? null : _provincesByName.GetValueOrDefault(enemy.Home);
@@ -738,7 +742,7 @@ public partial class TurnManager
 		}
 
 		var against = new Defenders(enemy.Men, new Dictionary<string, int>(), "", there.Loyalty, InOpenCountry: true);
-		Battle.Result day = Battle.InTheField(army.Men, against, army.MarchLeft <= 0f, _balance, _rng);
+		Battle.Result day = fought ?? Battle.InTheField(army.Men, against, army.MarchLeft <= 0f, _balance, _rng);
 		Bury(army.Men, day.AttackerLosses);
 		Bury(enemy.Men, day.DefenderLosses);
 		here.Bury();

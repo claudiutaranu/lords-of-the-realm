@@ -22,6 +22,11 @@ public partial class BattlePanel : PaintedPanel
 	/// above can redraw its banners and its borders. Not raised for a lord who looked and left.</summary>
 	public event System.Action Settled;
 
+	/// <summary>Raised with true when the lord goes down onto the field to fight it himself, and with
+	/// false when he comes back: the map underneath has nothing to draw and nothing to listen to
+	/// while he is down there.</summary>
+	public event System.Action<bool> Fielded;
+
 	/// <summary>Whose colours one side of the table is flown under, as the map names them.</summary>
 	public readonly record struct Colours(string Name, string Key, Color Accent);
 
@@ -61,6 +66,7 @@ public partial class BattlePanel : PaintedPanel
 	private ColorRect _theirWeight;
 	private GridContainer _terms;
 	private Button _attack;
+	private Button _lead;
 	private Label _attackWord;
 	private Button _siege;
 	private Label _leaveWord;
@@ -148,9 +154,11 @@ public partial class BattlePanel : PaintedPanel
 		orders.AddThemeConstantOverride("separation", 16);
 		Column.AddChild(orders);
 
-		_attack = Chrome.Order("Take the Field", "crossed-swords", Strike, out _attackWord);
+		_attack = Chrome.Order("Take the Field", "crossed-swords", () => Strike(), out _attackWord);
+		_lead = Chrome.Order("Lead in Person", "sword", Lead, out Label _);
 		_siege = Chrome.Order("Lay Siege", "castle", Sit, out Label _);
 		orders.AddChild(_attack);
+		orders.AddChild(_lead);
 		orders.AddChild(_siege);
 		orders.AddChild(Chrome.Order("Retreat", "footsteps", Close, out _leaveWord));
 	}
@@ -239,6 +247,9 @@ public partial class BattlePanel : PaintedPanel
 		// way. It costs the army every season it lasts — they are standing here and nowhere else —
 		// so it is offered as an order of its own and not as a thing that happens by waiting.
 		_siege.Visible = _walls && ProvinceEconomy.Men(against.Castle) > 0;
+
+		// The field can be fought by hand; the walls, not yet — the captain climbs them.
+		_lead.Visible = !_walls && ProvinceEconomy.Men(holding) > 0;
 	}
 
 	/// <summary>Both halves of the table, and the frame cut to the longer of them: a skirmish between
@@ -368,15 +379,35 @@ public partial class BattlePanel : PaintedPanel
 		_verdict.Text = $"We sit down before {_county}.";
 		_verdict.AddThemeColorOverride("font_color", Chrome.Cream);
 		_attack.Visible = false;
+		_lead.Visible = false;
 		_siege.Visible = false;
 		_leaveWord.Text = "Done";
 	}
 
-	/// <summary>Fights the one on the table, and says what it cost. Whether the county has changed
-	/// hands is read back off the ledger rather than worked out here — the ledger is what decides
-	/// it, and a panel with a second opinion about who owns a county is a panel that will one day
-	/// be wrong.</summary>
-	private void Strike()
+	/// <summary>Takes the lord down onto the field to fight the day himself. The panel steps aside
+	/// while he is there, and comes back with the reckoning of whatever he made of it.</summary>
+	private void Lead()
+	{
+		var battle = new FieldBattle(_attacker.Men, Against(), _attacker.MarchLeft <= 0f, _balance);
+		var field = new Battlefield();
+		GetParent().AddChild(field);
+		field.Begin(battle, _us, _them);
+		Visible = false;
+		Fielded?.Invoke(true);
+		field.Finished += day =>
+		{
+			field.QueueFree();
+			Fielded?.Invoke(false);
+			Visible = true;
+			Strike(day);
+		};
+	}
+
+	/// <summary>Fights the one on the table, and says what it cost — or, given the day the lord
+	/// fought himself, writes that one in instead. Whether the county has changed hands is read
+	/// back off the ledger rather than worked out here — the ledger is what decides it, and a panel
+	/// with a second opinion about who owns a county is a panel that will one day be wrong.</summary>
+	private void Strike(Battle.Result? fought = null)
 	{
 		// Both sides as they stood before the day, so the table can say what each had and, in
 		// brackets, what each lost.
@@ -385,7 +416,7 @@ public partial class BattlePanel : PaintedPanel
 		var theirsBefore = new Dictionary<string, int>(_walls ? standing.Castle : standing.Field);
 		if (_enemy != null)
 		{
-			Battle.Result met = _turns.Engage(_attacker, _enemy);
+			Battle.Result met = _turns.Engage(_attacker, _enemy, fought);
 			Settled?.Invoke();
 			foreach (Node old in _terms.GetChildren())
 			{
@@ -399,12 +430,13 @@ public partial class BattlePanel : PaintedPanel
 			_verdict.Text = met.AttackerWon ? "Their company is broken, my lord." : "We are thrown back, my lord.";
 			_verdict.AddThemeColorOverride("font_color", met.AttackerWon ? Chrome.Cream : Bad);
 			_attack.Visible = false;
+			_lead.Visible = false;
 			_siege.Visible = false;
 			_leaveWord.Text = "Done";
 			return;
 		}
 
-		Battle.Result day = _turns.Attack(_attacker, _county, _at, _walls);
+		Battle.Result day = _turns.Attack(_attacker, _county, _at, _walls, fought);
 		Settled?.Invoke();
 
 		bool taken = _turns.GetProvince(_county) != null;
@@ -436,6 +468,7 @@ public partial class BattlePanel : PaintedPanel
 		// one: the lord may storm it now, on what the first fight left him, or leave it and come
 		// back with more men next season.
 		_attack.Visible = fellBack && ProvinceEconomy.Men(left.Castle) > 0;
+		_lead.Visible = false;
 		_siege.Visible = _attack.Visible;
 		_leaveWord.Text = _attack.Visible ? "Retreat" : "Done";
 		if (_attack.Visible)

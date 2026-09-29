@@ -56,6 +56,18 @@ public static class Battle
 		GameBalance balance, RandomNumberGenerator rng) =>
 		Fight(attacker, against.Field, Open(against, marched, balance), balance, rng);
 
+	/// <summary>What the open field is worth to each side when the lord fights it himself: the ground
+	/// under the defender and the legs under the attacker — the same two figures the captain's
+	/// reckoning weighs, so a battle fought by hand is fought on the same terms.</summary>
+	public static (float Ground, float Vigour) FieldOdds(Defenders against, bool marched, GameBalance balance)
+	{
+		Terms terms = Open(against, marched, balance);
+		return (terms.Defence, terms.Vigour);
+	}
+
+	/// <summary>Whether a man shoots rather than closes.</summary>
+	public static bool Shoots(Units.Unit kind) => kind.Range >= ShootsBeyond;
+
 	/// <summary>The walls. Everything is against the man coming up them: he can only bring so many
 	/// at once, he cannot bring his horses at all, and the men he is shooting at are behind stone.</summary>
 	public static Result OnTheWalls(Dictionary<string, int> attacker, Defenders against, bool marched,
@@ -125,55 +137,26 @@ public static class Battle
 		// at men in the open, and the men in the open are shooting at whatever shows above the
 		// parapet, which is what the terms of an assault say about it.
 		Exchange(storming, holding, Shot(storming) * terms.Volley * ourDay, Shot(holding) * theirDay,
-			terms, stormingLost, holdingLost);
+			terms, stormingLost, holdingLost, rng);
 
+		// To the last man (the user's call): nobody breaks and runs. The day goes on until one side
+		// has nobody left standing — or until it is over, when both are still on the field and
+		// neither has taken anything. A day at the walls is short: an assault that has not cleared
+		// them by nightfall has failed, however many were still waiting to climb.
 		int round = 0;
-		while (round < b.BattleMostRounds
+		int dayLong = terms.Assault ? b.AssaultMostRounds : b.BattleMostRounds;
+		while (round < dayLong
 			&& ProvinceEconomy.Men(storming) > 0
-			&& ProvinceEconomy.Men(holding) > 0
-			&& !Broken(stormingLost, broughtUp, b)
-			&& !Broken(holdingLost, stoodThere, b))
+			&& ProvinceEconomy.Men(holding) > 0)
 		{
 			Exchange(storming, holding, Offence(storming, terms) * ourDay,
-				Offence(holding, Standing) * theirDay, terms, stormingLost, holdingLost);
+				Offence(holding, Standing) * theirDay, terms, stormingLost, holdingLost, rng);
 			round++;
 		}
 
-		bool attackBroke = Broken(stormingLost, broughtUp, b) || ProvinceEconomy.Men(storming) == 0;
-		bool defenceBroke = Broken(holdingLost, stoodThere, b) || ProvinceEconomy.Men(holding) == 0;
-
-		// A side that breaks is finished as an army. The share of it that fell is what the fighting
-		// killed; the rest are run, taken or walked home, and none of them is standing under that
-		// banner tomorrow. They go onto the same casualty list because everything downstream — the
-		// roster they come off, the line the panel prints — has to agree about what the day cost.
-		//
-		// A day that ends with neither side broken is not a rout for anybody: the men are still
-		// standing where they stood, and the attacker simply has an evening to withdraw in.
-		if (attackBroke)
-		{
-			Rout(storming, stormingLost);
-		}
-
-		if (defenceBroke)
-		{
-			Rout(holding, holdingLost);
-		}
-
-		// The ground stays with whoever was standing on it unless he was actually driven off it.
-		// Both sides breaking at once is not a victory for the man who arrived.
-		return new Result(defenceBroke && !attackBroke, stormingLost, holdingLost, round);
-	}
-
-	/// <summary>Writes off what is left of a side that came apart. Called only for the side that
-	/// broke — a roster still in the field keeps its men.</summary>
-	private static void Rout(Dictionary<string, int> side, Dictionary<string, int> lost)
-	{
-		foreach ((string unit, int men) in side)
-		{
-			lost[unit] = lost.GetValueOrDefault(unit) + men;
-		}
-
-		side.Clear();
+		// Both sides cut down in the same exchange is not a victory for the man who arrived.
+		return new Result(ProvinceEconomy.Men(holding) == 0 && ProvinceEconomy.Men(storming) > 0,
+			stormingLost, holdingLost, round);
 	}
 
 	private static float Day(RandomNumberGenerator rng, GameBalance b) =>
@@ -181,31 +164,38 @@ public static class Battle
 
 	private static void Exchange(Dictionary<string, int> storming, Dictionary<string, int> holding,
 		float stormPower, float holdPower, Terms terms,
-		Dictionary<string, int> stormingLost, Dictionary<string, int> holdingLost)
+		Dictionary<string, int> stormingLost, Dictionary<string, int> holdingLost, RandomNumberGenerator rng)
 	{
 		// Both sides' blows are weighed against the strength each had at the START of the exchange,
 		// so who is written down first in this method decides nothing. Fought in sequence, the side
 		// the code happened to run first would be killing men who had already been killed.
 		int holdingFell = Bite(ProvinceEconomy.Men(holding), stormPower,
-			Resilience(holding, terms.Defence), terms.Bite);
+			Resilience(holding, terms.Defence), terms.Bite, rng);
 		int stormingFell = Bite(ProvinceEconomy.Men(storming), holdPower,
-			Resilience(storming, terms.Exposure), terms.Bite);
+			Resilience(storming, terms.Exposure), terms.Bite, rng);
 
 		Take(holding, holdingFell, holdingLost);
 		Take(storming, stormingFell, stormingLost);
 	}
 
-	/// <summary>How many of a side one exchange takes off: a share of what it brought, scaled by how
-	/// its enemy's weight of blows compares with what it can take.</summary>
-	private static int Bite(int men, float offence, float resilience, float bite)
+	/// <summary>How many of a side one exchange takes off: the enemy's weight of blows against what
+	/// one of these men can take. What decides it is the men swinging, not the men being swung at —
+	/// fought to the last man, a share of the defender's own numbers would never reach nobody, and
+	/// would let a mob drown knights by being a mob.</summary>
+	private static int Bite(int men, float offence, float resilience, float bite, RandomNumberGenerator rng)
 	{
 		if (men <= 0 || offence <= 0f)
 		{
 			return 0;
 		}
 
-		float share = offence / (offence + Mathf.Max(1f, resilience));
-		return Mathf.Clamp(Mathf.RoundToInt(men * bite * share), 0, men);
+		// A fraction of a man falls or does not by the dice, in proportion: rounded, a handful's
+		// blows never killed anybody and the day never ended; forced to one, a single peasant
+		// killed a man every exchange.
+		float eachTakes = Mathf.Max(0.1f, resilience / men);
+		float fall = offence * bite / eachTakes;
+		int whole = Mathf.FloorToInt(fall);
+		return Mathf.Clamp(whole + (rng.Randf() < fall - whole ? 1 : 0), 0, men);
 	}
 
 	/// <summary>The weight of blows a roster can land under the terms it is fighting on.</summary>
@@ -251,14 +241,11 @@ public static class Battle
 		foreach (string unit in Order(roster))
 		{
 			Units.Unit kind = Units.Of(unit);
-			power += kind.Range >= ShootsBeyond ? roster[unit] * kind.Attack : 0f;
+			power += Shoots(kind) ? roster[unit] * kind.Attack : 0f;
 		}
 
 		return power;
 	}
-
-	private static bool Broken(Dictionary<string, int> lost, int brought, GameBalance b) =>
-		ProvinceEconomy.Men(lost) >= brought * b.BattleBreakPoint;
 
 	/// <summary>Spreads a round's dead across the companies that took them, and writes them into the
 	/// butcher's bill the caller is keeping.

@@ -189,6 +189,10 @@ public static class Chrome
 		return button;
 	}
 
+	/// <summary>How big an order's glyph is drawn: inside the dark field of the plate with a little room round it, not over its
+	/// gold rim — at the plate's full height the crossed swords stood out past both edges.</summary>
+	private const int OrderIcon = 28;
+
 	/// <summary>One order on its gilded plate. What is written on it is pinned to the plate by hand
 	/// rather than set as the button's own text and icon: a Button spreads those to its two ends, and
 	/// on a plate this wide that leaves the icon stranded a hand's width from the word it belongs to.
@@ -213,7 +217,7 @@ public static class Chrome
 
 		if (icon.Length > 0)
 		{
-			said.AddChild(Icon(icon, 44));
+			said.AddChild(Icon(icon, OrderIcon));
 		}
 
 		word = Line(text, 24, Bright);

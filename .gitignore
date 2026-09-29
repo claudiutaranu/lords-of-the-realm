@@ -13,3 +13,4 @@ tools/.venv/
 
 # Claude Code scratch worktrees
 .claude/worktrees/
+__pycache__/

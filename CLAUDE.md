@@ -69,7 +69,7 @@ lord's sown or grazed fields on its road (`TurnManager.FirstSpoil`): it lays tha
 its corn or its herd lost — and that is the company's season (`Trample`, `MarchLeft` 0; one field a
 season). The field is `Waste`, drawn black like any ruined field, and is reclaimed like one but with
 only `TrampledReclaimWork` (200) of it to do (the user's call: the original only takes the crop). One halted on a quarry, mine or wood shuts it for `OccupiedSeasons`. The map's plots and
-sites reach the turn through `Survey`.
+sites reach the turn through `Survey`. Fields are never laid across a road (`MapDecoration.CanPlough`, off map-roads.json).
 
 Labour is Lords of the Realm's allocator (`Labour`): nine jobs (grain, cattle, reclaim, castle, iron,
 stone, wood, smith, idle), dealt from scratch against saved proportions — `IndustryShare` (25 to
@@ -118,9 +118,51 @@ The men live in **companies** (`FieldArmy`), not in one roster per county:
 - Two fights in order: whatever stands in the open, then whatever is on the walls. The county does
   not change hands until both are done, which is what a castle is for. Sitting down in front of the
   gate (`Besiege`) is the other way, and the only way against the top rungs.
-- **A side that breaks is finished.** `BattleBreakPoint` (0.35) is when it comes apart, and what the
-  fighting did not kill is written off with it: the loser's whole company is gone, and the losses
-  the panel prints are the whole company. A day neither side breaks leaves both standing.
+- **Every battle is fought to the last man** (the user's call): nobody breaks and runs, and a side
+  wins only when the other has nobody left. The captain's reckoning is attrition — each exchange
+  kills by the enemy's weight of blows against what one man can take (`Battle.Bite`), not a share
+  of the side being hit, which would never reach nobody. A day in the open is long
+  (`BattleMostRounds`); a day at the walls is short (`AssaultMostRounds`): an assault that has not
+  cleared them by nightfall has failed, and that with the frontage is what a castle is for.
+- The field can be fought by hand (`BattlePanel` → Lead in Person), man against man and to the
+  last man. `FieldBattle` (fixed 0.1 s slices, seeded dice) gives orders to `FieldSquad`s —
+  companies of at most `MostInCompany` (30) figures, a kind split as evenly as it goes, each with
+  its own captain and card; a defending company holds until the lines have met anywhere (`Joined`);
+  a right-drag draws the chosen companies' front (`FieldBattle.Form`: side by side along it, as wide as
+  their share of it — so its length sets how many ranks deep — facing away from the eye, a front
+  kept until at grips, `KeepsFront`); each `FieldSoldier` has his own health and a fixed place in the ranks,
+  and when he falls the man behind him in his file steps up (`CloseUp`) — nobody else moves, which
+  is what keeps a line a line. Squads close as bodies until their front ranks are a weapon's length
+  apart (`Extent`, so a flank attack does not end inside the other block), squads at grips hold
+  their ground and wheel to face, the men of the files that overhang a narrower enemy are set one
+  after another round his flank and rear, ring after ring (`FieldSquad.Encircle`), no squad is
+  drawn up deeper than `MostRanks`, and once a squad is striking blows every man of it with nobody
+  in reach goes for the nearest enemy within `Swarm` not already pressed by `MostOnOne`
+  (`FieldBlows.Quarry`), so a column or the ranks behind a line swarm round what they meet. A squad sent at an enemy walks straight at
+  him until its front rank is a weapon's length from his nearest man (`FieldBattle.Close`); one
+  left without orders goes for an enemy that comes within `Challenge`. Each squad's standard is
+  carried by its captain, one of its own men with `CaptainHealth` times a man's health, who fights
+  and falls like the rest. A blow lands by attack against defence and bites less into armour, the
+  two together worth the captain's attack over defence (`FieldBlows`); arrows are loosed at one man
+  and hurt him when they land. Past `MostFigures` a figure is a file of several men. The grid and
+  the dead are `FieldRanks`, the captain's AI `FieldCaptain`. `Battlefield` is its own 3D world over
+  the map (RTS orders, battlefield-ground.gdshader); `BattlefieldSquads` draws every man with a
+  health bar in his lord's colour, `BattlefieldBar` the cards and orders. Into the ledger through
+  `TurnManager.Attack/Engage(..., fought)`. `BattleCheck.ByHand` holds that two captains on the
+  field go the way the reckoning says wherever it is not in doubt (nine seeds each); a lord who
+  fights well does better. A kind is drawn with its own model when there is one —
+  assets/models/units/<key>.glb, cut down from a Meshy export with
+  `tools/decimate_meshy.py --unit <key> <file>` (bow.glb, the archer, is the first) — and as the
+  map's standard-bearer (`SoldierFigure.Standard`) until then; `Feet` puts a figure on his spot.
+  A man's gait is worked out per man in `BattlefieldSquads.Stride` — stride phase advanced by the
+  ground his feet actually cover, so they never slide — and handed to soldier.gdshader through
+  INSTANCE_CUSTOM with his lean into a blow. The dead lie `LyingFor` seconds and then dissolve
+  (INSTANCE_CUSTOM.w below zero). The field is 540 m across, ringed by the campaign map's own
+  trees (tree-foliage.gdshader) in stands, with depth haze that starts past the field; short turf
+  and stands of taller grass (`BattlefieldGrass`) grow wherever the shared bare-earth map is not
+  bare. A baked figure is expensive (the archer is 32k vertices, and his loose-patch mesh will not
+  simplify): the shader reads the old clip only while crossfading — measure frame time with vsync
+  off before adding more of them. The walls are still the captain's — docs/siege-battle-plan.md.
 - Nothing falls back behind the walls. The gate watch is the men who were always on it.
 - A county that falls loses the men standing in it; the companies it raised that were elsewhere pass
   to another county of the same lord (`TurnManager.Refuge` → `ProvinceEconomy.Adopt`).

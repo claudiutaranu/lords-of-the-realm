@@ -79,6 +79,12 @@ public partial class MapDecoration : Node3D
 	// patchwork a fifth of the way across the island, and the plots read as tiles laid on the map
 	// rather than as fields in it.
 	private const float PlotSize = 2.0f;
+
+	/// <summary>How far a field keeps from the middle of a road, in map pixels: the track and its
+	/// verge as the generator paints them (ROAD_HALF_WIDTH and ROAD_FEATHER), and a step more.</summary>
+	private const float RoadClear = 6f;
+	private const string RoadsFile = "map-roads.json";
+	private const float RoadStep = 2f;
 	private const float PlotGap = 0f;
 	private const float PlotBorder = 0.07f;  // share of the plot its hedge band takes, each side
 	private const float PlotLift = 0.12f;    // clear of the terrain
@@ -106,7 +112,6 @@ public partial class MapDecoration : Node3D
 	/// <summary>The banner that stands for a county's men, and how tall it is drawn in world units.
 	/// Taller than life on purpose: an army is the one thing on this map a lord looks for, and at a
 	/// man's real height beside a cottage he would have to hunt for it.</summary>
-	private const string ArmyModel = "soldier";
 	private const float ArmyHeight = 6.5f;
 	/// <summary>How many figures a county's men are drawn as, and where the second and third stand
 	/// beside the first, in world units. A banner used to carry its number on a shield; the size of
@@ -119,17 +124,6 @@ public partial class MapDecoration : Node3D
 		new(1.7f, 0f, 0.7f),
 		new(-1.5f, 0f, 0.9f),
 	};
-	private const string SoldierShaderPath = "res://assets/shaders/soldier.gdshader";
-	/// <summary>How the banner is found on the figure, in shares of its height and in its own units:
-	/// the cloth is what hangs clear of the pole above his shield, grown from its outer edge across
-	/// the mesh so the whole pennant goes with it and the pole does not (see ArmyMesh). The rest is
-	/// where his legs meet his body, which is where the marching swings them from.</summary>
-	private const float BannerFloor = 0.45f;
-	private const float BannerSeed = 0.52f;
-	private const float BannerSeedReach = 0.5f;
-	private const float PoleClearance = 0.08f;
-	private const float HipHeight = 0.30f;
-	private const float SoleHeight = 0.05f;
 
 	/// <summary>How near a click has to land to take hold of a banner, in map pixels. Generous: the
 	/// figure is tall and thin, and a lord jabbing at his own army should not have to hit the pole.</summary>
@@ -139,6 +133,11 @@ public partial class MapDecoration : Node3D
 	/// enough to be a march and not a jump, quick enough that a lord who has ordered four of them is
 	/// not waiting on the map.</summary>
 	public const float StrideSeconds = 0.16f;
+
+	/// <summary>How a banner rounds a bend: how many times the road's corners are cut, and how much
+	/// of the way to its new heading it turns each frame of the walk.</summary>
+	private const int SmoothPasses = 2;
+	private const float TurnEase = 0.15f;
 	public const float RivalStrideSeconds = 0.05f;
 
 	private const float CattleLength = 1.25f;
@@ -183,6 +182,10 @@ public partial class MapDecoration : Node3D
 
 	private CampaignMap3D _map;
 	private Image _props;
+	/// <summary>The road points, by the cell of a coarse grid they fall in, so a field asks only the
+	/// cells near it and not every road on the map.</summary>
+	private readonly Dictionary<Vector2I, List<Vector2>> _roads = new();
+	private const float RoadCell = 8f;
 	private RandomNumberGenerator _rng;
 	private readonly List<(StandardMaterial3D Material, Color[] BySeason)> _seasonal = new();
 	// The broadleaves' leaves, which take the season as a shader parameter rather than a colour.
@@ -200,10 +203,7 @@ public partial class MapDecoration : Node3D
 	/// numbers.</summary>
 	private readonly Dictionary<string, (ShaderMaterial Look, float FlagRest)> _dressed = new();
 	private readonly Dictionary<string, Node3D> _armies = new();
-	/// <summary>The figure every army is drawn with: the model's own mesh with the banner's sway
-	/// written into its vertex colours, and the one material they all share.</summary>
-	private ArrayMesh _armyMesh;
-	private ShaderMaterial _armyMaterial;
+	private readonly Dictionary<string, float> _headings = new();
 	private readonly Dictionary<string, Vector2> _armySites = new();
 	/// <summary>One node per province's fields, so turning a field over — or a season turning —
 	/// redraws that province's land alone.</summary>
@@ -223,6 +223,17 @@ public partial class MapDecoration : Node3D
 	{
 		_map = map;
 		_props = GD.Load<Image>(Campaign.Asset(PropsFile));
+		foreach (Vector2 point in RoadPoints())
+		{
+			var cell = new Vector2I(Mathf.FloorToInt(point.X / RoadCell), Mathf.FloorToInt(point.Y / RoadCell));
+			if (!_roads.TryGetValue(cell, out List<Vector2> here))
+			{
+				here = new List<Vector2>();
+				_roads[cell] = here;
+			}
+
+			here.Add(point);
+		}
 		_rng = new RandomNumberGenerator();
 		_rng.Seed = 20260917; // fixed: the map must look the same every time it loads
 	}
@@ -311,6 +322,45 @@ public partial class MapDecoration : Node3D
 		leaves.SetShaderParameter("evergreen", evergreen ? 1f : 0f);
 		_seasonalLeaves.Add(leaves);
 		return leaves;
+	}
+
+	/// <summary>Points along every road the generator laid (map-roads.json), in map pixels, no more
+	/// than <see cref="RoadStep"/> apart — close enough that keeping clear of the points keeps clear
+	/// of the road.</summary>
+	internal static List<Vector2> RoadPoints()
+	{
+		var points = new List<Vector2>();
+		var file = GD.Load<Json>(Campaign.Data(RoadsFile));
+		if (file?.Data.VariantType != Variant.Type.Array)
+		{
+			return points;
+		}
+
+		foreach (Variant road in file.Data.AsGodotArray())
+		{
+			Vector2? last = null;
+			foreach (Variant point in road.AsGodotDictionary()["points"].AsGodotArray())
+			{
+				Godot.Collections.Array xy = point.AsGodotArray();
+				var here = new Vector2(xy[0].AsSingle(), xy[1].AsSingle());
+
+				// Filled in between the generator's points, which lie up to eleven pixels apart: kept
+				// clear of the points alone, grass and fields crept onto the road between them.
+				if (last is Vector2 from)
+				{
+					int steps = Mathf.CeilToInt(from.DistanceTo(here) / RoadStep);
+					for (int step = 1; step < steps; step++)
+					{
+						points.Add(from.Lerp(here, step / (float)steps));
+					}
+				}
+
+				points.Add(here);
+				last = here;
+			}
+		}
+
+		return points;
 	}
 
 	/// <summary>Whether a spot has been taken by something built — a village, a castle, a working
@@ -795,6 +845,22 @@ public partial class MapDecoration : Node3D
 			return false; // the village, its castle, or one of its diggings
 		}
 
+		// Nor across a road: a field ploughed over the track the carts and the armies use.
+		float clear = (half * Mathf.Sqrt2) + RoadClear;
+		int reach = Mathf.CeilToInt(clear / RoadCell);
+		var home = new Vector2I(Mathf.FloorToInt(centre.X / RoadCell), Mathf.FloorToInt(centre.Y / RoadCell));
+		for (int x = -reach; x <= reach; x++)
+		{
+			for (int y = -reach; y <= reach; y++)
+			{
+				if (_roads.TryGetValue(home + new Vector2I(x, y), out List<Vector2> points)
+					&& points.Exists(point => point.DistanceSquaredTo(centre) < clear * clear))
+				{
+					return false;
+				}
+			}
+		}
+
 		if (openGroundOnly && _props.GetPixel((int)centre.X, (int)centre.Y).B < 0.2f)
 		{
 			return false;
@@ -1239,6 +1305,39 @@ public partial class MapDecoration : Node3D
 		return Mathf.Atan2(fly.Y, fly.X);
 	}
 
+	/// <summary>A road as a smooth curve on the ground: from where the banner stands along the beads,
+	/// the corners cut round twice over (Chaikin), at the height the banner stands above the ground.</summary>
+	private List<Vector3> Smoothed(List<Vector2> road, float stands, Vector3 from)
+	{
+		var points = new List<Vector3> { from };
+		foreach (Vector2 step in road)
+		{
+			points.Add(_map.WorldAt(step) + (Vector3.Up * stands));
+		}
+
+		for (int pass = 0; pass < SmoothPasses; pass++)
+		{
+			var cut = new List<Vector3> { points[0] };
+			for (int i = 0; i < points.Count - 1; i++)
+			{
+				cut.Add(points[i].Lerp(points[i + 1], 0.25f));
+				cut.Add(points[i].Lerp(points[i + 1], 0.75f));
+			}
+
+			cut.Add(points[^1]);
+			points = cut;
+		}
+
+		// Laid back on the ground, which a cut corner may have left above or below.
+		for (int i = 1; i < points.Count - 1; i++)
+		{
+			Vector2 pixel = _map.MapPixelOf(points[i]);
+			points[i] = new Vector3(points[i].X, _map.WorldAt(pixel).Y + stands, points[i].Z);
+		}
+
+		return points;
+	}
+
 	/// <summary>Walks a county's banner along a road to where it was sent, and says when it has got
 	/// there. The piece is not moved and then the map redrawn — it is the same figure, carried along
 	/// the same line of beads the lord was shown, so what he ordered and what he watches are plainly
@@ -1283,32 +1382,46 @@ public partial class MapDecoration : Node3D
 			arrived();
 		}
 
-		foreach (Vector2 step in road)
+		// Walked along the road smoothed into a curve, at an even pace, turning gradually to face
+		// the way it goes: stepped from bead to bead, the banner walked a zigzag at a hitching pace and
+		// snapped round at every corner.
+		List<Vector3> path = Smoothed(road, stands, piece.Position);
+		var lengths = new float[path.Count];
+		for (int i = 1; i < path.Count; i++)
 		{
-			Vector3 ground = _map.WorldAt(step) + (Vector3.Up * stands);
-			// Turned to face the next bead before he walks to it: a man marching sideways up a road is
-			// worse than one who does not move his legs at all. The model is made facing +z.
-			walk.TweenCallback(Callable.From(() =>
-			{
-				if (!IsInstanceValid(piece))
-				{
-					Arrive();
-					return;
-				}
-
-				Vector3 ahead = ground - piece.Position;
-				if (ahead.LengthSquared() > 0.0001f)
-				{
-					piece.Rotation = new Vector3(0f, Mathf.Atan2(ahead.X, ahead.Z), 0f);
-				}
-			}));
-			walk.TweenProperty(piece, "position", ground, stride);
+			lengths[i] = lengths[i - 1] + path[i - 1].DistanceTo(path[i]);
 		}
+
+		float total = lengths[^1];
+		int at = 0;
+		walk.TweenMethod(Callable.From<float>(along =>
+		{
+			if (!IsInstanceValid(piece))
+			{
+				Arrive();
+				return;
+			}
+
+			while (at < path.Count - 2 && lengths[at + 1] < along)
+			{
+				at++;
+			}
+
+			float span = Mathf.Max(0.0001f, lengths[at + 1] - lengths[at]);
+			piece.Position = path[at].Lerp(path[at + 1], Mathf.Clamp((along - lengths[at]) / span, 0f, 1f));
+			Vector3 ahead = path[Mathf.Min(at + 1, path.Count - 1)] - path[at];
+			if (ahead.LengthSquared() > 0.0001f)
+			{
+				float facing = Mathf.Atan2(ahead.X, ahead.Z);
+				piece.Rotation = new Vector3(0f, Mathf.LerpAngle(piece.Rotation.Y, facing, TurnEase), 0f);
+			}
+		}), 0f, total, stride * road.Count);
 
 		walk.TweenCallback(Callable.From(() =>
 		{
 			if (IsInstanceValid(piece))
 			{
+				_headings[army] = piece.Rotation.Y;
 				foreach (Node rank in piece.GetChildren())
 				{
 					((GeometryInstance3D)rank).SetInstanceShaderParameter("walking", 0f);
@@ -1421,26 +1534,30 @@ public partial class MapDecoration : Node3D
 			return;
 		}
 
-		if (ArmyMesh() == null)
+		if (SoldierFigure.Standard.Mesh == null)
 		{
 			return;
 		}
 
 		// Scaled by his own height to the figure this map draws a man at, and stood on his feet
 		// rather than sunk to the waist — the same rule the cattle are placed by.
-		float scale = ArmyHeight / Mathf.Max(0.01f, Models.HeightOf(ArmyModel));
-		Aabb bounds = Models.MeshOf(ArmyModel).GetAabb();
+		float scale = ArmyHeight / Mathf.Max(0.01f, Models.HeightOf(SoldierFigure.Standard.Model));
+		Aabb bounds = Models.MeshOf(SoldierFigure.Standard.Model).GetAabb();
 
 		// The company stands on one node: it is one army, it marches as one, and the map moves it as
 		// one. The figures are its ranks, set out beside each other.
 		var held = new Node3D { Position = _map.WorldAt(site) + (Vector3.Up * (-bounds.Position.Y * scale)) };
 		AddChild(held);
 		_armies[army] = held;
+
+		// Facing the way it last marched: redrawn after the walk, it used to turn back to face the
+		// same corner of the map every company faces before it has gone anywhere.
+		held.Rotation = new Vector3(0f, _headings.GetValueOrDefault(army), 0f);
 		_armySites[army] = site;
 
 		for (int rank = 0; rank < Ranks(men); rank++)
 		{
-			var man = new MeshInstance3D { Mesh = _armyMesh, MaterialOverride = _armyMaterial };
+			var man = new MeshInstance3D { Mesh = SoldierFigure.Standard.Mesh, MaterialOverride = SoldierFigure.Standard.Material };
 			held.AddChild(man);
 			man.SetInstanceShaderParameter("lord_color", lord);
 			man.SetInstanceShaderParameter("walking", 0f);
@@ -1457,166 +1574,6 @@ public partial class MapDecoration : Node3D
 
 	/// <summary>How many figures a body of men is drawn as.</summary>
 	private static int Ranks(int men) => men >= ArmyAbreast[1] ? 3 : men >= ArmyAbreast[0] ? 2 : 1;
-
-	/// <summary>The figure, built once: the model's mesh with the banner's sway in its vertex colours
-	/// — 0 at the pole and 1 at the fly end — which is what soldier.gdshader waves it by.
-	///
-	/// Which vertices are cloth is a question about the model, and it is answered here rather than
-	/// baked into the file because this model came with neither a skeleton nor a mask. The pennant is
-	/// found from its outer edge: everything above the shield and further than BannerSeedReach from
-	/// the pole can only be cloth, and from there it is grown across the mesh — over the emblem, into
-	/// the tails — stopped from spreading down the pole by PoleClearance and off the man by the floor.
-	/// The helmet is never taken: it is not joined to the cloth by a single edge.</summary>
-	private ArrayMesh ArmyMesh()
-	{
-		if (_armyMesh != null)
-		{
-			return _armyMesh;
-		}
-
-		Mesh model = Models.MeshOf(ArmyModel);
-		if (model == null)
-		{
-			return null;
-		}
-
-		Godot.Collections.Array arrays = model.SurfaceGetArrays(0);
-		Vector3[] vertices = arrays[(int)Mesh.ArrayType.Vertex].AsVector3Array();
-		int[] indices = arrays[(int)Mesh.ArrayType.Index].AsInt32Array();
-		Aabb bounds = model.GetAabb();
-		float height = bounds.Size.Y;
-		float floor = bounds.Position.Y + (BannerFloor * height);
-
-		Vector3 top = vertices[0];
-		foreach (Vector3 vertex in vertices)
-		{
-			top = vertex.Y > top.Y ? vertex : top;
-		}
-
-		var pole = new Vector2(top.X, top.Z);
-		float[] reach = new float[vertices.Length];
-		bool[] allowed = new bool[vertices.Length];
-		var cloth = new bool[vertices.Length];
-		for (int i = 0; i < vertices.Length; i++)
-		{
-			reach[i] = new Vector2(vertices[i].X, vertices[i].Z).DistanceTo(pole);
-			allowed[i] = vertices[i].Y > floor && reach[i] > PoleClearance;
-			cloth[i] = vertices[i].Y > bounds.Position.Y + (BannerSeed * height) && reach[i] > BannerSeedReach;
-		}
-
-		// The mesh is split at its UV seams, so it is joined back up by position to be walked.
-		var joined = new int[vertices.Length];
-		var seen = new Dictionary<Vector3I, int>();
-		for (int i = 0; i < vertices.Length; i++)
-		{
-			var key = new Vector3I(Mathf.RoundToInt(vertices[i].X * 10000f), Mathf.RoundToInt(vertices[i].Y * 10000f),
-				Mathf.RoundToInt(vertices[i].Z * 10000f));
-			if (!seen.TryGetValue(key, out int at))
-			{
-				at = seen.Count;
-				seen[key] = at;
-			}
-
-			joined[i] = at;
-		}
-
-		var flag = new bool[seen.Count];
-		var may = new bool[seen.Count];
-		for (int i = 0; i < vertices.Length; i++)
-		{
-			flag[joined[i]] |= cloth[i];
-			may[joined[i]] |= allowed[i];
-		}
-
-		for (bool spreading = true; spreading;)
-		{
-			spreading = false;
-			for (int triangle = 0; triangle < indices.Length; triangle += 3)
-			{
-				if (!flag[joined[indices[triangle]]] && !flag[joined[indices[triangle + 1]]]
-					&& !flag[joined[indices[triangle + 2]]])
-				{
-					continue;
-				}
-
-				for (int corner = 0; corner < 3; corner++)
-				{
-					int at = joined[indices[triangle + corner]];
-					if (may[at] && !flag[at])
-					{
-						flag[at] = true;
-						spreading = true;
-					}
-				}
-			}
-		}
-
-		float furthest = PoleClearance;
-		for (int i = 0; i < vertices.Length; i++)
-		{
-			furthest = flag[joined[i]] && allowed[i] ? Mathf.Max(furthest, reach[i]) : furthest;
-		}
-
-		var sway = new Color[vertices.Length];
-		for (int i = 0; i < vertices.Length; i++)
-		{
-			float along = flag[joined[i]] && allowed[i]
-				? Mathf.Clamp((reach[i] - PoleClearance) / Mathf.Max(0.001f, furthest - PoleClearance), 0f, 1f)
-				: 0f;
-			sway[i] = new Color(along, 0f, 0f);
-		}
-
-		arrays[(int)Mesh.ArrayType.Color] = sway;
-		_armyMesh = new ArrayMesh();
-		_armyMesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
-		_armyMaterial = new ShaderMaterial { Shader = GD.Load<Shader>(SoldierShaderPath) };
-		if (model.SurfaceGetMaterial(0) is BaseMaterial3D painted)
-		{
-			_armyMaterial.SetShaderParameter("albedo_texture", painted.AlbedoTexture);
-			_armyMaterial.SetShaderParameter("normal_texture", painted.NormalTexture);
-			_armyMaterial.SetShaderParameter("metal_rough_texture", painted.MetallicTexture);
-		}
-
-		_armyMaterial.SetShaderParameter("wind", MapClouds.PrevailingWind);
-		_armyMaterial.SetShaderParameter("flag_pole", pole);
-		_armyMaterial.SetShaderParameter("flag_rest", FlagRest(vertices, sway, pole));
-		_armyMaterial.SetShaderParameter("hip", bounds.Position.Y + (HipHeight * height));
-		_armyMaterial.SetShaderParameter("sole", bounds.Position.Y + (SoleHeight * height));
-		_armyMaterial.SetShaderParameter("body_side", BodySide(vertices, bounds, height));
-		return _armyMesh;
-	}
-
-	/// <summary>Which way the banner hangs as the model was made, on its ground plane: the angle from
-	/// the pole to the middle of the cloth, each vertex counting for as much as it sways.</summary>
-	private static float FlagRest(Vector3[] vertices, Color[] sway, Vector2 pole)
-	{
-		Vector2 fly = Vector2.Zero;
-		for (int i = 0; i < vertices.Length; i++)
-		{
-			fly += (new Vector2(vertices[i].X, vertices[i].Z) - pole) * sway[i].R;
-		}
-
-		return Mathf.Atan2(fly.Y, fly.X);
-	}
-
-	/// <summary>Where his legs stand, side to side: everything left of this swings against everything
-	/// right of it. Taken off the legs themselves — the pole he carries is well off to one side and
-	/// would drag the middle of the man over with it.</summary>
-	private static float BodySide(Vector3[] vertices, Aabb bounds, float height)
-	{
-		float sum = 0f;
-		int counted = 0;
-		foreach (Vector3 vertex in vertices)
-		{
-			if (vertex.Y < bounds.Position.Y + (HipHeight * height))
-			{
-				sum += vertex.X;
-				counted++;
-			}
-		}
-
-		return counted == 0 ? 0f : sum / counted;
-	}
 
 	/// <summary>Puts a province's castle on the ground beside its town, and takes down whatever
 	/// stood there before. Its whole job is to say, from the map and without a click, that this
@@ -1755,21 +1712,23 @@ public partial class MapDecoration : Node3D
 
 	/// <summary>Repaints everything that turns with the year — sown, standing, harvested, bare.
 	/// The props themselves never move: a wood is the same wood in December as in June.</summary>
-	public void SetSeason(Season season)
+	public void SetSeason(float season)
 	{
+		int from = Mathf.FloorToInt(season) % 4;
+		float along = season - Mathf.Floor(season);
 		foreach ((StandardMaterial3D material, Color[] bySeason) in _seasonal)
 		{
-			material.AlbedoColor = bySeason[(int)season];
+			material.AlbedoColor = bySeason[from].Lerp(bySeason[(from + 1) % 4], along);
 		}
 
 		foreach (ShaderMaterial leaves in _seasonalLeaves)
 		{
-			leaves.SetShaderParameter("season", (float)(int)season);
+			leaves.SetShaderParameter("season", season);
 		}
 
 		foreach ((ShaderMaterial look, float _) in _dressed.Values)
 		{
-			look.SetShaderParameter("season", (float)(int)season);
+			look.SetShaderParameter("season", season % 4f);
 		}
 	}
 

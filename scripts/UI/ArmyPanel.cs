@@ -140,11 +140,15 @@ public partial class ArmyPanel : PaintedPanel
 		return Chrome.Framed(strip, 8);
 	}
 
+	/// <summary>How big a reading's glyph is drawn: as tall as the two lines beside it, so the eye
+	/// finds the number by its picture.</summary>
+	private const int ReadingIcon = 56;
+
 	private static Control Reading(string icon, string what, out Label value)
 	{
 		var cell = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, Alignment = BoxContainer.AlignmentMode.Center };
-		cell.AddThemeConstantOverride("separation", 8);
-		cell.AddChild(Chrome.Icon(icon, 40));
+		cell.AddThemeConstantOverride("separation", 12);
+		cell.AddChild(Chrome.Icon(icon, ReadingIcon));
 
 		var stack = new VBoxContainer();
 		stack.AddThemeConstantOverride("separation", 0);

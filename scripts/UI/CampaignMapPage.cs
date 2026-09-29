@@ -37,9 +37,9 @@ public partial class CampaignMapPage : Control
 	// village needs would not fit there — see flatten_yards in tools/generate_campaign_map.py.
 	private const string YardsDataFile = "map-yards.json";
 
-	/// <summary>How far apart the steps of a march are laid, in map pixels. Close enough to read as a
-	/// road being walked, far enough that a long march is a trail and not a stripe.</summary>
-	private const float StepSpacing = 34f;
+	/// <summary>How far apart the footsteps of a march are laid along it, in map pixels: exactly, and
+	/// measured along the road, so they read as a steady pace whatever the grid underneath.</summary>
+	private const float StepSpacing = 13f;
 
 	/// <summary>How long past the longest rival march the turn waits before it stops waiting.</summary>
 	private const float DeadlineSlack = 1f;
@@ -72,9 +72,9 @@ public partial class CampaignMapPage : Control
 	private const string HallScenePath = "res://scene/campaign-map/hall.tscn";
 	private const string FortificationsScenePath = "res://scene/campaign-map/fortifications.tscn";
 	private const string CityScenePath = "res://scene/campaign-map/city.tscn";
-	private const float TurnFadeInSeconds = 0.4f;
-	private const float TurnHoldSeconds = 1.1f;
-	private const float TurnFadeOutSeconds = 0.5f;
+	private const float TurnFadeInSeconds = 0.7f;
+	private const float TurnHoldSeconds = 0.7f;
+	private const float TurnFadeOutSeconds = 0.8f;
 	private const float ToastFadeInSeconds = 0.15f;
 	private const float ToastHoldSeconds = 1.6f;
 	private const float ToastFadeOutSeconds = 0.6f;
@@ -85,6 +85,7 @@ public partial class CampaignMapPage : Control
 	private const string Briefing =
 		"Greetings, sire. The crown is yours, and with it Kingsreach \u2014 one seat out of eight " +
 		"on this map. The Northern Watch holds another, and six lie unclaimed between you.\n\n" +
+		"Your county pays no dues yet: set its tax on the coin beside your county, or the treasury will not grow by a single crown.\n\n" +
 		"Fill your stores, raise an army, and take the rest.";
 
 	/// <summary>A realm as the campaign describes it: what it is called, and the colour everything
@@ -180,7 +181,7 @@ public partial class CampaignMapPage : Control
 	/// <summary>The trail the cursor is pointing at, in map pixels: a bead every so far along the way,
 	/// and a larger one where it crosses a border. Kept in map terms and projected to the screen
 	/// every frame, the same as the province pins, so it stays on the ground while the lord pans.</summary>
-	private readonly List<(Vector2 At, bool County, bool Reachable)> _trailSteps = new();
+	private readonly List<(Vector2 At, MarchTrail.Mark Mark, int Season, bool Reachable)> _trailSteps = new();
 	private MarchTrail _trail;
 	private ArmyPanel _army;
 	private JoinPanel _join;
@@ -384,6 +385,12 @@ public partial class CampaignMapPage : Control
 
 		_battle = new BattlePanel();
 		AddChild(_battle);
+		_battle.Fielded += fielding =>
+		{
+			// The lord is down on the field: the map under it is neither drawn nor steered.
+			_map.Visible = !fielding;
+			_world.ProcessMode = fielding ? ProcessModeEnum.Disabled : ProcessModeEnum.Inherit;
+		};
 		_battle.Settled += () =>
 		{
 			// A day's fighting moves men, walls and sometimes a border: everything drawn out there
@@ -609,52 +616,82 @@ public partial class CampaignMapPage : Control
 		_taxes.Open(economy, _balance, _turnManager.OtherCounties(economy));
 	}
 
-	/// <summary>Lays a road out as beads: one every so far along it, and a larger numbered one wherever
-	/// it crosses into another county — which is the only place on a free march where anything
-	/// actually changes hands.</summary>
+	/// <summary>Lays a road out: footsteps at an even pace along it, a numbered mark where each
+	/// season's march would end — 1 where these men halt this season, 2 the next, and so on — and
+	/// the destination. Footsteps are laid only as far as this season's legs reach.
+	///
+	/// The footsteps are laid along the road by distance and not on its grid cells: laid on the
+	/// cells, they came at whatever gaps the grid gave, bunched up here and strung out there.</summary>
 	private void LayTrail(List<(Vector2 At, float Spent)> road, float budget)
 	{
 		_trailSteps.Clear();
 		if (road.Count == 0)
 		{
-			_trail.Lay(System.Array.Empty<(Vector2, int, bool, bool)>());
+			_trail.Lay(System.Array.Empty<(Vector2, MarchTrail.Mark, int, bool)>());
 			return;
 		}
 
-		int county = _world.CountyAt(road[0].At);
-		float walked = StepSpacing;
-		for (int step = 0; step < road.Count; step++)
-		{
-			int here = _world.CountyAt(road[step].At);
-			bool crossed = here != county && here >= 0;
-			county = here;
+		float season = _balance.MarchReach;
 
-			walked += step == 0 ? 0f : road[step - 1].At.DistanceTo(road[step].At);
-			if (!crossed && walked < StepSpacing && step < road.Count - 1)
+		// A company that has walked its season out halts first where next season's walk ends, and
+		// that halt is counted as its second season: this one is spent.
+		bool spent = budget <= 0f;
+		float nextHalt = spent ? season : budget;
+		int seasons = spent ? 1 : 0;
+		float carried = StepSpacing * 0.5f;
+		var here = new List<(float T, Vector2 At, MarchTrail.Mark Mark, int Season, bool Reachable)>();
+		for (int step = 1; step < road.Count; step++)
+		{
+			(Vector2 from, float spentFrom) = road[step - 1];
+			(Vector2 to, float spentTo) = road[step];
+			float length = from.DistanceTo(to);
+			here.Clear();
+
+			// A season ends where the road's cost passes what the men can walk in it.
+			while (spentTo > nextHalt && seasons < MostSeasonsShown)
 			{
-				continue;
+				float t = Mathf.Clamp(Mathf.InverseLerp(spentFrom, spentTo, nextHalt), 0f, 1f);
+				seasons++;
+				here.Add((t, from.Lerp(to, t), MarchTrail.Mark.Season, seasons, seasons == 1));
+				nextHalt += season;
 			}
 
-			walked = 0f;
-			_trailSteps.Add((road[step].At, crossed || step == road.Count - 1, road[step].Spent <= budget));
+			for (carried += length; carried >= StepSpacing; carried -= StepSpacing)
+			{
+				// Only the steps this season's legs will take: past them the road is shown by the
+				// numbered halts and the destination alone.
+				float t = length <= 0f ? 1f : 1f - ((carried - StepSpacing) / length);
+				if (Mathf.Lerp(spentFrom, spentTo, t) <= budget)
+				{
+					here.Add((t, from.Lerp(to, t), MarchTrail.Mark.Step, 0, true));
+				}
+			}
+
+			// In the order they lie along the road: a footstep takes its heading from its neighbours
+			// in the list, and one listed after the halt it comes before pointed back at the army.
+			here.Sort((a, b) => a.T.CompareTo(b.T));
+			foreach ((float _, Vector2 at, MarchTrail.Mark mark, int number, bool reachable) in here)
+			{
+				_trailSteps.Add((at, mark, number, reachable));
+			}
 		}
+
+		_trailSteps.Add((road[^1].At, MarchTrail.Mark.Target, seasons + 1, road[^1].Spent <= budget));
 	}
+
+	/// <summary>How many season marks a trail shows before it stops counting.</summary>
+	private const int MostSeasonsShown = 9;
 
 	/// <summary>Puts the trail where the camera currently has it. Done every frame with the pins, for
 	/// the same reason: the map moves under them.</summary>
 	private void ProjectTrail()
 	{
-		var beads = new List<(Vector2, int, bool, bool)>(_trailSteps.Count);
-		int step = 0;
-		foreach ((Vector2 at, bool county, bool reachable) in _trailSteps)
+		var beads = new List<(Vector2, MarchTrail.Mark, int, bool)>(_trailSteps.Count);
+		foreach ((Vector2 at, MarchTrail.Mark mark, int season, bool reachable) in _trailSteps)
 		{
-			// Numbered in walking order and not in drawing order: a bead behind the camera is skipped
-			// from the picture, not from the count, or the numbers would renumber themselves every
-			// time the lord panned the map.
-			step++;
 			if (_world.TryScreenPosition(at, out Vector2 onScreen))
 			{
-				beads.Add((onScreen, step, county, reachable));
+				beads.Add((onScreen, mark, season, reachable));
 			}
 		}
 
@@ -1562,15 +1599,17 @@ public partial class CampaignMapPage : Control
 		GetTree().CreateTimer(longest * MapDecoration.RivalStrideSeconds + DeadlineSlack).Timeout += Halted;
 	}
 
-	/// <summary>A turn passes behind a curtain: the screen fades out, the season turns over while
-	/// nothing is visible, and the new season is named before the map comes back. The simulation
-	/// runs at the darkest point, so the numbers never visibly jump under the player's eyes.</summary>
+	/// <summary>A turn passes in a night: the map darkens as if the sun went down, a veil of night
+	/// comes over it with the new season's name, the season turns over at the darkest point — so the
+	/// numbers never visibly jump under the player's eyes — and dawn breaks on the new season.</summary>
 	private void TurnTheSeason()
 	{
 		_turnTransition.Visible = true;
+		Season before = _turnManager.CurrentSeason;
 
 		Tween tween = CreateTween();
-		tween.TweenProperty(_turnTransition, "modulate:a", 1.0, TurnFadeInSeconds);
+		tween.TweenMethod(Callable.From<float>(_world.Nightfall), 0f, 1f, TurnFadeInSeconds);
+		tween.Parallel().TweenProperty(_turnTransition, "modulate:a", 1.0, TurnFadeInSeconds);
 		tween.TweenCallback(Callable.From(() =>
 		{
 			List<TurnSummary> summaries = _turnManager.AdvanceTurn();
@@ -1602,7 +1641,12 @@ public partial class CampaignMapPage : Control
 			ShowArmies();
 
 			Season season = _turnManager.CurrentSeason;
-			_world.SetSeason(season); // the map turns over here too, while nothing of it is visible
+
+			// The country turns over to the new season through the rest of the night and the dawn,
+			// not at one instant: the leaves turn, the grass withers or greens, the light changes.
+			Tween turning = CreateTween();
+			turning.TweenMethod(Callable.From<float>(along => _world.TurnSeason(before, season, along)),
+				0f, 1f, TurnHoldSeconds + TurnFadeOutSeconds);
 
 			// Last season's rain stops with it, and this season's is already falling when the
 			// curtain lifts: over every county the river rose in, a rival's too, which the lord
@@ -1628,6 +1672,7 @@ public partial class CampaignMapPage : Control
 		}));
 		tween.TweenInterval(TurnHoldSeconds);
 		tween.TweenProperty(_turnTransition, "modulate:a", 0.0, TurnFadeOutSeconds);
+		tween.Parallel().TweenMethod(Callable.From<float>(_world.Nightfall), 1f, 0f, TurnFadeOutSeconds);
 		tween.TweenCallback(Callable.From(() =>
 		{
 			_turnTransition.Visible = false;

@@ -81,5 +81,5 @@ public partial class MapWater : Node3D
 
 	/// <summary>Only winter shows on the sea, and the shader decides what that looks like — this
 	/// just hands the season over.</summary>
-	public void SetSeason(Season season) => _material.SetShaderParameter("season", (float)(int)season);
+	public void SetSeason(float season) => _material.SetShaderParameter("season", season);
 }

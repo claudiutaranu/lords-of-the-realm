@@ -1,37 +1,43 @@
 using Godot;
 
-/// <summary>The road an army would take, laid out in front of it: a gold-ringed step for each stage
-/// of the walk, numbered in the order it would take them, crossed swords where it ends, and dimmed
-/// past the point this season's legs give out.
+/// <summary>The road an army would take, laid out in front of it: small chevrons at an even pace
+/// along it, pointing the way the men would walk; a numbered medallion where each season's march
+/// would end — 1 where they halt this season, 2 the next — and crossed swords where it ends. Past
+/// the point this season's legs give out it is dimmed.
 ///
 /// The dimming is the useful half. A trail that simply stopped at the edge of the allowance would
 /// leave a lord unable to tell "there is no way there" from "there is, and it is two seasons off" —
 /// and those want completely different decisions out of him.
 ///
-/// Drawn rather than built out of nodes: it changes every time the cursor moves, and a node per bead
+/// Drawn rather than built out of nodes: it changes every time the cursor moves, and a node per mark
 /// created and freed would churn the scene tree at whatever rate the mouse reports at.
 ///
 /// It takes screen positions, not map ones. The page re-projects the trail every frame from the same
-/// camera it re-projects the province pins with, so the beads stay on the ground while the lord
+/// camera it re-projects the province pins with, so the marks stay on the ground while the lord
 /// pans — and nothing in this file has to know a camera exists.</summary>
 public partial class MarchTrail : Control
 {
-	private const float BeadRadius = 9f;
-	private const float CountyRadius = 12f;
-	private const float TargetRadius = 17f;
+	/// <summary>What a mark on the trail is: a footstep along it, the end of a season's march, or
+	/// where the men are being sent.</summary>
+	public enum Mark { Step, Season, Target }
+
+	private const float ChevronLength = 5f;
+	private const float ChevronWide = 4.5f;
+	private const float SeasonRadius = 11f;
+	private const float TargetRadius = 16f;
 
 	private static readonly Color Bead = new("1b2436");
 	private static readonly Color Ring = new("e0b95f");
 	private static readonly Color Ink = new("f3dfa8");
-	private static readonly Color Shade = new(0f, 0f, 0f, 0.4f);
+	private static readonly Color Shade = new(0f, 0f, 0f, 0.45f);
 
 	// Past the season's legs: the same marks with the life gone out of them.
 	private static readonly Color FarBead = new("2a2e33");
-	private static readonly Color FarRing = new("6f6a5e");
-	private static readonly Color FarInk = new("9a958a");
+	private static readonly Color FarRing = new("8a857a");
+	private static readonly Color FarInk = new("b0ab9f");
 
-	private (Vector2 At, int Step, bool County, bool Reachable)[] _beads =
-		System.Array.Empty<(Vector2, int, bool, bool)>();
+	private (Vector2 At, Mark Mark, int Season, bool Reachable)[] _marks =
+		System.Array.Empty<(Vector2, Mark, int, bool)>();
 
 	private Font _font;
 
@@ -45,38 +51,74 @@ public partial class MarchTrail : Control
 
 	/// <summary>Lays the trail out, in screen coordinates and walking order. An empty one takes it
 	/// down.</summary>
-	public void Lay((Vector2 At, int Step, bool County, bool Reachable)[] beads)
+	public void Lay((Vector2 At, Mark Mark, int Season, bool Reachable)[] marks)
 	{
-		_beads = beads;
-		Visible = beads.Length > 0;
+		_marks = marks;
+		Visible = marks.Length > 0;
 		QueueRedraw();
 	}
 
 	public override void _Draw()
 	{
-		for (int bead = 0; bead < _beads.Length; bead++)
+		// The footsteps first, then the medallions over them.
+		for (int i = 0; i < _marks.Length; i++)
 		{
-			(Vector2 at, int step, bool county, bool reachable) = _beads[bead];
-			bool last = bead == _beads.Length - 1;
-			Color ring = reachable ? Ring : FarRing;
-			float radius = last ? TargetRadius : county ? CountyRadius : BeadRadius;
-
-			DrawCircle(at + new Vector2(1.5f, 2.5f), radius, Shade);
-			DrawCircle(at, radius, reachable ? Bead : FarBead);
-			DrawArc(at, radius, 0, Mathf.Tau, 32, ring, last ? 3.5f : 2.5f);
-
-			if (last)
+			if (_marks[i].Mark == Mark.Step)
 			{
-				Swords(at, radius, ring);
-				continue;
+				Chevron(i);
 			}
-
-			int size = county ? 14 : 12;
-			string count = step.ToString();
-			Vector2 box = _font.GetStringSize(count, HorizontalAlignment.Center, -1f, size);
-			DrawString(_font, at + new Vector2(-box.X / 2f, box.Y * 0.36f), count,
-				HorizontalAlignment.Center, -1f, size, reachable ? Ink : FarInk);
 		}
+
+		foreach ((Vector2 at, Mark mark, int season, bool reachable) in _marks)
+		{
+			if (mark == Mark.Season)
+			{
+				Medallion(at, SeasonRadius, reachable, 2.5f);
+				Number(at, season, reachable);
+			}
+			else if (mark == Mark.Target)
+			{
+				Medallion(at, TargetRadius, reachable, 3.5f);
+				Swords(at, TargetRadius, reachable ? Ring : FarRing);
+			}
+		}
+	}
+
+	/// <summary>A footstep: a chevron pointing along the road, from the step before it to the one
+	/// after, with a dark edge so it reads on grass and on road alike.</summary>
+	private void Chevron(int i)
+	{
+		(Vector2 at, _, _, bool reachable) = _marks[i];
+		Vector2 before = i > 0 ? _marks[i - 1].At : at;
+		Vector2 after = i < _marks.Length - 1 ? _marks[i + 1].At : at;
+		Vector2 way = after - before;
+		if (way.LengthSquared() < 0.01f)
+		{
+			return;
+		}
+
+		way = way.Normalized();
+		var aside = new Vector2(-way.Y, way.X);
+		Vector2 tip = at + (way * ChevronLength * 0.5f);
+		Vector2[] arms = { tip - (way * ChevronLength) + (aside * ChevronWide), tip, tip - (way * ChevronLength) - (aside * ChevronWide) };
+		DrawPolyline(arms, reachable ? Bead : new Color(0f, 0f, 0f, 0.5f), 4.5f, true);
+		DrawPolyline(arms, reachable ? Ring : FarRing, 2.2f, true);
+	}
+
+	private void Medallion(Vector2 at, float radius, bool reachable, float rim)
+	{
+		DrawCircle(at + new Vector2(1.5f, 2.5f), radius, Shade);
+		DrawCircle(at, radius, reachable ? Bead : FarBead);
+		DrawArc(at, radius, 0, Mathf.Tau, 40, reachable ? Ring : FarRing, rim, true);
+	}
+
+	private void Number(Vector2 at, int season, bool reachable)
+	{
+		const int size = 13;
+		string count = season.ToString();
+		Vector2 box = _font.GetStringSize(count, HorizontalAlignment.Center, -1f, size);
+		DrawString(_font, at + new Vector2(-box.X / 2f, box.Y * 0.36f), count,
+			HorizontalAlignment.Center, -1f, size, reachable ? Ink : FarInk);
 	}
 
 	/// <summary>The crossed swords on the last step: this is where the men are being sent, and it is

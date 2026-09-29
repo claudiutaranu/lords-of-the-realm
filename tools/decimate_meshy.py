@@ -46,10 +46,17 @@ BOTH are then unwrapped and baked the same way:
 Also, per model: stood on its own origin, base at y = 0 and centred, the way the map expects a prop
 to stand.
 
+SOLDIERS — a figure for one kind of man on the battlefield — are cut down the way a building is,
+to FIGURE_FACES, and saved under assets/models/units by the key of the kind they stand for
+(recruits.json: bow, spear, sword ...), which is where the battlefield looks for them. Hundreds of
+them stand on a field at once, so they get a building's method on a tree's budget, and no baked
+relief: the livery shader (soldier.gdshader) reads colour only.
+
 Needs, in tools/.venv on top of what rebuild-map.sh installs: pip install pymeshlab trimesh scipy xatlas
 
 Run: tools/.venv/bin/python tools/decimate_meshy.py [path-to.glb ...]
      (with no arguments it takes every Meshy tree in ~/Downloads)
+     tools/.venv/bin/python tools/decimate_meshy.py --unit bow path-to.glb
 """
 
 import sys
@@ -64,6 +71,11 @@ from PIL import Image
 from scipy.spatial import cKDTree
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent
+UNIT_DIR = PROJECT_DIR / "assets" / "models" / "units"
+
+# A soldier's triangles and texture: the figure the maps's own man was drawn with is ten thousand.
+FIGURE_FACES = 8000
+FIGURE_TEXTURE = 1024
 OUT_DIR = PROJECT_DIR / "assets" / "models" / "trees"
 BUILDING_DIR = PROJECT_DIR / "assets" / "models" / "settlements"
 TREE_WORDS = ("tree", "pine", "oak", "guardian", "cypress")
@@ -368,7 +380,7 @@ def unwrap(vertices, faces, size):
 
 def export(name, out_dir, vertices, faces, uv, normals, colour, relief, roughness, relief_size=None):
     """The model, stood on its own base and centred, with its baked colour inside it and its baked
-    normals in a file beside it."""
+    normals in a file beside it — none for a figure, whose shader has no use for them."""
     low, high = vertices.min(axis=0), vertices.max(axis=0)
     vertices = vertices - np.array([(low[0] + high[0]) / 2, low[1], (low[2] + high[2]) / 2])
     material = trimesh.visual.material.PBRMaterial(name=name, baseColorTexture=colour,
@@ -380,6 +392,9 @@ def export(name, out_dir, vertices, faces, uv, normals, colour, relief, roughnes
     out_dir.mkdir(parents=True, exist_ok=True)
     model = out_dir / f"{name}.glb"
     out.export(model)
+    if relief is None:
+        return model, high[1] - low[1]
+
     if relief_size is not None and relief_size != relief.width:
         relief = relief.resize((relief_size, relief_size), Image.LANCZOS)
 
@@ -418,7 +433,41 @@ def reduce_building(path):
           f"flag {int((sway > 0).sum())} vertices   height {height:.2f}   ({time.time() - started:.0f}s)")
 
 
+def reduce_figure(path, unit):
+    """A soldier: a building's collapse and bake, to a figure's budget, named for his kind."""
+    started = time.time()
+    mesh = trimesh.load(path, force="mesh", process=False)
+    surface = OriginalSurface(mesh)
+
+    ms = pymeshlab.MeshSet()
+    ms.add_mesh(pymeshlab.Mesh(vertex_matrix=surface.points, face_matrix=surface.faces.astype(np.int32)))
+    ms.meshing_merge_close_vertices(threshold=pymeshlab.PercentageValue(BUILDING_WELD))
+    ms.meshing_decimation_quadric_edge_collapse(targetfacenum=FIGURE_FACES, preservetopology=False,
+                                                preserveboundary=True, boundaryweight=2.0,
+                                                planarquadric=True, optimalplacement=True,
+                                                preservenormal=True, autoclean=True)
+    reduced = ms.current_mesh()
+    shaded = trimesh.graph.smooth_shade(
+        trimesh.Trimesh(vertices=reduced.vertex_matrix(), faces=reduced.face_matrix(), process=False),
+        angle=np.radians(BUILDING_CREASE))
+    remap, faces, uv = unwrap(np.asarray(shaded.vertices), np.asarray(shaded.faces), FIGURE_TEXTURE)
+    vertices = np.asarray(shaded.vertices)[remap]
+    normals = np.asarray(shaded.vertex_normals)[remap]
+
+    colour, _, _ = bake(vertices, faces, uv, surface, FIGURE_TEXTURE)
+    model, height = export(unit, UNIT_DIR, vertices, faces, uv, normals,
+                           Image.fromarray(np.clip(colour, 0, 255).astype(np.uint8), "RGB"), None,
+                           roughness=0.8)
+    print(f"  {unit:20s} {len(surface.faces):>10,} -> {len(faces):>6,} triangles   "
+          f"{path.stat().st_size / 1048576:7.1f} MB -> {model.stat().st_size / 1024:5.0f} KB   "
+          f"height {height:.2f}   ({time.time() - started:.0f}s)")
+
+
 def main():
+    if len(sys.argv) == 4 and sys.argv[1] == "--unit":
+        reduce_figure(Path(sys.argv[3]), sys.argv[2])
+        return
+
     paths = [Path(p) for p in sys.argv[1:]] or sorted(
         p for p in Path.home().joinpath("Downloads").glob("Meshy_AI_*.glb")
         if any(word in p.name.lower() for word in TREE_WORDS))

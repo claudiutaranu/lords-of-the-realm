@@ -46,17 +46,29 @@ public partial class CampaignMap3D : Node3D
 	private const float SeaFloorByte = 46.0f;
 	private const float SeaLevel = HeightScale * SeaFloorByte / 255.0f;
 
-	// Fixed pitch: the map reads like the painted original from one angle, and markers stay
-	// where the player expects. Free orbit can come later if armies ever need to be seen behind
-	// a mountain.
-	private const float CameraPitchDegrees = -52.0f;
+	// The pitch follows the zoom: from high up the map is read like a map, looking well down on it;
+	// come in close and the eye drops toward the horizon, so the hills stand up against the sky and
+	// the far country goes into the haze — the way a lord on a ridge sees his land.
+	private const float CameraPitchFar = -55.0f;
+	private const float CameraPitchNear = -30.0f;
+	private float CameraPitchDegrees => Mathf.Lerp(CameraPitchNear, CameraPitchFar, ZoomedOut);
+
+	/// <summary>How far out the camera is, 0 at its closest and 1 at its furthest.</summary>
+	private float ZoomedOut => Mathf.Clamp((_distance - MinDistance) / (MaxDistance - MinDistance), 0f, 1f);
 	private const float CameraFov = 48.0f;
 	// A fifth closer than it was (54): near enough to see a field's rows and a village's roofs.
 	private const float MinDistance = 45.0f;
 	private const float MaxDistance = 152.0f;
-	/// <summary>How far the shadows reach, as a multiple of the camera's distance. From this pitch
-	/// and field of view the far edge of the screen lies about 1.53 camera distances deep.</summary>
+	/// <summary>How far the shadows reach, as a multiple of the camera's distance: at the far zoom's
+	/// steep pitch the far edge of the screen lies about 1.5 distances deep, at the near zoom's low
+	/// one several.</summary>
 	private const float ShadowReach = 1.6f;
+	private const float ShadowReachLow = 4.5f;
+
+	/// <summary>Where the haze begins and where it is thickest, as multiples of the camera's
+	/// distance: past the ground on the screen's lower half, which the lord is looking at.</summary>
+	private const float HazeFrom = 1.15f;
+	private const float HazeTo = 2.4f;
 	private const float ZoomStep = 9.5f;
 	// Trackpad gestures carry continuous deltas, not the wheel's discrete clicks, so they need their
 	// own scale: how many world units one unit of two-finger scroll, and one of pinch, are worth.
@@ -68,16 +80,17 @@ public partial class CampaignMap3D : Node3D
 
 	/// <summary>What a season does to the light over the map: the sun's colour and strength, the sky
 	/// it comes out of, and the haze on the horizon. The ground and the sea are seasoned by their own
-	/// shaders; this is the weather over them.</summary>
+	/// shaders; this is the weather over them. FogDensity is how thick the haze is at its far end,
+	/// 0..1 (depth fog: see HazeFrom) — spring's mist and winter's murk thicker than summer's.</summary>
 	private record SeasonLight(Color Sun, float Energy, Color SkyTop, Color SkyHorizon, Color Fog, float FogDensity);
 
 	// Season enum order: spring, summer, autumn, winter.
 	private static readonly SeasonLight[] LightBySeason =
 	{
-		new(new("ffeccf"), 1.30f, new("31558a"), new("9db5c4"), new("aec2d2"), 0.00022f),
-		new(new("fff2d8"), 1.35f, new("2b4a74"), new("8aa0b4"), new("9fb4c8"), 0.00018f),
-		new(new("ffdba8"), 1.18f, new("3a5470"), new("c2a681"), new("bfae95"), 0.00030f),
-		new(new("dfeaff"), 0.92f, new("4c5d74"), new("c3ccd4"), new("cbd6df"), 0.00048f),
+		new(new("ffeccf"), 1.30f, new("31558a"), new("9db5c4"), new("aec2d2"), 0.65f),
+		new(new("fff2d8"), 1.35f, new("2b4a74"), new("8aa0b4"), new("9fb4c8"), 0.55f),
+		new(new("ffdba8"), 1.18f, new("3a5470"), new("c2a681"), new("bfae95"), 0.75f),
+		new(new("dfeaff"), 0.92f, new("4c5d74"), new("c3ccd4"), new("cbd6df"), 0.85f),
 	};
 
 	private Camera3D _camera;
@@ -106,6 +119,11 @@ public partial class CampaignMap3D : Node3D
 		_decoration = new MapDecoration();
 		AddChild(_decoration);
 		_decoration.Build(this);
+
+		_grass = new MapGrass();
+		AddChild(_grass);
+		_grass.Sow(this, GD.Load<Image>(Campaign.Asset("map-props.png")),
+			new Vector2(_heightImage.GetWidth(), _heightImage.GetHeight()), GrassSeed);
 
 		_clouds = new MapClouds();
 		AddChild(_clouds);
@@ -296,25 +314,74 @@ public partial class CampaignMap3D : Node3D
 	/// <summary>Turns the whole map over to a season: the ground, the sea, what grows on it and the
 	/// light it all stands in. Called on every turn change, from behind the turn curtain, so the
 	/// change is never seen happening.</summary>
-	public void SetSeason(Season season)
-	{
-		_ground?.SetShaderParameter("season", (float)(int)season);
-		_water.SetSeason(season);
-		_decoration.SetSeason(season);
-		_clouds.SetSeason(season);
+	public void SetSeason(Season season) => TurnSeason(season, season, 1f);
 
-		SeasonLight light = LightBySeason[(int)season];
-		_sun.LightColor = light.Sun;
-		_sun.LightEnergy = light.Energy;
-		_sky.SkyTopColor = light.SkyTop;
-		_sky.SkyHorizonColor = light.SkyHorizon;
-		_environment.FogLightColor = light.Fog;
-		_environment.FogDensity = light.FogDensity;
+	/// <summary>The map part of the way from one season into the next, 0 to 1: the ground, the
+	/// leaves, the grass, the sea and the light all blend, so a season turns over across the night
+	/// and the dawn rather than switching at one instant. The year goes round — winter turns into
+	/// the spring after it, not back through the whole year.</summary>
+	public void TurnSeason(Season from, Season to, float along)
+	{
+		float span = ((int)to - (int)from + 4) % 4;
+		float at = (int)from + (span * Mathf.Clamp(along, 0f, 1f));
+		_ground?.SetShaderParameter("season", at);
+		_water.SetSeason(at % 4f);
+		_decoration.SetSeason(at);
+		_grass?.SetSeason(at);
+		if (along >= 1f)
+		{
+			_clouds.SetSeason(to);
+		}
+
+		SeasonLight a = LightBySeason[(int)from];
+		SeasonLight b = LightBySeason[(int)to];
+		float t = span == 0 ? 1f : Mathf.Clamp(along, 0f, 1f);
+		_day = new SeasonLight(a.Sun.Lerp(b.Sun, t), Mathf.Lerp(a.Energy, b.Energy, t), a.SkyTop.Lerp(b.SkyTop, t),
+			a.SkyHorizon.Lerp(b.SkyHorizon, t), a.Fog.Lerp(b.Fog, t), Mathf.Lerp(a.FogDensity, b.FogDensity, t));
+		_sky.SkyTopColor = _day.SkyTop;
+		_sky.SkyHorizonColor = _day.SkyHorizon;
+		_environment.FogDensity = _day.FogDensity;
+		Nightfall(_dark);
 	}
+
+	/// <summary>How far into the night the map is, 0 day to 1 the dead of night: the sun sinks and
+	/// cools to moonlight, the whole scene darkens, and the haze goes blue. The turn passes at the
+	/// darkest point (CampaignMapPage.TurnTheSeason), and dawn breaks on the new season.</summary>
+	public void Nightfall(float dark)
+	{
+		_dark = dark;
+		if (_day == null)
+		{
+			return;
+		}
+
+		_sun.LightEnergy = Mathf.Lerp(_day.Energy, _day.Energy * NightSun, dark);
+		_sun.LightColor = _day.Sun.Lerp(Moonlight, dark);
+		_environment.TonemapExposure = Mathf.Lerp(1f, NightExposure, dark);
+		_environment.FogLightColor = _day.Fog.Lerp(Moonlight.Darkened(0.5f), dark);
+	}
+
+	private SeasonLight _day;
+	private MapGrass _grass;
+
+	/// <summary>Where the map's grass is sown from: fixed, so every session sees the same meadow.</summary>
+	private const ulong GrassSeed = 1268;
+	private float _dark;
+
+	/// <summary>The night the turn passes in: how much of the sun is left, what colour it has gone,
+	/// and how dark the whole scene is taken down to.</summary>
+	private const float NightSun = 0.15f;
+	private const float NightExposure = 0.45f;
+	private static readonly Color Moonlight = new("7d93c4");
 
 	/// <summary>Map pixels to a world unit — anything that has to measure a width on the ground
 	/// needs this to convert before sampling.</summary>
 	public float PixelsPerUnit => _heightImage.GetWidth() / MapWidth;
+
+	/// <summary>The map pixel under a point in the world.</summary>
+	public Vector2 MapPixelOf(Vector3 world) => new(
+		(world.X / MapWidth + 0.5f) * _heightImage.GetWidth(),
+		(world.Z / MapDepth + 0.5f) * _heightImage.GetHeight());
 
 	/// <summary>World position of a map pixel, sitting on the terrain surface.</summary>
 	public Vector3 WorldAt(Vector2 mapPixel) => MapToWorld(mapPixel);
@@ -391,11 +458,16 @@ public partial class CampaignMap3D : Node3D
 			AmbientLightSource = Godot.Environment.AmbientSource.Sky,
 			AmbientLightEnergy = 0.45f,
 			TonemapMode = Godot.Environment.ToneMapper.Filmic,
+			// A haze over the far country only: it begins past the ground the lord is looking at
+			// (UpdateCamera sets where, by the zoom), so what is near stays sharp and bright and the
+			// land toward the horizon goes soft and pale.
 			FogEnabled = true,
-			FogLightColor = new Color("9fb4c8"),
-			FogDensity = 0.00018f,
-			FogSkyAffect = 0.1f,
-			FogAerialPerspective = 0.18f,
+			FogMode = Godot.Environment.FogModeEnum.Depth,
+			FogLightColor = new Color("c3ccd3"),
+			FogDensity = 0.7f,
+			FogDepthCurve = 1.2f,
+			FogSkyAffect = 0.6f,
+			FogAerialPerspective = 0.3f,
 			SsaoEnabled = true,
 			SsaoRadius = 1.8f,
 			SsaoIntensity = 1.2f,
@@ -526,7 +598,11 @@ public partial class CampaignMap3D : Node3D
 		float pitch = Mathf.DegToRad(CameraPitchDegrees);
 		_camera.Position = _focus + new Vector3(0, -Mathf.Sin(pitch) * _distance, Mathf.Cos(pitch) * _distance);
 		_camera.RotationDegrees = new Vector3(CameraPitchDegrees, 0, 0);
-		_sun.DirectionalShadowMaxDistance = _distance * ShadowReach;
+		// Low down, the far edge of the screen is several camera distances off, not one and a half:
+		// the shadows reach as far as the eye does, or they stop halfway up the screen.
+		_sun.DirectionalShadowMaxDistance = _distance * Mathf.Lerp(ShadowReachLow, ShadowReach, ZoomedOut);
+		_environment.FogDepthBegin = _distance * HazeFrom;
+		_environment.FogDepthEnd = _distance * HazeTo;
 		_clouds?.SetFocus(_focus);
 		_rain?.SetZoom(_distance);
 	}
