@@ -50,6 +50,8 @@ public partial class RecruitsPage : ProductionPage
 
 	protected override int OrderStep => 5;
 
+	protected override int DetailWidth => 360;
+
 	/// <summary>How large a man is drawn on the roster. The width is a floor rather than a size —
 	/// the row shares the page out between them — and it is set by the widest thing on the card,
 	/// which is the order button rather than the picture: a card narrower than its own button wears
@@ -134,16 +136,26 @@ public partial class RecruitsPage : ProductionPage
 	/// granary the county does — more than a ploughman, and not on the ration the lord sets his
 	/// people — and they are owed wages every season out of the same purse the walls are paid for.
 	/// Said here, where the order is placed, because it is the only place the decision is being made
-	/// and the cost itself does not appear until the season after.</summary>
+	/// and the cost itself does not appear until the season after — and so is what taking them costs
+	/// the county's goodwill, which lands the moment the muster is called and was a surprise.</summary>
 	protected override string UpkeepLine()
 	{
 		GameBalance balance = GameBalance.Engine;
 		int grain = Mathf.CeilToInt(10 / balance.PeoplePerGrain * balance.SoldierAppetite);
 		int gold = Mathf.CeilToInt(10 * balance.WagePerSoldier);
-		int quartered = Mathf.FloorToInt((Province?.Population ?? 0) * balance.GarrisonTolerated);
-		return $"Keeping them: every ten men eat {grain} grain a season and are owed {gold} gold. "
-			+ "Men who cannot be paid go home. "
-			+ $"The county quarters {quartered:N0} without complaint and resents every one above that.";
+		int people = Mathf.Max(1, Province?.Population ?? 0);
+		string keeping = $"Keeping them: every ten men eat {grain} grain a season and are owed {gold} gold. "
+			+ "Men who cannot be paid go home.";
+
+		// A hired company takes nobody's son, so it costs no goodwill.
+		if (_lit != null && _lit.Key == _band?.Key)
+		{
+			return keeping;
+		}
+
+		return keeping + " "
+			+ $"Taking them costs the county's goodwill: a tenth of its people ({people / 10:N0}) costs "
+			+ $"{Livelihood.RecruitingCost(people / 10, people)}, half of them {Livelihood.RecruitingCost(people / 2, people)}.";
 	}
 
 	protected override void Pay(string purse, int amount)
@@ -176,6 +188,15 @@ public partial class RecruitsPage : ProductionPage
 	protected override void PlaceOrder()
 	{
 		if (_lit == null)
+		{
+			return;
+		}
+
+		// A band is hired once: while it stands in the county and is not on the table already. Its
+		// price is for the company, so a second press put a second hundred men on the same 5,500, and
+		// the card stayed lit after the muster for a third.
+		if (_lit.Key == _band?.Key
+			&& (_muster.ContainsKey(_lit.Key) || Mercenaries.Standing(Province)?.Key != _lit.Key))
 		{
 			return;
 		}
@@ -488,7 +509,8 @@ public partial class RecruitsPage : ProductionPage
 			Narrator.Say(EventEngine.VoicePath(EventEngine.Find($"merc-{band.Key}")));
 			var hired = new Item(band.Key, band.Name, band.Unit, band.Blurb, band.Attack, band.Range,
 				band.Defence, band.Speed, Turns: 1, Batch: band.Men,
-				new Dictionary<string, int> { ["gold"] = band.Gold });
+				new Dictionary<string, int> { ["gold"] = band.Gold },
+				Items.Find(item => item.Key == band.Unit)?.Strengths ?? "");
 			Items.Add(hired);
 
 			// Its own counter beside the roster, under its own sign. What the yard raises and what

@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using Godot;
 
 /// <summary>The men on the field, drawn: every man of a <see cref="FieldBattle"/> where the battle
-/// says he is, with his health over his head, the fallen where they fell, each squad's standard, and the arrows in the air.
+/// says he is, with his health over his head, the fallen where they fell, and the arrows in the air.
 ///
 /// Drawing only. The battle moves its men ten times a second; the screen walks each of them
 /// between where he was and where he is, so a march is a march and not a series of hops, and turns
@@ -15,25 +15,50 @@ public partial class BattlefieldSquads : Node3D
 	private const float LyingFor = 3f;
 	private const float GoingFor = 1f;
 
-	/// <summary>A baked figure's clips, by the names tools/bake_figure.py keeps them under; how fast
-	/// his walk clip was made to cover ground, in metres a second at his modelled height; where in
+	/// <summary>A baked figure's clips, by the names tools/bake_figure.py keeps them under; where in
 	/// the shoot clip the arrow leaves the string, in seconds (the archer's rig: frame 38 of 60 at
-	/// thirty a second); and the paces at which he starts walking and stops.</summary>
+	/// thirty a second); the paces at which he starts walking and stops; and past which pace a
+	/// figure that can gallop does.</summary>
 	private const string WalkClip = "walk_loop";
+	private const string GallopClip = "gallop_loop";
+	private const string RunClip = "run_loop";
 	private const string IdleClip = "idle_loop";
 	private const string ShootClip = "shoot";
+	private const string AttackClip = "attack";
 	private const string DeathClip = "death";
-	private const float ClipWalkPace = 1.2f;
 	private const float LooseInShoot = 38f / 30f;
 	private const float StartsWalking = 0.6f;
 	private const float StopsWalking = 0.2f;
+	private const float GallopsFrom = 2.5f;
+
+	/// <summary>Past which pace a man on foot who has a run breaks into it: his walk is made for
+	/// under a metre a second, and played at a charge's two and a half it was a scurry.</summary>
+	private const float RunsFrom = 1.4f;
+
+	/// <summary>How fast each moving clip was made to cover ground, in model units a second, so the
+	/// clip is run exactly as fast as the man's feet — or the horse's hooves — carry him and nothing
+	/// slides. The knight's are measured off his hooves (how far one swings, over the part of the
+	/// stride it is down: three fifths of a walk, two of a gallop).</summary>
+	private static readonly Dictionary<(string Model, string Clip), float> ClipPaces = new()
+	{
+		[("units/bow", WalkClip)] = 1.2f,
+		[("units/horse", WalkClip)] = 0.72f,
+		[("units/horse", GallopClip)] = 3.2f,
+		[("units/peasant", WalkClip)] = 0.89f,
+		[("units/peasant", RunClip)] = 1.67f,
+	};
+
+	/// <summary>A clip's pace, where it has been measured; a man's walk where it has not.</summary>
+	private static float ClipPace(SoldierFigure figure, string clip) =>
+		ClipPaces.GetValueOrDefault((figure.Model, clip), ClipPaces[("units/bow", WalkClip)]);
+
+	/// <summary>Past how far from the eye a squad is drawn with its men thinned (SoldierFigure.Far), in
+	/// metres: past it a man is a finger tall on the screen, and the slips of paint thinning him
+	/// leaves are not seen.</summary>
+	private const float FarFrom = 70f;
 
 	/// <summary>How long one clip takes to fade into the next, in seconds.</summary>
 	private const float CrossFade = 0.25f;
-
-	/// <summary>How tall the captain is drawn with his standard, pole and all — a head over the men
-	/// he leads.</summary>
-	private const float StandardHeight = 2.1f;
 
 	/// <summary>How quickly a man turns to face where he is going, a share a second.</summary>
 	private const float Turning = 8f;
@@ -71,10 +96,7 @@ public partial class BattlefieldSquads : Node3D
 		public SoldierFigure Figure;
 		public MultiMeshInstance3D Men;
 		public MultiMeshInstance3D Fallen;
-		public MultiMeshInstance3D Standard;
-		public MultiMeshInstance3D FallenStandard;
 		public readonly List<(Transform3D Lying, float Fell)> Dead = new();
-		public readonly List<(Transform3D Lying, float Fell)> DeadStandard = new();
 		public Color Colour;
 	}
 
@@ -98,6 +120,9 @@ public partial class BattlefieldSquads : Node3D
 	}
 	private readonly Dictionary<FieldSquad, Drawn> _bySquad = new();
 	private FieldBattle _battle;
+	/// <summary>The ground the men stand on.</summary>
+	public BattlefieldLand Land { get; set; }
+
 	private MultiMeshInstance3D _marks;
 	private MultiMeshInstance3D _arrows3;
 
@@ -140,13 +165,6 @@ public partial class BattlefieldSquads : Node3D
 				Men = Body(figure, squad.Soldiers.Count, colour),
 				Fallen = Body(figure, squad.Soldiers.Count, colour),
 			};
-
-			// The captain is a man of the squad like the rest — the battle moves him, he fights and he
-			// falls — and he is drawn as the standard-bearer, and carries the cloth.
-			drawn.Standard = Body(SoldierFigure.Standard, 1, colour);
-			drawn.Standard.SetInstanceShaderParameter("banner", 1f);
-			drawn.FallenStandard = Body(SoldierFigure.Standard, 1, colour);
-			drawn.FallenStandard.SetInstanceShaderParameter("banner", 1f);
 			figures += squad.Soldiers.Count;
 			_drawn.Add(drawn);
 			_bySquad[squad] = drawn;
@@ -176,32 +194,35 @@ public partial class BattlefieldSquads : Node3D
 		{
 			FieldSquad squad = drawn.Squad;
 			MultiMesh body = drawn.Men.Multimesh;
-			MultiMesh standard = drawn.Standard.Multimesh;
-			int ranked = 0;
-			bool captained = false;
+			Mesh seen = drawn.Figure.Far != null
+				&& eye.GlobalPosition.DistanceTo(new Vector3(squad.At.X, 0f, squad.At.Y)) > FarFrom
+					? drawn.Figure.Far
+					: drawn.Figure.Mesh;
+			if (body.Mesh != seen)
+			{
+				body.Mesh = seen;
+			}
+
+			int i = 0;
 			bool inHand = chosen.Contains(squad);
 			foreach (FieldSoldier man in squad.Soldiers)
 			{
-				bool isCaptain = man == squad.Captain;
-				MultiMesh drawnIn = isCaptain ? standard : body;
-				int i = isCaptain ? 0 : ranked++;
-				SoldierFigure figure = isCaptain ? SoldierFigure.Standard : drawn.Figure;
-				float stature = isCaptain ? StandardHeight : figure.Stature;
+				SoldierFigure figure = drawn.Figure;
+				float stature = figure.Stature;
 				Vector3 at = Ground(man.Was.Lerp(man.At, between));
 				float struck = clock - man.Struck;
 				if (struck < LungeSeconds && !squad.Shoots && !figure.IsBaked)
 				{
-					at += Ground(man.Facing) * (Lunge * Mathf.Sin(Mathf.Pi * struck / LungeSeconds));
+					at += new Vector3(man.Facing.X, 0f, man.Facing.Y) * (Lunge * Mathf.Sin(Mathf.Pi * struck / LungeSeconds));
 				}
 
 				float yaw = Mathf.LerpAngle(_turned.GetValueOrDefault(man, Yaw(man.Facing)), Yaw(man.Facing), turn);
 				_turned[man] = yaw;
-				drawnIn.SetInstanceTransform(i, Standing(figure, at, yaw, stature));
+				body.SetInstanceTransform(i, Standing(figure, at, yaw, stature));
 				float lean = struck < LungeSeconds && !squad.Shoots ? Mathf.Sin(Mathf.Pi * struck / LungeSeconds) : 0f;
-				drawnIn.SetInstanceCustomData(i, figure.IsBaked
+				body.SetInstanceCustomData(i++, figure.IsBaked
 					? Played(man, figure, man.Was.Lerp(man.At, between), delta, clock, between)
 					: Stride(man, figure, man.Was.Lerp(man.At, between), delta, lean));
-				captained |= isCaptain;
 
 				// Only over the men the lord has in hand, and over anyone who has been hurt: forty
 				// full bars over a squad that has not been touched said nothing and hid the men.
@@ -211,8 +232,7 @@ public partial class BattlefieldSquads : Node3D
 				}
 			}
 
-			body.VisibleInstanceCount = ranked;
-			standard.VisibleInstanceCount = captained ? 1 : 0;
+			body.VisibleInstanceCount = i;
 		}
 
 		_barsBehind.Multimesh.VisibleInstanceCount = bars;
@@ -257,7 +277,8 @@ public partial class BattlefieldSquads : Node3D
 		};
 		AddChild(body);
 
-		// Nobody in the ranks carries the standard: it has a man of its own.
+		// Nobody in the ranks carries a banner: the placeholder figure is the map's standard-bearer, and
+		// on the field his cloth would be a flag over every man.
 		body.SetInstanceShaderParameter("lord_color", colour);
 		body.SetInstanceShaderParameter("banner", 0f);
 		body.SetInstanceShaderParameter("walking", 0f);
@@ -281,5 +302,5 @@ public partial class BattlefieldSquads : Node3D
 	/// direction on the field.</summary>
 	private static float Yaw(Vector2 facing) => Mathf.Atan2(facing.X, facing.Y);
 
-	private static Vector3 Ground(Vector2 at) => new(at.X, 0f, at.Y);
+	private Vector3 Ground(Vector2 at) => Land.On(at);
 }

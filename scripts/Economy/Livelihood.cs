@@ -246,7 +246,10 @@ public static class Livelihood
 	}
 
 	/// <summary>What sons taken for the army cost a county's happiness, by the share of it taken in
-	/// one muster.</summary>
+	/// one muster. [I] The original's ladder in shape, at half its cost and never more than forty
+	/// (the user's call): at the original's 90 and 101 for half the county or more, a lord who raised
+	/// his first real army out of 431 peasants at 71 happiness had a county at 4 the season after, and
+	/// nothing to do but wait years for it to come round.</summary>
 	public static int RecruitingCost(int taken, int people)
 	{
 		if (taken <= 0)
@@ -258,13 +261,13 @@ public static class Livelihood
 		return percent switch
 		{
 			< 5 => 0,
-			< 10 => 2,
-			< 20 => 5,
-			< 25 => 10,
-			< 33 => 19,
-			< 50 => 37,
-			< 60 => 90,
-			_ => 101,
+			< 10 => 1,
+			< 20 => 2,
+			< 25 => 5,
+			< 33 => 9,
+			< 50 => 18,
+			< 60 => 30,
+			_ => 40,
 		};
 	}
 

@@ -57,7 +57,16 @@ public partial class CityPage
 		Label title = Line(site.Name.ToUpperInvariant(), 28, Cream);
 		GoldTitle.Apply(title);
 		title.VerticalAlignment = VerticalAlignment.Center;
+		title.SizeFlagsHorizontal = SizeFlags.ExpandFill;
 		heading.AddChild(title);
+
+		// Put back down: the panel returns to the season, as a second press on the site does.
+		var close = new Button { Text = "✕", Flat = true, CustomMinimumSize = new Vector2(38, 38),
+			SizeFlagsVertical = SizeFlags.ShrinkCenter, TooltipText = "Close" };
+		close.AddThemeFontSizeOverride("font_size", 24);
+		close.AddThemeColorOverride("font_color", Chrome.Cream);
+		close.Pressed += () => Choose(site.Key);
+		heading.AddChild(close);
 		Detail.AddChild(heading);
 
 		if (CityArt.HasTile(site.Key))

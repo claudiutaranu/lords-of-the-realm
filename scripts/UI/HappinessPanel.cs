@@ -24,7 +24,6 @@ public partial class HappinessPanel : CountyPanel
 
 	private const int SceneHeight = 190;
 	private const int MostYears = 20;
-	private const string TavernArtPath = "res://assets/ui/happiness-tavern.png";
 
 	/// <summary>Every line the season is made of, the original's own: what he charged, what the
 	/// realm's rates cost here, how healthy the county is, what it was fed, and what simply happened.
@@ -48,45 +47,10 @@ public partial class HappinessPanel : CountyPanel
 	protected override void Furnish()
 	{
 		// The years stand in the tavern, the way the old game hung its chart over a picture of the
-		// people it is counting. The art is cropped to the frame rather than squashed into it, and
-		// darkened under the bars — a chart drawn over a lit room is a chart nobody can read.
-		var scene = new PanelContainer { CustomMinimumSize = new Vector2(0, SceneHeight), ClipContents = true };
-
-		// The frame holds its contents off its own edge by the width of its border unless it is told
-		// not to, and that gap is what leaves the years hovering above the floor of the picture they
-		// are drawn on. The border still draws; it simply stops pushing.
-		StyleBoxFlat frame = Chrome.CardStyle(new Color(0.05f, 0.045f, 0.04f, 1f));
-		frame.ContentMarginLeft = frame.ContentMarginRight = 0;
-		frame.ContentMarginTop = frame.ContentMarginBottom = 0;
-		scene.AddThemeStyleboxOverride("panel", frame);
-		Column.AddChild(scene);
-
-		scene.AddChild(new TextureRect
-		{
-			Texture = GD.Load<Texture2D>(TavernArtPath),
-			ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
-			StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered,
-			MouseFilter = MouseFilterEnum.Ignore,
-		});
-
-		scene.AddChild(new ColorRect
-		{
-			Color = new Color(0.04f, 0.035f, 0.03f, 0.45f),
-			MouseFilter = MouseFilterEnum.Ignore,
-		});
-
-		var over = new MarginContainer();
-		// Nothing at the bottom: the years stand on the floor of the picture, the way the old game's
-		// chart stood on the bottom edge of its own. Room at the top only, for the lids.
-		foreach ((string side, int room) in new[] { ("left", 14), ("right", 14), ("top", 14), ("bottom", 0) })
-		{
-			over.AddThemeConstantOverride($"margin_{side}", room);
-		}
-
-		scene.AddChild(over);
-
-		_chart = new HappinessChart { MouseFilter = MouseFilterEnum.Ignore };
-		over.AddChild(_chart);
+		// people it is counting — on the floor of the picture, the way the old game's chart stood on
+		// the bottom edge of its own, with room at the top only, for the lids.
+		_chart = new HappinessChart();
+		Column.AddChild(ChartArt.Scene(_chart, SceneHeight, (14, 14, 14, 0)));
 
 		var under = new HBoxContainer();
 		under.AddThemeConstantOverride("separation", 12);

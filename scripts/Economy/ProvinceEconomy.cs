@@ -431,7 +431,7 @@ public class ProvinceEconomy
 	/// industry — a quarter in a county nobody has divided — and, within each half, each job's part
 	/// of that half in hundredths of a percent (Labour.Whole). The hands themselves are dealt from
 	/// these, twice a season.</summary>
-	public int IndustryShare = 25;
+	public double IndustryShare = 25;
 
 	public Dictionary<string, int> Shares = new();
 
@@ -523,6 +523,10 @@ public class ProvinceEconomy
 	/// belongs to is gone. It is what the happiness table draws its bars from, and it is saved.</summary>
 	public List<float> HappinessByYear = new();
 
+	/// <summary>The county's people season by season, oldest first (<see cref="PeopleSeason"/>): the
+	/// people table's record, saved, for the same reason as the years above.</summary>
+	public List<PeopleSeason> PeopleBySeason = new();
+
 	/// <summary>How many seasons each kind of news must stay quiet for, by the kind's own name. A
 	/// hard winter should be one famine warning and not four identical ones.</summary>
 	public Dictionary<string, int> EventQuiet = new();
@@ -567,9 +571,7 @@ public class ProvinceEconomy
 		return men;
 	}
 
-	public int AllocatedWorkers =>
-		GrainWorkers + CattleWorkers + ReclaimWorkers + WoodWorkers + StoneWorkers + IronWorkers + BuildWorkers
-		+ SmithWorkers;
+	public int AllocatedWorkers => System.Linq.Enumerable.Sum(Labour.Jobs, job => Labour.Hands(this, job));
 
 	/// <summary>Who there is to work. It is the province's whole population, the way Lords of the
 	/// Realm counts it: everyone not under arms can be put to something. That is what makes raising
@@ -616,6 +618,7 @@ public class ProvinceEconomy
 		copy.Castle = new Dictionary<string, int>(Castle);
 		copy.EventQuiet = new Dictionary<string, int>(EventQuiet);
 		copy.HappinessByYear = new List<float>(HappinessByYear);
+		copy.PeopleBySeason = new List<PeopleSeason>(PeopleBySeason);
 		return copy;
 	}
 

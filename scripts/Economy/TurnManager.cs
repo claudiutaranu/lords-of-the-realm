@@ -1009,6 +1009,29 @@ public partial class TurnManager
 		province.HappinessByYear[year] += (province.Loyalty - province.HappinessByYear[year]) / seasonsIn;
 	}
 
+	/// <summary>How many seasons of a county's people are kept. ponytail: a flat cap of twenty years;
+	/// a reign that wants its whole length charted wants the old seasons thinned, not dropped.</summary>
+	private const int MostSeasonsKept = 80;
+
+	/// <summary>Writes down the season just ended for the people table: the count, the health, and
+	/// the births and deaths the season's arithmetic made.</summary>
+	private void RememberPeople(ProvinceEconomy province, TurnSummary summary)
+	{
+		province.PeopleBySeason.Add(new PeopleSeason
+		{
+			Turn = Turn,
+			Population = province.Population,
+			Health = province.Health,
+			Born = summary.Born,
+			Died = summary.Died,
+		});
+
+		if (province.PeopleBySeason.Count > MostSeasonsKept)
+		{
+			province.PeopleBySeason.RemoveAt(0);
+		}
+	}
+
 	/// <summary>Which counties border which, by name, as the campaign's map has them
 	/// (provinces.json "neighbours"). Empty — the checks — and nobody moves house.</summary>
 	public Dictionary<string, List<string>> Neighbours { get; set; } = new();
@@ -1431,6 +1454,7 @@ public partial class TurnManager
 			summary.Restate(province);
 			_lastSeason[province.ProvinceName] = summary;
 			Remember(province);
+			RememberPeople(province, summary);
 
 			// Only what happened in his own counties is news a lord could have heard. He is not told
 			// the Northern Watch has murrain, and his turn report is not padded with a rival's year.

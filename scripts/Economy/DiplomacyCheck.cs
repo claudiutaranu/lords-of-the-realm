@@ -31,6 +31,7 @@ public partial class DiplomacyCheck : Node
 		Errands();
 		Purse();
 		Saved();
+		Wording();
 
 		GD.Print(_failed == 0
 			? "\ndiplomacy: all checks passed"
@@ -186,6 +187,18 @@ public partial class DiplomacyCheck : Node
 		Is("  on the realm named", d.Errands.GetValueOrDefault(Watch), Marsh);
 		d.Send(new Letter(Player, Watch, Diplomacy.AskAttack, About: Watch), Rivals);
 		Is("but never on himself", Season(d, b)[0].Kind, "attack-no");
+	}
+
+	/// <summary>A lord answers an insult with a letter keyed "insult", the same as the insult he was
+	/// sent: read as the player's, his reply came out as "A letter full of insults."</summary>
+	private void Wording()
+	{
+		Lord margrave = Lords.Find("margrave");
+		var insult = new Letter(Watch, Player, Diplomacy.Insult);
+		Is("his answer to an insult is in his own words",
+			LetterPanel.Words(insult, margrave, realm => realm), margrave.Says(Diplomacy.Insult));
+		Is("  and the player's insult is the clerk's",
+			LetterPanel.Words(new Letter(Player, Watch, Diplomacy.Insult), null, realm => realm), "A letter full of insults.");
 	}
 
 	private void Purse()

@@ -59,32 +59,8 @@ public partial class HappinessChart : Control
 			}
 
 			float left = year * (width + Gap);
-			Box(new Rect2(left, floor - high, width, high), lean, Colour(hearts));
+			ChartArt.Box(this, new Rect2(left, floor - high, width, high), lean, Colour(hearts));
 		}
-	}
-
-	/// <summary>One box: the face the lord is looking at, the lid, and the side it throws away from
-	/// the light. The two slanted faces are what make it a box rather than a bar.</summary>
-	private void Box(Rect2 face, float lean, Color colour)
-	{
-		DrawRect(face, colour);
-
-		Vector2 back = new(lean, -lean);
-		DrawColoredPolygon(new[]
-		{
-			face.Position,
-			face.Position + back,
-			face.Position + back + new Vector2(face.Size.X, 0f),
-			face.Position + new Vector2(face.Size.X, 0f),
-		}, colour.Lightened(0.28f));
-
-		DrawColoredPolygon(new[]
-		{
-			face.Position + new Vector2(face.Size.X, 0f),
-			face.Position + new Vector2(face.Size.X, 0f) + back,
-			face.Position + face.Size + back,
-			face.Position + face.Size,
-		}, colour.Darkened(0.35f));
 	}
 
 	private Color Colour(float hearts) =>

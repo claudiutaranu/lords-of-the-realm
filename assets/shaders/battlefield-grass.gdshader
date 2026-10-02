@@ -7,7 +7,7 @@ render_mode cull_disabled, diffuse_lambert_wrap;
 uniform vec3 root_colour : source_color = vec3(0.30, 0.38, 0.16);
 uniform vec3 tip_colour : source_color = vec3(0.66, 0.74, 0.38);
 uniform vec2 wind = vec2(1.0, 0.3);
-uniform float sway = 0.18;
+uniform float sway = 0.05; // metres at the tip
 
 void vertex() {
 	// UV.y is how far up the blade this is: 0 at the root, 1 at the tip.
@@ -16,7 +16,10 @@ void vertex() {
 	float beat = TIME * 1.7 + dot(base.xz, vec2(0.23, 0.17));
 	float gust = 0.6 + 0.4 * sin(TIME * 0.45 + base.x * 0.02);
 	vec2 lean = wind * (sin(beat) * 0.5 + 0.7) * gust * sway * up * up;
-	VERTEX.xz += (vec3(lean.x, 0.0, lean.y) * MODEL_NORMAL_MATRIX).xz; // the world lean, in the model's own space
+	// The world lean, in the model's own space: through the inverse of its basis, scale and all.
+	// MODEL_NORMAL_MATRIX carries the instance's scale the wrong way round for this — a tuft cut to
+	// a hand's height barely stirred, and the trees, seventeen metres tall, swam.
+	VERTEX += inverse(mat3(MODEL_MATRIX)) * vec3(lean.x, 0.0, lean.y);
 }
 
 void fragment() {

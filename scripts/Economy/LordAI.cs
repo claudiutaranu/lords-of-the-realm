@@ -41,6 +41,7 @@ public static class LordAI
 		Victual(p, b, skill);
 		Tax(p, b, skill);
 		Plough(p, b, season, skill);
+		LordHerd.Tend(p, b, market);
 		Work(p, def, b, season, skill);
 		Trade(p, b, market, skill);
 		if (dice != null)
@@ -144,7 +145,15 @@ public static class LordAI
 		{
 			Turn(p, FieldUse.Grain, FieldUse.Fallow);
 		}
-		else if ((p.Soil > b.LordSowsAbove || hungry) && p.FieldsUnder(FieldUse.Grain) < reapable)
+		// A rich soil is a reason to sow for market only once the herd has its grass — a pasture feeds
+		// as many as a grain field and its fallow together, and costs the soil nothing — and only while
+		// the fallow left can mend what the grain takes: a fallow field puts back twice what a grain
+		// field takes out, so one for every two. Without that, Valmere sowed a field more every winter
+		// the soil stood high, had five in and none resting, spent the soil from ninety to minus
+		// seventy in two years, and the first storm after it emptied the county. Hunger sows regardless.
+		else if (((p.Soil > b.LordSowsAbove && !LordHerd.WantsGrass(p)
+				&& (p.FieldsUnder(FieldUse.Fallow) - 1) * 2 >= p.FieldsUnder(FieldUse.Grain) + 1) || hungry)
+			&& p.FieldsUnder(FieldUse.Grain) < reapable)
 		{
 			Turn(p, FieldUse.Fallow, FieldUse.Grain);
 		}
@@ -175,15 +184,11 @@ public static class LordAI
 		// A poor lord's county is not short of people. It is short of anybody telling them where to
 		// be — the hands are there, counted, standing in the wrong field. Which is what the player
 		// sees when his own harvest comes in heavier off worse land than his neighbour's.
-		p.GrainWorkers = Attending(p.GrainWorkers, astray);
-		p.CattleWorkers = Attending(p.CattleWorkers, astray);
-		p.WoodWorkers = Attending(p.WoodWorkers, astray);
-		p.StoneWorkers = Attending(p.StoneWorkers, astray);
-		p.IronWorkers = Attending(p.IronWorkers, astray);
-		p.ReclaimWorkers = Attending(p.ReclaimWorkers, astray);
+		foreach (string job in new[] { Labour.Grain, Labour.Cattle, Labour.Wood, Labour.Stone, Labour.Iron, Labour.Reclaim })
+		{
+			Labour.Put(p, job, Mathf.FloorToInt(Labour.Hands(p, job) * (1f - astray)));
+		}
 	}
-
-	private static int Attending(int hands, float astray) => Mathf.FloorToInt(hands * (1f - astray));
 
 	/// <summary>He trades at the same counter the player does, on the realm's one market. That is
 	/// deliberate: a lord dumping his harvest is a price the player watches fall, and a bad year in

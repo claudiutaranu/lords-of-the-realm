@@ -31,6 +31,31 @@ public partial class BattleCheck
 		return won;
 	}
 
+	/// <summary>A squad turned about takes the places nearest where its men stand: the rear rank is
+	/// the new front and every man turns where he is, rather than the block swinging round its middle
+	/// with each man running through the others to the far side of it.</summary>
+	private void AboutFace(GameBalance b)
+	{
+		var field = new FieldBattle(Men(("peasant", 30)),
+			new Defenders(Men(("spear", 10)), new Dictionary<string, int>(), "", 50f), false, b);
+		FieldSquad squad = field.Squads.Find(each => each.IsAttacking);
+		foreach (FieldSoldier man in squad.Soldiers)
+		{
+			man.At = squad.Place(man.Slot);
+		}
+
+		squad.Facing = -squad.Facing;
+		float farthest = 0f;
+		foreach (FieldSoldier man in squad.Soldiers)
+		{
+			farthest = Mathf.Max(farthest, man.At.DistanceTo(squad.Place(man.Slot)));
+		}
+
+		// A step and a half at most: the short rear rank has to come round to be the full front.
+		Is("turned about, no man of a squad goes further than a step and a half to his new place",
+			farthest <= squad.Gap * 1.5f, true);
+	}
+
 	private void ByHand(GameBalance b)
 	{
 		Dictionary<string, int> crown = Men(("spear", 25), ("bow", 15));
@@ -139,6 +164,15 @@ public partial class BattleCheck
 
 		Is("  and they turn to face the way it was drawn", line.Facing.Dot(Vector2.Right) > 0.99f, true);
 
+		// A front is laid down from where the lord began drawing it: dragged on past the length the
+		// men can fill, it stays where it began and does not slide after the cursor.
+		var laid = new FieldBattle(Men(("spear", 20)), Militia(20), false, b);
+		var spearmen = new[] { laid.Squads.Find(squad => squad.IsAttacking) };
+		List<Vector2> dragged = laid.Planned(spearmen, Vector2.Zero, Vector2.Right * 60f, Vector2.Up, out _);
+		List<Vector2> further = laid.Planned(spearmen, Vector2.Zero, Vector2.Right * 120f, Vector2.Up, out _);
+		Is("a front drawn on past its length stays where it began", dragged[0].DistanceTo(further[0]) < 0.01f, true);
+		Is("  and starts at the spot the drawing began", dragged.Min(spot => spot.X) < 2f, true);
+
 		// A company marched through a friendly one standing in its road goes through it, and the one
 		// standing stays where it was put.
 		var road = new FieldBattle(Men(("spear", 60)), Militia(20), false, b) { IsDefenceCaptained = false };
@@ -153,6 +187,47 @@ public partial class BattleCheck
 		}
 
 		Is("a company marched through a friendly one leaves it where it stood", stays.At.DistanceTo(put) < 0.5f, true);
+
+		// And two the lord placed stay where he put them, one brought up half on top of the other or not.
+		var beside = new FieldBattle(Men(("spear", 60)), Militia(20), false, b) { IsDefenceCaptained = false };
+		var pair = beside.Squads.FindAll(squad => squad.IsAttacking);
+		FieldSquad placed = pair[0];
+		FieldSquad brought = pair[1];
+		Vector2 ground = placed.At;
+		beside.Hold(new[] { placed });
+		beside.March(new[] { brought }, ground + (Vector2.Right * placed.Reach * 0.5f));
+		for (int slice = 0; slice < 400; slice++)
+		{
+			beside.Step();
+		}
+
+		Is("a company brought up beside a placed one does not shove it off its ground", placed.At.DistanceTo(ground) < 0.5f, true);
+		Is("  and stays where it was sent itself", brought.At.DistanceTo(ground + (Vector2.Right * placed.Reach * 0.5f)) < 0.5f, true);
+
+		// Archers with swordsmen at their corner: the men those swordsmen can reach fight them,
+		// and the rest go on loosing — the company does not put its bows down because a few are at grips.
+		var corner = new FieldBattle(Men(("bow", 20)),
+			new Defenders(Men(("sword", 12)), new Dictionary<string, int>(), "", 50f), false, b) { IsDefenceCaptained = false };
+		FieldSquad bows = corner.Squads.Find(squad => squad.IsAttacking);
+		corner.Charge(new[] { corner.Squads.Find(squad => !squad.IsAttacking) }, bows);
+		var loosing = new HashSet<FieldSoldier>();
+		var lastStruck = new Dictionary<FieldSoldier, float>();
+		for (int slice = 0; slice < 3000 && !corner.IsOver; slice++)
+		{
+			corner.Step();
+			foreach (FieldSoldier man in bows.Soldiers)
+			{
+				if (bows.InMelee != null && man.Foe == null && man.Struck > lastStruck.GetValueOrDefault(man, -100f))
+				{
+					loosing.Add(man);
+				}
+
+				lastStruck[man] = man.Struck;
+			}
+		}
+
+		GD.Print($"	   {loosing.Count} of 20 archers loosed while their company was at grips");
+		Is("archers at grips at one corner go on shooting from the rest of the line", loosing.Count >= 10, true);
 
 		// Two companies sent in single file at a handful: the men behind the heads of the columns come
 		// round and fall on them too, rather than queueing to fight one at a time.
@@ -179,33 +254,6 @@ public partial class BattleCheck
 
 		GD.Print($"	   {struck.Count} of ours came to blows; the handful lasted {slices * FieldBattle.Slice:0} s");
 		Is("a column that meets a handful swarms round it", struck.Count >= 16, true);
-
-		// Every squad's standard is carried by its captain: one of its own men, a little harder to
-		// kill than the rest, and killed all the same.
-		var led = new FieldBattle(Men(("sword", 100)), Militia(80), false, b);
-		FieldSquad militia = led.Squads.Find(squad => !squad.IsAttacking);
-		FieldSoldier captain = militia.Captain;
-		Is("a squad's captain is harder to kill than his men",
-			captain.MostHealth > militia.Soldiers.Find(man => man != captain).MostHealth, true);
-		led.Fought();
-		Is("  and falls with them all the same", captain.IsStanding, false);
-
-		// And he goes in with them: across nine days, the beaten side's captain is seldom its last man.
-		int lastOfAll = 0;
-		for (ulong seed = 1; seed <= Seeds; seed++)
-		{
-			var day = new FieldBattle(Men(("sword", 60)), Militia(80), false, b, seed) { IsAttackCaptained = true };
-			FieldSquad beaten = day.Squads.Find(squad => !squad.IsAttacking);
-			while (!day.IsOver && beaten.Captain.IsStanding)
-			{
-				day.Step();
-			}
-
-			lastOfAll += beaten.Standing == 0 ? 1 : 0;
-		}
-
-		GD.Print($"	   the captain was his squad's last man {lastOfAll} of {Seeds} days");
-		Is("  and does not stand at the back and outlive them", lastOfAll <= Seeds / 3, true);
 
 		// The field is fought to the last man.
 		Battle.Result rout = new FieldBattle(Men(("sword", 100)), Militia(80), false, b).Fought();

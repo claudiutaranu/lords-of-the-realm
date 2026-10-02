@@ -19,6 +19,10 @@ public sealed partial class FieldSquad
 	private const float Spacing = 1.1f;
 	private const float Frontage = 2.5f;
 
+	/// <summary>How much further apart horsemen ride than men stand: a horse is nearly two metres
+	/// nose to tail, and at a man's spacing each one stood inside the one in front.</summary>
+	private const float MountedSpacing = 1.8f;
+
 	/// <summary>How deep a squad is drawn up at most. A big body of men is drawn up wider rather
 	/// than deeper: the ranks behind the fourth or fifth only wait, and a mob ten deep is a mob
 	/// most of which never reaches anybody.</summary>
@@ -29,13 +33,6 @@ public sealed partial class FieldSquad
 	private const float Turn = 1.5f;
 	internal const float LineGap = 1.2f;
 
-	/// <summary>The captain's place: not in the ranks, but behind them with the standard. He is a
-	/// man of the squad like any other — one of those it brought — a little harder to kill, and when
-	/// he falls the standard falls with him. How much harder, and how far behind the ranks he stands.</summary>
-	internal const int CaptainSlot = -1;
-	private const float CaptainHealth = 1.25f;
-	private const float CaptainBehind = 1f;
-
 	private int _files;
 	private int _ranks;
 
@@ -45,14 +42,9 @@ public sealed partial class FieldSquad
 		Kind = Units.Of(unit);
 		IsAttacking = attacking;
 		Brought = brought;
-		Gap = Spacing * Mathf.Sqrt(menPerFigure);
-		if (brought > 0)
-		{
-			Captain = new FieldSoldier(this, 1, health * CaptainHealth) { Slot = CaptainSlot };
-		}
-
+		Gap = Spacing * Mathf.Sqrt(menPerFigure) * (Kind.Mounted ? MountedSpacing : 1f);
 		int ranked = 0;
-		for (int left = brought - 1; left > 0; left -= menPerFigure)
+		for (int left = brought; left > 0; left -= menPerFigure)
 		{
 			Soldiers.Add(new FieldSoldier(this, Mathf.Min(menPerFigure, left), health) { Slot = ranked++ });
 		}
@@ -60,16 +52,8 @@ public sealed partial class FieldSquad
 		_files = Mathf.Max(1, Mathf.Max(Mathf.CeilToInt(Mathf.Sqrt(ranked * Frontage)),
 			Mathf.CeilToInt(ranked / (float)MostRanks)));
 		_ranks = Mathf.Max(1, Mathf.CeilToInt(ranked / (float)_files));
-		if (Captain != null)
-		{
-			Soldiers.Add(Captain);
-		}
-
 		Measure();
 	}
-
-	/// <summary>The man who carries the standard. He falls like anybody else.</summary>
-	public FieldSoldier Captain { get; }
 
 	public string Unit { get; }
 
@@ -88,10 +72,40 @@ public sealed partial class FieldSquad
 	/// <summary>Where the standard stood a slice ago, so the screen can walk it between the two.</summary>
 	public Vector2 Was { get; internal set; }
 
-	public Vector2 Facing { get; internal set; }
+	public Vector2 Facing
+	{
+		get => _facing;
+		internal set
+		{
+			_facing = value;
+			if (_rankedFacing == Vector2.Zero)
+			{
+				_rankedFacing = value;
+			}
+			else if (InMelee == null && value.Dot(_rankedFacing) < RerankBelow)
+			{
+				Rerank();
+			}
+		}
+	}
+
+	private Vector2 _facing;
+
+	/// <summary>The way the squad faced when its men were last given their places, and how far it
+	/// may turn from it (the cosine of sixty degrees) before they are given them again.</summary>
+	private Vector2 _rankedFacing;
+	private const float RerankBelow = 0.5f;
 
 	/// <summary>Where he was told to walk to, if anywhere.</summary>
 	public Vector2? Goal { get; internal set; }
+
+	/// <summary>When, in the battle's seconds, he last got where he was sent: nought for a squad
+	/// standing where it was drawn up. Two that come to rest on each other, the later gives way.</summary>
+	public float CameToRest { get; internal set; }
+
+	/// <summary>Whether the lord put him where he is — marched him there, drew his front there, or
+	/// told him to stand. A squad the lord placed is never shoved off the spot to make room.</summary>
+	public bool IsPlaced { get; internal set; }
 
 	/// <summary>Which way he was told to face once he gets where he is going, if the lord said.</summary>
 	public Vector2? FaceGoal { get; internal set; }
@@ -143,7 +157,7 @@ public sealed partial class FieldSquad
 		int foremost = _ranks - 1;
 		foreach (FieldSoldier man in Soldiers)
 		{
-			foremost = man.Slot < 0 ? foremost : Mathf.Min(foremost, man.Slot / _files);
+			foremost = Mathf.Min(foremost, man.Slot / _files);
 		}
 
 		Front = (((_ranks - 1) / 2f) - foremost) * Gap;
@@ -173,7 +187,7 @@ public sealed partial class FieldSquad
 
 	/// <summary>Where a place in the ranks is on the field, and which way the man in it faces: across
 	/// the front, the first rank nearest the enemy, each a hand's width off his mark so a squad is
-	/// not a grid. The captain's place is behind them all, with the standard.
+	/// not a grid.
 	///
 	/// At grips with a narrower enemy, the men of the files that overhang him do not stand idle in
 	/// their files: every one of them, rank after rank, takes the next place round the enemy — along
@@ -182,12 +196,6 @@ public sealed partial class FieldSquad
 	/// its ranks still behind it was a spoke sticking out of him.</summary>
 	public (Vector2 At, Vector2 Facing) Posture(int slot)
 	{
-		if (slot == CaptainSlot)
-		{
-			// Behind his men — or, with none of them left, where they stood.
-			return Soldiers.Count > 1 ? (At - (Facing * (Depth + CaptainBehind)), Facing) : (At, Facing);
-		}
-
 		int file = slot % _files;
 		int rank = slot / _files;
 		var off = new Vector2(Mathf.Sin((slot + 1) * 4.79f), Mathf.Sin((slot + 1) * 11.8f)) * Gap * 0.1f;
@@ -208,7 +216,7 @@ public sealed partial class FieldSquad
 	/// between — the men still standing taking the places front rank first, in the order they had.</summary>
 	internal void Reform(int files)
 	{
-		var ranked = Soldiers.FindAll(man => man.Slot >= 0);
+		var ranked = new List<FieldSoldier>(Soldiers);
 		ranked.Sort((a, b) => a.Slot.CompareTo(b.Slot));
 		for (int i = 0; i < ranked.Count; i++)
 		{
@@ -218,6 +226,112 @@ public sealed partial class FieldSquad
 		_files = Mathf.Clamp(files, 1, Mathf.Max(1, ranked.Count));
 		_ranks = Mathf.Max(1, Mathf.CeilToInt(ranked.Count / (float)_files));
 		Measure();
+	}
+
+	/// <summary>The squad has turned: its places are dealt again so that, all told, its men walk the
+	/// least to reach them — an about-faced squad only turns where it stands, its rear rank the new
+	/// front. Kept to the places they had, the whole block swung round its middle and the front-left
+	/// man ran through all the others to get to the back-right; dealt nearest-pair-first, the last few
+	/// were left the far side of the squad. A squad is at most MostInCompany figures, so the exact
+	/// assignment (Hungarian, by squared distance) costs nothing worth counting, once a turn.</summary>
+	private void Rerank()
+	{
+		_rankedFacing = _facing;
+		int count = Soldiers.Count;
+		_ranks = Mathf.Max(1, Mathf.CeilToInt(count / (float)_files));
+		var cost = new float[count, count];
+		for (int slot = 0; slot < count; slot++)
+		{
+			Vector2 place = Place(slot);
+			for (int man = 0; man < count; man++)
+			{
+				cost[man, slot] = Soldiers[man].At.DistanceSquaredTo(place);
+			}
+		}
+
+		int[] slotOf = Assign(cost, count);
+		for (int man = 0; man < count; man++)
+		{
+			Soldiers[man].Slot = slotOf[man];
+		}
+
+		Measure();
+	}
+
+	/// <summary>The cheapest one-to-one deal of rows to columns of a square table (the Hungarian
+	/// method, potentials and augmenting paths): for each row, its column.</summary>
+	private static int[] Assign(float[,] cost, int n)
+	{
+		var u = new float[n + 1];
+		var v = new float[n + 1];
+		var rowOf = new int[n + 1];
+		var way = new int[n + 1];
+		for (int row = 1; row <= n; row++)
+		{
+			rowOf[0] = row;
+			int column = 0;
+			var least = new float[n + 1];
+			var used = new bool[n + 1];
+			System.Array.Fill(least, float.MaxValue);
+			do
+			{
+				used[column] = true;
+				int at = rowOf[column], next = 0;
+				float delta = float.MaxValue;
+				for (int j = 1; j <= n; j++)
+				{
+					if (used[j])
+					{
+						continue;
+					}
+
+					float reduced = cost[at - 1, j - 1] - u[at] - v[j];
+					if (reduced < least[j])
+					{
+						least[j] = reduced;
+						way[j] = column;
+					}
+
+					if (least[j] < delta)
+					{
+						delta = least[j];
+						next = j;
+					}
+				}
+
+				for (int j = 0; j <= n; j++)
+				{
+					if (used[j])
+					{
+						u[rowOf[j]] += delta;
+						v[j] -= delta;
+					}
+					else
+					{
+						least[j] -= delta;
+					}
+				}
+
+				column = next;
+			}
+			while (rowOf[column] != 0);
+
+			do
+			{
+				int previous = way[column];
+				rowOf[column] = rowOf[previous];
+				column = previous;
+			}
+			while (column != 0);
+		}
+
+		var columnOf = new int[n];
+		for (int j = 1; j <= n; j++)
+		{
+			columnOf[rowOf[j] - 1] = j - 1;
+		}
+
+		return columnOf;
 	}
 
 	/// <summary>A man has fallen: the man behind him in his file steps into his place, and the one

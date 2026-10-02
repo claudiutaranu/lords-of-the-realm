@@ -83,8 +83,9 @@ public partial class EconomyCheck
 		Is("  and an empty one costs it sixteen", well.Health, 60);
 
 		// What sons cost, taken all at once.
-		Is("a tenth of the county taken costs five", Livelihood.RecruitingCost(50, 500), 5);
-		Is("  half of it, ninety", Livelihood.RecruitingCost(250, 500), 90);
+		Is("a tenth of the county taken costs two", Livelihood.RecruitingCost(50, 500), 2);
+		Is("  half of it, thirty", Livelihood.RecruitingCost(250, 500), 30);
+		Is("  and emptying it never more than forty", Livelihood.RecruitingCost(500, 500), 40);
 
 		// Moving house: from a county at fifty to a neighbour at seventy-six, four in the hundred.
 		ProvinceEconomy unhappy = Province();

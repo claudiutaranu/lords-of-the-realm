@@ -16,8 +16,9 @@ using Godot;
 public partial class FieldPanel : CountyPanel
 {
 	/// <summary>Raised when the field has been turned over to something else, so the map above can
-	/// redraw the ground and the ledgers beside it can catch up.</summary>
-	public event System.Action Changed;
+	/// redraw that county's ground and the ledgers beside it can catch up. It names the county: a
+	/// plot is opened straight off the map, with no county selected to redraw.</summary>
+	public event System.Action<string> Changed;
 
 	private ProvinceEconomy _province;
 	private ProvinceDefinition _definition;
@@ -97,7 +98,7 @@ public partial class FieldPanel : CountyPanel
 
 		EconomySimulation.SetField(_province, _field, use);
 		Show();
-		Changed?.Invoke();
+		Changed?.Invoke(_province.ProvinceName);
 	}
 
 	private void Show()

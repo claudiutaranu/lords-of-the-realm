@@ -22,14 +22,14 @@ public partial class BattlefieldGrass : Node3D
 	/// height in metres, and where the tall grows: above this much of the stand noise.</summary>
 	private const int Blades = 10;
 	private const float BladeWide = 0.08f;
-	private static readonly Vector2 ShortHigh = new(0.07f, 0.16f);
-	private static readonly Vector2 TallHigh = new(0.22f, 0.38f);
+	private static readonly Vector2 ShortHigh = new(0.14f, 0.26f);
+	private static readonly Vector2 TallHigh = new(0.34f, 0.55f);
 	private const float TallFrom = 0.72f;
 
 	/// <summary>Sows the field. <paramref name="bare"/> says where the earth shows, 0..1 across the
 	/// field of <paramref name="field"/> metres, above <paramref name="bareFrom"/>; <paramref name="stands"/>
 	/// where the tall grass grows.</summary>
-	public void Sow(Image bare, float bareFrom, float field, FastNoiseLite stands, ulong seed)
+	public void Sow(Image bare, float bareFrom, float field, FastNoiseLite stands, ulong seed, BattlefieldLand land)
 	{
 		var dice = new RandomNumberGenerator { Seed = seed };
 		var look = new ShaderMaterial { Shader = GD.Load<Shader>(ShaderPath) };
@@ -59,7 +59,7 @@ public partial class BattlefieldGrass : Node3D
 					tints[key] = new List<Color>();
 				}
 
-				list.Add(new Transform3D(basis, new Vector3(at.X, 0f, at.Y)));
+				list.Add(new Transform3D(basis, land.On(at)));
 				// A little warmer or cooler, tuft to tuft, and the tall grass going to seed.
 				float shade = dice.RandfRange(0.85f, 1.1f);
 				tints[key].Add(tall ? new Color(1.05f * shade, 1.0f * shade, 0.8f * shade) : new Color(shade, shade, shade));

@@ -28,6 +28,7 @@ public partial class LordCheck : Node
 		TheLarder(b, def);
 		TheMarch(b);
 		FiftyYears(b);
+		TheHerd(b);
 		TheMuster(b);
 		TheWalls();
 		TheirWar();
@@ -200,6 +201,11 @@ public partial class LordCheck : Node
 		// Five seasons is a full year and the first of the next, so the record has two years in it.
 		// Kept on the province because the turn it belongs to is gone by the time anybody asks.
 		Is("and every county keeps the record of its years", rival.HappinessByYear.Count, 2);
+		// And of its people, season by season — five turns run, five seasons written, each as it ended.
+		PeopleSeason lastRecorded = rival.PeopleBySeason[^1];
+		Is("  and of its people, a season each", rival.PeopleBySeason.Count, 5);
+		Is("  the last of them as the county stands", lastRecorded.Population, rival.Population);
+		Is("  with the births and deaths the season made", lastRecorded.Born, turns.LastSeason("Valmere").Born);
 		Is("but it is not the player's to walk into", turns.GetProvince("Valmere") == null, true);
 		Is("  though it is his to look at", turns.AnyProvince("Valmere") != null, true);
 		Is("and the crown counts only its own", turns.RealmStore("gold"), turns.GetProvince("Kingsreach").Gold);

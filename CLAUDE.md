@@ -43,17 +43,25 @@ reserve AND its next meal before selling anything, and sells what it is over-sto
 buying — both learned the hard way, from a lord who starved his own county in forty turns. It also
 rests worn fields a quarter at a time, sows no more fields than autumn has hands to reap (240 a
 field), and sells what it digs above a working stock every season; without those, every rival
-emptied its county within fifty turns. `LordCheck.FiftyYears` holds it to that.
+emptied its county within fifty turns. `LordCheck.FiftyYears` holds it to that. He keeps his herd
+too (`LordHerd`): a fallow field to grass once it passes 18 head a pasture (never more pastures than
+grain fields, only while the soil is above 0, never the last fallow), a seed herd bought if he has
+none, and beef only off what no grass is left for. A rich soil sows for market only once the herd has
+its grass and while one fallow is left for every two under grain — sowing a field more every rich
+winter spent Valmere's soil to −70 and emptied the county in half the runs (`LordCheck.TheHerd`).
 
 The county's year is Lords of the Realm II's own rules, in whole numbers (docs/lotr2-engine-checklist.md):
 `Livelihood` — the table (dairy 5 a cow free, then beef 10 a head and bread 6 a sack by the lord's
 share, a step down until it can be served), health bands, happiness (5 − tax + health + 3×ration − 8,
-plus the realm's rates via `TurnManager.Resented`), births and deaths off the original ladders, tax as
+plus the realm's rates via `TurnManager.Resented`), births and deaths off the original ladders, the muster's cost on the original's ladder at half and
+never over 40 (the user's call: `Livelihood.RecruitingCost`), tax as
 `pop × taxBase × rate` (fortifications.json "taxBase", 320 on open ground), recruiting cost; and
 `Husbandry` — grain sown at the end of winter (10 sacks a field down to 1, crop ×12), capped and
 grown by half the county's `Soil` in spring and summer, reaped 3 sacks per 2 reapers in autumn; soil
 +6 a fallow field, −3 a grain field, every season; the herd bred and killed by crowding per pasture
-field and herdsmen (three a head, six useful; a cow feeds five off her milk). Moving house goes to the happiest neighbour
+field and herdsmen (three a head, six useful; a cow feeds five off her milk). Every season `TurnManager.RememberPeople` writes the county's people down (`PeopleBySeason`: count,
+health, born, died; saved, the last 80 kept), and `PeoplePanel` — the sidebar's population figure —
+charts the last twenty (`PeopleChart`, in the happiness chart's boxes over its tavern: `ChartArt`). Moving house goes to the happiest neighbour
 (provinces.json "neighbours"). Market prices are the original's (sell/buy, spread ⅓).
 
 The weather is the original's (`Climate`), not a random event: every held county keeps a `Dryness`
@@ -127,10 +135,12 @@ The men live in **companies** (`FieldArmy`), not in one roster per county:
 - The field can be fought by hand (`BattlePanel` → Lead in Person), man against man and to the
   last man. `FieldBattle` (fixed 0.1 s slices, seeded dice) gives orders to `FieldSquad`s —
   companies of at most `MostInCompany` (30) figures, a kind split as evenly as it goes, each with
-  its own captain and card; a defending company holds until the lines have met anywhere (`Joined`);
+  its own card; a defending company holds until the lines have met anywhere (`Joined`);
   a right-drag draws the chosen companies' front (`FieldBattle.Form`: side by side along it, as wide as
   their share of it — so its length sets how many ranks deep — facing away from the eye, a front
-  kept until at grips, `KeepsFront`); each `FieldSoldier` has his own health and a fixed place in the ranks,
+  kept until at grips, `KeepsFront`; laid down from where the drag began, so it never slides after the
+  cursor); a company the lord marched, drew up or halted (`IsPlaced`) goes all the way to its spot and
+  is never pushed off it — only the ones he did not place make room (`Spread`); each `FieldSoldier` has his own health and a fixed place in the ranks,
   and when he falls the man behind him in his file steps up (`CloseUp`) — nobody else moves, which
   is what keeps a line a line. Squads close as bodies until their front ranks are a weapon's length
   apart (`Extent`, so a flank attack does not end inside the other block), squads at grips hold
@@ -140,9 +150,9 @@ The men live in **companies** (`FieldArmy`), not in one roster per county:
   in reach goes for the nearest enemy within `Swarm` not already pressed by `MostOnOne`
   (`FieldBlows.Quarry`), so a column or the ranks behind a line swarm round what they meet. A squad sent at an enemy walks straight at
   him until its front rank is a weapon's length from his nearest man (`FieldBattle.Close`); one
-  left without orders goes for an enemy that comes within `Challenge`. Each squad's standard is
-  carried by its captain, one of its own men with `CaptainHealth` times a man's health, who fights
-  and falls like the rest. A blow lands by attack against defence and bites less into armour, the
+  left without orders goes for an enemy that comes within `Challenge`. There is no captain or
+  standard-bearer in the ranks (the user's call): every man of a company is a man of its ranks, and
+  horsemen ride `MountedSpacing` apart. A blow lands by attack against defence and bites less into armour, the
   two together worth the captain's attack over defence (`FieldBlows`); arrows are loosed at one man
   and hurt him when they land. Past `MostFigures` a figure is a file of several men. The grid and
   the dead are `FieldRanks`, the captain's AI `FieldCaptain`. `Battlefield` is its own 3D world over
@@ -152,17 +162,37 @@ The men live in **companies** (`FieldArmy`), not in one roster per county:
   field go the way the reckoning says wherever it is not in doubt (nine seeds each); a lord who
   fights well does better. A kind is drawn with its own model when there is one —
   assets/models/units/<key>.glb, cut down from a Meshy export with
-  `tools/decimate_meshy.py --unit <key> <file>` (bow.glb, the archer, is the first) — and as the
+  `tools/decimate_meshy.py --unit <key> <file>`, or baked whole with its clips by
+  `tools/bake_figure.py <key> <file>` (the archer, bow; the knight, horse, drawn `MountedStature`
+  tall, galloping past `GallopsFrom` and playing his `attack` from each blow; and the peasant, running
+  past `RunsFrom`, with no death of his own, so laid down like an unbaked man; each moving clip's pace
+  is in `BattlefieldSquads.ClipPaces`, the knight's measured off his hooves). A rig that comes as a
+  .blend goes through `tools/export_blend.py` first: it keeps the named clips and skins any prop hung
+  from a bone (the peasant's pitchfork) into the body — and as the
   map's standard-bearer (`SoldierFigure.Standard`) until then; `Feet` puts a figure on his spot.
   A man's gait is worked out per man in `BattlefieldSquads.Stride` — stride phase advanced by the
   ground his feet actually cover, so they never slide — and handed to soldier.gdshader through
   INSTANCE_CUSTOM with his lean into a blow. The dead lie `LyingFor` seconds and then dissolve
-  (INSTANCE_CUSTOM.w below zero). The field is 540 m across, ringed by the campaign map's own
+  (INSTANCE_CUSTOM.w below zero). The field is 540 m across and rolls (`BattlefieldLand`: a few metres
+  over the middle, hills toward the woods — scenery only, `FieldBattle` fights on the flat), ringed by the campaign map's own
   trees (tree-foliage.gdshader) in stands, with depth haze that starts past the field; short turf
   and stands of taller grass (`BattlefieldGrass`) grow wherever the shared bare-earth map is not
-  bare. A baked figure is expensive (the archer is 32k vertices, and his loose-patch mesh will not
-  simplify): the shader reads the old clip only while crossfading — measure frame time with vsync
-  off before adding more of them. The walls are still the captain's — docs/siege-battle-plan.md.
+  bare. The wheel closes on what is under the cursor and the eye levels out as it comes down, to a
+  man's height among the ranks. A baked figure is expensive (the archer is 32k vertices, and his loose-patch mesh will not
+  simplify): the shader reads the old clip only while crossfading. A squad past `FarFrom` is drawn with
+  `SoldierFigure.Far` — the man welded by position, thinned to `FarShare` of his triangles, and put
+  back on his own vertices patch by patch so the clips still play — since Godot picks no level of
+  detail for each man of a MultiMesh; with it and two shadow cascades, 480 men went from 33 to ~90 fps. A figure's atlas is baked at its
+  painting's own width and imported with mipmaps (a Meshy unwrap is hundreds of patches edge to
+  edge: shrunk, or sampled without mips, one patch's paint speckled the next); its metal and
+  roughness go beside it as <key>.material.png, and the livery never touches metal — measure frame time with vsync
+  off before adding more of them. A company taken in hand, or sent at the enemy, answers in its
+  kind's voice (`Battlefield.Answer`): assets/audio/voices/<kind>/select-N, move-N (marched, or a front drawn) and attack-N .mp3,
+  through the Narrator, quieter the higher the eye (`FurthestHushed`), never the same line twice running; a kind with no recordings is silent
+  (the peasants are the first). While anyone is on the move a tramp is heard (`MarchingSound`,
+  faded in and out): quietly on the map for every army walking (map-marching.mp3, taken off a film and
+  looped by blending its last second into its first), and marching.mp3 on the field, fainter and
+  hushed with the eye like the voices. The walls are still the captain's — docs/siege-battle-plan.md.
 - Nothing falls back behind the walls. The gate watch is the men who were always on it.
 - A county that falls loses the men standing in it; the companies it raised that were elsewhere pass
   to another county of the same lord (`TurnManager.Refuge` → `ProvinceEconomy.Adopt`).
@@ -224,6 +254,9 @@ The men live in **companies** (`FieldArmy`), not in one roster per county:
 
 ## Diplomacy
 
+- The player is always blue and the first lord against him red, on every campaign
+  (`CampaignMapPage.PlayerColour`/`RivalColours`, the user's call): a campaign names its realms but
+  does not colour them — only the unclaimed country keeps its `provinces.json` "accent".
 - There are four lords in the whole game, written once in `data/lords.json` (`Lords`): the Marshal,
   the Margrave, the Duchess and the Abbot, carrying Lords of the Realm's Knight, Baron, Countess and
   Bishop. A campaign never describes a lord; its realm names one (`provinces.json` `"lord"`), and

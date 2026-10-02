@@ -106,6 +106,11 @@ public partial class CampaignMap3D : Node3D
 	private Godot.Environment _environment;
 	private Vector3 _focus = Vector3.Zero;
 	private float _distance = 132.0f;
+	private int _lookingAt = -1;
+
+	/// <summary>Raised when the county in the middle of the screen changes under the camera: the lord
+	/// is looking at whatever he has panned to, without pointing at it. -1 is the sea.</summary>
+	public event System.Action<int> LookedAt;
 
 	public override void _Ready()
 	{
@@ -194,10 +199,9 @@ public partial class CampaignMap3D : Node3D
 	public void RetireArmies(System.Collections.Generic.ICollection<string> standing) =>
 		_decoration.RetireArmies(standing);
 
-	/// <summary>Puts a county's men on the ground under their lord's colour, or takes them off it.
-	/// How many of them there are decides how many figures stand for them.</summary>
-	public void SetArmy(string army, Vector2 seatPixel, bool standing, Color lord, int men) =>
-		_decoration.SetArmy(army, seatPixel, standing, lord, men);
+	/// <summary>Puts a company on the ground under its lord's colour, or takes it off it.</summary>
+	public void SetArmy(string army, Vector2 seatPixel, bool standing, Color lord) =>
+		_decoration.SetArmy(army, seatPixel, standing, lord);
 
 	/// <summary>Whose village stands under a map pixel, or nothing.</summary>
 	public string TownAt(Vector2 mapPixel) => _decoration.TownAt(mapPixel);
@@ -605,6 +609,13 @@ public partial class CampaignMap3D : Node3D
 		_environment.FogDepthEnd = _distance * HazeTo;
 		_clouds?.SetFocus(_focus);
 		_rain?.SetZoom(_distance);
+
+		int looking = _idImage == null ? -1 : ProvinceAtWorld(_focus);
+		if (looking != _lookingAt)
+		{
+			_lookingAt = looking;
+			LookedAt?.Invoke(looking);
+		}
 	}
 
 	// --- sampling the same images the shader draws from --------------------------------------

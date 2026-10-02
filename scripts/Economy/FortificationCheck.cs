@@ -26,6 +26,7 @@ public partial class FortificationCheck : Node
 		};
 		province.Muster("sword", 12);
 		province.HappinessByYear = new List<float> { 70f, 64f }; // two years of a reign
+		province.PeopleBySeason.Add(new PeopleSeason { Turn = 3, Population = 1200, Health = 71, Born = 40, Died = 12 });
 		province.Armoury["bow"] = 30;
 
 		// Through the real file, not a serializer called by hand: what matters is that a save on
@@ -51,6 +52,8 @@ public partial class FortificationCheck : Node
 		// does not survive the file, the county's whole history is one save away from nothing.
 		Is("and so do the years it remembers", back.HappinessByYear.Count, 2);
 		Is("  with what they were worth", back.HappinessByYear[1], 64f);
+		Is("and the seasons of its people", back.PeopleBySeason.Count, 1);
+		Is("  with who was born and who died in them", (back.PeopleBySeason[0].Born, back.PeopleBySeason[0].Died), (40, 12));
 		Is("and the campaign at the difficulty it was played at", read.Difficulty == Difficulty.Hard, true);
 		// And the old shape is not written back into it. It would be read on the way in as well as
 		// the companies beside it, and a county would open with its army counted twice.

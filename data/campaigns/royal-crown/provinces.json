@@ -4,12 +4,10 @@
  "rivalWallsUpTo": "medium-fort",
  "realms": {
   "royal-crown": {
-   "name": "The Royal Crown",
-   "accent": "b23a3a"
+   "name": "The Royal Crown"
   },
   "northern-watch": {
    "name": "The Northern Watch",
-   "accent": "5f8fc9",
    "lord": "margrave"
   },
   "neutral": {

@@ -18,11 +18,20 @@ public sealed partial class SoldierFigure
 	private const float LodNormalMerge = 25f;
 	private const float LodNormalSplit = 60f;
 
+	/// <summary>How much of a man's detail a squad far off is drawn with.</summary>
+	private const float FarShare = 0.08f;
+
+	/// <summary>How near two of his vertices stand to be welded into one for thinning him, as a share
+	/// of his height, and how sharp a fold may be smoothed away while he is.</summary>
+	private const float WeldShare = 0.015f;
+	private const float FarNormalMerge = 180f;
+
 	/// <summary>One of his clips: its first row, how many frames it has, how long it runs, and
 	/// whether it goes round (a loop has its first frame again after its last, to blend into).</summary>
 	public readonly record struct Clip(int Start, int Frames, float Seconds, bool IsLoop);
 
-	/// <summary>His clips, by name — walk_loop, idle_loop, shoot, death — where he was baked.</summary>
+	/// <summary>His clips, by name — idle_loop, walk_loop and death for every man; shoot for the archer,
+	/// gallop_loop and attack for the knight — where he was baked.</summary>
 	public IReadOnlyDictionary<string, Clip> Clips { get; private set; }
 
 	public bool IsBaked => Clips != null;
@@ -37,11 +46,11 @@ public sealed partial class SoldierFigure
 		return playing.Start + frame;
 	}
 
-	private static SoldierFigure Baked(string model)
+	private static SoldierFigure Baked(string model, float stature)
 	{
 		if (!Built.TryGetValue(model, out SoldierFigure figure))
 		{
-			figure = new SoldierFigure(model, ManHip, ManStature);
+			figure = new SoldierFigure(model, ManHip, stature);
 			figure.BuildBaked($"res://assets/models/{model}");
 			Built[model] = figure;
 		}
@@ -54,7 +63,8 @@ public sealed partial class SoldierFigure
 		Godot.Collections.Dictionary meta = GD.Load<Json>($"{stem}.figure.json").Data.AsGodotDictionary();
 		Godot.Collections.Dictionary offsets = meta["offsets"].AsGodotDictionary();
 		// ponytail: the .bin is not a resource, so an exported build needs "*.figure.bin" in the export
-		// preset's non-resource filter; a resource wrapper if more figures than the archer are baked.
+		// preset's non-resource filter; a resource wrapper once there are more than the archer and the
+		// knight.
 		byte[] bake = FileAccess.GetFileAsBytes($"{stem}.figure.bin");
 		int count = meta["vertices"].AsInt32();
 
@@ -74,11 +84,17 @@ public sealed partial class SoldierFigure
 		detailed.GenerateLods(LodNormalMerge, LodNormalSplit, new Godot.Collections.Array());
 		Mesh = detailed.GetMesh();
 		Bounds = Mesh.GetAabb();
+		Far = Thinned(arrays, Bounds.Size.Y);
 
 		int positionsAt = offsets["positions"].AsInt32();
 		int turnedAt = offsets["turned"].AsInt32();
 		Material = new ShaderMaterial { Shader = GD.Load<Shader>(BakedShaderPath) };
 		Material.SetShaderParameter("albedo_texture", GD.Load<Texture2D>($"{stem}.png"));
+		if (ResourceLoader.Exists($"{stem}.material.png"))
+		{
+			Material.SetShaderParameter("material_texture", GD.Load<Texture2D>($"{stem}.material.png"));
+			Material.SetShaderParameter("has_material", true);
+		}
 		int wide = meta["texture_width"].AsInt32();
 		int high = meta["texture_height"].AsInt32();
 		Material.SetShaderParameter("positions", ImageTexture.CreateFromImage(Image.CreateFromData(wide, high, false,
@@ -99,6 +115,150 @@ public sealed partial class SoldierFigure
 
 		Clips = clips;
 		Feet = Stance(points, Bounds, Bounds.Size.Y);
+	}
+
+	/// <summary>The man as a squad far off is drawn: FarShare of his triangles over the same vertices,
+	/// so the same clips. Godot will not choose a level of detail for each man of a MultiMesh, only for
+	/// the squad's whole box, and so drew every man across the field at his full forty thousand
+	/// (BattlefieldSquads.Follow chooses instead).
+	///
+	/// Thinned welded: a Meshy man is hundreds of loose patches, and simplified as he is his levels
+	/// stop at a third, every patch's edge held. Welded by where his vertices stand, he thins as far as
+	/// asked, and each corner of a thinned triangle is put back as one of the vertices it stood for,
+	/// all three from the same patch of paint where they can be: taken from any patch, one triangle
+	/// was painted across three, and the peasant came out brown.</summary>
+	private static ArrayMesh Thinned(Godot.Collections.Array arrays, float tall)
+	{
+		float weldWithin = tall * WeldShare;
+		var points = (Vector3[])arrays[(int)Godot.Mesh.ArrayType.Vertex];
+		var normals = (Vector3[])arrays[(int)Godot.Mesh.ArrayType.Normal];
+		int[] indices = (int[])arrays[(int)Godot.Mesh.ArrayType.Index];
+
+		int[] patch = Patches(points.Length, indices);
+		var weldedAt = new Dictionary<Vector3I, int>();
+		var standsFor = new List<Dictionary<int, int>>();
+		var welded = new int[points.Length];
+		for (int i = 0; i < points.Length; i++)
+		{
+			Vector3I cell = (Vector3I)(points[i] / weldWithin).Round();
+			if (!weldedAt.TryGetValue(cell, out int at))
+			{
+				at = standsFor.Count;
+				weldedAt[cell] = at;
+				standsFor.Add(new Dictionary<int, int>());
+			}
+
+			standsFor[at].TryAdd(patch[i], i);
+			welded[i] = at;
+		}
+
+		var joined = new List<int>(indices.Length);
+		for (int t = 0; t < indices.Length; t += 3)
+		{
+			int a = welded[indices[t]], b = welded[indices[t + 1]], c = welded[indices[t + 2]];
+			if (a != b && b != c && a != c)
+			{
+				joined.AddRange(new[] { a, b, c });
+			}
+		}
+
+		var one = new Godot.Collections.Array();
+		one.Resize((int)Godot.Mesh.ArrayType.Max);
+		one[(int)Godot.Mesh.ArrayType.Vertex] = standsFor.ConvertAll(by => points[First(by)]).ToArray();
+		one[(int)Godot.Mesh.ArrayType.Normal] = standsFor.ConvertAll(by => normals[First(by)]).ToArray();
+		one[(int)Godot.Mesh.ArrayType.Index] = joined.ToArray();
+		var whole = new ImporterMesh();
+		whole.AddSurface(Godot.Mesh.PrimitiveType.Triangles, one);
+		whole.GenerateLods(FarNormalMerge, FarNormalMerge, new Godot.Collections.Array());
+
+		int levels = whole.GetSurfaceLodCount(0);
+		if (levels == 0)
+		{
+			return null;
+		}
+
+		int[] thinnest = whole.GetSurfaceLodIndices(0, levels - 1);
+		for (int level = 0; level < levels; level++)
+		{
+			int[] lod = whole.GetSurfaceLodIndices(0, level);
+			if (lod.Length <= indices.Length * FarShare)
+			{
+				thinnest = lod;
+				break;
+			}
+		}
+
+		var far = (Godot.Collections.Array)arrays.Duplicate();
+		var corners = new int[thinnest.Length];
+		for (int t = 0; t < thinnest.Length; t += 3)
+		{
+			Dictionary<int, int> a = standsFor[thinnest[t]], b = standsFor[thinnest[t + 1]], c = standsFor[thinnest[t + 2]];
+			int shared = -1;
+			foreach (int each in a.Keys)
+			{
+				if (b.ContainsKey(each) && c.ContainsKey(each))
+				{
+					shared = each;
+					break;
+				}
+			}
+
+			corners[t] = shared >= 0 ? a[shared] : First(a);
+			corners[t + 1] = shared >= 0 ? b[shared] : b.GetValueOrDefault(patch[corners[t]], First(b));
+			corners[t + 2] = shared >= 0 ? c[shared] : c.GetValueOrDefault(patch[corners[t]], First(c));
+		}
+
+		far[(int)Godot.Mesh.ArrayType.Index] = corners;
+		var mesh = new ArrayMesh();
+		mesh.AddSurfaceFromArrays(Godot.Mesh.PrimitiveType.Triangles, far);
+		return mesh;
+	}
+
+	private static int First(Dictionary<int, int> byPatch)
+	{
+		foreach (int vertex in byPatch.Values)
+		{
+			return vertex;
+		}
+
+		return 0;
+	}
+
+	/// <summary>Which patch of paint each vertex belongs to: the triangles joined through the vertices
+	/// they share, as the unwrap left them.</summary>
+	private static int[] Patches(int count, int[] indices)
+	{
+		var root = new int[count];
+		for (int i = 0; i < count; i++)
+		{
+			root[i] = i;
+		}
+
+		int Find(int v)
+		{
+			while (root[v] != v)
+			{
+				root[v] = root[root[v]];
+				v = root[v];
+			}
+
+			return v;
+		}
+
+		for (int t = 0; t < indices.Length; t += 3)
+		{
+			int a = Find(indices[t]);
+			root[Find(indices[t + 1])] = a;
+			root[Find(indices[t + 2])] = a;
+		}
+
+		var patch = new int[count];
+		for (int i = 0; i < count; i++)
+		{
+			patch[i] = Find(i);
+		}
+
+		return patch;
 	}
 
 	private static Vector3[] Vectors3(byte[] bake, int at, int count)

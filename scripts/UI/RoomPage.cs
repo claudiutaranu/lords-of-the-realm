@@ -328,9 +328,12 @@ public abstract partial class RoomPage : Control
 
 	private void DressSign(string key, bool lit) => Chrome.DressPlaque(_signs[key], lit);
 
+	/// <summary>How wide the reading panel stands. The yard's is narrower: eight cards share its row.</summary>
+	protected virtual int DetailWidth => 470;
+
 	private Control BuildDetailPanel()
 	{
-		Detail = new VBoxContainer { CustomMinimumSize = new Vector2(470, 0) };
+		Detail = new VBoxContainer { CustomMinimumSize = new Vector2(DetailWidth, 0) };
 		Detail.AddThemeConstantOverride("separation", 10);
 
 		var holder = new PanelContainer { SizeFlagsVertical = SizeFlags.ShrinkEnd };

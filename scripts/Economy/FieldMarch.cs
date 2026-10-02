@@ -51,9 +51,10 @@ public sealed partial class FieldBattle
 		else if (squad.Goal is Vector2 goal)
 		{
 			to = goal;
-			// Near enough is there: held a hand's width off it by a squad beside it, a squad sent to
-			// a spot marched on the spot for ever — its bowmen never loosed, and swayed as they walked.
-			stopAt = Arrived;
+			// All the way there: the lord sent him to that spot, and nothing shoves a squad he placed
+			// (Spread), so nothing holds him off it. Stopped a pace and a half short, a company brought
+			// up beside another stood that far from where it was told.
+			stopAt = 0f;
 		}
 		else
 		{
@@ -68,6 +69,7 @@ public sealed partial class FieldBattle
 		{
 			// There: he turns to the front the lord drew for him, if he drew one.
 			squad.Goal = null;
+			squad.CameToRest = Clock;
 			if (squad.FaceGoal is Vector2 face)
 			{
 				squad.Facing = face;
@@ -130,7 +132,13 @@ public sealed partial class FieldBattle
 
 	/// <summary>Squads of one side that have come to rest stand side by side, not one on another. Enemies
 	/// are not pushed apart here — they stop of their own accord, front rank to front rank (Close);
-	/// pushed apart as well, a wide squad was rolled round a narrow one and never met it.</summary>
+	/// pushed apart as well, a wide squad was rolled round a narrow one and never met it.
+	///
+	/// A squad the lord placed is not moved at all: the other makes all the room, and two he placed
+	/// stand where he put them, overlapping or not — pushed apart evenly, a company he had placed was
+	/// shoved off its spot every time he brought another up beside it, and made the later give way,
+	/// the one he brought up would not stay where he told it. Between two he did not place, the one
+	/// that came to rest last makes the room.</summary>
 	private void Spread()
 	{
 		for (int i = 0; i < Squads.Count; i++)
@@ -160,10 +168,24 @@ public sealed partial class FieldBattle
 					continue;
 				}
 
+				if (a.IsPlaced && b.IsPlaced)
+				{
+					continue;
+				}
+
 				Vector2 away = far < 0.01f ? Vector2.Right : apart / far;
-				float push = (room - far) / 2f;
-				a.At -= away * push;
-				b.At += away * push;
+				bool aGives = !a.IsPlaced && (b.IsPlaced || a.CameToRest >= b.CameToRest);
+				bool bGives = !b.IsPlaced && (a.IsPlaced || b.CameToRest >= a.CameToRest);
+				float push = (room - far) * (aGives && bGives ? 0.5f : 1f);
+				if (aGives)
+				{
+					a.At -= away * push;
+				}
+
+				if (bGives)
+				{
+					b.At += away * push;
+				}
 			}
 		}
 	}

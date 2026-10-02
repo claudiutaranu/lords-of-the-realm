@@ -16,12 +16,14 @@ public partial class ProvinceSidebar : VBoxContainer
 	private const string IconDirectory = "res://assets/ui/icons";
 	// The crest art carries wide empty margins, and this is the crop the top bar's shield uses too.
 	// A realm whose shield is drawn to different margins needs its own crop, not this one.
-	private static readonly Rect2 CrestRegion = new(174, 94, 908, 1070);
+	internal static readonly Rect2 CrestRegion = new(174, 94, 908, 1070);
 
-	private static readonly Color Cream = new("d9cdb4");
+	// White, as the rooms are lettered: cream went soft on the dark card. A figure the pointer is over
+	// turns gold, since it can no longer brighten.
+	private static readonly Color Text = Chrome.Bright;
+	private static readonly Color Pointed = new("f0c870");
 	private static readonly Color Gain = new("6fbf5f");
 	private static readonly Color Lack = new("c65a45");
-	private static readonly Color Waiting = new("6f6a60");
 
 	private static readonly (ResourceType Type, string Icon)[] Resources =
 	{
@@ -69,6 +71,10 @@ public partial class ProvinceSidebar : VBoxContainer
 	private readonly Dictionary<ResourceType, TextureRect> _stockIcon = new();
 	private readonly List<(Control Divider, Control Cell, Label Count, Label Yield, string Weapon)> _armoury = new();
 	private Control _armouryFrame;
+
+	/// <summary>Empty places after the weapons, so one sword stands as wide as one store above it and
+	/// not stretched across the whole card.</summary>
+	private readonly List<Control> _armouryRoom = new();
 	private LabourBar _labour;
 	private WorksStrip _works;
 	private Control _labourFrame;
@@ -80,6 +86,9 @@ public partial class ProvinceSidebar : VBoxContainer
 	/// <summary>And with whoever keeps the county's mood. Same arrangement: the sidebar reads, the
 	/// page above it opens things.</summary>
 	public event System.Action LoyaltyPressed;
+
+	/// <summary>And with whoever keeps the parish roll: how the people have fared, season by season.</summary>
+	public event System.Action PeoplePressed;
 
 	/// <summary>And with whoever feeds them.</summary>
 	public event System.Action RationPressed;
@@ -234,6 +243,7 @@ public partial class ProvinceSidebar : VBoxContainer
 		// forge is making, with what next season adds under it the way the stores carry theirs — a
 		// lit forge that will turn out nothing says so in red.
 		bool shown = false;
+		int cells = 0;
 		foreach ((Control divider, Control cell, Label count, Label yield, string weapon) in _armoury)
 		{
 			int stocked = held ? _economy.Armoury.GetValueOrDefault(weapon) : 0;
@@ -248,6 +258,12 @@ public partial class ProvinceSidebar : VBoxContainer
 			}
 
 			shown |= cell.Visible;
+			cells += cell.Visible ? 1 : 0;
+		}
+
+		for (int i = 0; i < _armouryRoom.Count; i++)
+		{
+			_armouryRoom[i].Visible = i < _armouryRoom.Count - cells;
 		}
 
 		_armouryFrame.Visible = shown;
@@ -293,7 +309,7 @@ public partial class ProvinceSidebar : VBoxContainer
 		GoldTitle.Apply(_name);
 		titles.AddChild(_name);
 
-		_realm = Small("", Waiting);
+		_realm = Small("", Chrome.Soft);
 		titles.AddChild(_realm);
 	}
 
@@ -318,7 +334,8 @@ public partial class ProvinceSidebar : VBoxContainer
 		// 20 and 14 rather than 22 and 16: tax and ration read as words, not numbers, and at the
 		// larger size the four cells together are wider than the sidebar is — which pushed the whole
 		// sidebar out every time the selection landed on a province you hold.
-		_population = StatCell(row, Icon("population", 20));
+		_population = StatCell(row, Icon("population", 20), () => PeoplePressed?.Invoke(),
+			"See how this county's people have fared, season by season");
 		row.AddChild(Divider());
 		_loyalty = StatCell(row, Icon("heart", 20), () => LoyaltyPressed?.Invoke(),
 			"See where this county's goodwill went");
@@ -337,7 +354,7 @@ public partial class ProvinceSidebar : VBoxContainer
 
 		var value = new Label { VerticalAlignment = VerticalAlignment.Center };
 		value.AddThemeFontSizeOverride("font_size", 14);
-		value.AddThemeColorOverride("font_color", Cream);
+		value.AddThemeColorOverride("font_color", Text);
 		cell.AddChild(value);
 
 		row.AddChild(cell);
@@ -351,8 +368,8 @@ public partial class ProvinceSidebar : VBoxContainer
 		// mouse: it brightens under the pointer, the way the plaques in the rooms do.
 		cell.MouseFilter = MouseFilterEnum.Stop;
 		cell.TooltipText = hint;
-		cell.MouseEntered += () => value.AddThemeColorOverride("font_color", Chrome.Bright);
-		cell.MouseExited += () => value.AddThemeColorOverride("font_color", Cream);
+		cell.MouseEntered += () => value.AddThemeColorOverride("font_color", Pointed);
+		cell.MouseExited += () => value.AddThemeColorOverride("font_color", Text);
 		cell.GuiInput += pointer =>
 		{
 			if (pointer is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left })
@@ -388,7 +405,7 @@ public partial class ProvinceSidebar : VBoxContainer
 
 			var stock = new Label { HorizontalAlignment = HorizontalAlignment.Center };
 			stock.AddThemeFontSizeOverride("font_size", 24);
-			stock.AddThemeColorOverride("font_color", Cream);
+			stock.AddThemeColorOverride("font_color", Text);
 			cell.AddChild(stock);
 
 			Label yield = Small("", Gain);
@@ -402,8 +419,8 @@ public partial class ProvinceSidebar : VBoxContainer
 			// A click on the cow or the basket asks after that store, as in the original.
 			cell.MouseFilter = MouseFilterEnum.Stop;
 			cell.TooltipText = "Ask after this store";
-			cell.MouseEntered += () => stock.AddThemeColorOverride("font_color", Chrome.Bright);
-			cell.MouseExited += () => stock.AddThemeColorOverride("font_color", Cream);
+			cell.MouseEntered += () => stock.AddThemeColorOverride("font_color", Pointed);
+			cell.MouseExited += () => stock.AddThemeColorOverride("font_color", Text);
 			ResourceType asked = type;
 			cell.GuiInput += pointer =>
 			{
@@ -434,11 +451,11 @@ public partial class ProvinceSidebar : VBoxContainer
 
 			var cell = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
 			cell.AddThemeConstantOverride("separation", 2);
-			cell.AddChild(Centered(Icon(icon, 30)));
+			cell.AddChild(Centered(Icon(icon, 34)));
 
 			var count = new Label { HorizontalAlignment = HorizontalAlignment.Center };
-			count.AddThemeFontSizeOverride("font_size", 20);
-			count.AddThemeColorOverride("font_color", Cream);
+			count.AddThemeFontSizeOverride("font_size", 24);
+			count.AddThemeColorOverride("font_color", Text);
 			cell.AddChild(count);
 
 			Label yield = Small("", Gain);
@@ -447,6 +464,13 @@ public partial class ProvinceSidebar : VBoxContainer
 
 			_armoury.Add((divider, cell, count, yield, weapon));
 			row.AddChild(cell);
+		}
+
+		for (int i = 0; i < Resources.Length; i++)
+		{
+			var room = new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Ignore };
+			_armouryRoom.Add(room);
+			row.AddChild(room);
 		}
 
 		_armouryFrame = Framed(row, 8);
@@ -490,7 +514,7 @@ public partial class ProvinceSidebar : VBoxContainer
 			StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered,
 		});
 
-		_word = Small("No word reaches you of what it holds.", Waiting);
+		_word = Small("No word reaches you of what it holds.", Chrome.Soft);
 		_word.AutowrapMode = TextServer.AutowrapMode.Word;
 		_word.HorizontalAlignment = HorizontalAlignment.Center;
 		stack.AddChild(_word);

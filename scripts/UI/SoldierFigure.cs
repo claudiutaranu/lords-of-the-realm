@@ -38,6 +38,10 @@ public sealed partial class SoldierFigure
 	private const float StandardStature = 1.8f;
 	private const float ManStature = 1.45f;
 
+	/// <summary>A man on a horse, to the crown of the rider's head: a head and a half over the men
+	/// on foot, as a knight sits over a spearman.</summary>
+	private const float MountedStature = 2.0f;
+
 	/// <summary>What a model painted with no metal-and-roughness map is given instead: plain cloth
 	/// and leather, neither shiny nor metal. Without it the shader reads an empty map as white —
 	/// all metal, polished — and the man comes out chrome.</summary>
@@ -76,7 +80,7 @@ public sealed partial class SoldierFigure
 		string model = $"{UnitDirectory}/{key}";
 		if (ResourceLoader.Exists($"res://assets/models/{model}.figure.json"))
 		{
-			return Baked(model);
+			return Baked(model, Units.Of(key).Mounted ? MountedStature : ManStature);
 		}
 
 		return ResourceLoader.Exists($"res://assets/models/{model}.glb")
@@ -88,6 +92,9 @@ public sealed partial class SoldierFigure
 
 	/// <summary>His mesh, or null where the model is missing.</summary>
 	public ArrayMesh Mesh { get; private set; }
+
+	/// <summary>His mesh thinned for a squad far off, or null where he has only the one.</summary>
+	public ArrayMesh Far { get; private set; }
 
 	/// <summary>His mesh's bounds, kept: asked for every man every frame.</summary>
 	public Aabb Bounds { get; private set; }

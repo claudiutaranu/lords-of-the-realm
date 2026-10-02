@@ -79,15 +79,8 @@ public static class EconomySimulation
 	/// <summary>How many hands a task can absorb this season. Past this, another body on the job
 	/// does nothing: a herd has only so many beasts to milk, and a field in winter has nothing for
 	/// anybody to do. The diggings are the exception — as in the original, they take all comers.</summary>
-	public static int Demand(ResourceType type, ProvinceEconomy province, ProvinceDefinition definition, GameBalance balance, Season season) => type switch
-	{
-		ResourceType.Grain => Husbandry.FieldWork(province, season),
-		ResourceType.Cattle => 2 * Husbandry.Herdsmen(province.Cattle), // six a head: past three they only help it breed
-		ResourceType.Wood => Labour.Ceiling(province, definition, balance, season, Labour.Wood),
-		ResourceType.Stone => Labour.Ceiling(province, definition, balance, season, Labour.Stone),
-		ResourceType.Iron => Labour.Ceiling(province, definition, balance, season, Labour.Iron),
-		_ => 0,
-	};
+	public static int Demand(ResourceType type, ProvinceEconomy province, ProvinceDefinition definition, GameBalance balance, Season season) =>
+		Labour.Ceiling(province, definition, balance, season, Labour.JobOf(type));
 
 	/// <summary>What fraction of a task actually got done: all of it when the hands are there, and
 	/// proportionally less when they are not. A task nobody can work — no fields under grain, no
@@ -100,26 +93,14 @@ public static class EconomySimulation
 	/// hand left in the mine is a hand not reaping.</summary>
 	public static int Idle(ProvinceEconomy province, ProvinceDefinition definition, GameBalance balance, Season season)
 	{
-		int idle = province.Workers - province.AllocatedWorkers
-			+ Mathf.Max(0, province.ReclaimWorkers - Husbandry.ReclaimWork(province, balance))
-			+ Mathf.Max(0, province.BuildWorkers - Masons(province))
-			+ Mathf.Max(0, province.SmithWorkers - Smiths(province, balance));
-		foreach (ResourceType type in new[] { ResourceType.Grain, ResourceType.Cattle, ResourceType.Wood, ResourceType.Stone, ResourceType.Iron })
+		int idle = province.Workers - province.AllocatedWorkers;
+		foreach (string job in Labour.Jobs)
 		{
-			idle += Mathf.Max(0, Allocated(province, type) - Demand(type, province, definition, balance, season));
+			idle += Mathf.Max(0, Labour.Hands(province, job) - Labour.Ceiling(province, definition, balance, season, job));
 		}
 
 		return Mathf.Max(0, idle);
 	}
-
-	private static int Allocated(ProvinceEconomy province, ResourceType type) => type switch
-	{
-		ResourceType.Grain => province.GrainWorkers,
-		ResourceType.Cattle => province.CattleWorkers,
-		ResourceType.Wood => province.WoodWorkers,
-		ResourceType.Stone => province.StoneWorkers,
-		_ => province.IronWorkers,
-	};
 
 	// --- what comes out of the ground -------------------------------------------------------------
 
@@ -329,8 +310,7 @@ public static class EconomySimulation
 			return; // the idle covered it
 		}
 
-		int[] hands = { p.GrainWorkers, p.CattleWorkers, p.WoodWorkers, p.StoneWorkers, p.IronWorkers, p.BuildWorkers,
-			p.SmithWorkers, p.ReclaimWorkers };
+		int[] hands = System.Array.ConvertAll(Labour.Jobs, job => Labour.Hands(p, job));
 		int total = p.AllocatedWorkers;
 		int taken = 0;
 		for (int i = 0; i < hands.Length; i++)
@@ -362,14 +342,10 @@ public static class EconomySimulation
 			taken++;
 		}
 
-		p.GrainWorkers = hands[0];
-		p.CattleWorkers = hands[1];
-		p.WoodWorkers = hands[2];
-		p.StoneWorkers = hands[3];
-		p.IronWorkers = hands[4];
-		p.BuildWorkers = hands[5];
-		p.SmithWorkers = hands[6];
-		p.ReclaimWorkers = hands[7];
+		for (int i = 0; i < hands.Length; i++)
+		{
+			Labour.Put(p, Labour.Jobs[i], hands[i]);
+		}
 	}
 
 	// --- what the player is shown before committing to it -----------------------------------------

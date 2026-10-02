@@ -32,6 +32,14 @@ public static class UnitArt
 	/// nobody has painted a Swiss.</summary>
 	private static string Drawn(string unit) => Mercenaries.Find(unit)?.Unit ?? unit;
 
+	/// <summary>How far a man is let down in his card, as a share of its height: the swordsman, the
+	/// maceman and the rider were painted standing higher than the crossbowman beside them.</summary>
+	public static float Drop(string unit) => Drawn(unit) switch
+	{
+		"sword" or "mace" or "horse" => 0.06f,
+		_ => 0f,
+	};
+
 	private static string Ground(string unit) => unit switch
 	{
 		"bow" or "crossbow" => "training-ground",  // the butts they shoot at

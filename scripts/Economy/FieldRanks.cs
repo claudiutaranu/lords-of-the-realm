@@ -6,9 +6,9 @@ using Godot;
 /// man, which is what lets a few hundred of them fight ten times a second.</summary>
 public sealed partial class FieldBattle
 {
-	/// <summary>A man who fell: where, facing which way, of which squad, and whether he was its
-	/// captain — the standard goes down with him. The screen lays him down there and he stays.</summary>
-	public readonly record struct Fall(Vector2 At, Vector2 Facing, FieldSquad Squad, bool IsCaptain);
+	/// <summary>A man who fell: where, facing which way, and of which squad. The screen lays him down
+	/// there, and lets him go a few seconds later.</summary>
+	public readonly record struct Fall(Vector2 At, Vector2 Facing, FieldSquad Squad);
 
 	private const float Cell = 4f;
 
@@ -141,7 +141,7 @@ public sealed partial class FieldBattle
 		{
 			foreach (FieldSoldier man in squad.Soldiers.FindAll(man => !man.IsStanding))
 			{
-				Fell.Add(new Fall(man.At, man.Facing, squad, man == squad.Captain));
+				Fell.Add(new Fall(man.At, man.Facing, squad));
 				squad.Soldiers.Remove(man);
 				_meeting.Remove(man);
 				squad.CloseUp(man);

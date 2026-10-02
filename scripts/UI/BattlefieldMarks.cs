@@ -28,7 +28,7 @@ public partial class BattlefieldSquads
 		int count = Mathf.Min(spots?.Count ?? 0, marks.InstanceCount);
 		for (int i = 0; i < count; i++)
 		{
-			marks.SetInstanceTransform(i, new Transform3D(Basis.Identity, Ground(spots[i]) + (Vector3.Up * 0.06f)));
+			marks.SetInstanceTransform(i, new Transform3D(Basis.Identity, Ground(spots[i]) + (Vector3.Up * 0.12f)));
 		}
 
 		marks.VisibleInstanceCount = count;
@@ -37,7 +37,7 @@ public partial class BattlefieldSquads
 		int shown = Mathf.Min(fronts?.Count ?? 0, arrows.InstanceCount);
 		for (int i = 0; i < shown; i++)
 		{
-			Vector3 at = Ground(fronts[i] + (facing * ArrowAhead)) + (Vector3.Up * 0.07f);
+			Vector3 at = Ground(fronts[i] + (facing * ArrowAhead)) + (Vector3.Up * 0.13f);
 			arrows.SetInstanceTransform(i, new Transform3D(new Basis(Vector3.Up, Yaw(facing)), at));
 		}
 
@@ -93,12 +93,12 @@ public partial class BattlefieldSquads
 		foreach (FieldBattle.Fall fall in _battle.Fell)
 		{
 			Drawn drawn = _bySquad[fall.Squad];
-			SoldierFigure figure = fall.IsCaptain ? SoldierFigure.Standard : drawn.Figure;
-			float stature = fall.IsCaptain ? StandardHeight : figure.Stature;
-			// A baked man plays his own death and ends on his back; anyone else is laid there.
+			SoldierFigure figure = drawn.Figure;
+			float stature = figure.Stature;
+			// A man baked with a death plays it and ends on his back; anyone else is laid there.
 			Basis lying = new Basis(Vector3.Up, Yaw(fall.Facing)) * new Basis(Vector3.Right, -Mathf.Pi / 2f);
-			(fall.IsCaptain ? drawn.DeadStandard : drawn.Dead).Add((
-				figure.IsBaked
+			drawn.Dead.Add((
+				Dies(figure)
 					? Standing(figure, Ground(fall.At), Yaw(fall.Facing), stature)
 					: new Transform3D(lying.Scaled(Vector3.One * ScaleOf(figure, stature)), Ground(fall.At) + (Vector3.Up * 0.2f)),
 				clock));
@@ -108,9 +108,12 @@ public partial class BattlefieldSquads
 		foreach (Drawn drawn in _drawn)
 		{
 			Lay(drawn.Dead, drawn.Fallen.Multimesh, drawn.Figure, clock);
-			Lay(drawn.DeadStandard, drawn.FallenStandard.Multimesh, SoldierFigure.Standard, clock);
 		}
 	}
+
+	/// <summary>Whether a figure was baked with a death of its own: the peasant was not, and asked for
+	/// one the first of them to fall took the field down with him.</summary>
+	private static bool Dies(SoldierFigure figure) => figure.IsBaked && figure.Clips.ContainsKey(DeathClip);
 
 	/// <summary>The dead of one kind, drawn going as they go, and gone once they have.</summary>
 	private static void Lay(List<(Transform3D Lying, float Fell)> dead, MultiMesh drawn, SoldierFigure figure, float clock)
@@ -121,7 +124,7 @@ public partial class BattlefieldSquads
 		{
 			float going = Mathf.Clamp((clock - dead[i].Fell - LyingFor) / GoingFor, 0f, 1f);
 			drawn.SetInstanceTransform(i, dead[i].Lying);
-			float dying = figure.IsBaked ? figure.Row(DeathClip, clock - dead[i].Fell) : 0f;
+			float dying = Dies(figure) ? figure.Row(DeathClip, clock - dead[i].Fell) : 0f;
 			drawn.SetInstanceCustomData(i, new Color(dying, 0f, 0f, -going));
 		}
 	}

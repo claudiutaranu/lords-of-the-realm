@@ -72,7 +72,10 @@ public sealed partial class FieldBattle
 			{
 				squad.Facing = squad.Facing.Lerp((threat.At - squad.At).Normalized(), Wheel).Normalized();
 			}
-			if (squad.InMelee == null && squad.Shoots && !squad.IsMoving)
+			// Bowmen go on shooting with the enemy at their corner: only the men he is in reach of put
+			// down their bows. Stopped as a company the moment anyone was at grips, a whole line of
+			// archers stood and watched three swordsmen cut down the end of it.
+			if (squad.Shoots && !squad.IsMoving)
 			{
 				squad.ShootingAt = squad.Target is { IsStanding: true } target && InRange(squad, target)
 					? target
@@ -123,8 +126,10 @@ public sealed partial class FieldBattle
 		// Only once blows are being struck by his squad: going out while it was still coming on, the
 		// men of two advancing squads met in the gap between them and fought it out in ones and twos.
 		// The captain goes in with the rest — he does not stand at the back and outlive them all.
+		// Not a bowman, though: with nobody in reach he looses from where he stands, and leaves the
+		// swarming to the men whose trade it is.
 		FieldSoldier going = _meeting.GetValueOrDefault(man);
-		FieldSoldier meet = squad.IsFighting ? Quarry(man) : null;
+		FieldSoldier meet = squad.IsFighting && !squad.Shoots ? Quarry(man) : null;
 		_meeting[man] = meet;
 		if (going != meet)
 		{

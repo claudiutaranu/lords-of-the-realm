@@ -13,6 +13,7 @@ public partial class LetterPanel : CountyPanel
 	private readonly Queue<Letter> _waiting = new();
 	private TurnManager _turns;
 	private System.Func<string, string> _realmName;
+	private CenterContainer _face;
 	private Label _realm;
 	private Label _words;
 	private HBoxContainer _answer;
@@ -28,6 +29,10 @@ public partial class LetterPanel : CountyPanel
 
 	protected override void Furnish()
 	{
+		// Whoever wrote it, looking up from the page, where there is a portrait of him.
+		_face = new CenterContainer();
+		Column.AddChild(_face);
+
 		_realm = Chrome.Line("", 16, Chrome.Dim);
 		_realm.HorizontalAlignment = HorizontalAlignment.Center;
 		Column.AddChild(_realm);
@@ -73,6 +78,16 @@ public partial class LetterPanel : CountyPanel
 		Letter letter = _waiting.Dequeue();
 		Lord lord = Lords.Find(_turns.LordOf.GetValueOrDefault(letter.From, ""));
 		_realm.Text = _realmName(letter.From);
+		foreach (Node old in _face.GetChildren())
+		{
+			old.QueueFree();
+		}
+
+		if (LordPortrait.Of(lord, 150) is Control face)
+		{
+			_face.AddChild(face);
+		}
+
 		_words.Text = $"“{Words(letter, lord, _realmName)}”";
 
 		foreach (Node old in _answer.GetChildren())
@@ -97,6 +112,13 @@ public partial class LetterPanel : CountyPanel
 		}
 
 		Reveal($"From {lord?.Title ?? _realmName(letter.From)}");
+
+		// And he reads it out, in his own voice, where it has been recorded
+		// (assets/audio/lords/<lord>/<reply>.mp3); a line nobody has recorded is only read.
+		if (lord != null)
+		{
+			Narrator.Say($"res://assets/audio/lords/{lord.Key}/{letter.Kind}.mp3");
+		}
 	}
 
 	private static Button Answer(string text, System.Action pressed)
@@ -109,15 +131,19 @@ public partial class LetterPanel : CountyPanel
 
 	/// <summary>A letter in words: a lord's in his own voice (Lord.Says), the player's as his clerk
 	/// would file it. What the diplomacy page reads back, too.</summary>
-	public static string Words(Letter letter, Lord lord, System.Func<string, string> realmName) => letter.Kind switch
-	{
-		Diplomacy.Gift => $"A gift of {letter.Gold:N0} crowns.",
-		Diplomacy.Compliment => "A letter full of compliments.",
-		Diplomacy.Insult => "A letter full of insults.",
-		Diplomacy.OfferAlliance => "An offer of alliance.",
-		Diplomacy.BreakAlliance => "Word that the alliance is at an end.",
-		Diplomacy.AskHelp => "A call for help.",
-		Diplomacy.AskAttack => $"A request to march on {realmName(letter.About)}.",
-		_ => lord?.Says(letter.Kind, letter.Gold) ?? "",
-	};
+	/// <remarks><paramref name="lord"/> is the writer, or null for the player: a lord's answer to an
+	/// insult is keyed "insult" like the insult itself, so the kind alone cannot say whose words they are.</remarks>
+	public static string Words(Letter letter, Lord lord, System.Func<string, string> realmName) => lord != null
+		? lord.Says(letter.Kind, letter.Gold)
+		: letter.Kind switch
+		{
+			Diplomacy.Gift => $"A gift of {letter.Gold:N0} crowns.",
+			Diplomacy.Compliment => "A letter full of compliments.",
+			Diplomacy.Insult => "A letter full of insults.",
+			Diplomacy.OfferAlliance => "An offer of alliance.",
+			Diplomacy.BreakAlliance => "Word that the alliance is at an end.",
+			Diplomacy.AskHelp => "A call for help.",
+			Diplomacy.AskAttack => $"A request to march on {realmName(letter.About)}.",
+			_ => "",
+		};
 }

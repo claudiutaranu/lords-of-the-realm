@@ -56,7 +56,7 @@ de acolo are `using Godot`: `Mathf`, `RandomNumberGenerator`, `Vector2`, `GD.Loa
 | Evenimente, AI, piață, luptă | `EventEngine.cs`, `LordAI.cs`, `Market.cs`, `Battle.cs` + `TurnManager.Sieges` |
 | Save | `scripts/SaveGame.cs` (JSON v4) |
 | Teste | `*Check.cs` → `scene/checks/*.tscn`, Godot headless |
-| UI care atinge regulile direct | `CityPage`, `LabourPage`, `FieldPanel`, `TaxPanel`, `RationPanel`, `LabourBar`, `BlacksmithPage`, `RecruitsPage`… |
+| UI care atinge regulile direct | `CityPage`, `FieldPanel`, `TaxPanel`, `RationPanel`, `LabourBar`, `BlacksmithPage`, `RecruitsPage`… |
 
 ---
 

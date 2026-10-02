@@ -368,17 +368,17 @@ unique_name_in_owner = true
 script = ExtResource("20_minimap")
 custom_minimum_size = Vector2(228, 228)
 layout_mode = 2
-size_flags_horizontal = 4
+size_flags_horizontal = 3
 size_flags_vertical = 4
 mouse_filter = 2
 texture = ExtResource("3_map")
-expand_mode = 1
+expand_mode = 5
 stretch_mode = 6
 
 [node name="MinimapButtons" type="VBoxContainer" parent="Sidebar/SidebarMargin/SidebarContent/MinimapPanel/MinimapMargin/MinimapRow"]
 unique_name_in_owner = true
 layout_mode = 2
-size_flags_horizontal = 3
+size_flags_horizontal = 8
 size_flags_vertical = 4
 theme_override_constants/separation = 0
 
@@ -399,54 +399,6 @@ custom_minimum_size = Vector2(0, 58)
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "End Turn"
-
-[node name="SectionPanel" type="PanelContainer" parent="." unique_id=1557423501]
-unique_name_in_owner = true
-visible = false
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -401.0
-offset_top = -160.0
-offset_right = 59.0
-offset_bottom = 160.0
-grow_horizontal = 2
-grow_vertical = 2
-
-[node name="SectionMargin" type="MarginContainer" parent="SectionPanel" unique_id=1862448638]
-layout_mode = 2
-theme_override_constants/margin_left = 20
-theme_override_constants/margin_top = 16
-theme_override_constants/margin_right = 20
-theme_override_constants/margin_bottom = 16
-
-[node name="SectionContent" type="VBoxContainer" parent="SectionPanel/SectionMargin" unique_id=1263113013]
-layout_mode = 2
-theme_override_constants/separation = 12
-
-[node name="SectionTitle" type="Label" parent="SectionPanel/SectionMargin/SectionContent" unique_id=290445745]
-unique_name_in_owner = true
-layout_mode = 2
-theme_type_variation = &"GildedTitle"
-theme_override_font_sizes/font_size = 28
-text = "Chronicle"
-
-[node name="SectionBody" type="Label" parent="SectionPanel/SectionMargin/SectionContent" unique_id=967315510]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_vertical = 3
-theme_type_variation = &"Subtitle"
-theme_override_font_sizes/font_size = 16
-autowrap_mode = 3
-
-[node name="SectionClose" type="Button" parent="SectionPanel/SectionMargin/SectionContent" unique_id=150640315]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 4
-text = "Close"
 
 [node name="GameMenu" type="Control" parent="." unique_id=424184073]
 unique_name_in_owner = true

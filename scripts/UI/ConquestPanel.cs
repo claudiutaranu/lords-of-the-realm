@@ -64,6 +64,7 @@ public partial class ConquestPanel : Control
 			Stream = GD.Load<VideoStream>(VideoPath),
 			Expand = true,
 			Loop = true,
+			Bus = Settings.SfxBus,
 			CustomMinimumSize = VideoSize,
 			MouseFilter = MouseFilterEnum.Ignore,
 		};

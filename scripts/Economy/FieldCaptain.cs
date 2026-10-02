@@ -19,6 +19,9 @@ public sealed partial class FieldBattle
 	/// lets the enemy come to him — until they are close, or until they are shooting at him.</summary>
 	private void Captain(FieldSquad squad)
 	{
+		// Whatever the lord placed, the captain has it now, and moves it as he sees fit.
+		squad.IsPlaced = false;
+
 		// Whoever his men are already fighting is whom he is fighting.
 		if (squad.IsFighting && squad.InMelee != null && !squad.Shoots)
 		{
@@ -118,7 +121,7 @@ public sealed partial class FieldBattle
 		{
 			// A kind is drawn up in companies of no more than MostInCompany figures, as even as they
 			// will go: seventy spearmen are three companies of twenty-three or twenty-four, each with
-			// its own captain and standard, to be sent where the lord wants them — not one block.
+			// its own card, to be sent where the lord wants them — not one block.
 			int men = roster[unit];
 			int companies = Mathf.CeilToInt(men / (float)(MostInCompany * _menPerFigure));
 			for (int company = 0; company < companies; company++)

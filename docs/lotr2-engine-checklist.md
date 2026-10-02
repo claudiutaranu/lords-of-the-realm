@@ -179,7 +179,7 @@ Total cumulat: fiecare sezon adună `dHapTax + dHapHealth + dHapRation`, clamp 0
 
 **Recrutarea** [V]
 
-- [ ] Cost în fericire pe **procentul** recrutat: 5%→2, 10%→5, 20%→10, 25%→19, 33%→37, 50%→90, 60%+→101
+- [ ] Cost în fericire pe **procentul** recrutat: 5%→2, 10%→5, 20%→10, 25%→19, 33%→37, 50%→90, 60%+→101 — *la noi înjumătățit, maxim 40 (5%→1, 10%→2, 20%→5, 25%→9, 33%→18, 50%→30, 60%+→40), decizia utilizatorului: la 90/101 prima armată adevărată lăsa comitatul la 4*
 - [ ] Dacă fericirea e mai mică decât costul, ajunge la 0
 - [ ] Bug original: sub 50 de oameni indexul iese din tabel → recrutare gratuită; nu copiem, clamp la indexul maxim
 - [ ] La fericire 0 nu se mai poate recruta (manual)

@@ -241,6 +241,18 @@ public partial class EconomyCheck : Node
 			+ quarter.SmithWorkers;
 		Is("a quarter of the county goes to the industry", industry, Labour.Pct(quarter.Workers, 25));
 
+		// The bar's arrows move one man across, never a percent of the county.
+		for (int people = 1; people <= 1000; people++)
+		{
+			for (int half = 0; half <= people; half++)
+			{
+				if (Labour.Pct(people, Labour.ShareOf(half, people)) != half)
+				{
+					Is($"the share of {half} in {people} gives {half} back", Labour.Pct(people, Labour.ShareOf(half, people)), half);
+				}
+			}
+		}
+
 		// The leftovers of a job that cannot use its share walk on to the jobs with room...
 		ProvinceEconomy herd = Province();
 		herd.Shares[Labour.Grain] = Labour.Whole / 10;

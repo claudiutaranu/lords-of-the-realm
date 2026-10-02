@@ -7,6 +7,9 @@ public partial class CampaignPage : Control
 	// Only the Royal Crown campaign has a briefing (map + rival) ready; the rest are inert until theirs exist.
 	private const string RoyalCrownBriefingScenePath = "res://scene/campaign-briefing/campaign_briefing.tscn";
 	private const string CardArtFile = "card.png";
+	/// <summary>The lords' faces, film and first frame side by side: a card shows the lord its
+	/// campaign is fought against.</summary>
+	private const string LordFaces = "res://assets/video/lords";
 	private const float FadeInSeconds = 0.4f;
 	private const float CardRevealDelaySeconds = 0.3f;
 	private const float CardFadeSeconds = 0.3f;
@@ -14,15 +17,17 @@ public partial class CampaignPage : Control
 
 	/// <summary><paramref name="Folder"/> is the campaign's own folder under data/campaigns and
 	/// assets/campaigns — everything it owns is named from it, so a new campaign is one entry here
-	/// and a folder of each kind.</summary>
-	private record CampaignData(string Folder, string Title, string Description, int Lords, int EnemyFactions, string Difficulty, Color Accent);
+	/// and a folder of each kind.
+	/// <paramref name="Face"/> is the lord whose face stirs in the card's window, or empty for a card that stays painted.</summary>
+	private record CampaignData(string Folder, string Title, string Description, int Lords, int EnemyFactions, string Difficulty,
+		Color Accent, string Face = "");
 
 	// Accent ties each realm's glow and info-panel trim to its own identity instead of a shared gold.
 	// Append here as the remaining portraits arrive.
 	private static readonly CampaignData[] Campaigns =
 	{
 		new("royal-crown", "The Royal Crown",
-			"Unite the fractured kingdoms and restore the true crown.", 1, 4, "Normal", new Color("b23a3a")),
+			"Unite the fractured kingdoms and restore the true crown.", 1, 4, "Normal", new Color("b23a3a"), "margrave"),
 		new("northern-watch", "The Northern Watch",
 			"Hold the line against the northern hordes and protect the realm.", 6, 5, "Hard", new Color("5f8fc9")),
 		new("sands-of-power", "Sands of Power",
@@ -49,6 +54,10 @@ public partial class CampaignPage : Control
 			var card = cardScene.Instantiate<CampaignCard>();
 			cardRow.AddChild(card);
 			card.SetData(GD.Load<Texture2D>(Campaign.AssetOf(data.Folder, CardArtFile)), data.Title, data.Lords, data.Accent);
+			if (data.Face.Length > 0)
+			{
+				card.SetFilm($"{LordFaces}/{data.Face}.ogv", $"{LordFaces}/{data.Face}.png");
+			}
 			card.Modulate = new Color(1, 1, 1, 0);
 			cards[i] = card;
 		}

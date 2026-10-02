@@ -66,9 +66,10 @@ public partial class MapDecoration : Node3D
 	public enum SiteKind { Wood, Stone, Iron }
 
 	// A standing crop's colour in Spring/Summer/Autumn/Winter order — the Season enum's own order, so
-	// it indexes straight in. (The broadleaves turn through tree-foliage.gdshader instead.)
+	// it indexes straight in. (The broadleaves turn through tree-foliage.gdshader instead.) Summer's
+	// corn is in full green leaf; it turns gold only in autumn, when it is ready for the sickle.
 	private static readonly Color[] GrainBySeason =
-		{ new("7fa049"), new("dcbb63"), new("e3bf5a"), new("8f8b84") };
+		{ new("8fb052"), new("5f8f33"), new("e3bf5a"), new("8f8b84") };
 
 	// What a field is drawn as: a plot this many world units on a side, with a hedge band around it,
 	// laid on a lattice of cells this far apart. Sized against the cottages beside it — a plot is a
@@ -113,17 +114,10 @@ public partial class MapDecoration : Node3D
 	/// Taller than life on purpose: an army is the one thing on this map a lord looks for, and at a
 	/// man's real height beside a cottage he would have to hunt for it.</summary>
 	private const float ArmyHeight = 6.5f;
-	/// <summary>How many figures a county's men are drawn as, and where the second and third stand
-	/// beside the first, in world units. A banner used to carry its number on a shield; the size of
-	/// the thing on the ground says it now, which is what a lord on a hilltop actually reads — one
-	/// man, a pair, or a body of them.</summary>
-	private static readonly int[] ArmyAbreast = { 60, 160 };
-	private static readonly Vector3[] ArmyRanks =
-	{
-		Vector3.Zero,
-		new(1.7f, 0f, 0.7f),
-		new(-1.5f, 0f, 0.9f),
-	};
+
+	/// <summary>The ground one whole stride of the standard-bearer's covers, left foot and right, in
+	/// world units: his legs are moved by the road he walks, so his feet never slide over it.</summary>
+	private const float StrideCycle = ArmyHeight * 1.4f;
 
 	/// <summary>How near a click has to land to take hold of a banner, in map pixels. Generous: the
 	/// figure is tall and thin, and a lord jabbing at his own army should not have to hit the pole.</summary>
@@ -134,10 +128,15 @@ public partial class MapDecoration : Node3D
 	/// not waiting on the map.</summary>
 	public const float StrideSeconds = 0.16f;
 
-	/// <summary>How a banner rounds a bend: how many times the road's corners are cut, and how much
-	/// of the way to its new heading it turns each frame of the walk.</summary>
+	/// <summary>How a banner rounds a bend: how many times the road's corners are cut, how far up the
+	/// road he looks for the way he is going (world units), and how quickly he turns to it (per second,
+	/// eased, so a slow frame does not leave him facing the last bend).</summary>
 	private const int SmoothPasses = 2;
-	private const float TurnEase = 0.15f;
+	private const float LookAhead = 1.2f;
+	private const float TurnRate = 9f;
+
+	/// <summary>Which way a company that has never marched stands: three-quarters on to the eye.</summary>
+	private const float RestingHeading = Mathf.Pi * 0.25f;
 	public const float RivalStrideSeconds = 0.05f;
 
 	private const float CattleLength = 1.25f;
@@ -203,6 +202,11 @@ public partial class MapDecoration : Node3D
 	/// numbers.</summary>
 	private readonly Dictionary<string, (ShaderMaterial Look, float FlagRest)> _dressed = new();
 	private readonly Dictionary<string, Node3D> _armies = new();
+
+	/// <summary>The tramp of every army walking the map at once, made when the first sets off, and how
+	/// loud it is heard, in decibels.</summary>
+	private MarchingSound _tramp;
+	private const float MarchHeard = -6f;
 	private readonly Dictionary<string, float> _headings = new();
 	private readonly Dictionary<string, Vector2> _armySites = new();
 	/// <summary>One node per province's fields, so turning a field over — or a season turning —
@@ -430,7 +434,7 @@ public partial class MapDecoration : Node3D
 	/// under grain, under the herd, or resting, in the season it stands in.
 	///
 	/// This is the province's own <see cref="ProvinceEconomy.Fields"/> drawn at map scale, not a
-	/// decoration of it — turn a field over in the labour room and the plot out here changes with
+	/// decoration of it — turn a field over on its panel and the plot out here changes with
 	/// it, which is the whole point: what the land is under is a decision, and a decision the player
 	/// cannot see from the map is a decision he makes in a menu with his eyes shut.
 	///
@@ -1099,7 +1103,7 @@ public partial class MapDecoration : Node3D
 
 	/// <summary>What stands in a grain field this season: a full crop from the sowing to the
 	/// reaping, coloured green, gold or stubble by the year, and bare ploughed earth all winter —
-	/// the same year the labour room charges hands for. The pack's thinner sown model was honest
+	/// the same year the fields charge hands for. The pack's thinner sown model was honest
 	/// about spring and unreadable from map height, which on a map is the same as being wrong.</summary>
 	private static string CropModel(Season season) =>
 		season == Season.Winter ? null : "Farm_FirstAge_Level2_Wheat";
@@ -1368,6 +1372,15 @@ public partial class MapDecoration : Node3D
 		// The map may redraw its banners while this one is still on the road — another march, a
 		// battle settled — and the piece walking here is freed under the tween. Then the walk is
 		// over: it stops, and the arrival is still reported, once.
+		if (_tramp == null)
+		{
+			// Heard over the music: at the field's quiet it was under it, and the lord never heard his
+			// men set off.
+			_tramp = new MarchingSound { Sound = "res://assets/audio/map-marching.mp3", Loudness = MarchHeard };
+			AddChild(_tramp);
+		}
+
+		_tramp.Join();
 		Tween walk = CreateTween();
 		bool over = false;
 		void Arrive()
@@ -1379,6 +1392,7 @@ public partial class MapDecoration : Node3D
 
 			over = true;
 			walk.Kill();
+			_tramp.Leave();
 			arrived();
 		}
 
@@ -1402,18 +1416,21 @@ public partial class MapDecoration : Node3D
 				return;
 			}
 
-			while (at < path.Count - 2 && lengths[at + 1] < along)
+			piece.Position = PointAlong(path, lengths, along, ref at);
+			foreach (Node rank in piece.GetChildren())
 			{
-				at++;
+				((GeometryInstance3D)rank).SetInstanceShaderParameter("map_gait", Mathf.Tau * along / StrideCycle);
 			}
 
-			float span = Mathf.Max(0.0001f, lengths[at + 1] - lengths[at]);
-			piece.Position = path[at].Lerp(path[at + 1], Mathf.Clamp((along - lengths[at]) / span, 0f, 1f));
-			Vector3 ahead = path[Mathf.Min(at + 1, path.Count - 1)] - path[at];
-			if (ahead.LengthSquared() > 0.0001f)
+			// Facing a point a little up the road, not the bead he is on: the heading swings round a
+			// bend before he reaches it instead of snapping at every cut corner.
+			int ahead = at;
+			Vector3 toward = PointAlong(path, lengths, Mathf.Min(along + LookAhead, total), ref ahead) - piece.Position;
+			if (toward.X * toward.X + toward.Z * toward.Z > 0.0001f)
 			{
-				float facing = Mathf.Atan2(ahead.X, ahead.Z);
-				piece.Rotation = new Vector3(0f, Mathf.LerpAngle(piece.Rotation.Y, facing, TurnEase), 0f);
+				float facing = Mathf.Atan2(toward.X, toward.Z);
+				float ease = 1f - Mathf.Exp(-TurnRate * (float)GetProcessDeltaTime());
+				piece.Rotation = new Vector3(0f, Mathf.LerpAngle(piece.Rotation.Y, facing, ease), 0f);
 			}
 		}), 0f, total, stride * road.Count);
 
@@ -1425,11 +1442,24 @@ public partial class MapDecoration : Node3D
 				foreach (Node rank in piece.GetChildren())
 				{
 					((GeometryInstance3D)rank).SetInstanceShaderParameter("walking", 0f);
+					((GeometryInstance3D)rank).SetInstanceShaderParameter("map_gait", -1f);
 				}
 			}
 
 			Arrive();
 		}));
+	}
+
+	/// <summary>The point so far along a path, walking <paramref name="at"/> on to the segment it lies in.</summary>
+	private static Vector3 PointAlong(List<Vector3> path, float[] lengths, float along, ref int at)
+	{
+		while (at < path.Count - 2 && lengths[at + 1] < along)
+		{
+			at++;
+		}
+
+		float span = Mathf.Max(0.0001f, lengths[at + 1] - lengths[at]);
+		return path[at].Lerp(path[at + 1], Mathf.Clamp((along - lengths[at]) / span, 0f, 1f));
 	}
 
 	/// <summary>Whose village stands under this map pixel, or nothing. The town is walked into from
@@ -1499,7 +1529,7 @@ public partial class MapDecoration : Node3D
 		{
 			if (!standing.Contains(army))
 			{
-				SetArmy(army, Vector2.Zero, false, Colors.White, 0);
+				SetArmy(army, Vector2.Zero, false, Colors.White);
 			}
 		}
 	}
@@ -1507,9 +1537,10 @@ public partial class MapDecoration : Node3D
 	/// <summary>One company, standing where it is. A banner to an army and not to a county: a lord
 	/// who raises a second company sees a second banner, and can take hold of either of them.
 	///
-	/// Not a figure per hundred men — the ranks say roughly how big it is, and the panel behind the
-	/// right button says exactly.</summary>
-	public void SetArmy(string army, Vector2 seatPixel, bool standing, Color lord, int men)
+	/// One standard-bearer, however many men: a company drawn two and three figures strong walked
+	/// as a clump of men sliding over one another (the user's call). How big it is, the panel behind
+	/// the right button says.</summary>
+	public void SetArmy(string army, Vector2 seatPixel, bool standing, Color lord)
 	{
 		if (_armies.TryGetValue(army, out Node3D piece))
 		{
@@ -1545,35 +1576,24 @@ public partial class MapDecoration : Node3D
 		Aabb bounds = Models.MeshOf(SoldierFigure.Standard.Model).GetAabb();
 
 		// The company stands on one node: it is one army, it marches as one, and the map moves it as
-		// one. The figures are its ranks, set out beside each other.
+		// one.
 		var held = new Node3D { Position = _map.WorldAt(site) + (Vector3.Up * (-bounds.Position.Y * scale)) };
 		AddChild(held);
 		_armies[army] = held;
 
 		// Facing the way it last marched: redrawn after the walk, it used to turn back to face the
 		// same corner of the map every company faces before it has gone anywhere.
-		held.Rotation = new Vector3(0f, _headings.GetValueOrDefault(army), 0f);
+		held.Rotation = new Vector3(0f, _headings.GetValueOrDefault(army, RestingHeading), 0f);
 		_armySites[army] = site;
 
-		for (int rank = 0; rank < Ranks(men); rank++)
-		{
-			var man = new MeshInstance3D { Mesh = SoldierFigure.Standard.Mesh, MaterialOverride = SoldierFigure.Standard.Material };
-			held.AddChild(man);
-			man.SetInstanceShaderParameter("lord_color", lord);
-			man.SetInstanceShaderParameter("walking", 0f);
-			// One standard to a company: the men behind it carry their shafts and nothing on them.
-			man.SetInstanceShaderParameter("banner", rank == 0 ? 1f : 0f);
-			// A shade apart in size and bearing: three of the same figure on the same angle is one
-			// figure drawn three times.
-			man.Transform = new Transform3D(
-				Basis.Identity.Rotated(Vector3.Up, (Mathf.Pi * 0.25f) + (rank * 0.22f))
-					.Scaled(Vector3.One * scale * (1f - (rank * 0.06f))),
-				ArmyRanks[rank]);
-		}
+		var man = new MeshInstance3D { Mesh = SoldierFigure.Standard.Mesh, MaterialOverride = SoldierFigure.Standard.Material };
+		held.AddChild(man);
+		man.SetInstanceShaderParameter("lord_color", lord);
+		man.SetInstanceShaderParameter("walking", 0f);
+		man.SetInstanceShaderParameter("banner", 1f);
+		// Facing the way the company faces: turned a quarter off it, he walked every road crabwise.
+		man.Transform = new Transform3D(Basis.Identity.Scaled(Vector3.One * scale), Vector3.Zero);
 	}
-
-	/// <summary>How many figures a body of men is drawn as.</summary>
-	private static int Ranks(int men) => men >= ArmyAbreast[1] ? 3 : men >= ArmyAbreast[0] ? 2 : 1;
 
 	/// <summary>Puts a province's castle on the ground beside its town, and takes down whatever
 	/// stood there before. Its whole job is to say, from the map and without a click, that this

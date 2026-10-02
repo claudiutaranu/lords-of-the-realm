@@ -9,6 +9,10 @@ render_mode cull_disabled;
 #include "res://assets/shaders/livery.gdshaderinc"
 
 uniform sampler2D albedo_texture : source_color, filter_linear_mipmap_anisotropic;
+// Which of him is metal and how polished (roughness in green, metal in blue, as glTF keeps them),
+// where he was baked with it: a knight's plate catches the sky, his horse's blanket does not.
+uniform sampler2D material_texture : filter_linear_mipmap_anisotropic;
+uniform bool has_material = false;
 uniform sampler2D positions : filter_nearest;
 uniform sampler2D turned : filter_nearest;
 
@@ -64,7 +68,15 @@ void fragment() {
 		discard;
 	}
 
-	ALBEDO = livery(texture(albedo_texture, UV).rgb, lord_color, cloth_value / livery_lift);
-	ROUGHNESS = 0.8;
-	METALLIC = 0.0;
+	// Nothing metal is cloth, whatever its colour.
+	vec3 surface = has_material ? texture(material_texture, UV).rgb : vec3(0.0, 0.8, 0.0);
+	// Metal or not, by a threshold: the map is coarse, and read as a fraction the helmet's rim made
+	// half-metal of the cheek beside it. What is not metal is matte — skin and cloth under a sun as
+	// smooth as the map had them came out pale and glossy, the faces white.
+	float metal = smoothstep(0.35, 0.65, surface.b);
+	vec3 paint = texture(albedo_texture, UV).rgb;
+	ALBEDO = mix(livery(paint, lord_color, cloth_value / livery_lift), paint, metal);
+	ROUGHNESS = mix(max(surface.g, 0.65), surface.g, metal);
+	METALLIC = metal;
+	SPECULAR = mix(0.3, 0.5, metal);
 }

@@ -25,6 +25,7 @@ public sealed partial class FieldBattle
 			squad.Target = null;
 			squad.FaceGoal = null;
 			squad.KeepsFront = false;
+			squad.IsPlaced = true;
 			squad.Goal = to + (squad.At - middle);
 		}
 	}
@@ -39,6 +40,7 @@ public sealed partial class FieldBattle
 			squad.Reform(files);
 			squad.Target = null;
 			squad.KeepsFront = false;
+			squad.IsPlaced = true;
 			squad.FaceGoal = facing;
 			squad.Goal = front - (facing * squad.Front);
 			if (squad.Goal.Value.DistanceTo(squad.At) <= Arrived)
@@ -62,17 +64,10 @@ public sealed partial class FieldBattle
 		foreach ((FieldSquad squad, int wide, Vector2 front) in Plan(squads, from, to))
 		{
 			fronts.Add(front);
-			int ranked = squad.Soldiers.Count - (squad.Captain is { IsStanding: true } ? 1 : 0);
-			int files = Mathf.Clamp(wide, 1, Mathf.Max(1, ranked));
-			for (int slot = 0; slot < ranked; slot++)
+			for (int slot = 0; slot < squad.Soldiers.Count; slot++)
 			{
-				float across = ((slot % files) - ((files - 1) / 2f)) * squad.Gap;
-				spots.Add(front + (right * across) - (facing * ((slot / files) * squad.Gap)));
-			}
-
-			if (squad.Captain is { IsStanding: true })
-			{
-				spots.Add(front - (facing * ((Mathf.CeilToInt(ranked / (float)files) * squad.Gap) + 1f)));
+				float across = ((slot % wide) - ((wide - 1) / 2f)) * squad.Gap;
+				spots.Add(front + (right * across) - (facing * ((slot / wide) * squad.Gap)));
 			}
 		}
 
@@ -80,8 +75,12 @@ public sealed partial class FieldBattle
 	}
 
 	/// <summary>How a front drawn from one point to another is shared out: each squad, in the order
-	/// they already stand along it, gets an equal length of it — as many men wide as fit — and the
-	/// middle of its share is where its front rank stands.</summary>
+	/// they already stand along it, gets an equal length of it — as many men wide as fit, and never
+	/// wider than all its men in one rank — and they stand side by side from where the line began.
+	///
+	/// From its start, and not each in the middle of its share: centred, a squad already one rank wide
+	/// slid along after the cursor as the lord dragged on, and the front he had begun to lay down at
+	/// a spot of his choosing would not stay there.</summary>
 	private static IEnumerable<(FieldSquad Squad, int Files, Vector2 Front)> Plan(IReadOnlyList<FieldSquad> squads,
 		Vector2 from, Vector2 to)
 	{
@@ -94,10 +93,14 @@ public sealed partial class FieldBattle
 		var order = new List<FieldSquad>(squads);
 		order.Sort((a, b) => a.At.Dot(along).CompareTo(b.At.Dot(along)));
 		float each = from.DistanceTo(to) / order.Count;
-		for (int i = 0; i < order.Count; i++)
+		float laid = 0f;
+		foreach (FieldSquad squad in order)
 		{
-			yield return (order[i], Mathf.Max(1, Mathf.FloorToInt((each - SquadSpacing) / order[i].Gap) + 1),
-				from + (along * (each * (i + 0.5f))));
+			int files = Mathf.Clamp(Mathf.FloorToInt((each - SquadSpacing) / squad.Gap) + 1, 1,
+				Mathf.Max(1, squad.Soldiers.Count));
+			float wide = (files - 1) * squad.Gap;
+			yield return (squad, files, from + (along * (laid + (wide / 2f))));
+			laid += wide + SquadSpacing;
 		}
 	}
 
@@ -107,6 +110,7 @@ public sealed partial class FieldBattle
 		{
 			squad.Goal = null;
 			squad.KeepsFront = false;
+			squad.IsPlaced = false;
 			squad.Target = foe;
 		}
 	}
@@ -117,6 +121,7 @@ public sealed partial class FieldBattle
 		{
 			squad.Goal = null;
 			squad.Target = null;
+			squad.IsPlaced = true;
 		}
 	}
 

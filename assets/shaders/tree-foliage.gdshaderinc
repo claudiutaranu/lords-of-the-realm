@@ -31,7 +31,10 @@ void vertex() {
 		float up = clamp(VERTEX.y / crown_height, 0.0, 1.0);
 		float t = TIME * 0.9 + dot(base.xz, vec2(0.071, 0.053));
 		vec2 lean = vec2(sin(t) + 0.35 * sin(t * 2.3 + 1.7), 0.5 * cos(t * 0.8)) * sway * up * up;
-		VERTEX.xz += (vec3(lean.x, 0.0, lean.y) * MODEL_NORMAL_MATRIX).xz; // the world lean, in the model's own space
+		// The world lean, in the model's own space: through the inverse of its basis, scale and all.
+		// MODEL_NORMAL_MATRIX carries the instance's scale the wrong way round for this — a tree grown
+		// to seventeen metres leaned eighty times its sway, and every crown on the field swam.
+		VERTEX += inverse(mat3(MODEL_MATRIX)) * vec3(lean.x, 0.0, lean.y);
 	}
 }
 #endif

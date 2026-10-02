@@ -20,13 +20,19 @@ public partial class Battlefield
 		if (from.DistanceTo(at) > DragToBox)
 		{
 			Rect2 box = new Rect2(from, at - from).Abs();
+			int held = _chosen.Count;
 			foreach (FieldSquad squad in _battle.Squads)
 			{
 				if (squad.IsAttacking && squad.IsStanding && !_chosen.Contains(squad)
-					&& box.HasPoint(_camera.UnprojectPosition(new Vector3(squad.At.X, 0f, squad.At.Y))))
+					&& box.HasPoint(_camera.UnprojectPosition(_land.On(squad.At))))
 				{
 					_chosen.Add(squad);
 				}
+			}
+
+			if (_chosen.Count > held)
+			{
+				Answer("select");
 			}
 
 			return;
@@ -48,6 +54,7 @@ public partial class Battlefield
 		if (!_chosen.Remove(squad))
 		{
 			_chosen.Add(squad);
+			Answer("select");
 		}
 	}
 
@@ -61,22 +68,27 @@ public partial class Battlefield
 		_squads.Mark(null, null, Vector2.Zero);
 		if (start.DistanceTo(at) <= DragToBox)
 		{
+			_orderedFrom = null;
 			Send(at);
 			return;
 		}
 
-		if (_chosen.Count > 0 && Front(start, at) is var (from, to, facing))
+		(Vector2 From, Vector2 To, Vector2 Facing)? front = Front(at);
+		_orderedFrom = null;
+		if (_chosen.Count > 0 && front is var (from, to, facing))
 		{
 			_battle.IsAttackCaptained = false;
 			_battle.Form(_chosen, from, to, facing);
+			Answer("move");
 		}
 	}
 
-	/// <summary>The front a drag across the screen draws on the field: its two ends, and the way
-	/// the men on it face — square to it, away from the lord's eye. Null off the field, or too short.</summary>
-	private (Vector2 From, Vector2 To, Vector2 Facing)? Front(Vector2 start, Vector2 end)
+	/// <summary>The front a drag draws on the field, from the ground the button went down on to the
+	/// ground under the cursor now: its two ends, and the way the men on it face — square to it, away
+	/// from the lord's eye. Null off the field, or too short.</summary>
+	private (Vector2 From, Vector2 To, Vector2 Facing)? Front(Vector2 end)
 	{
-		if (OnGround(start) is not Vector2 from || OnGround(end) is not Vector2 to || from.DistanceTo(to) < 1f)
+		if (_orderedFrom is not Vector2 from || OnGround(end) is not Vector2 to || from.DistanceTo(to) < 1f)
 		{
 			return null;
 		}
@@ -100,10 +112,12 @@ public partial class Battlefield
 		if (_squads.At(spot) is { IsAttacking: false } foe)
 		{
 			_battle.Charge(_chosen, foe);
+			Answer("attack");
 		}
 		else
 		{
 			_battle.March(_chosen, spot);
+			Answer("move");
 		}
 	}
 
@@ -135,24 +149,16 @@ public partial class Battlefield
 				_battle.Charge(new[] { squad }, nearest);
 			}
 		}
+
+		Answer("attack");
 	}
 
 	private void Captain(bool handing) => _battle.IsAttackCaptained = handing;
 
-	/// <summary>Where on the field a point on the screen falls. The field is flat, so this is the
-	/// ray from the eye meeting the ground.</summary>
-	private Vector2? OnGround(Vector2 screen)
-	{
-		Vector3 origin = _camera.ProjectRayOrigin(screen);
-		Vector3 ray = _camera.ProjectRayNormal(screen);
-		if (ray.Y >= -0.001f)
-		{
-			return null;
-		}
-
-		Vector3 hit = origin + (ray * (-origin.Y / ray.Y));
-		return new Vector2(hit.X, hit.Z);
-	}
+	/// <summary>Where on the field a point on the screen falls: the ray from the eye meeting the
+	/// ground, over the hills as they lie.</summary>
+	private Vector2? OnGround(Vector2 screen) =>
+		_land.Hit(_camera.ProjectRayOrigin(screen), _camera.ProjectRayNormal(screen), Field);
 
 	/// <summary>The keys that move the eye, polled so a held key keeps moving it.</summary>
 	private void Steer(float delta)
@@ -176,15 +182,34 @@ public partial class Battlefield
 
 	private static bool Held(Key key) => Input.IsPhysicalKeyPressed(key);
 
-	private void Zoom(float by)
+	/// <summary>Closer or further, toward the ground under the cursor: the eye closes on what the lord
+	/// is pointing at, so a wheel turned over a company brings him down among its men and not onto
+	/// the empty middle of the field.</summary>
+	private void Zoom(float by, Vector2 toward)
 	{
+		float was = _eye;
 		_eye = Mathf.Clamp(_eye * by, NearestEye, FurthestEye);
+		if (_eye < was && OnGround(toward) is Vector2 spot)
+		{
+			var focus = new Vector2(_focus.X, _focus.Z);
+			focus += (spot - focus) * (1f - (_eye / was));
+			float edge = Field / 3f;
+			_focus = new Vector3(Mathf.Clamp(focus.X, -edge, edge), 0f, Mathf.Clamp(focus.Y, -edge, edge));
+		}
+
 		Look();
 	}
 
+	/// <summary>The eye, looking at the ground under the focus: steeply from far off, nearly level
+	/// close in, and never inside a hill between the two.</summary>
 	private void Look()
 	{
-		Basis turned = Basis.FromEuler(new Vector3(Mathf.DegToRad(EyePitchDegrees), _yaw, 0f));
-		_camera.Transform = new Transform3D(turned, _focus + (turned * new Vector3(0f, 0f, _eye)));
+		float close = Mathf.SmoothStep(NearestEye, LevelsBelow, _eye);
+		float pitch = Mathf.Lerp(CloseEyePitchDegrees, EyePitchDegrees, close);
+		Basis turned = Basis.FromEuler(new Vector3(Mathf.DegToRad(pitch), _yaw, 0f));
+		Vector3 at = _land.On(new Vector2(_focus.X, _focus.Z)) + (Vector3.Up * EyeClearance * (1f - close));
+		Vector3 eye = at + (turned * new Vector3(0f, 0f, _eye));
+		eye.Y = Mathf.Max(eye.Y, _land.Rise(new Vector2(eye.X, eye.Z)) + EyeClearance);
+		_camera.Transform = new Transform3D(turned, eye);
 	}
 }

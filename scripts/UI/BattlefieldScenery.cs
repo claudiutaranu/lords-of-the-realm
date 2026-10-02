@@ -19,7 +19,9 @@ public partial class Battlefield
 				},
 			},
 			AmbientLightSource = Godot.Environment.AmbientSource.Sky,
-			AmbientLightEnergy = 0.5f,
+			// Enough of the sky's light in the shade that a man with the sun behind him is still a man and
+			// not his own silhouette.
+			AmbientLightEnergy = 0.9f,
 			TonemapMode = Godot.Environment.ToneMapper.Filmic,
 			FogEnabled = true,
 			// A haze in the woods, the way morning lies among the trees: none over the field, where
@@ -31,7 +33,9 @@ public partial class Battlefield
 			FogDepthEnd = 420f,
 			FogDepthCurve = 1.6f,
 			FogSkyAffect = 0.5f,
-			SsaoEnabled = true,
+			// No screen-space occlusion: at a man's size on the field it is not shading but grain, a
+			// dark speckle over every figure that darkened the whole army a shade.
+			SsaoEnabled = false,
 		},
 	};
 
@@ -45,6 +49,13 @@ public partial class Battlefield
 			LightColor = new Color("fff0cf"),
 			ShadowEnabled = true,
 			DirectionalShadowMaxDistance = 300f,
+			// Two cascades, not four: every man on the field is drawn again for each, and four
+			// hundred and eighty of them five times over held the field under thirty a second.
+			DirectionalShadowMode = DirectionalLight3D.ShadowMode.Parallel2Splits,
+			// Clear of his own surface: at the default a man shadowed himself in a grid of dots
+			// across his shirt and breeches and stood a shade darker than he should. Much past this
+			// the shadows come loose from the feet that throw them.
+			ShadowBias = 0.5f,
 		};
 		sun.RotationDegrees = new Vector3(-38f, -30f, 0f);
 		return sun;
@@ -52,7 +63,7 @@ public partial class Battlefield
 
 	/// <summary>The ground, and the map of where its earth is bare (0..1 across the field, bare above
 	/// <see cref="BareFrom"/>), which the grass is sown by.</summary>
-	private static (MeshInstance3D Ground, Image Bare) Ground()
+	private static (MeshInstance3D Ground, Image Bare) Ground(BattlefieldLand land)
 	{
 		var earth = new FastNoiseLite { Frequency = BareFrequency, Seed = (int)WoodsSeed };
 		Image bare = Image.CreateEmpty(BareMap, BareMap, false, Image.Format.R8);
@@ -78,12 +89,12 @@ public partial class Battlefield
 		look.SetShaderParameter("tiles", Field / GroundTile);
 		look.SetShaderParameter("bare_map", ImageTexture.CreateFromImage(bare));
 		look.SetShaderParameter("bare_from", BareFrom);
-		return (new MeshInstance3D { Mesh = new PlaneMesh { Size = new Vector2(Field, Field) }, MaterialOverride = look }, bare);
+		return (new MeshInstance3D { Mesh = land.Mesh(), MaterialOverride = look }, bare);
 	}
 
 	/// <summary>A wood round the field, so it is a place and not a board: stands of pine and oak,
 	/// thicker the further out, the nearest a spear's throw past where the lines draw up.</summary>
-	private static Node3D Wood()
+	private static Node3D Wood(BattlefieldLand land)
 	{
 		var wood = new Node3D();
 		var dice = new RandomNumberGenerator { Seed = WoodsSeed };
@@ -123,7 +134,8 @@ public partial class Battlefield
 				float grown = scale * dice.RandfRange(0.75f, 1.35f);
 				var basis = new Basis(Vector3.Up, dice.RandfRange(0f, Mathf.Tau))
 					.Scaled(new Vector3(grown, grown * dice.RandfRange(0.9f, 1.25f), grown));
-				many.SetInstanceTransform(i, new Transform3D(basis, new Vector3(at.X, 0f, at.Y)));
+				// Sunk a little, so a tree on a slope has no root standing in the air on the downhill side.
+				many.SetInstanceTransform(i, new Transform3D(basis, land.On(at) + (Vector3.Down * 0.6f)));
 			}
 
 			wood.AddChild(new MultiMeshInstance3D { Multimesh = many, MaterialOverride = Foliage(model, tree, isEvergreen) });

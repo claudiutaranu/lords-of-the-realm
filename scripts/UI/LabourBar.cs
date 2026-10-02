@@ -54,7 +54,7 @@ public partial class LabourBar : VBoxContainer
 		{
 			MinValue = 0,
 			MaxValue = 100,
-			Step = 1, // the original's industry share is a whole percent
+			Step = 0, // the arrows move it a man at a time, so the grip stands between whole percents
 			SizeFlagsHorizontal = SizeFlags.ExpandFill,
 			SizeFlagsVertical = SizeFlags.ShrinkCenter,
 			CustomMinimumSize = new Vector2(40, 0),
@@ -66,7 +66,6 @@ public partial class LabourBar : VBoxContainer
 
 		_bar.ValueChanged += share =>
 		{
-			// Setting the grip to where the county already stands must not re-deal the county.
 			if (_reading || _province == null || _definition == null)
 			{
 				return;
@@ -122,11 +121,24 @@ public partial class LabourBar : VBoxContainer
 		wants.AddChild(_industryShort);
 	}
 
-	/// <summary>The original's arrows at either end of the bar: a percent of the county a click, held
-	/// to keep it walking, for the lord who wants the grip exactly where he means it.</summary>
+	/// <summary>The original's arrows at either end of the bar: one man across a click, held to keep
+	/// him walking, for the lord who wants the grip exactly where he means it. A percent a click was
+	/// six men in a county of six hundred, and no way to put back the two that tipped the farm short.</summary>
 	private Button Nudge(string arrow, int step)
 	{
-		Button nudge = Chrome.Repeating(arrow, 28, () => _bar.Value += step);
+		Button nudge = Chrome.Repeating(arrow, 28, () =>
+		{
+			if (_province == null || _definition == null)
+			{
+				return;
+			}
+
+			int industry = Labour.Pct(_province.Workers, _province.IndustryShare);
+			Labour.Divide(_province, _definition, _balance, _season, Labour.ShareOf(industry + step, _province.Workers));
+			Grip();
+			Counts();
+			Moved?.Invoke();
+		});
 		nudge.ButtonUp += () => Settled?.Invoke();
 		return nudge;
 	}
@@ -159,10 +171,16 @@ public partial class LabourBar : VBoxContainer
 			return;
 		}
 
-		_reading = true;
-		_bar.Value = province.IndustryShare;
-		_reading = false;
+		Grip();
 		Counts();
+	}
+
+	/// <summary>Sets the grip to where the county already stands, which must not re-deal the county.</summary>
+	private void Grip()
+	{
+		_reading = true;
+		_bar.Value = _province.IndustryShare;
+		_reading = false;
 	}
 
 	private void Counts()
@@ -213,7 +231,7 @@ public partial class LabourBar : VBoxContainer
 
 	private static Label Count(HorizontalAlignment side)
 	{
-		Label reading = Chrome.Line("0", 17, new Color("f4e4c1"));
+		Label reading = Chrome.Line("0", 17, Chrome.Bright);
 		reading.CustomMinimumSize = new Vector2(46, 0);
 		reading.HorizontalAlignment = side;
 		reading.VerticalAlignment = VerticalAlignment.Center;

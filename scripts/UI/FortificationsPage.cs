@@ -25,8 +25,8 @@ public partial class FortificationsPage : RoomPage
 	private const string VoiceDirectory = "res://assets/audio/forts";
 
 	/// <summary>One rung of the ladder. <paramref name="Material"/> is the counter it is shown under,
-	/// not the whole of what it costs: timber alone raises a palisade, but nothing above a fort goes
-	/// up without stone, and nothing above a small castle without iron.</summary>
+	/// not the whole of what it costs: the timber rungs are timber alone, but a stone wall wants timber
+	/// for its floors and scaffolding as well.</summary>
 	private record Fort(string Key, string Name, string Short, string Blurb, string Material,
 		int Seasons, Dictionary<string, int> Cost);
 
@@ -743,6 +743,7 @@ public partial class FortificationsPage : RoomPage
 			14, Soft);
 		takes.HorizontalAlignment = HorizontalAlignment.Center;
 		Detail.AddChild(takes);
+		Detail.AddChild(Gives(Fortifications.Of(_chosen.Key)));
 
 		bool standing = _chosen.Key == Province.Fortification;
 		bool busy = Province.Building.Length > 0;
@@ -765,6 +766,34 @@ public partial class FortificationsPage : RoomPage
 			rising.HorizontalAlignment = HorizontalAlignment.Center;
 			Detail.AddChild(rising);
 		}
+	}
+
+	/// <summary>What the walls are for, as Lords of the Realm told it: how many men they hold, how much
+	/// harder those men are to kill, how few can come at them at once, and what the county pays behind
+	/// them against open ground.</summary>
+	private static Control Gives(Fortifications.Wall wall)
+	{
+		var table = new GridContainer { Columns = 2 };
+		table.AddThemeConstantOverride("h_separation", 16);
+		table.AddThemeConstantOverride("v_separation", 2);
+		int dues = Mathf.RoundToInt(100f * wall.TaxBase / Fortifications.OpenGroundTaxBase) - 100;
+		foreach ((string what, string worth) in new[]
+		{
+			("Men on the walls", wall.Garrison.ToString("N0")),
+			("Each defender is worth", $"×{wall.Defence:0.##}"),
+			("Stormed at once by", $"{wall.Frontage:N0} men"),
+			("Taxes", $"+{dues}%"),
+		})
+		{
+			Label name = Line(what, 15, Soft);
+			name.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+			table.AddChild(name);
+			Label figure = Line(worth, 16, Bright);
+			figure.HorizontalAlignment = HorizontalAlignment.Right;
+			table.AddChild(figure);
+		}
+
+		return table;
 	}
 
 	private bool CanAfford(Fort fort)

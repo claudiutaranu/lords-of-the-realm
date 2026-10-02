@@ -25,6 +25,9 @@ uniform sampler2D metal_rough_texture : filter_linear_mipmap_anisotropic;
 instance uniform vec3 lord_color : source_color = vec3(0.70, 0.23, 0.23);
 // 1 while he is on the road.
 instance uniform float walking = 0.0;
+// Where the map's standard-bearer is in his stride, worked out from the road he has covered
+// (MapDecoration.WalkArmy); below zero, his legs keep the clock's beat.
+instance uniform float map_gait = -1.0;
 // 1 for the man who carries the standard. A company is drawn as two or three figures and only one
 // of them bears it: three identical banners over one army read as three armies. The others keep the
 // shaft — what is left in the hand of a man whose cloth is struck is a spear.
@@ -78,7 +81,7 @@ void vertex() {
 	// has none of that, and walks off the clock at the one pace.
 	bool driven = INSTANCE_CUSTOM.z > 0.0;
 	float marching = driven ? INSTANCE_CUSTOM.x : walking;
-	float gait = driven ? INSTANCE_CUSTOM.y : time * pace;
+	float gait = driven ? INSTANCE_CUSTOM.y : (map_gait >= 0.0 ? map_gait : time * pace);
 	float reach_of_step = driven ? INSTANCE_CUSTOM.z : stride;
 	float lean = INSTANCE_CUSTOM.w;
 	vanish = max(0.0, -INSTANCE_CUSTOM.w);

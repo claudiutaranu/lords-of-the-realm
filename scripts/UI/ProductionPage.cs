@@ -16,7 +16,7 @@ public abstract partial class ProductionPage : RoomPage
 	/// itself, and is named separately where the thing is better known by something other than
 	/// itself — cavalry by a helm rather than by a horse's head.</summary>
 	protected record Item(string Key, string Name, string Icon, string Blurb, int Attack, int Range,
-		int Defence, int Speed, int Turns, int Batch, Dictionary<string, int> Cost);
+		int Defence, int Speed, int Turns, int Batch, Dictionary<string, int> Cost, string Strengths = "");
 
 	protected readonly List<Item> Items = new();
 	private Item _chosen;
@@ -105,7 +105,8 @@ public abstract partial class ProductionPage : RoomPage
 				// raises its men the day they are paid for, has nothing to give.
 				fields.TryGetValue("turns", out Variant turns) ? turns.AsInt32() : 0,
 				fields.TryGetValue("batch", out Variant batch) ? batch.AsInt32() : 1,
-				cost));
+				cost,
+				fields.TryGetValue("strengths", out Variant strengths) ? strengths.AsString() : ""));
 		}
 	}
 
@@ -174,15 +175,24 @@ public abstract partial class ProductionPage : RoomPage
 		var body = new HBoxContainer();
 		body.AddThemeConstantOverride("separation", 14);
 		Detail.AddChild(body);
-		body.AddChild(Icon(_chosen.Icon, 96));
+		body.AddChild(Icon(_chosen.Icon, 56));
 
 		var reading = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
 		reading.AddThemeConstantOverride("separation", 8);
 		body.AddChild(reading);
 
-		Label blurb = Line(_chosen.Blurb, 16, Soft);
+		Label blurb = Line(_chosen.Blurb, 15, Bright);
 		blurb.AutowrapMode = TextServer.AutowrapMode.Word;
 		reading.AddChild(blurb);
+
+		// What the bars mean on the field, in a sentence: four numbers do not tell a lord who to send
+		// against whom.
+		if (_chosen.Strengths.Length > 0)
+		{
+			Label strengths = Line(_chosen.Strengths, 15, Cream);
+			strengths.AutowrapMode = TextServer.AutowrapMode.Word;
+			reading.AddChild(strengths);
+		}
 
 		reading.AddChild(Bar("Attack", _chosen.Attack));
 		reading.AddChild(Bar("Range", _chosen.Range));
@@ -191,7 +201,7 @@ public abstract partial class ProductionPage : RoomPage
 
 		var terms = new HBoxContainer();
 		terms.AddThemeConstantOverride("separation", 14);
-		terms.AddChild(Line(TermsLine(_chosen), 16, Soft));
+		terms.AddChild(Line(TermsLine(_chosen), 16, Bright));
 		foreach ((string key, int amount) in _chosen.Cost)
 		{
 			var group = new HBoxContainer();
@@ -211,7 +221,7 @@ public abstract partial class ProductionPage : RoomPage
 		string keeping = UpkeepLine();
 		if (keeping.Length > 0)
 		{
-			Label upkeep = Line(keeping, 15, Dim);
+			Label upkeep = Line(keeping, 14, Bright);
 			upkeep.AutowrapMode = TextServer.AutowrapMode.Word;
 			Detail.AddChild(upkeep);
 		}
@@ -226,7 +236,7 @@ public abstract partial class ProductionPage : RoomPage
 		}
 		else
 		{
-			Detail.AddChild(Line(DeliveryLine(_chosen), 16, Soft));
+			Detail.AddChild(Line(DeliveryLine(_chosen), 16, Bright));
 		}
 
 		(string making, int turnsLeft) = InHand;
@@ -320,8 +330,8 @@ public abstract partial class ProductionPage : RoomPage
 		var row = new HBoxContainer();
 		row.AddThemeConstantOverride("separation", 10);
 
-		Label name = Line(label, 16, Soft);
-		name.CustomMinimumSize = new Vector2(92, 0);
+		Label name = Line(label, 15, Bright);
+		name.CustomMinimumSize = new Vector2(84, 0);
 		row.AddChild(name);
 
 		var track = new ProgressBar
@@ -351,6 +361,11 @@ public abstract partial class ProductionPage : RoomPage
 			CornerRadiusBottomRight = 2,
 		});
 		row.AddChild(track);
+
+		Label figure = Line(value.ToString(), 15, Bright);
+		figure.CustomMinimumSize = new Vector2(22, 0);
+		figure.HorizontalAlignment = HorizontalAlignment.Right;
+		row.AddChild(figure);
 		return row;
 	}
 

@@ -92,6 +92,16 @@ public partial class CampaignMapPage : Control
 	/// belonging to it is drawn in.</summary>
 	private record RealmData(string Name, Color Accent);
 
+	/// <summary>Whose colour is whose, whatever the campaign: the player is always blue, and the lords
+	/// against him take their colours in the order the campaign lists them — the first of them red —
+	/// so a lord knows his own banners and his first enemy's at a glance on every map (the user's
+	/// call). Only the unclaimed country keeps the colour the campaign gives it.</summary>
+	private static readonly Color PlayerColour = new("2f5fb0");
+	private static readonly Color[] RivalColours =
+	{
+		new("b23a3a"), new("d1a34f"), new("4f8f4a"), new("7a4fa8"),
+	};
+
 	/// <summary>One province of the played campaign. <paramref name="Realm"/> is who holds it when
 	/// the campaign opens, which for most of them is nobody. <paramref name="EconomyFile"/> names the
 	/// ProvinceDefinition describing its land, and is empty where none is authored yet.
@@ -124,9 +134,6 @@ public partial class CampaignMapPage : Control
 	private int _hovered = -1;
 	private Label _turnLabel;
 	private Label _seasonLabel;
-	private Control _sectionPanel;
-	private Label _sectionTitle;
-	private Label _sectionBody;
 	private readonly List<ProvinceMarker> _markers = new();
 	private ProvinceMarker _selected;
 	private TurnManager _turnManager;
@@ -145,6 +152,7 @@ public partial class CampaignMapPage : Control
 	private AdvisorPanel _advisor;
 	private TaxPanel _taxes;
 	private HappinessPanel _happiness;
+	private PeoplePanel _people;
 	private RationPanel _rations;
 	private SupplyPanel _supply;
 	private StorePanel _stores;
@@ -184,7 +192,7 @@ public partial class CampaignMapPage : Control
 	private readonly List<(Vector2 At, MarchTrail.Mark Mark, int Season, bool Reachable)> _trailSteps = new();
 	private MarchTrail _trail;
 	private ArmyPanel _army;
-	private JoinPanel _join;
+	private QuestionPanel _ask;
 	private SplitPanel _splitting;
 	private BattlePanel _battle;
 	private Label _marchLabel;
@@ -271,6 +279,18 @@ public partial class CampaignMapPage : Control
 
 		_map.GuiInput += OnMapGuiInput;
 
+		// The county under the middle of the screen is the one the sidebar reads, as the camera pans —
+		// but not while an army is in hand, which a change of county would take out of it, nor while
+		// the rivals walk.
+		_world.LookedAt += index =>
+		{
+			if (index >= 0 && index < _provinces.Count && !_marching && !_rivalsMarching
+				&& (_selected == null || _markers.IndexOf(_selected) != index))
+			{
+				SelectProvince(index);
+			}
+		};
+
 		Control markers = GetNode<Control>("%Markers");
 		foreach (ProvinceData province in _provinces)
 		{
@@ -299,7 +319,10 @@ public partial class CampaignMapPage : Control
 
 		_happiness = new HappinessPanel();
 		AddChild(_happiness);
+		_people = new PeoplePanel();
+		AddChild(_people);
 		_sidebar.LoyaltyPressed += OpenHappiness;
+		_sidebar.PeoplePressed += OpenPeople;
 
 		_rations = new RationPanel();
 		AddChild(_rations);
@@ -367,8 +390,8 @@ public partial class CampaignMapPage : Control
 
 		// Two of the lord's companies standing in the same field raise one question, and this is
 		// where it is asked: one army now, or two?
-		_join = new JoinPanel();
-		AddChild(_join);
+		_ask = new QuestionPanel();
+		AddChild(_ask);
 
 		// And what happens when the men standing there are somebody else's.
 		// The masons' news, in the frame every modal wears.
@@ -453,14 +476,11 @@ public partial class CampaignMapPage : Control
 
 		_fields = new FieldPanel();
 		AddChild(_fields);
-		_fields.Changed += () =>
+		_fields.Changed += county =>
 		{
 			// The ground itself changed, so the county out there is wrong until it is drawn again.
 			_sidebar.Refresh();
-			if (_selected != null)
-			{
-				ShowFields(_provinces[_markers.IndexOf(_selected)]);
-			}
+			ShowFields(_provinces.Find(province => province.Name == county));
 		};
 		// The lords' letters come after the advisor has finished, and anything else the turn has to
 		// report after them, or it is shown behind them and read by nobody.
@@ -494,24 +514,8 @@ public partial class CampaignMapPage : Control
 		// as many times as he liked. AdvanceTurn already refuses a second turn while one is running.
 		endTurn.ActionMode = BaseButton.ActionModeEnum.Press;
 		endTurn.Pressed += AdvanceTurn;
-		_sectionPanel = GetNode<Control>("%SectionPanel");
-
-		// In the painted frame every modal wears, its title on the ribbon.
-		_sectionPanel.AddThemeStyleboxOverride("panel", Chrome.PaintedStyle());
-		_sectionPanel.CustomMinimumSize = new Vector2(660, 0);
-		var sectionMargin = GetNode<MarginContainer>("SectionPanel/SectionMargin");
-		foreach (string side in new[] { "left", "top", "right", "bottom" })
-		{
-			sectionMargin.AddThemeConstantOverride($"margin_{side}", 0);
-		}
-
-		GetNode<Label>("%SectionTitle").HorizontalAlignment = HorizontalAlignment.Center;
-		_sectionTitle = GetNode<Label>("%SectionTitle");
-		_sectionBody = GetNode<Label>("%SectionBody");
-		GoldTitle.Apply(_sectionTitle);
 		var navRail = GetNode<NavRail>("%NavRail");
 		navRail.SectionChosen += ShowSection;
-		GetNode<Button>("%SectionClose").Pressed += () => _sectionPanel.Visible = false;
 
 		// The crest is the pause menu: save, load, or leave the campaign.
 		var gameMenu = GetNode<Control>("%GameMenu");
@@ -856,6 +860,25 @@ public partial class CampaignMapPage : Control
 		return theirs == null || theirs.Realm != _playerRealm;
 	}
 
+	/// <summary>What two companies halted in one field are, told before the lord is asked whether they
+	/// are one army now. Two of the same county are the usual case, and naming it three times in one
+	/// sentence reads like a ledger rather than like a lord being told something.</summary>
+	private static string JoinReading(FieldArmy arriving, FieldArmy standing)
+	{
+		string who = arriving.Home == standing.Home
+			? $"{arriving.Strength:N0} men of {arriving.Home} have halted beside {standing.Strength:N0} more "
+				+ "of their own"
+			: $"{arriving.Strength:N0} men of {arriving.Home} have halted beside {standing.Strength:N0} "
+				+ $"of {standing.Home}";
+
+		string where = arriving.County == arriving.Home
+			? "on their own ground"
+			: $"in {arriving.County}";
+
+		return $"{who}, {where}. Under one banner they march as one company, with the ground "
+			+ "the slower of them has left.";
+	}
+
 	/// <summary>Another lord's company standing where this one has just halted, or null — the one a
 	/// lord who marched onto its banner came to fight.</summary>
 	private FieldArmy Foe(FieldArmy army)
@@ -929,13 +952,14 @@ public partial class CampaignMapPage : Control
 
 	/// <summary>Sends the men where the cursor was pointing. Everything about the ground was settled
 	/// when the trail was drawn; this pays for it and walks it.</summary>
-	private bool March(FieldArmy army, Vector2 where)
-	{
-		if (army == null || _rivalsMarching || !_world.TryMapPixel(where, out Vector2 ground))
-		{
-			return false;
-		}
+	private bool March(FieldArmy army, Vector2 where) =>
+		army != null && !_rivalsMarching && _world.TryMapPixel(where, out Vector2 ground) && MarchOn(army, ground, false);
 
+	/// <summary>The march itself, to a point on the ground. One that would halt at another lord's gate
+	/// asks first (<paramref name="sure"/> is the lord's yes): it is the one march that starts a battle
+	/// nobody can call off.</summary>
+	private bool MarchOn(FieldArmy army, Vector2 ground, bool sure)
+	{
 		List<(Vector2 At, float Spent)> road = _ground.Way(ArmyPixel(army), ground, Beyond(army));
 		int halt = Halting(road, army.MarchLeft);
 		if (road.Count == 0)
@@ -965,6 +989,17 @@ public partial class CampaignMapPage : Control
 
 		int county = _world.CountyAt(road[^1].At);
 		string into = county >= 0 && county < _provinces.Count ? _provinces[county].Name : "";
+		if (!sure && Contested(army, into, road[^1].At))
+		{
+			string holder = _realms[HolderOf(_provinces[county])].Name;
+			_ask.Ask($"March on {into}?",
+				$"{army.Strength:N0} men of {army.Home} will halt at the gate of {into}, held by {holder}, and "
+				+ "the battle for it is fought there and then: whoever stands in the open, then whoever is "
+				+ "on the walls, to the last man.",
+				"Attack", "Not now", () => MarchOn(army, ground, true));
+			return true;
+		}
+
 		if (into.Length == 0 || !_turnManager.March(army, into, road[^1].At, road[^1].Spent))
 		{
 			// A rival's border is no longer what stops a march — his ground is walked into like
@@ -1029,7 +1064,8 @@ public partial class CampaignMapPage : Control
 			FieldArmy beside = Beside(army);
 			if (beside != null)
 			{
-				_join.Ask(army, beside, () =>
+				_ask.Ask("Two banners, one field", JoinReading(army, beside), "Put them under one banner",
+					"Leave them as they are", () =>
 				{
 					_turnManager.Merge(beside, army);
 					ShowArmies();
@@ -1122,6 +1158,20 @@ public partial class CampaignMapPage : Control
 		_happiness.Open(economy, _balance, _turnManager.LastSeason(province.Name), TurnManager.StartYear);
 	}
 
+	/// <summary>How the county's people have fared, season by season. Read-only, like the goodwill.</summary>
+	private void OpenPeople()
+	{
+		ProvinceData province = Selected();
+		ProvinceEconomy economy = _turnManager.GetProvince(province.Name);
+		if (economy == null)
+		{
+			ShowSaveToast($"{province.Name} keeps its own counsel");
+			return;
+		}
+
+		_people.Open(economy, TurnManager.StartYear);
+	}
+
 	/// <summary>Opens one of the province's rooms — the smithy, the training yard — over this page
 	/// rather than in place of it, so the turn, the camera and the selection are all exactly where
 	/// they were when it closes.</summary>
@@ -1163,9 +1213,9 @@ public partial class CampaignMapPage : Control
 			// stale by now — the map behind, and any room this one was opened from.
 			_sidebar.Refresh();
 			UpdateResourceBar(economy);
-			// The labour room turns fields over, so the land out here is stale too. Redrawn whichever
-			// room was closed: ten plots cost nothing to lay, and asking which rooms can change the
-			// land is how a room added later quietly stops updating it.
+			// A room may have changed what the land is worked by, so it is redrawn whichever room was
+			// closed: ten plots cost nothing to lay, and asking which rooms can change the land is how
+			// a room added later quietly stops updating it.
 			ShowFields(province);
 			ShowArmies();
 			if (_rooms.Count > 0)
@@ -1196,9 +1246,9 @@ public partial class CampaignMapPage : Control
 	}
 
 	/// <summary>Opens one of the town's buildings. Most rooms need nothing but the province's own
-	/// stores; the labour room and the smithy need the land the county is working and the season it
-	/// is working it in — the smithy deals the hands again when it is lit — and neither is handed to
-	/// a room, so they are told separately.</summary>
+	/// stores; the smithy needs the land the county is working and the season it is working it in —
+	/// it deals the hands again when it is lit — and neither is handed to a room, so it is told
+	/// separately.</summary>
 	private void Enter(string room)
 	{
 		RoomPage opened = OpenRoom($"res://scene/campaign-map/{room}.tscn", "use");
@@ -1207,11 +1257,7 @@ public partial class CampaignMapPage : Control
 			return;
 		}
 
-		if (opened is LabourPage labour)
-		{
-			labour.Brief(definition, _balance, _turnManager.CurrentSeason);
-		}
-		else if (opened is BlacksmithPage smithy)
+		if (opened is BlacksmithPage smithy)
 		{
 			smithy.Brief(definition, _balance, _turnManager.CurrentSeason);
 		}
@@ -1274,8 +1320,8 @@ public partial class CampaignMapPage : Control
 
 		foreach ((NavRailIcon.Glyph glyph, string art, string tip, Action open) in entries)
 		{
-			// Square, touching, and sized so four of them stand exactly as tall as the 228 square
-			// map beside them.
+			// Square, touching, and sized so four of them stand as tall as the square map beside
+			// them at its smallest; it grows to fill the frame, they stay centred on it.
 			var button = new Button
 			{
 				CustomMinimumSize = new Vector2(57, 57),
@@ -1421,11 +1467,15 @@ public partial class CampaignMapPage : Control
 		_playerRealm = data["player"].AsString();
 		_unclaimedRealm = data["unclaimed"].AsString();
 		_rivalWallsUpTo = data.TryGetValue("rivalWallsUpTo", out Variant walls) ? walls.AsString() : "";
+		int rivals = 0;
 		foreach (System.Collections.Generic.KeyValuePair<Variant, Variant> realm in data["realms"].AsGodotDictionary())
 		{
 			Godot.Collections.Dictionary fields = realm.Value.AsGodotDictionary();
-			_realms[realm.Key.AsString()] =
-				new RealmData(fields["name"].AsString(), new Color(fields["accent"].AsString()));
+			string key = realm.Key.AsString();
+			Color colour = key == _playerRealm ? PlayerColour
+				: key == _unclaimedRealm ? new Color(fields["accent"].AsString())
+				: RivalColours[rivals++ % RivalColours.Length];
+			_realms[key] = new RealmData(fields["name"].AsString(), colour);
 			if (fields.TryGetValue("lord", out Variant lord))
 			{
 				_lordOf[realm.Key.AsString()] = lord.AsString();
@@ -1534,10 +1584,6 @@ public partial class CampaignMapPage : Control
 			return; // already mid-turn, or the reign is over; a second click must not queue another season
 		}
 
-		// The opening briefing is read by then, or not going to be: left open, it sat under every
-		// window the season brought for the rest of the campaign.
-		_sectionPanel.Visible = false;
-
 		ShowArmies(); // everybody where they stand, before anybody moves
 		List<LordsCampaign.RivalMarch> marches = _turnManager.RivalsTurn();
 		if (marches.Count == 0)
@@ -1579,8 +1625,7 @@ public partial class CampaignMapPage : Control
 			if (army != null && army.Strength > 0)
 			{
 				_world.SetArmy(march.Army, march.From, true,
-					_realms.TryGetValue(_turnManager.RealmOf(army), out RealmData lord) ? lord.Accent : Colors.White,
-					army.Strength);
+					_realms.TryGetValue(_turnManager.RealmOf(army), out RealmData lord) ? lord.Accent : Colors.White);
 			}
 
 			longest = Mathf.Max(longest, march.Road.Count);
@@ -1747,7 +1792,7 @@ public partial class CampaignMapPage : Control
 	}
 
 	/// <summary>One province's fields. Yours are worked turn by turn and drawn off the economy the
-	/// labour room is changing; everyone else's stand as the campaign authored them, because nothing
+	/// lord is changing; everyone else's stand as the campaign authored them, because nothing
 	/// is simulating them yet. Both read the same array, so the day an unclaimed province starts
 	/// taking turns the map already draws what it does with its land.
 	///
@@ -1865,7 +1910,7 @@ public partial class CampaignMapPage : Control
 
 			// Where the men actually are, which after a march is a hillside and not a market square.
 			_world.SetArmy(army.Key, BannerPixel(army), true,
-				_realms.TryGetValue(realm, out RealmData lord) ? lord.Accent : Colors.White, army.Strength);
+				_realms.TryGetValue(realm, out RealmData lord) ? lord.Accent : Colors.White);
 		}
 
 		// A company merged into another, disbanded or killed to the last man leaves a banner behind
@@ -1939,15 +1984,19 @@ public partial class CampaignMapPage : Control
 	}
 
 	/// <summary>The briefing a campaign opens on: what you hold, and what to do before you end your
-	/// first turn. It borrows the rail's own panel rather than standing up a second one in the same
-	/// place in the same frame, and closes by the same button.
+	/// first turn, in the royal frame over the king's view; Begin puts it away.
 	///
 	/// The voice is optional. Until it is recorded the briefing simply reads itself.</summary>
 	private void OpenBriefing()
 	{
-		_sectionTitle.Text = $"{_turnManager.CurrentSeason}, {_turnManager.CurrentYear}";
-		_sectionBody.Text = Briefing;
-		_sectionPanel.Visible = true;
+		string crestPath = $"res://assets/ui/icons/shield-{_playerRealm}.png";
+		Texture2D crest = ResourceLoader.Exists(crestPath)
+			? new AtlasTexture { Atlas = GD.Load<Texture2D>(crestPath), Region = ProvinceSidebar.CrestRegion }
+			: null;
+		var opening = new OpeningPanel();
+		AddChild(opening);
+		opening.Open($"{_turnManager.CurrentSeason}, {_turnManager.CurrentYear}",
+			$"Welcome to {_provinces[0].Name}", Briefing, crest, GetNode<Control>("Sidebar").Size.X);
 
 		Narrator.Say(OpeningVoicePath);
 	}

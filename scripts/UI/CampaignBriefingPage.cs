@@ -14,6 +14,13 @@ public partial class CampaignBriefingPage : Control
 	private const float PanelRevealDelaySeconds = 0.3f;
 	private const float PanelFadeSeconds = 0.3f;
 	private const float PanelStaggerSeconds = 0.08f;
+	/// <summary>Both lords' faces the same size and in the same gilt edge, the two of them squared up.</summary>
+	private const int PortraitSide = 300;
+
+	/// <summary>How far the words under each face keep from the panel's sides.</summary>
+	private const int TextInset = 26;
+	private const int HeadingDrop = 14;
+	private const string YourLordFilm = "lord.ogv";
 
 	public override void _Ready()
 	{
@@ -36,6 +43,10 @@ public partial class CampaignBriefingPage : Control
 		difficulty.ItemSelected += chosen => Campaign.Difficulty = (Difficulty)chosen;
 
 		Tally();
+		ShowYours();
+		ShowRival();
+		Inset("MainRow/YourLordPanel/YourLordContent");
+		Inset("MainRow/RivalPanel/RivalContent");
 
 		GetNode<Button>("%BackButton").Pressed += () => SceneRouter.GoTo(this, CampaignScenePath);
 		GetNode<Button>("%StartCampaignButton").Pressed += () =>
@@ -66,6 +77,57 @@ public partial class CampaignBriefingPage : Control
 		for (int i = 1; i < panels.Length; i++)
 		{
 			panelTween.Parallel().TweenProperty(panels[i], "modulate:a", 1.0, PanelFadeSeconds).SetDelay(PanelStaggerSeconds * i);
+		}
+	}
+
+	/// <summary>Gives the words in a lord's column room at the sides (wrapped to the panel's edge they
+	/// ran to its border) and its heading room above.</summary>
+	private void Inset(string column)
+	{
+		// And a little air over the heading, which sat on the panel's top edge.
+		var air = new Control { CustomMinimumSize = new Vector2(0, HeadingDrop) };
+		GetNode(column).AddChild(air);
+		GetNode(column).MoveChild(air, 0);
+		foreach (Node child in GetNode(column).GetChildren())
+		{
+			if (child is Label { AutowrapMode: not TextServer.AutowrapMode.Off } words)
+			{
+				var margin = new MarginContainer();
+				margin.AddThemeConstantOverride("margin_left", TextInset);
+				margin.AddThemeConstantOverride("margin_right", TextInset);
+				words.AddSibling(margin);
+				words.Reparent(margin);
+			}
+		}
+	}
+
+	/// <summary>The player's own lord, moving, where the campaign has a film of him.</summary>
+	private void ShowYours()
+	{
+		if (LordPortrait.Moving(Campaign.Asset(YourLordFilm), PortraitSide) is Control face)
+		{
+			var still = GetNode<Control>("MainRow/YourLordPanel/YourLordContent/Portrait");
+			still.AddSibling(LordPortrait.Framed(face));
+			still.Visible = false;
+		}
+	}
+
+	/// <summary>The rival's face, moving, where his lord has been painted: the first realm on the
+	/// campaign that names a lord. The still stays where there is no portrait of him yet.</summary>
+	private void ShowRival()
+	{
+		Godot.Collections.Dictionary realms = GD.Load<Json>(Campaign.Data("provinces.json")).Data
+			.AsGodotDictionary()["realms"].AsGodotDictionary();
+		foreach (Variant realm in realms.Values)
+		{
+			if (realm.AsGodotDictionary().TryGetValue("lord", out Variant key)
+				&& LordPortrait.Of(Lords.Find(key.AsString()), PortraitSide) is Control face)
+			{
+				var still = GetNode<Control>("MainRow/RivalPanel/RivalContent/Portrait");
+				still.AddSibling(face);
+				still.Visible = false;
+				return;
+			}
 		}
 	}
 

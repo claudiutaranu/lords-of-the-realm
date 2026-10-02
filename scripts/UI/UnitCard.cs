@@ -77,7 +77,17 @@ public static class UnitCard
 		stack.AddChild(picture);
 
 		picture.AddChild(Fill(UnitArt.Backdrop(unit)));
-		picture.AddChild(Fill(UnitArt.Portrait(unit)));
+
+		// The man is let down a little where his painting stands him higher than the rest, so the
+		// row reads level; the yard behind him stays where it is.
+		var standing = new Control { MouseFilter = Control.MouseFilterEnum.Ignore };
+		picture.AddChild(standing);
+		TextureRect man = Fill(UnitArt.Portrait(unit));
+		float drop = UnitArt.Drop(unit);
+		man.AnchorRight = 1f;
+		man.AnchorTop = drop;
+		man.AnchorBottom = 1f + drop;
+		standing.AddChild(man);
 		return (tile, stack);
 	}
 

@@ -9,8 +9,17 @@ bool dissolved(vec2 fragment, float vanish) {
 
 // His livery: the banner, the surcoat, the shield, the hood. Picked out by colour — nothing else on
 // a man is painted blue — and given the lord's hue while it keeps its own light, pinned to the
-// painted blue's median brightness (cloth_value), so an emblem stays gold and folds stay folds.
+// painted blue's median brightness (cloth_value), so an emblem stays gold and folds stay folds —
+// but never more than half as bright again as the lord's own colour: the knight's blue has highlights
+// three times its median, and a red lifted that far burst its channels into orange flecks.
+const float LIVERY_BRIGHTEST = 1.5;
+
+//
+// Blue by a share of its own brightness and not by a fixed margin: steel is a bluish grey, and
+// measured by the margin every bluer speck of the knight's mail passed for cloth and came out a red
+// sparkle on his armour.
 vec3 livery(vec3 colour, vec3 lord, float cloth_value) {
-	float cloth = smoothstep(0.02, 0.06, colour.b - max(colour.r, colour.g));
-	return mix(colour, lord * (colour.b / cloth_value), cloth);
+	float blue = colour.b - max(colour.r, colour.g);
+	float cloth = smoothstep(0.02, 0.06, blue) * smoothstep(0.18, 0.32, blue / max(colour.b, 0.001));
+	return mix(colour, lord * min(colour.b / cloth_value, LIVERY_BRIGHTEST), cloth);
 }

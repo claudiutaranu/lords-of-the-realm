@@ -56,10 +56,18 @@ public partial class Battlefield : Control
 	private const int Stands = 90;
 	private const float StandWide = 22f;
 
-	private const float NearestEye = 18f;
+	private const float NearestEye = 7f;
 	private const float FurthestEye = 260f;
 	private const float StartingEye = 120f;
+	/// <summary>How steeply the eye looks down: from high over the field, and — come close — from
+	/// nearly level with the men, a head over the grass among the ranks. It levels out over the
+	/// nearer part of the zoom, below <see cref="LevelsBelow"/>.</summary>
 	private const float EyePitchDegrees = -40f;
+	private const float CloseEyePitchDegrees = -9f;
+	private const float LevelsBelow = 70f;
+
+	/// <summary>How far over the ground the eye stays, wherever the hills put it.</summary>
+	private const float EyeClearance = 1.6f;
 	private const float PanSpeed = 0.9f;
 	private const float TurnSpeed = 1.6f;
 	private const float ZoomStep = 1.12f;
@@ -68,6 +76,10 @@ public partial class Battlefield : Control
 	/// <summary>How close the eye must be before every man's health is drawn over his head. From
 	/// further out the bars are a haze over the ranks and hide the men they are about.</summary>
 	private const float BarsWithin = 140f;
+
+	/// <summary>And how far off it must still be: down among the ranks a bar is a plank across the
+	/// face of the man behind it, and the men themselves are what the lord came down to see.</summary>
+	private const float BarsBeyond = 16f;
 
 	/// <summary>How long the field stays up once the day is decided, so the lord sees the rout
 	/// before he sees the reckoning.</summary>
@@ -78,6 +90,12 @@ public partial class Battlefield : Control
 	private const int MostSlicesAFrame = 5;
 
 	private FieldBattle _battle;
+	private BattlefieldLand _land;
+
+	/// <summary>The tramp of whichever companies are on the move, fainter than on the map and fainter
+	/// still the higher the eye.</summary>
+	private MarchingSound _tramp;
+	private const float TrampLoudness = -20f;
 	private BattlefieldSquads _squads;
 	private BattlefieldBar _bar;
 	private Camera3D _camera;
@@ -91,6 +109,11 @@ public partial class Battlefield : Control
 	private bool _isPaused;
 	private Vector2? _pressedAt;
 	private Vector2? _orderedAt;
+
+	/// <summary>The ground the right button went down on: where a front being drawn is anchored.
+	/// Kept on the field and not on the screen — kept as a point of the screen, the anchor slid over
+	/// the ground whenever the eye moved while the lord was still dragging.</summary>
+	private Vector2? _orderedFrom;
 
 	/// <summary>Lays the field out and starts the day. <paramref name="us"/> is the lord's side,
 	/// which is always the attacking one.</summary>
@@ -113,14 +136,17 @@ public partial class Battlefield : Control
 
 		world.AddChild(Sky());
 		world.AddChild(Sun());
-		(MeshInstance3D ground, Image bare) = Ground();
+		_land = new BattlefieldLand(Field, (int)WoodsSeed + 2);
+		(MeshInstance3D ground, Image bare) = Ground(_land);
 		world.AddChild(ground);
 		var grass = new BattlefieldGrass();
 		world.AddChild(grass);
-		grass.Sow(bare, BareFrom, Field, new FastNoiseLite { Frequency = TallGrassStands, Seed = (int)WoodsSeed + 1 }, WoodsSeed);
-		world.AddChild(Wood());
+		grass.Sow(bare, BareFrom, Field, new FastNoiseLite { Frequency = TallGrassStands, Seed = (int)WoodsSeed + 1 }, WoodsSeed, _land);
+		world.AddChild(Wood(_land));
 
-		_squads = new BattlefieldSquads();
+		_tramp = new MarchingSound { Loudness = TrampLoudness };
+		AddChild(_tramp);
+		_squads = new BattlefieldSquads { Land = _land };
 		world.AddChild(_squads);
 		_squads.Muster(battle, us.Accent, them.Accent);
 
@@ -164,7 +190,15 @@ public partial class Battlefield : Control
 		}
 
 		_chosen.RemoveAll(squad => !squad.IsStanding);
-		_squads.Follow(_isPaused ? 0f : (float)delta, _owed / FieldBattle.Slice, _chosen, _camera, _eye <= BarsWithin);
+		int walking = 0;
+		foreach (FieldSquad squad in _battle.Squads)
+		{
+			walking += squad.IsStanding && squad.IsMoving && !_isPaused ? 1 : 0;
+		}
+
+		_tramp.Walking(walking);
+		_tramp.Loudness = TrampLoudness + Hushed();
+		_squads.Follow(_isPaused ? 0f : (float)delta, _owed / FieldBattle.Slice, _chosen, _camera, _eye <= BarsWithin && _eye >= BarsBeyond);
 		_bar.Refresh(_chosen, _isPaused);
 
 		if (_battle.IsOver && _ending < 0f)
@@ -192,18 +226,18 @@ public partial class Battlefield : Control
 
 		switch (@event)
 		{
-			case InputEventMouseButton { ButtonIndex: MouseButton.WheelUp, Pressed: true }:
-				Zoom(1f / ZoomStep);
+			case InputEventMouseButton { ButtonIndex: MouseButton.WheelUp, Pressed: true } wheel:
+				Zoom(1f / ZoomStep, wheel.Position);
 				break;
-			case InputEventMouseButton { ButtonIndex: MouseButton.WheelDown, Pressed: true }:
-				Zoom(ZoomStep);
+			case InputEventMouseButton { ButtonIndex: MouseButton.WheelDown, Pressed: true } wheel:
+				Zoom(ZoomStep, wheel.Position);
 				break;
 			// A trackpad sends gestures, not wheel buttons.
 			case InputEventPanGesture pan:
-				Zoom(1f + (pan.Delta.Y * 0.05f));
+				Zoom(1f + (pan.Delta.Y * 0.05f), pan.Position);
 				break;
 			case InputEventMagnifyGesture magnify:
-				Zoom(1f / magnify.Factor);
+				Zoom(1f / magnify.Factor, magnify.Position);
 				break;
 			case InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true } press:
 				_pressedAt = press.Position;
@@ -213,12 +247,13 @@ public partial class Battlefield : Control
 				break;
 			case InputEventMouseButton { ButtonIndex: MouseButton.Right, Pressed: true } order:
 				_orderedAt = order.Position;
+				_orderedFrom = OnGround(order.Position);
 				break;
 			case InputEventMouseButton { ButtonIndex: MouseButton.Right, Pressed: false } order:
 				Order(order.Position);
 				break;
 			case InputEventMouseMotion motion when _orderedAt is Vector2 start:
-				if (start.DistanceTo(motion.Position) > DragToBox && Front(start, motion.Position) is var (near, far, facing))
+				if (start.DistanceTo(motion.Position) > DragToBox && Front(motion.Position) is var (near, far, facing))
 				{
 					List<Vector2> spots = _battle.Planned(_chosen, near, far, facing, out List<Vector2> fronts);
 					_squads.Mark(spots, fronts, facing);

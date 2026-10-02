@@ -112,6 +112,14 @@ public abstract partial class PaintedPanel : Control
 		_close.Position = new Vector2(PanelSize.X - 134f, high * CloseShare);
 	}
 
+	/// <summary>Hangs something on the frame itself, behind the writing: what belongs to the table
+	/// and not to its column, such as the banners in its corners. Placed in the frame's own pixels.</summary>
+	protected void Hang(Control piece)
+	{
+		_frame.AddChild(piece);
+		_frame.MoveChild(piece, 0);
+	}
+
 	/// <summary>The share of the frame the ribbon and the rail take, so a panel cut shorter can take
 	/// its share of them away with it.</summary>
 	protected static float Writable => 1f - RibbonShare - FootShare;

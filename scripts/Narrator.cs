@@ -20,8 +20,10 @@ public partial class Narrator : AudioStreamPlayer
 
 	/// <summary>Says a line, cutting whatever was being said. A line with no recording behind it is
 	/// not spoken and not complained about: the writing arrives before the voice work does, and a
-	/// screen that reads itself is the normal state of a line nobody has recorded yet.</summary>
-	public static void Say(string path)
+	/// screen that reads itself is the normal state of a line nobody has recorded yet.
+	/// <paramref name="decibels"/> is how far off the speaker is: nought for the narrator at the lord's
+	/// ear, less for a man on the battlefield heard from high over it.</summary>
+	public static void Say(string path, float decibels = 0f)
 	{
 		if (_him == null || path == null || path.Length == 0 || !ResourceLoader.Exists(path))
 		{
@@ -29,6 +31,7 @@ public partial class Narrator : AudioStreamPlayer
 		}
 
 		_him.Stop();
+		_him.VolumeDb = decibels;
 		_him.Stream = GD.Load<AudioStream>(path);
 		_him.Play();
 	}

@@ -12,7 +12,8 @@ clip — and battlefield-figure.gdshader reads the frame each man is at out of t
      a collapse keeping the UVs tore the body's loose patches apart so the man could be seen
      through. It is cut down by whoever rigs it.
   3. At every frame of every clip, every vertex stands where the skin carries it.
-  4. Out go: <key>.png, the atlas; <key>.figure.bin, the figure's own geometry (so the order of its
+  4. Out go: <key>.png, the atlas, and <key>.material.png beside it where the model is painted with
+     metal and roughness; <key>.figure.bin, the figure's own geometry (so the order of its
      vertices is this tool's and not an importer's) followed by the baked positions and normals as
      half floats and bytes, one row a frame; and <key>.figure.json, where each of those starts and which
      rows are which clip.
@@ -39,9 +40,10 @@ from decimate_meshy import OriginalSurface, UNIT_DIR
 # reads as smooth as the thirty the clips were made at.
 FPS = 15
 
-# The widest the atlas is written, in pixels: the body's own painting is 2048 across, and a man
-# on the field is never that big on the screen.
-ATLAS_WIDTH = 1024
+# The widest the atlas is written, in pixels: the painting's own width. Written smaller, it blurred
+# the paint of every patch into the next — and a Meshy unwrap is hundreds of patches packed edge to
+# edge, so the knight's blue caparison bled into his horse's brown head and came out red flecks.
+ATLAS_WIDTH = 2048
 
 # How wide the baked textures are laid out, in texels.
 ROW_WIDTH = 4096
@@ -166,7 +168,9 @@ def primitives(gltf):
     for prim in gltf.json["meshes"][0]["primitives"]:
         attrs = prim["attributes"]
         material = gltf.json["materials"][prim["material"]]
-        texture = gltf.json["textures"][material["pbrMetallicRoughness"]["baseColorTexture"]["index"]]
+        pbr = material["pbrMetallicRoughness"]
+        texture = gltf.json["textures"][pbr["baseColorTexture"]["index"]]
+        metal = pbr.get("metallicRoughnessTexture")
         uv = gltf.accessor(attrs["TEXCOORD_0"])
         parts.append({
             "points": gltf.accessor(attrs["POSITION"]),
@@ -176,20 +180,27 @@ def primitives(gltf):
             "joints": gltf.accessor(attrs["JOINTS_0"]).astype(np.int64),
             "weights": gltf.accessor(attrs["WEIGHTS_0"]).astype(np.float64),
             "image": gltf.image(texture["source"]),
+            "metal": gltf.image(gltf.json["textures"][metal["index"]]["source"]) if metal else None,
         })
     return parts
 
 
 def combined(parts):
     """Every part as one original: their textures side by side in one image, their UVs moved to
-    match. Returns the image too, and for each part how its own UVs are carried onto it."""
+    match. Returns the image too, the parts' metal-and-roughness laid out the same way (or None
+    where no part has any), and for each part how its own UVs are carried onto it."""
     width = sum(p["image"].width for p in parts)
     height = max(p["image"].height for p in parts)
     sheet = Image.new("RGB", (width, height))
+    # Where a part has no map of its own it is cloth and leather: rough, and no metal (glTF keeps
+    # roughness in green and metal in blue).
+    metals = Image.new("RGB", (width, height), (0, 204, 0)) if any(p["metal"] for p in parts) else None
     points, normals, uvs, faces, joints, weights, left, base, placed = [], [], [], [], [], [], 0, 0, []
     for part in parts:
         image = part["image"]
         sheet.paste(image, (left, height - image.height))
+        if metals is not None and part["metal"] is not None:
+            metals.paste(part["metal"].convert("RGB").resize(image.size), (left, height - image.height))
         scale, offset = np.array([image.width / width, image.height / height]), np.array([left / width, 0.0])
         placed.append((scale, offset))
         uv = part["uv"] * scale + offset
@@ -202,7 +213,7 @@ def combined(parts):
                            visual=trimesh.visual.TextureVisuals(uv=np.vstack(uvs),
                                                                 material=trimesh.visual.material.PBRMaterial(
                                                                     baseColorTexture=sheet)))
-    return mesh, np.vstack(joints), np.vstack(weights), sheet, placed
+    return mesh, np.vstack(joints), np.vstack(weights), sheet, metals, placed
 
 
 def cloth_value(atlas):
@@ -221,7 +232,7 @@ def main():
     gltf = Gltf(path)
     rig = Rig(gltf)
     parts = primitives(gltf)
-    original, joints, weights, sheet, placed = combined(parts)
+    original, joints, weights, sheet, metals, placed = combined(parts)
     surface = OriginalSurface(original)
 
     # Every part kept exactly as it was made. Cut down, the body — which arrives as a skin of loose
@@ -267,6 +278,10 @@ def main():
     UNIT_DIR.mkdir(parents=True, exist_ok=True)
     atlas = sheet.resize((ATLAS_WIDTH, round(sheet.height * ATLAS_WIDTH / sheet.width)), Image.LANCZOS)
     atlas.save(UNIT_DIR / f"{key}.png")
+    # The armour's shine: which of him is metal and how polished, read by the shader beside his paint.
+    # Without it a knight's plate was lit like his horse's blanket, and read as grey cloth.
+    if metals is not None:
+        metals.resize(atlas.size, Image.LANCZOS).save(UNIT_DIR / f"{key}.material.png")
 
     # Positions as half floats; normals, which only light the man, a byte a component.
     # Frame after frame, vertex after vertex, wrapped into rows ROW_WIDTH wide: one row a frame

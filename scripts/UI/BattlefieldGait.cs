@@ -62,19 +62,38 @@ public partial class BattlefieldSquads
 		return new Color(figure.Row(clip, time), figure.Row(gait.Was ?? clip, gait.WasTime), old, 0f);
 	}
 
-	/// <summary>The clip a baked man should be playing, and how far into it: walking when his feet
-	/// are carrying him, drawing and loosing when his squad shoots, standing easy otherwise.</summary>
+	/// <summary>The clip a baked man should be playing, and how far into it: walking — or running,
+	/// or galloping on a horse, at speed — when his feet are carrying him, drawing and loosing when his squad
+	/// shoots, striking when he has struck a blow, standing easy otherwise. A figure plays only the
+	/// clips it was baked with: the archer has no sword-stroke, nor the knight a bow.</summary>
 	private static (string Clip, float Time) Chosen(FieldSoldier man, SoldierFigure figure, Gait gait, float pace,
 		float delta, float clock, float between)
 	{
 		if (gait.IsWalking)
 		{
-			gait.Phase += delta * pace / (ClipWalkPace * figure.Stature / figure.Bounds.Size.Y);
-			return (WalkClip, gait.Phase);
+			string stride = pace > GallopsFrom && figure.Clips.ContainsKey(GallopClip) ? GallopClip
+				: pace > RunsFrom && figure.Clips.ContainsKey(RunClip) ? RunClip
+				: WalkClip;
+			gait.Phase += delta * pace / (ClipPace(figure, stride) * figure.Stature / figure.Bounds.Size.Y);
+			return (stride, gait.Phase);
 		}
 
-		float shot = figure.Clips[ShootClip].Seconds;
-		float sinceLoose = clock - man.Struck;
+		// The stroke starts with the blow the battle deals: he struck at man.Struck, and the clip runs
+		// its length from there before he stands easy again for the next.
+		float sinceStruck = clock - man.Struck;
+		if (man.Foe != null && figure.Clips.TryGetValue(AttackClip, out SoldierFigure.Clip stroke)
+			&& sinceStruck < stroke.Seconds)
+		{
+			return (AttackClip, sinceStruck);
+		}
+
+		if (!figure.Clips.TryGetValue(ShootClip, out SoldierFigure.Clip draw))
+		{
+			return (IdleClip, clock + gait.Phase);
+		}
+
+		float shot = draw.Seconds;
+		float sinceLoose = sinceStruck;
 		if (man.Squad.Shoots && man.Foe == null)
 		{
 			if (sinceLoose < shot - LooseInShoot)
