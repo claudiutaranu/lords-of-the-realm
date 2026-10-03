@@ -216,8 +216,18 @@ public partial class MapDecoration : Node3D
 	/// they were. Searching again would not: the plots themselves are ground taken, so the second
 	/// search would refuse the very cells the first one chose and walk the fields out of the county.</summary>
 	private readonly Dictionary<string, List<Vector2>> _plots = new();
+	/// <summary>What each province's fields were last drawn from. The page redraws every county's land
+	/// whenever anything may have changed — a march, a battle, a season — and most of them have not;
+	/// rebuilding a county's plots, corn and herd to draw the same thing again is the one cost here
+	/// worth not paying.</summary>
+	private readonly Dictionary<string, string> _landDrawn = new();
+	/// <summary>What each province's walls were last drawn from, for the same reason.</summary>
+	private readonly Dictionary<string, (Vector2 Seat, string Fort, string Building, Color Lord, bool Manned)> _fortDrawn = new();
 	/// <summary>Ground somebody has built on, which the woods are sown around.</summary>
 	private readonly List<(Vector2 Centre, float Radius)> _clearings = new();
+	/// <summary>The provinces whose castle ground is already among the clearings: a wall raised again
+	/// stands on ground cleared the first time.</summary>
+	private readonly HashSet<string> _castlesCleared = new();
 
 	/// <summary>Opens the map. The roads are not laid here: they are painted into the ground itself,
 	/// by the generator's surface map. The woods are not sown here either: a settlement has to
@@ -507,6 +517,13 @@ public partial class MapDecoration : Node3D
 	public void SetFields(string name, Vector2 seatPixel, ProvinceEconomy province, Season season)
 	{
 		FieldUse[] uses = province.Fields;
+		string drawn = $"{season} {province.StandingCrop} {province.Cattle} {province.Soil} {string.Join(',', uses)}";
+		if (_landDrawn.GetValueOrDefault(name) == drawn)
+		{
+			return;
+		}
+
+		_landDrawn[name] = drawn;
 		if (_land.TryGetValue(name, out Node3D standing))
 		{
 			// Out of the tree first and freed after: QueueFree alone runs at the end of the frame, so
@@ -1613,6 +1630,13 @@ public partial class MapDecoration : Node3D
 	public void SetFortification(string province, Vector2 seatPixel, string fort, string building, Color lord,
 		bool manned)
 	{
+		var drawn = (seatPixel, fort, building, lord, manned);
+		if (_fortDrawn.TryGetValue(province, out var was) && was == drawn)
+		{
+			return;
+		}
+
+		_fortDrawn[province] = drawn;
 		if (_forts.TryGetValue(province, out Node3D standing))
 		{
 			RemoveChild(standing); // as above: gone this frame, not at the end of it
@@ -1636,7 +1660,10 @@ public partial class MapDecoration : Node3D
 			return; // nowhere to stand
 		}
 
-		_clearings.Add((site, CastleReach));
+		if (_castlesCleared.Add(province))
+		{
+			_clearings.Add((site, CastleReach));
+		}
 
 		Mesh mesh = Models.MeshOf(plan.Model);
 		if (mesh == null)

@@ -1614,13 +1614,19 @@ public partial class CampaignMapPage : Control
 			_rivalsMarching = false;
 			GetNode<Control>("%EndTurnButton").Visible = true;
 			ShowArmies();
-			ShowFortifications();
-			ShowSettlements();
-			ShowFields(); // the fields their roads crossed lie trodden black
+
+			// The season turns over next and redraws the walls, the villages and the trodden fields
+			// behind its curtain; drawn here too, the whole map was built twice in a breath. Only a
+			// reign that has ended here gets no curtain, and is shown the map it lost.
 			if (!Fell())
 			{
 				TurnTheSeason();
+				return;
 			}
+
+			ShowFortifications();
+			ShowSettlements();
+			ShowFields();
 		}
 
 		foreach (LordsCampaign.RivalMarch march in marches)

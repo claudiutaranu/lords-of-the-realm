@@ -236,11 +236,24 @@ public partial class CampaignMap3D : Node3D
 	/// minimap, which washes its counties from the same strip the ground does.</summary>
 	public static event System.Action<Image> HoldersChanged;
 
+	private ImageTexture _holders;
+
 	/// <summary>Who holds every province now, one texel each in province order: the holder's colour,
 	/// and his realm's number + 1 in alpha. The ground draws the frontiers between them.</summary>
 	public void ShowHolders(Image strip)
 	{
-		_ground?.SetShaderParameter("campaign_owners", ImageTexture.CreateFromImage(strip));
+		// One texture for the whole reign, written over in place: the strip is a texel a province
+		// and the provinces do not change in number, only in hands.
+		if (_holders == null || _holders.GetSize() != (Vector2)strip.GetSize())
+		{
+			_holders = ImageTexture.CreateFromImage(strip);
+		}
+		else
+		{
+			_holders.Update(strip);
+		}
+
+		_ground?.SetShaderParameter("campaign_owners", _holders);
 		HoldersChanged?.Invoke(strip);
 	}
 
