@@ -528,7 +528,7 @@ La noi e o singură piață fixă, `Market.cs`, comună tuturor lorzilor (`TurnM
 
 **Personalități**
 
-- [ ] LIPSĂ — `data/campaigns/royal-crown/provinces.json:4-17` — Nu există Knight, Baron, Countess sau Bishop și nici scara de castele pe lord. Un regat are doar `name` și `accent`, iar campania are un singur rival (`northern-watch`).
+- [ ] LIPSĂ — `data/campaigns/england/maps/royal-crown/provinces.json:4-17` — Nu există Knight, Baron, Countess sau Bishop și nici scara de castele pe lord. Un regat are doar `name` și `accent`, iar campania are un singur rival (`northern-watch`).
 - [ ] DIFERIT — `EconomyEnums.cs` `Difficulty`, `GameBalance.cs:400-416` — Avem 3 dificultăți (Easy, Medium, Hard), nu 4. Ele schimbă **competența** (`LordIdleHands`, `LordGrainSeasons`, `LordSellsAbove`, `LordTaxFloor`), nu dau aur gratuit pe turn.
 - [ ] LIPSĂ — Tabelul mai mic sub 3 comitate și oamenii, vitele și grânele gratuite la 1–4 comitate.
 - [ ] LIPSĂ — Compoziția asediului pe lord.
@@ -542,7 +542,7 @@ La noi e o singură piață fixă, `Market.cs`, comună tuturor lorzilor (`TurnM
 - [x] OK — Complimente +15, +8, apoi −4. Al treilea dă 0 [I] (`ComplimentGoodwill`).
 - [x] OK — Alianțe exclusive și „grudge” pe lord (`data/lords.json` "grudgeLimit" [I]); ofertele lordului la 12/10/8/4 ture.
 - [x] OK — `Warn` — 2 avertismente (`WarWarnings`), apoi război permanent.
-- [ ] DIFERIT — `data/campaigns/royal-crown/provinces.json:4-17` — Culorile sunt fixate per regat în datele campaniei (`accent`), nu alese ca cel mai mic scut liber cu lordul derivat din scut.
+- [ ] DIFERIT — `data/campaigns/england/maps/royal-crown/provinces.json:4-17` — Culorile sunt fixate per regat în datele campaniei (`accent`), nu alese ca cel mai mic scut liber cu lordul derivat din scut.
 
 ## Scor, victorie, campanie, opțiuni
 

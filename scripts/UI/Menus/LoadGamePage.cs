@@ -11,7 +11,7 @@ public partial class LoadGamePage : Control
 	// Every save is a Royal Crown campaign for now — the only one with a map behind it.
 	// ponytail: pinned to one campaign's art. When a second campaign gets a map, a save has to
 	// record which folder it belongs to, and both this and Campaign.Folder should follow it.
-	private static readonly string PreviewPath = Campaign.AssetOf("royal-crown", "card.png");
+	private static readonly string PreviewPath = Campaign.AssetOf("england/maps/royal-crown", "card.png");
 
 	private TextureRect _preview;
 	private Label _detailName;

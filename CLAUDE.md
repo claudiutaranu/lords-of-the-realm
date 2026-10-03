@@ -37,6 +37,15 @@ everything else is hand-built UI over a turn-based economy.
   of git), and `UI/{Map,Battlefield,County,Rooms,Army,Diplomacy,Menus,Chrome}`.
 - Commit messages read like chapter titles with a body that explains what changed and why.
 
+## Campaigns and maps
+
+A campaign is a realm fought over map after map: `data/campaigns/<campaign>/maps/<map>/` holds a
+map's provinces.json, map.json and roads, `assets/campaigns/<campaign>/maps/<map>/` its images and
+art. `Campaign.Folder` is the path below campaigns/ (`england/maps/royal-crown`). England's first map
+is the Royal Crown's island; its second, `kingdom`, is England and Wales on a 3584x2560 canvas (a
+map's sides must be multiples of 512 for Terrain3D's regions; the world's size is read off its height
+map). Generate a map with `tools/generate_campaign_map.py <campaign>/maps/<map>`.
+
 ## The economy
 
 `TurnManager` owns every held county (`ProvinceEconomy`) and advances them one season per End Turn;

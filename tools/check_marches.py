@@ -105,7 +105,7 @@ def reach(walkable, start):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("campaign", nargs="?", default="royal-crown")
+    parser.add_argument("campaign", nargs="?", default="england/maps/royal-crown")
     parser.add_argument("--rise", type=float, default=MARCHABLE_RISE)
     args = parser.parse_args()
 

@@ -1,0 +1,125 @@
+{
+ "player": "royal-crown",
+ "unclaimed": "neutral",
+ "rivalWallsUpTo": "medium-fort",
+ "realms": {
+  "royal-crown": {
+   "name": "The Royal Crown"
+  },
+  "duchess-realm": {
+   "name": "The Mercian March",
+   "lord": "duchess"
+  },
+  "marshal-realm": {
+   "name": "The Northern Host",
+   "lord": "marshal"
+  },
+  "neutral": {
+   "name": "Unclaimed",
+   "accent": "8b8b86"
+  }
+ },
+ "provinces": [
+  {
+   "name": "Northumbria",
+   "x": 1799,
+   "y": 442,
+   "realm": "marshal-realm",
+   "region": "south"
+  },
+  {
+   "name": "Cumbria",
+   "x": 1581,
+   "y": 659,
+   "realm": "neutral",
+   "region": "south"
+  },
+  {
+   "name": "York",
+   "x": 1988,
+   "y": 890,
+   "realm": "marshal-realm",
+   "region": "south",
+   "capital": true
+  },
+  {
+   "name": "Lancaster",
+   "x": 1657,
+   "y": 966,
+   "realm": "neutral",
+   "region": "south"
+  },
+  {
+   "name": "Lincoln",
+   "x": 2124,
+   "y": 1183,
+   "realm": "neutral",
+   "region": "south"
+  },
+  {
+   "name": "Mercia",
+   "x": 1842,
+   "y": 1381,
+   "realm": "duchess-realm",
+   "region": "south",
+   "capital": true
+  },
+  {
+   "name": "Gwynedd",
+   "x": 1375,
+   "y": 1237,
+   "realm": "neutral",
+   "region": "south"
+  },
+  {
+   "name": "Deheubarth",
+   "x": 1331,
+   "y": 1616,
+   "realm": "neutral",
+   "region": "south"
+  },
+  {
+   "name": "East Anglia",
+   "x": 2439,
+   "y": 1399,
+   "realm": "duchess-realm",
+   "region": "south"
+  },
+  {
+   "name": "London",
+   "x": 2190,
+   "y": 1742,
+   "realm": "neutral",
+   "region": "south"
+  },
+  {
+   "name": "Kent",
+   "x": 2407,
+   "y": 1886,
+   "realm": "neutral",
+   "region": "south"
+  },
+  {
+   "name": "Wessex",
+   "x": 1918,
+   "y": 1923,
+   "realm": "royal-crown",
+   "region": "south",
+   "capital": true
+  },
+  {
+   "name": "Gloucester",
+   "x": 1712,
+   "y": 1634,
+   "realm": "neutral",
+   "region": "south"
+  },
+  {
+   "name": "Dumnonia",
+   "x": 1375,
+   "y": 2103,
+   "realm": "neutral",
+   "region": "south"
+  }
+ ]
+}

@@ -1,0 +1,14 @@
+[remap]
+
+importer="image"
+type="Image"
+uid="uid://do8idfmxrhpv7"
+path="res://.godot/imported/map-props.png-cf8a68824c2e1606c6f81a5a3997ff26.image"
+
+[deps]
+
+source_file="res://assets/campaigns/england/maps/kingdom/map-props.png"
+dest_files=["res://.godot/imported/map-props.png-cf8a68824c2e1606c6f81a5a3997ff26.image"]
+
+[params]
+

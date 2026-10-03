@@ -28,7 +28,7 @@ from pathlib import Path
 PROJECT_DIR = Path(__file__).resolve().parent.parent
 
 
-def check(campaign="royal-crown"):
+def check(campaign="england/maps/royal-crown"):
     data_dir = PROJECT_DIR / "data" / "campaigns" / campaign
     data = json.loads((data_dir / "provinces.json").read_text())
     width, height = json.loads((data_dir / "map.json").read_text())["size"]

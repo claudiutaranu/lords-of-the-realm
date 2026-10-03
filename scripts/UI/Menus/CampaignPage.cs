@@ -14,7 +14,7 @@ public partial class CampaignPage : Control
 	private const float CardStaggerSeconds = 0.12f;
 
 	/// <summary>England's first level: the map, data and art everything downstream reads.</summary>
-	private const string FirstLevelFolder = "royal-crown";
+	private const string FirstLevelFolder = "england/maps/royal-crown";
 	private const string FirstLevelName = "The Royal Crown";
 
 	// Blue for the player and red for the first lord against him, as on every map

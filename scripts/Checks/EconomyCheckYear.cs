@@ -71,7 +71,7 @@ public partial class EconomyCheck
 	/// every other trade it has.</summary>
 	private void TheYear(GameBalance b)
 	{
-		var def = GD.Load<ProvinceDefinition>("res://data/campaigns/royal-crown/provinces/kingsreach.tres");
+		var def = GD.Load<ProvinceDefinition>("res://data/campaigns/england/maps/royal-crown/provinces/kingsreach.tres");
 		ProvinceEconomy p = ProvinceEconomy.FromDefinition(def);
 		int opened = p.Grain;
 

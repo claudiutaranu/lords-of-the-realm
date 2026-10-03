@@ -1,8 +1,9 @@
 /// <summary>Which campaign is being played, and where its files live.
 ///
-/// A campaign owns a folder and nothing outside it: data/campaigns/&lt;folder&gt; holds its provinces
-/// and its map data, assets/campaigns/&lt;folder&gt; its map images and card art. Two campaigns can
-/// therefore never read each other's. What the engine applies to all of them the same way stays
+/// A campaign is a realm fought over map after map, and each map owns a folder and nothing outside
+/// it: data/campaigns/&lt;campaign&gt;/maps/&lt;map&gt; holds its provinces and its map data,
+/// assets/campaigns/&lt;campaign&gt;/maps/&lt;map&gt; its map images and art. Folder is that whole
+/// path below campaigns/ ("england/maps/royal-crown"). Two maps can therefore never read each other's. What the engine applies to all of them the same way stays
 /// shared where it is — game-balance.tres, the shaders, the ground textures, the scenes, and every
 /// script here. Adding a campaign is a folder of each kind plus one entry on CampaignPage's list,
 /// with no engine code to touch.
@@ -13,7 +14,7 @@ public static class Campaign
 {
 	/// <summary>Set when a campaign card is chosen, and read by the campaign-map scene while it
 	/// builds. The Royal Crown by default, so that scene still opens straight from the editor.</summary>
-	public static string Folder = "royal-crown";
+	public static string Folder = "england/maps/royal-crown";
 
 	/// <summary>What the campaign is called on screen and in a save's header.</summary>
 	public static string Name = "The Royal Crown";

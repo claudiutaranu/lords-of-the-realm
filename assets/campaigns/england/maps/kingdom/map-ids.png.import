@@ -1,0 +1,14 @@
+[remap]
+
+importer="image"
+type="Image"
+uid="uid://8emf5a1xnxgl"
+path="res://.godot/imported/map-ids.png-7799437e6292a0782c611293bb272009.image"
+
+[deps]
+
+source_file="res://assets/campaigns/england/maps/kingdom/map-ids.png"
+dest_files=["res://.godot/imported/map-ids.png-7799437e6292a0782c611293bb272009.image"]
+
+[params]
+
