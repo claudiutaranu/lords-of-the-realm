@@ -35,7 +35,9 @@ public partial class CampaignCard : PanelContainer
 			Stir();
 		};
 		MouseExited += () => SetGlow(false);
-		Resized += Place;
+		// The painting's own size, not the card's: the card is sized before the painting inside it,
+		// and laid out off the card the window was measured at nothing and stood empty until a hover.
+		GetNode<TextureRect>("%Portrait").Resized += Place;
 	}
 
 	/// <summary>The lord in the card's window: a campaign with a film of him has its window cut
