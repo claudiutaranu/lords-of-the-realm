@@ -1,8 +1,7 @@
-[gd_scene load_steps=16 format=3]
+[gd_scene load_steps=15 format=3]
 
 [ext_resource type="Script" path="res://scripts/UI/NavRail.cs" id="1_script"]
 [ext_resource type="Theme" path="res://theme/main-menu.tres" id="2_theme"]
-[ext_resource type="Script" path="res://scripts/UI/NavRailIcon.cs" id="3_icon"]
 [ext_resource type="Texture2D" path="res://assets/ui/button-square.png" id="4_plate"]
 [ext_resource type="Texture2D" path="res://assets/ui/icons/hammer.png" id="5_hammer"]
 [ext_resource type="Texture2D" path="res://assets/ui/icons/castle.png" id="6_castle"]

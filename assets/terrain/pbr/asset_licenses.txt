@@ -6,8 +6,8 @@ https://docs.ambientcg.com/license/
   ground037_* (0 Grass): https://ambientcg.com/view?id=Ground037
   rock023_*   (1 Cliff): https://ambientcg.com/view?id=Rock023
 
-Packed by tools/pack_terrain_textures.py from the Poly Haven sources in the folder above
-(CC0, see ../LICENSE.txt):
+Packed by tools/pack_terrain_textures.py from the Poly Haven sources in
+tools/terrain-sources (CC0, see the LICENSE.txt there):
 
   snow_*      (2 Snow)
   sand_*      (3 Sand)

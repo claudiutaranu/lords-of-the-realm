@@ -680,27 +680,6 @@ public partial class EconomyCheck : Node
 		return province;
 	}
 
-	private static ProvinceEconomy Rested(ProvinceDefinition def, GameBalance b)
-	{
-		ProvinceEconomy province = Province();
-		Labour.FarmsFirst(province, def, b, Season.Spring);
-		return province;
-	}
-
-	private static int Collected(GameBalance b, ProvinceDefinition def, string fortification, int percent = -1)
-	{
-		ProvinceEconomy province = Province();
-		province.Fortification = fortification;
-		if (percent >= 0)
-		{
-			province.Tax = percent;
-		}
-
-		province.Grain = 4000; // nothing here is about hunger
-		Labour.FarmsFirst(province, def, b, Season.Winter);
-		return EconomySimulation.RunTurn(province, def, b, Season.Winter).GoldChange;
-	}
-
 	private void Is(string what, int got, int expected) =>
 		Report(got == expected, what, got.ToString(), expected.ToString());
 

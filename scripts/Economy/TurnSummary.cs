@@ -4,7 +4,6 @@ public class TurnSummary
 {
 	public string ProvinceName;
 
-	public int PopulationBefore, PopulationAfter;
 	public float LoyaltyBefore, LoyaltyAfter;
 	public int GoldBefore, GoldAfter;
 	public int GrainBefore, GrainAfter;
@@ -74,7 +73,6 @@ public class TurnSummary
 	/// a tenth of the county between those two calls has to show in the same summary.</summary>
 	public void Restate(ProvinceEconomy province)
 	{
-		PopulationAfter = province.Population;
 		LoyaltyAfter = province.Loyalty;
 		GoldAfter = province.Gold;
 		GrainAfter = province.Grain;
@@ -84,7 +82,6 @@ public class TurnSummary
 		IronAfter = province.Iron;
 	}
 
-	public int PopulationChange => PopulationAfter - PopulationBefore;
 	public float LoyaltyChange => LoyaltyAfter - LoyaltyBefore;
 	public int GoldChange => GoldAfter - GoldBefore;
 	public int GrainChange => GrainAfter - GrainBefore;

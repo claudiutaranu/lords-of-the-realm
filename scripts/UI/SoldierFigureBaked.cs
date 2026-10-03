@@ -62,9 +62,10 @@ public sealed partial class SoldierFigure
 	{
 		Godot.Collections.Dictionary meta = GD.Load<Json>($"{stem}.figure.json").Data.AsGodotDictionary();
 		Godot.Collections.Dictionary offsets = meta["offsets"].AsGodotDictionary();
-		// ponytail: the .bin is not a resource, so an exported build needs "*.figure.bin" in the export
-		// preset's non-resource filter; a resource wrapper once there are more than the archer and the
-		// knight.
+		// ponytail: the .bin is not a resource, so it reaches an exported build only through the
+		// "*.figure.bin" include filter every preset in export_presets.cfg carries — a new preset
+		// without it ships soldiers with no bodies. A resource wrapper once there are more figures
+		// than the archer, the knight and the peasant.
 		byte[] bake = FileAccess.GetFileAsBytes($"{stem}.figure.bin");
 		int count = meta["vertices"].AsInt32();
 

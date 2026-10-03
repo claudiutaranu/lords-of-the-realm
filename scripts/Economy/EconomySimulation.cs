@@ -21,7 +21,6 @@ public static class EconomySimulation
 		var summary = new TurnSummary
 		{
 			ProvinceName = province.ProvinceName,
-			PopulationBefore = province.Population,
 			LoyaltyBefore = province.Loyalty,
 			GoldBefore = province.Gold,
 			GrainBefore = province.Grain,

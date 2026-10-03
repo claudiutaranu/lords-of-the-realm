@@ -1,6 +1,7 @@
 Terrain detail textures from Poly Haven (polyhaven.com), licensed CC0 (public domain).
 No attribution required; kept here for provenance. These are the loose sources that
-tools/pack_terrain_textures.py packs into pbr/ for Terrain3D.
+tools/pack_terrain_textures.py packs into assets/terrain/pbr/ for Terrain3D. They live
+here, out of assets/, so Godot does not import (or ship) the loose images themselves.
 
   snow-*   : snow_02
   sand-*   : coast_sand_rocks_02
