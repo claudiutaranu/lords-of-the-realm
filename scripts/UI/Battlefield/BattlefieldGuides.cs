@@ -16,6 +16,12 @@ public partial class BattlefieldSquads
 	/// <summary>How far either side of the way a squad faces its reach is drawn: the arc of what it
 	/// can loose at without turning.</summary>
 	private const float FanHalf = Mathf.Pi / 3f;
+
+	/// <summary>How strongly the fan's two sides are painted against its arc: the arc is the reach,
+	/// the sides only say which way it lies.</summary>
+	private const float FanSidesStrength = 0.5f;
+
+	private float _strength = 1f;
 	private const float LinePiece = 3f;
 	private const float GuideLift = 0.2f;
 
@@ -120,7 +126,8 @@ public partial class BattlefieldSquads
 			int pieces = Mathf.CeilToInt(radius / LinePiece);
 			for (int i = 0; i < pieces; i++)
 			{
-				Strip(middle + (way * (radius * i / pieces)), middle + (way * (radius * (i + 1) / pieces)), across, across, colour);
+				Strip(middle + (way * (radius * i / pieces)), middle + (way * (radius * (i + 1) / pieces)), across, across, colour,
+					FanSidesStrength);
 			}
 		}
 	}
@@ -139,6 +146,8 @@ public partial class BattlefieldSquads
 			Strip(from.Lerp(neck, i / (float)pieces), from.Lerp(neck, (i + 1) / (float)pieces), across, across, colour);
 		}
 
+		_strength = 1f;
+
 		// The head: a soft triangle, red-gold in the middle of its back and clear at its barbs.
 		Color clear = new(colour, 0f);
 		Vector2 barb = across * (_guideWide * HeadWide / 2f);
@@ -153,8 +162,9 @@ public partial class BattlefieldSquads
 	/// <summary>One piece of a strip across the ground, in three bands — clear, coloured, clear — so its
 	/// edges fade instead of ending in a hard line. <paramref name="outFrom"/> and
 	/// <paramref name="outTo"/> are which way is across it at each end.</summary>
-	private void Strip(Vector2 from, Vector2 to, Vector2 outFrom, Vector2 outTo, Color colour)
+	private void Strip(Vector2 from, Vector2 to, Vector2 outFrom, Vector2 outTo, Color colour, float strength = 1f)
 	{
+		_strength = strength;
 		Color clear = new(colour, 0f);
 		float[] across = { -_guideWide / 2f, 0f, _guideWide / 2f };
 		Color[] shade = { clear, colour, clear };
@@ -175,6 +185,9 @@ public partial class BattlefieldSquads
 
 	private void Corner(Vector3 at, Color colour)
 	{
+		// How strongly this piece is painted, carried to the shader in the UV: the colour's alpha already
+		// says where the strip's edge is.
+		_guideMesh.SurfaceSetUV(new Vector2(_strength, 0f));
 		_guideMesh.SurfaceSetColor(colour);
 		_guideMesh.SurfaceAddVertex(at);
 	}

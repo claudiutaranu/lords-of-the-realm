@@ -41,7 +41,7 @@ void fragment() {
 	float body = smoothstep(edge_from, edge_to, COLOR.a + (scuff - 0.5) * edge_ragged);
 	float worn = smoothstep(wear_from, wear_to, scuff);
 	ALBEDO = COLOR.rgb * (0.6 + 0.4 * scuff);
-	ALPHA = body * worn * opacity;
+	ALPHA = body * worn * opacity * UV.x;
 	// Up, whichever way its triangles happen to wind: lit from the back, half the strips were in the
 	// dark of their own underside.
 	NORMAL = normalize((VIEW_MATRIX * vec4(0.0, 1.0, 0.0, 0.0)).xyz);
