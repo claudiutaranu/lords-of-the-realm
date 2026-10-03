@@ -15,7 +15,7 @@ uniform float edge_ragged = 0.45;
 uniform float wear_size = 0.32;
 uniform float wear_from = 0.34;
 uniform float wear_to = 0.46;
-uniform float opacity = 0.88;
+uniform float opacity = 0.7;
 
 varying vec3 world;
 
