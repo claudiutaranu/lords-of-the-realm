@@ -38,13 +38,14 @@ don't reset it if you ever delete the .import.
 """
 
 import heapq
+import sys
 import json
 from pathlib import Path
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 
-CAMPAIGN = "royal-crown"
+CAMPAIGN = sys.argv[1] if len(sys.argv) > 1 else "royal-crown"  # the campaign folder to build
 PROJECT_DIR = Path(__file__).resolve().parent.parent
 OUT_DIR = PROJECT_DIR / "assets" / "campaigns" / CAMPAIGN
 DATA_DIR = PROJECT_DIR / "data" / "campaigns" / CAMPAIGN

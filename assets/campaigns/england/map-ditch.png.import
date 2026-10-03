@@ -1,0 +1,14 @@
+[remap]
+
+importer="image"
+type="Image"
+uid="uid://067380yn3nj8"
+path="res://.godot/imported/map-ditch.png-6daa4c10302ef9db0f6c9601255eac8d.image"
+
+[deps]
+
+source_file="res://assets/campaigns/england/map-ditch.png"
+dest_files=["res://.godot/imported/map-ditch.png-6daa4c10302ef9db0f6c9601255eac8d.image"]
+
+[params]
+

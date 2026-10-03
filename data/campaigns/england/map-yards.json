@@ -1,0 +1,72 @@
+[
+ {
+  "province": "Northumbria",
+  "x": 1638.0,
+  "y": 296.0
+ },
+ {
+  "province": "Cumbria",
+  "x": 1402.0,
+  "y": 476.0
+ },
+ {
+  "province": "York",
+  "x": 1770.0,
+  "y": 686.0
+ },
+ {
+  "province": "Lancaster",
+  "x": 1470.0,
+  "y": 754.0
+ },
+ {
+  "province": "Lincoln",
+  "x": 1906.0,
+  "y": 952.0
+ },
+ {
+  "province": "Mercia",
+  "x": 1638.0,
+  "y": 1132.0
+ },
+ {
+  "province": "Gwynedd",
+  "x": 1214.0,
+  "y": 1000.0
+ },
+ {
+  "province": "Deheubarth",
+  "x": 1146.0,
+  "y": 1362.0
+ },
+ {
+  "province": "East Anglia",
+  "x": 2182.0,
+  "y": 1148.0
+ },
+ {
+  "province": "London",
+  "x": 1954.0,
+  "y": 1460.0
+ },
+ {
+  "province": "Kent",
+  "x": 2152.0,
+  "y": 1590.0
+ },
+ {
+  "province": "Wessex",
+  "x": 1708.0,
+  "y": 1624.0
+ },
+ {
+  "province": "Gloucester",
+  "x": 1520.0,
+  "y": 1378.0
+ },
+ {
+  "province": "Dumnonia",
+  "x": 1214.0,
+  "y": 1788.0
+ }
+]

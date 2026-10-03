@@ -1,0 +1,258 @@
+{
+ "_comment": "England and Wales, for the England campaign's second map: the coast from the real one (lon/lat projected at 53 degrees north), read by tools/generate_campaign_map.py england. Drawn on twice the first map's canvas, so England is twice the ground.",
+ "size": [
+  3072,
+  2048
+ ],
+ "outline": [
+  [
+   1590,
+   92
+  ],
+  [
+   1668,
+   148
+  ],
+  [
+   1698,
+   344
+  ],
+  [
+   1738,
+   450
+  ],
+  [
+   1866,
+   514
+  ],
+  [
+   1944,
+   640
+  ],
+  [
+   2004,
+   804
+  ],
+  [
+   2054,
+   934
+  ],
+  [
+   2024,
+   1050
+  ],
+  [
+   2082,
+   1010
+  ],
+  [
+   2162,
+   1010
+  ],
+  [
+   2330,
+   1116
+  ],
+  [
+   2330,
+   1180
+  ],
+  [
+   2300,
+   1296
+  ],
+  [
+   2230,
+   1378
+  ],
+  [
+   2162,
+   1476
+  ],
+  [
+   2082,
+   1502
+  ],
+  [
+   2260,
+   1532
+  ],
+  [
+   2256,
+   1608
+  ],
+  [
+   2178,
+   1682
+  ],
+  [
+   2044,
+   1732
+  ],
+  [
+   1826,
+   1738
+  ],
+  [
+   1728,
+   1728
+  ],
+  [
+   1600,
+   1788
+  ],
+  [
+   1500,
+   1804
+  ],
+  [
+   1392,
+   1754
+  ],
+  [
+   1304,
+   1788
+  ],
+  [
+   1274,
+   1912
+  ],
+  [
+   1156,
+   1870
+  ],
+  [
+   988,
+   1990
+  ],
+  [
+   858,
+   1968
+  ],
+  [
+   998,
+   1804
+  ],
+  [
+   1096,
+   1656
+  ],
+  [
+   1294,
+   1590
+  ],
+  [
+   1402,
+   1526
+  ],
+  [
+   1462,
+   1454
+  ],
+  [
+   1352,
+   1508
+  ],
+  [
+   1194,
+   1476
+  ],
+  [
+   1056,
+   1444
+  ],
+  [
+   938,
+   1394
+  ],
+  [
+   1056,
+   1296
+  ],
+  [
+   1174,
+   1198
+  ],
+  [
+   1174,
+   1082
+  ],
+  [
+   1046,
+   1066
+  ],
+  [
+   1076,
+   902
+  ],
+  [
+   1174,
+   870
+  ],
+  [
+   1294,
+   892
+  ],
+  [
+   1382,
+   870
+  ],
+  [
+   1382,
+   738
+  ],
+  [
+   1422,
+   640
+  ],
+  [
+   1332,
+   606
+  ],
+  [
+   1274,
+   508
+  ],
+  [
+   1312,
+   378
+  ],
+  [
+   1392,
+   344
+  ],
+  [
+   1490,
+   246
+  ]
+ ],
+ "terrain": {
+  "sea_floor_byte": 46.0,
+  "ridge_height": 215.0,
+  "ridge_detail": 112.0,
+  "inland_height": 52.0,
+  "north_lift": 26.0,
+  "seat_height": 16.0,
+  "noise_height": 9.0,
+  "lowland_detail": 0.05,
+  "outcrop_height": 24.0,
+  "outcrop_cover": 0.11,
+  "border_warp": 55.0,
+  "coast_rock_height": 30.0,
+  "coast_rock_width": 3.4,
+  "coast_bays": 48.0
+ },
+ "islands": {
+  "islet_height": 14.0,
+  "stack_height": 24.0,
+  "emergent_shape": 0.55,
+  "base_reach": 6,
+  "stack_count": 0,
+  "islets_per_province": 0.0
+ },
+ "forest": {
+  "southern_density": 0.72,
+  "northern_density": 1.0,
+  "treeline_strength": 0.7
+ }
+}

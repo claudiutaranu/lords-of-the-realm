@@ -30,8 +30,11 @@ public partial class CampaignMap3D : Node3D
 	// makes it at that spacing. 1536 pixels at one vertex per two of them is 192. Everything placed
 	// on the map goes through MapToWorld and follows these two, so this is a four per cent stretch
 	// of the old figures and nothing else moves.
-	private static readonly float MapWidth = Terrain3DGround.WorldWidth(1536);
-	private static readonly float MapDepth = Terrain3DGround.WorldWidth(1024);
+	//
+	// Read off the campaign's own height map, so a campaign drawn on a larger canvas is larger ground
+	// (England's is twice the first map's either way) and not the same island squeezed smaller.
+	private float MapWidth => Terrain3DGround.WorldWidth(_heightImage.GetWidth());
+	private float MapDepth => Terrain3DGround.WorldWidth(_heightImage.GetHeight());
 	// How tall the relief stands. The height map says where the ground rises and by how much
 	// relative to itself; this alone says how much of that the player sees, so it is the one number
 	// that makes the realm rolling country or a mountain range. Down from 24, and down again: a lord
