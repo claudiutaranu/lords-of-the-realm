@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using Godot;
 
-/// <summary>What the chosen squads mean to do, painted on the ground under them in broad strips, lit
-/// like the turf so shadows and woods darken them (battlefield-guide.gdshader): how far a squad that shoots can carry (a red ring, as wide as the reach the
+/// <summary>What the chosen squads mean to do, painted on the ground under them in broad strips of worn
+/// paint, lit like the turf so shadows and woods darken them (battlefield-guide.gdshader): how far a squad that shoots can carry (a red ring, as wide as the reach the
 /// battle measures its shots by, FieldSquad.Range from the standard), and where each has been sent
 /// — a gold line to the spot it marches to, ending in an arrowhead, or a red one to the enemy it
 /// falls on. Only for squads in hand, so the field is not scored with lines, and laid again every
@@ -30,8 +30,8 @@ public partial class BattlefieldSquads
 
 	/// <summary>The paint; its alpha down the middle of a strip, falling to nothing at the edges, tells
 	/// the shader where the edge is.</summary>
-	private static readonly Color ReachRed = new(0.78f, 0.06f, 0.12f, 1f);
-	private static readonly Color MarchGold = new(1f, 0.72f, 0.1f, 1f);
+	private static readonly Color ReachRed = new(0.72f, 0.08f, 0.12f, 1f);
+	private static readonly Color MarchGold = new(0.82f, 0.55f, 0.1f, 1f);
 
 	private const string GuideShaderPath = "res://assets/shaders/battlefield-guide.gdshader";
 

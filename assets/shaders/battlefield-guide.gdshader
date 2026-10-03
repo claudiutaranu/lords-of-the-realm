@@ -1,15 +1,21 @@
 // A guide painted on the battlefield (BattlefieldGuides): the bowmen's reach and the line to where a
 // squad is sent. Lit like the turf it lies on, so a shadow or a wood crossing it darkens it, with a
-// firm edge and a grain to it, as if laid down with a broad brush rather than drawn over the scene.
+// ragged edge and worn through in patches, like old paint scuffed into the turf, rather than drawn
+// over the scene.
 shader_type spatial;
 render_mode blend_mix, cull_disabled, depth_draw_never;
 
 // How far in from its edges the paint is solid, of the strip's half-width as the vertex colour's
-// alpha carries it (nought at an edge, one down the middle), and how coarse and how strong its grain.
-uniform float edge_from = 0.18;
-uniform float edge_to = 0.42;
-uniform float grain_size = 0.55;
-uniform float grain = 0.35;
+// alpha carries it (nought at an edge, one down the middle), and how far the edge wanders.
+uniform float edge_from = 0.22;
+uniform float edge_to = 0.34;
+uniform float edge_ragged = 0.45;
+// How coarse the wear is, in metres, and how much of the paint it takes: where the scuffing falls
+// under wear_from the turf shows through, and by wear_to the paint is whole.
+uniform float wear_size = 0.32;
+uniform float wear_from = 0.34;
+uniform float wear_to = 0.46;
+uniform float opacity = 0.88;
 
 varying vec3 world;
 
@@ -29,10 +35,13 @@ float noise(vec2 p) {
 }
 
 void fragment() {
-	float body = smoothstep(edge_from, edge_to, COLOR.a);
-	float brush = noise(world.xz / grain_size) * 0.6 + noise(world.xz / (grain_size * 0.27)) * 0.4;
-	ALBEDO = COLOR.rgb * (0.85 + 0.3 * brush);
-	ALPHA = body * (1.0 - grain + grain * brush) * 0.9;
+	float scuff = noise(world.xz / wear_size) * 0.55
+		+ noise(world.xz / (wear_size * 0.4)) * 0.3
+		+ noise(world.xz / (wear_size * 0.15)) * 0.15;
+	float body = smoothstep(edge_from, edge_to, COLOR.a + (scuff - 0.5) * edge_ragged);
+	float worn = smoothstep(wear_from, wear_to, scuff);
+	ALBEDO = COLOR.rgb * (0.6 + 0.4 * scuff);
+	ALPHA = body * worn * opacity;
 	// Up, whichever way its triangles happen to wind: lit from the back, half the strips were in the
 	// dark of their own underside.
 	NORMAL = normalize((VIEW_MATRIX * vec4(0.0, 1.0, 0.0, 0.0)).xyz);
