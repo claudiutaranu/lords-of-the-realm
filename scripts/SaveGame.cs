@@ -87,7 +87,15 @@ public class SaveGame
 	/// having written anybody anything.</summary>
 	/// <summary>6: the lord's carts on the road (<see cref="Shipment"/>). A file written at 5 opens
 	/// with none out.</summary>
-	public int Version { get; set; } = 6;
+	/// <summary>7: when the world last visited each realm. A file written at 6 opens with every realm
+	/// due a visit, which is one season early at worst.</summary>
+	public int Version { get; set; } = 7;
+
+	/// <summary>The first version whose labour shares are always in hundredths of a percent. A file
+	/// older than this may carry whole percents, and is read up into hundredths once, as it is
+	/// restored — never again after, or a lord who left a job a percent would find it handed the
+	/// whole half the next season.</summary>
+	public const int SharesInHundredthsFrom = 5;
 
 	public string CampaignName { get; set; } = "";
 
@@ -112,6 +120,10 @@ public class SaveGame
 	/// save that dropped them would quietly burn the granary they carry.</summary>
 	public List<Shipment> Shipments { get; set; } = new();
 
+	/// <summary>The turn the world last did something to each realm. Saved so that a lord cannot
+	/// shake off the gap after a plague by saving and loading.</summary>
+	public Dictionary<string, int> WorldLastStirred { get; set; } = new();
+
 	public string SavedAtDisplay => Time.GetDatetimeStringFromUnixTime(SavedAtUnix, true).Replace("T", " ");
 
 	public static SaveGame Snapshot(string campaignName, int turn, List<ProvinceEconomy> provinces,
@@ -128,18 +140,31 @@ public class SaveGame
 		Prices = prices,
 	};
 
+	/// <summary>The campaign as it stands, for the file or for the ride through the options screen.</summary>
+	public static SaveGame Of(string campaignName, TurnManager turns)
+	{
+		SaveGame save = Snapshot(campaignName, turns.Turn, turns.Provinces, turns.Market.Pressure, turns.Difficulty,
+			turns.Diplomacy, turns.Shipments);
+		save.WorldLastStirred = new Dictionary<string, int>(turns.WorldLastStirred);
+		return save;
+	}
+
 	/// <summary>Takes a save off disk. For the checks, which write real files to prove the round trip
 	/// and must take them away again: they share this folder with the player's own campaigns, and a
 	/// check that tidied up by clearing the folder took the player's saves with it.</summary>
 	public static void Forget(SaveGame save) =>
 		DirAccess.RemoveAbsolute(ProjectSettings.GlobalizePath($"{SaveDirectory}/{save.SavedAtUnix}.json"));
 
-	public static void Write(string campaignName, int turn, List<ProvinceEconomy> provinces,
+	public static bool Write(string campaignName, int turn, List<ProvinceEconomy> provinces,
 		Dictionary<string, float> prices, Difficulty difficulty, Diplomacy diplomacy = null,
-		List<Shipment> shipments = null)
+		List<Shipment> shipments = null) =>
+		Write(Snapshot(campaignName, turn, provinces, prices, difficulty, diplomacy, shipments));
+
+	/// <summary>Puts the save on disk, and says whether it is there. A lord told "Saved" when nothing
+	/// was written finds out the day he loads, which is the day it is too late.</summary>
+	public static bool Write(SaveGame save)
 	{
 		DirAccess.MakeDirRecursiveAbsolute(SaveDirectory);
-		SaveGame save = Snapshot(campaignName, turn, provinces, prices, difficulty, diplomacy, shipments);
 
 		// Unix seconds name the file, so two saves a second apart never collide and the same
 		// second overwrites itself rather than piling up duplicates of one state.
@@ -156,10 +181,16 @@ public class SaveGame
 			if (file == null)
 			{
 				GD.PushError($"SaveGame: could not write save ({FileAccess.GetOpenError()})");
-				return;
+				return false;
 			}
 
-			file.StoreString(JsonSerializer.Serialize(save, JsonOptions));
+			// A full disk leaves a short draft, and a short draft moved over the last good save is
+			// the very loss the draft is there to prevent.
+			if (!file.StoreString(JsonSerializer.Serialize(save, JsonOptions)))
+			{
+				GD.PushError($"SaveGame: the save was not written whole ({file.GetError()})");
+				return false;
+			}
 		}
 
 		// Some platforms refuse to rename onto a file that is already there, so the old one goes
@@ -174,7 +205,10 @@ public class SaveGame
 		if (moved != Error.Ok)
 		{
 			GD.PushError($"SaveGame: could not put the save in place ({moved})");
+			return false;
 		}
+
+		return true;
 	}
 
 	/// <summary>Newest first. A save that fails to parse is skipped, not fatal — one corrupt
@@ -221,7 +255,16 @@ public class SaveGame
 
 		try
 		{
-			return JsonSerializer.Deserialize<SaveGame>(file.GetAsText(), JsonOptions);
+			// A file with no counties in it parses and then throws the moment the map is built on it;
+			// nothing to restore is as unreadable as a file that will not parse.
+			SaveGame save = JsonSerializer.Deserialize<SaveGame>(file.GetAsText(), JsonOptions);
+			if (save?.Provinces == null)
+			{
+				GD.PushWarning($"SaveGame: {path} holds no counties");
+				return null;
+			}
+
+			return save;
 		}
 		catch (JsonException exception)
 		{

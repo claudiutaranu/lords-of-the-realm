@@ -281,11 +281,10 @@ public partial class TurnManager
 
 	/// <summary>The turn the world last did something to each realm. A realm is visited by at most one
 	/// disaster a season and then left alone for WorldEventGap turns: rolled county by county, a lord
-	/// of six counties heard of rats, murrain or plague nearly every season, one on top of another.
-	///
-	/// ponytail: not saved — a loaded campaign may hear from the world one season early. Put it on
-	/// the save if that ever matters.</summary>
+	/// of six counties heard of rats, murrain or plague nearly every season, one on top of another.</summary>
 	private readonly Dictionary<string, int> _worldLastStirred = new();
+
+	public IReadOnlyDictionary<string, int> WorldLastStirred => _worldLastStirred;
 
 	/// <summary>How the county's goodwill was arrived at last season, or null before its first turn.
 	/// Reachable only through a province the caller already holds, which is the screens' own
@@ -1140,22 +1139,35 @@ public partial class TurnManager
 	/// <summary>Puts a save's state back in place. Provinces are matched by name, so a save
 	/// written before a province was added or renamed still loads: the missing one simply keeps
 	/// the starting values the definitions gave it.</summary>
-	public void Restore(int turn, List<ProvinceEconomy> provinces, Dictionary<string, float> prices,
-		Difficulty difficulty, Diplomacy diplomacy = null, List<Shipment> shipments = null)
+	public void Restore(SaveGame save)
 	{
-		Turn = turn;
-		Difficulty = difficulty;
+		Turn = save.Turn;
+		Difficulty = save.Difficulty;
 		// A save written before there were letters: nobody has written anybody anything yet.
-		Diplomacy = diplomacy ?? new Diplomacy();
+		Diplomacy = save.Diplomacy ?? new Diplomacy();
 		// Nor carts: a save from before there were any has none on the road.
-		Shipments = shipments ?? new List<Shipment>();
+		Shipments = save.Shipments ?? new List<Shipment>();
 		// A save written before the market moved carries no prices, and an empty book is exactly
 		// right for it: every store simply sits at what it is worth.
-		Market.Pressure = prices ?? new Dictionary<string, float>();
+		Market.Pressure = save.Prices ?? new Dictionary<string, float>();
 		Market.Turned(CurrentSeason);
-		foreach (ProvinceEconomy province in provinces)
+		_worldLastStirred.Clear();
+		foreach ((string realm, int turn) in save.WorldLastStirred ?? new Dictionary<string, int>())
 		{
-			if (!_provincesByName.ContainsKey(province.ProvinceName))
+			_worldLastStirred[realm] = turn;
+		}
+
+		foreach (ProvinceEconomy province in save.Provinces)
+		{
+			// A county taken from the empty country since the campaign opened is still waiting among
+			// the unheld in a turn built fresh from the definitions. It joins the turn here the way it
+			// joined it the day it was taken — without this, every county a lord ever claimed from
+			// nobody vanished on load, stores, fields and all.
+			if (_unheld.Remove(province.ProvinceName, out ProvinceDefinition taken))
+			{
+				_definitions.Add(taken);
+			}
+			else if (!_provincesByName.ContainsKey(province.ProvinceName))
 			{
 				continue;
 			}
@@ -1163,9 +1175,9 @@ public partial class TurnManager
 			// A save written before provinces carried a holder says nothing about who held them, and
 			// the campaign's own layout is the right answer for that file: nobody had conquered
 			// anything yet, so everyone still holds what they opened with.
-			if (province.Realm.Length == 0)
+			if (province.Realm.Length == 0 && _provincesByName.TryGetValue(province.ProvinceName, out ProvinceEconomy opened))
 			{
-				province.Realm = _provincesByName[province.ProvinceName].Realm;
+				province.Realm = opened.Realm;
 			}
 
 			// A save written before a county could have more than one army carries one roster, which
@@ -1176,6 +1188,11 @@ public partial class TurnManager
 				army.Home = army.Home.Length > 0 ? army.Home : province.ProvinceName;
 				army.County = army.County.Length > 0 ? army.County : province.ProvinceName;
 				army.Id = army.Id > 0 ? army.Id : 1;
+			}
+
+			if (save.Version < SaveGame.SharesInHundredthsFrom)
+			{
+				Labour.InHundredths(province);
 			}
 
 			province.Bury();

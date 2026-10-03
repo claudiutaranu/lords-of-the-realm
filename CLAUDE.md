@@ -276,8 +276,12 @@ The men live in **companies** (`FieldArmy`), not in one roster per county:
 
 ## Saves
 
-`SaveGame` writes `user://saves/<unix>.json`, version 5 (the lords' letters, `Diplomacy`; a version-4
-file opens with nobody having written anybody). Companies are saved; a version-3 file still
+`SaveGame` writes `user://saves/<unix>.json`, version 7 (5 the lords' letters, 6 the carts, 7 the
+world's last visit to each realm); `SaveGame.Of` takes the whole turn, and `TurnManager.Restore`
+takes the whole file — it brings a county taken from the empty country back into the turn, and
+reads a file older than `SharesInHundredthsFrom` up from whole-percent labour once. Save and
+Options are refused while the season is turning (`TurnUnderway`): the rivals' turn is not in the
+file. Companies are saved; a version-3 file still
 opens — `ProvinceEconomy.Garrison/MarchLeft/ArmyX/ArmyY` are read-only-on-the-way-in properties that
 fill the one company such a file describes.
 

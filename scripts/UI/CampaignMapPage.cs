@@ -269,8 +269,7 @@ public partial class CampaignMapPage : Control
 		bool opening = SaveGame.Pending == null;
 		if (SaveGame.Pending != null)
 		{
-			_turnManager.Restore(SaveGame.Pending.Turn, SaveGame.Pending.Provinces, SaveGame.Pending.Prices,
-				SaveGame.Pending.Difficulty, SaveGame.Pending.Diplomacy, SaveGame.Pending.Shipments);
+			_turnManager.Restore(SaveGame.Pending);
 			SaveGame.Pending = null; // consumed, so starting a fresh campaign later doesn't reopen it
 		}
 
@@ -523,14 +522,19 @@ public partial class CampaignMapPage : Control
 		BuildMinimapButtons(gameMenu);
 		GetNode<Button>("%SaveButton").Pressed += () =>
 		{
+			gameMenu.Visible = false; // out of the way, so the confirmation lands on the map itself
+			if (TurnUnderway)
+			{
+				ShowSaveToast(MidTurnRefusal);
+				return;
+			}
+
 			// Spoken on the press rather than after the write: the save itself is instant, and a
 			// voice that starts once the work is already done is a voice answering nothing.
 			Narrator.Say(SavingVoicePath);
-			SaveGame.Write(Campaign.Name, _turnManager.Turn, _turnManager.Provinces,
-				_turnManager.Market.Pressure, _turnManager.Difficulty, _turnManager.Diplomacy,
-				_turnManager.Shipments);
-			gameMenu.Visible = false; // out of the way, so the confirmation lands on the map itself
-			ShowSaveToast($"Saved · Turn {_turnManager.Turn}");
+			ShowSaveToast(SaveGame.Write(SaveGame.Of(Campaign.Name, _turnManager))
+				? $"Saved · Turn {_turnManager.Turn}"
+				: "The clerk could not write the save");
 		};
 		GetNode<Button>("%ResumeButton").Pressed += () => gameMenu.Visible = false;
 		GetNode<Button>("%LoadButton").Pressed += () => ConfirmLeave(LoadGameScenePath);
@@ -543,11 +547,16 @@ public partial class CampaignMapPage : Control
 		GetNode<Button>("%LeaveConfirmButton").Pressed += () => SceneRouter.GoTo(this, _leaveTarget);
 		GetNode<Button>("%OptionsButton").Pressed += () =>
 		{
+			if (TurnUnderway)
+			{
+				gameMenu.Visible = false;
+				ShowSaveToast(MidTurnRefusal);
+				return;
+			}
+
 			// Options is its own scene, so the running campaign rides along in memory rather
 			// than through a file, and comes back when Back returns here.
-			SaveGame.Pending = SaveGame.Snapshot(Campaign.Name, _turnManager.Turn, _turnManager.Provinces,
-				_turnManager.Market.Pressure, _turnManager.Difficulty, _turnManager.Diplomacy,
-				_turnManager.Shipments);
+			SaveGame.Pending = SaveGame.Of(Campaign.Name, _turnManager);
 			OptionsPage.ReturnScenePath = SelfScenePath;
 			SceneRouter.GoTo(this, OptionsScenePath);
 		};
@@ -1543,6 +1552,13 @@ public partial class CampaignMapPage : Control
 	/// the map can be looked around but not given orders.</summary>
 	private bool _rivalsMarching;
 
+	/// <summary>Between End Turn and dawn, or after the end of the reign. The other lords have taken
+	/// their turn by then and the save has no way to say so, so a campaign saved — or carried through
+	/// the options — while their banners walk would hand them a second turn when it is opened.</summary>
+	private bool TurnUnderway => _turnTransition.Visible || _rivalsMarching || _fallen.Visible;
+
+	private const string MidTurnRefusal = "Not while the season is turning";
+
 	private FallenPanel _fallen;
 
 	/// <summary>Whether the player has lost his last county, and if so the end of the reign said
@@ -1579,7 +1595,7 @@ public partial class CampaignMapPage : Control
 	/// won or lost is already settled; the banners are redrawn once they have all arrived.</summary>
 	private void AdvanceTurn()
 	{
-		if (_turnTransition.Visible || _rivalsMarching || _fallen.Visible)
+		if (TurnUnderway)
 		{
 			return; // already mid-turn, or the reign is over; a second click must not queue another season
 		}
