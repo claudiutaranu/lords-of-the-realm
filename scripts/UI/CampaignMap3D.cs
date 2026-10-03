@@ -610,8 +610,13 @@ public partial class CampaignMap3D : Node3D
 	private static float Fit(float value, float least, float most) =>
 		least > most ? (least + most) / 2f : Mathf.Clamp(value, least, most);
 
+	/// <summary>Bumped whenever the camera moves. What is pinned to the ground over the viewport only
+	/// has to be put back where the camera has it when this has changed.</summary>
+	public int CameraMoved { get; private set; }
+
 	private void UpdateCamera()
 	{
+		CameraMoved++;
 		float pitch = Mathf.DegToRad(CameraPitchDegrees);
 		_camera.Position = _focus + new Vector3(0, -Mathf.Sin(pitch) * _distance, Mathf.Cos(pitch) * _distance);
 		_camera.RotationDegrees = new Vector3(CameraPitchDegrees, 0, 0);

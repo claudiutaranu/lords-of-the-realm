@@ -195,6 +195,9 @@ public partial class CampaignMapPage : Control
 	/// <summary>The question the trail on the map answers: which company, from where, to which cell,
 	/// with how much of its season left. The mouse moves a good deal more often than it changes cell.</summary>
 	private (FieldArmy Army, Vector2 From, Vector2I Cell, float Left)? _marchAsked;
+
+	/// <summary>The camera and window the pins and the trail were last projected for (see _Process).</summary>
+	private (int Camera, Vector2 Window)? _projectedFor;
 	private ArmyPanel _army;
 	private QuestionPanel _ask;
 	private SplitPanel _splitting;
@@ -632,6 +635,7 @@ public partial class CampaignMapPage : Control
 	private void LayTrail(List<(Vector2 At, float Spent)> road, float budget)
 	{
 		_trailSteps.Clear();
+		_projectedFor = null; // a new trail goes on screen whether or not the camera has moved
 		if (road.Count == 0)
 		{
 			_trail.Lay(System.Array.Empty<(Vector2, MarchTrail.Mark, int, bool)>());
@@ -689,8 +693,8 @@ public partial class CampaignMapPage : Control
 	/// <summary>How many season marks a trail shows before it stops counting.</summary>
 	private const int MostSeasonsShown = 9;
 
-	/// <summary>Puts the trail where the camera currently has it. Done every frame with the pins, for
-	/// the same reason: the map moves under them.</summary>
+	/// <summary>Puts the trail where the camera currently has it. Done with the pins, whenever they are,
+	/// for the same reason: the map moves under them.</summary>
 	private void ProjectTrail()
 	{
 		var beads = new List<(Vector2, MarchTrail.Mark, int, bool)>(_trailSteps.Count);
@@ -2274,10 +2278,18 @@ public partial class CampaignMapPage : Control
 
 	private const int ScoutsRoundSmall = 50;
 
-	// Markers are 2D art pinned to 3D ground, so every frame the camera moves they have to be
-	// re-projected; one unproject per province is cheaper than tracking whether it moved.
+	// Markers are 2D art pinned to 3D ground, so every frame the camera moves — or the window is
+	// resized under it — they have to be re-projected. A frame where neither happened leaves them
+	// where they are.
 	public override void _Process(double delta)
 	{
+		var view = (_world.CameraMoved, _world.GetViewport().GetVisibleRect().Size);
+		if (_projectedFor == view)
+		{
+			return;
+		}
+
+		_projectedFor = view;
 		if (_trailSteps.Count > 0)
 		{
 			ProjectTrail();

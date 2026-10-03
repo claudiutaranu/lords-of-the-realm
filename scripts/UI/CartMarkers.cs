@@ -16,6 +16,10 @@ public partial class CartMarkers : Control
 	private CampaignMap3D _world;
 	private System.Func<List<Shipment>> _carts;
 
+	/// <summary>The cart each mark was last dressed for, child by child. A cart's load does not change
+	/// on the road, so what it is marked with is looked up once and not every frame.</summary>
+	private readonly List<Shipment> _dressed = new();
+
 	public void Watch(CampaignMap3D world, System.Func<List<Shipment>> carts)
 	{
 		_world = world;
@@ -36,6 +40,7 @@ public partial class CartMarkers : Control
 			TextureRect mark = Chrome.Icon("food", Side);
 			mark.Size = new Vector2(Side, Side);
 			AddChild(mark);
+			_dressed.Add(null);
 		}
 
 		for (int index = GetChildCount() - 1; index >= carts.Count; index--)
@@ -43,6 +48,7 @@ public partial class CartMarkers : Control
 			Node spare = GetChild(index);
 			RemoveChild(spare);
 			spare.QueueFree();
+			_dressed.RemoveAt(index);
 		}
 
 		for (int index = 0; index < carts.Count; index++)
@@ -51,10 +57,10 @@ public partial class CartMarkers : Control
 			Shipment cart = carts[index];
 			// Marked by what it carries: the lord should be able to tell his herd on the road from his
 			// harvest, and both from the timber for the wall.
-			Texture2D look = GD.Load<Texture2D>($"{Chrome.IconDirectory}/{SupplyPanel.IconOf(cart.Goods.Keys.First())}.png");
-			if (mark.Texture != look)
+			if (_dressed[index] != cart)
 			{
-				mark.Texture = look;
+				mark.Texture = GD.Load<Texture2D>($"{Chrome.IconDirectory}/{SupplyPanel.IconOf(cart.Goods.Keys.First())}.png");
+				_dressed[index] = cart;
 			}
 
 			mark.Visible = _world.TryScreenPosition(new Vector2(cart.X, cart.Y), out Vector2 onScreen);
