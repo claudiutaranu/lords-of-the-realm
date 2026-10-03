@@ -188,6 +188,7 @@ public partial class BattlefieldSquads : Node3D
 			return;
 		}
 
+		Reach(chosen);
 		float turn = Mathf.Min(1f, delta * Turning);
 		float clock = _battle.Clock + (between * FieldBattle.Slice);
 		int bars = 0;
