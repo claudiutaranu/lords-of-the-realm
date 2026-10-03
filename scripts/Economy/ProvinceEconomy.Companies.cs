@@ -135,24 +135,6 @@ public partial class ProvinceEconomy
 		return men;
 	}
 
-	/// <summary>The company a county-wide order falls to: the biggest one it still has ground for,
-	/// or null when every man it has is spent or on the walls. The sidebar's March is a county's
-	/// button rather than an army's, and this is what it means by "the army".</summary>
-	public FieldArmy Readiest()
-	{
-		FieldArmy best = null;
-		foreach (FieldArmy standing in Armies)
-		{
-			if (standing.MarchLeft > 0f && standing.Strength > 0
-				&& (best == null || standing.Strength > best.Strength))
-			{
-				best = standing;
-			}
-		}
-
-		return best;
-	}
-
 	/// <summary>Every kind of soldier the county has anywhere — standing in the field with one of
 	/// its companies, or on the gate. What the walls are manned off.</summary>
 	public List<string> Companies()

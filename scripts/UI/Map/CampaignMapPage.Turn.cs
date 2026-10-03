@@ -51,11 +51,27 @@ public partial class CampaignMapPage
 	/// <summary>Between End Turn and dawn, or after the end of the reign. The other lords have taken
 	/// their turn by then and the save has no way to say so, so a campaign saved — or carried through
 	/// the options — while their banners walk would hand them a second turn when it is opened.</summary>
-	private bool TurnUnderway => _turnTransition.Visible || _rivalsMarching || _fallen.Visible;
+	private bool TurnUnderway => _turnTransition.Visible || _rivalsMarching || _fallen.Visible || _victory.Visible;
 
 	private const string MidTurnRefusal = "Not while the season is turning";
 
 	private FallenPanel _fallen;
+	private VictoryPanel _victory;
+
+	/// <summary>Whether the map is won — no lord but the player holds a county — and if so the
+	/// congratulations said over it. Asked whenever a county can have changed hands.</summary>
+	private bool Won()
+	{
+		if (!_turnManager.RivalsFallen || _victory.Visible)
+		{
+			return _victory.Visible;
+		}
+
+		int years = _turnManager.Turn / 4;
+		_victory.Announce(RealmName(_playerRealm), _turnManager.CurrentSeason, _turnManager.CurrentYear, _turnManager.Turn,
+			$"Won in {_turnManager.Turn} seasons{(years > 0 ? $", some {years} year{(years == 1 ? "" : "s")}" : "")}.");
+		return true;
+	}
 
 	/// <summary>Whether the player has lost his last county, and if so the end of the reign said
 	/// over the map. Asked after the other lords have marched and after the season, the two moments
@@ -123,7 +139,7 @@ public partial class CampaignMapPage
 			// The season turns over next and redraws the walls, the villages and the trodden fields
 			// behind its curtain; drawn here too, the whole map was built twice in a breath. Only a
 			// reign that has ended here gets no curtain, and is shown the map it lost.
-			if (!Fell())
+			if (!Fell() && !Won())
 			{
 				TurnTheSeason();
 				return;
@@ -243,7 +259,7 @@ public partial class CampaignMapPage
 			// the county in front of him, so he can see the flooded fields the advisor is describing.
 			// A season where nothing happened tells nothing and the panel is never seen. A reign that
 			// ended this season is told that, and nothing else.
-			if (!Fell())
+			if (!Fell() && !Won())
 			{
 				_advisor.Tell(_turnManager.News);
 			}

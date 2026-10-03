@@ -5,17 +5,6 @@ using Godot;
 /// lord's.</summary>
 public partial class ProvinceSidebar
 {
-	/// <summary>The one order that is given from here rather than from a room: an army marches off
-	/// the map it is standing on. Hidden — not greyed — when there is nobody to march or no march
-	/// left in them, because an order a county cannot give is not an order it should be offered.</summary>
-	private void BuildMarch()
-	{
-		_march = new Button { CustomMinimumSize = new Vector2(0, 40) };
-		_march.AddThemeFontSizeOverride("font_size", 15);
-		_march.Pressed += () => MarchPressed?.Invoke();
-		_held.AddChild(_march);
-	}
-
 	// --- building the thing ------------------------------------------------------------------
 
 	private void BuildHeader()

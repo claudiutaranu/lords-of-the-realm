@@ -121,7 +121,7 @@ The men live in **companies** (`FieldArmy`), not in one roster per county:
 - Two companies halting in the same field are joined only if the player says so (`JoinPanel` →
   `TurnManager.Merge`, which keeps the slower pair of legs). Splitting is `SplitPanel`. Disbanding
   returns the men to `Population` — they were taken out of it when they were raised.
-- `ProvinceEconomy.Readiest()` is what a county-wide order (the sidebar's March) means.
+- A company is marched from its own banner on the map (or its army panel's Move); the sidebar has no March.
 
 ## Battles
 

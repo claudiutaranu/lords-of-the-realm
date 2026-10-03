@@ -20,6 +20,11 @@ public partial class CampaignMapPage
 		// And over the advisor, the end of it all, when there is nothing left to be advised about.
 		_fallen = new FallenPanel();
 		AddChild(_fallen);
+		_victory = new VictoryPanel();
+		AddChild(_victory);
+		// ponytail: the England campaign's second map is not playable yet, so Next goes back to the
+		// campaign page; once it is, it opens that map's briefing.
+		_victory.Next += () => SceneRouter.GoTo(this, CampaignSelectionScenePath);
 		_fallen.Chosen += load => SceneRouter.GoTo(this, load ? LoadGameScenePath : MainMenuScenePath);
 
 		_taxes = new TaxPanel();
@@ -61,15 +66,6 @@ public partial class CampaignMapPage
 		AddChild(_stores);
 		_sidebar.StorePressed += OpenStore;
 		_stores.SupplyPressed += OpenSupply;
-		_sidebar.MarchPressed += () =>
-		{
-			if (_selected != null)
-			{
-				// The county's button means the company it would send. Which one that is, the county
-				// answers — every other company is taken hold of by its own banner on the map.
-				TakeUpArmy(_turnManager.GetProvince(_provinces[_markers.IndexOf(_selected)].Name)?.Readiest());
-			}
-		};
 	}
 
 	/// <summary>The trail an army in hand would walk, the reading beside the pointer, and the carts on the road.</summary>
@@ -148,6 +144,7 @@ public partial class CampaignMapPage
 			}
 
 			Conquered();
+			Won();
 		};
 
 		// Which men stay and which walk off is the lord's to say, kind by kind, before anything moves.

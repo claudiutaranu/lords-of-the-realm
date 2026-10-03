@@ -29,6 +29,10 @@ public partial class TurnManager
 		}
 	}
 
+	/// <summary>True once no lord but the player holds a county: every rival on the map has been
+	/// driven from the last of his land, and the map is won.</summary>
+	public bool RivalsFallen => !PlayerFallen && Rivals().Count == 0;
+
 	/// <summary>Fights for a county, and writes what the day cost into the ledger.
 	///
 	/// <paramref name="walls"/> picks which of the two fights this is. What is standing in the open

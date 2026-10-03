@@ -65,7 +65,6 @@ public partial class ProvinceSidebar : VBoxContainer
 	private Label _loyalty;
 	private Label _tax;
 	private Label _ration;
-	private Button _march;
 	private readonly Dictionary<ResourceType, Label> _stock = new();
 	private readonly Dictionary<ResourceType, Label> _yield = new();
 	private readonly Dictionary<ResourceType, TextureRect> _stockIcon = new();
@@ -96,10 +95,6 @@ public partial class ProvinceSidebar : VBoxContainer
 	/// <summary>And with whoever keeps one of the stores: the cow, the basket, the woodpile.</summary>
 	public event System.Action<ResourceType> StorePressed;
 
-	/// <summary>The lord wants his men to march. The sidebar knows they exist and that they have a
-	/// move left; where they are going is the map's question, not this panel's.</summary>
-	public event System.Action MarchPressed;
-
 	private ProvinceEconomy _economy;
 	private ProvinceDefinition _definition;
 	private GameBalance _balance;
@@ -122,7 +117,6 @@ public partial class ProvinceSidebar : VBoxContainer
 		_held.AddChild(_works);
 		BuildLabour();
 		BuildArmoury();
-		BuildMarch();
 
 		BuildForeign();
 	}
@@ -170,17 +164,6 @@ public partial class ProvinceSidebar : VBoxContainer
 		_population.Text = held ? _economy.Population.ToString("N0") : "—";
 		_loyalty.Text = held ? Mathf.RoundToInt(_economy.Loyalty).ToString() : "—";
 		_tax.Text = held ? $"{_economy.Tax}%" : "—";
-
-		// A county's button means the company it would send: the biggest one with a season left in
-		// its legs. Everything else is ordered about by its own banner on the map.
-		FieldArmy ready = held ? _economy.Readiest() : null;
-		_march.Visible = ready != null;
-		if (ready != null)
-		{
-			// In paces of good road, which is the only unit a lord can hold in his head: the map
-			// charges more than a pace for a pace of hillside, and it says so as he points at it.
-			_march.Text = $"March  ({Mathf.RoundToInt(ready.MarchLeft / _balance.MarchCostByRoad):N0} paces)";
-		}
 
 		_ration.Text = held ? _economy.Ration.ToString() : "—";
 
