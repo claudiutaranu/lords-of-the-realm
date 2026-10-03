@@ -52,12 +52,22 @@ public partial class RecruitsPage : ProductionPage
 
 	protected override int DetailWidth => 360;
 
-	/// <summary>Every man is taken out of the province's own people, so the most that can be raised
-	/// is the people there are to take. Arms cap an intake too, but not the slider: running out of
-	/// swords is worth showing in red on a price the player can still reach for, where a slider that
-	/// stops short only looks broken.</summary>
-	protected override int OrderCeiling(Item item) =>
-		item.Cost.TryGetValue("people", out int each) && each > 0 ? Mustered("people") / each : 0;
+	/// <summary>The most that can be raised: as many as every purse the card draws on can pay for —
+	/// the people there are to take and the weapons in the armoury alike, with whatever the muster on
+	/// the table has already claimed — so the slider stops at what the yard can actually turn out.</summary>
+	protected override int OrderCeiling(Item item)
+	{
+		int most = int.MaxValue;
+		foreach ((string purse, int each) in item.Cost)
+		{
+			if (each > 0)
+			{
+				most = Mathf.Min(most, Mustered(purse) / each);
+			}
+		}
+
+		return most == int.MaxValue ? 0 : most;
+	}
 
 	// The yard chooses off cards along the foot of the page, not off signs on a wall.
 	protected override Dictionary<string, Vector2> SignSpots { get; } = new();

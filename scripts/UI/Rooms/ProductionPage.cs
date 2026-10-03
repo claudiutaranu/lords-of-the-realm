@@ -228,6 +228,9 @@ public abstract partial class ProductionPage : RoomPage
 
 		if (Sized(_chosen))
 		{
+			// Never more on the order than the room can now pay for: a muster that took the last bows
+			// leaves the next card asking for thirty out of none.
+			_count = Mathf.Min(_count, Ceiling(_chosen));
 			Detail.AddChild(Stepper(null, _count, OrderStep, Ceiling(_chosen), settled =>
 			{
 				_count = settled;
