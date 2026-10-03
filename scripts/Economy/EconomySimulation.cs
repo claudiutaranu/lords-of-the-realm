@@ -14,7 +14,7 @@ using Godot;
 /// Everything a task can absorb is its <see cref="Demand"/>; what it actually gets is the hands
 /// allocated to it, capped at that. Hands above the demand stand idle and are counted, so a player
 /// can see the waste rather than wonder where his season went.</summary>
-public static class EconomySimulation
+public static partial class EconomySimulation
 {
 	public static TurnSummary RunTurn(ProvinceEconomy province, ProvinceDefinition definition, GameBalance balance, Season season)
 	{
@@ -101,23 +101,6 @@ public static class EconomySimulation
 		return Mathf.Max(0, idle);
 	}
 
-	// --- what comes out of the ground -------------------------------------------------------------
-
-	/// <summary>Wood, stone and iron, which unlike grain are worked every season there are hands for
-	/// it. The winter multipliers slow them — frozen ground, short days — and so does a site still
-	/// learning its work (Labour.Practise).</summary>
-	private static void Dig(ProvinceEconomy p, ProvinceDefinition def, GameBalance b, Season season)
-	{
-		p.Wood += Dug(Labour.Wood, p.WoodWorkers, def.WoodWorkerCapacity, b.WoodYieldPerWorker * def.WoodModifier, b.WoodSeasonMultiplier[(int)season], p);
-		p.Stone += Dug(Labour.Stone, p.StoneWorkers, def.StoneWorkerCapacity, b.StoneYieldPerWorker * def.StoneModifier, b.StoneSeasonMultiplier[(int)season], p);
-		p.Iron += Dug(Labour.Iron, p.IronWorkers, def.IronWorkerCapacity, b.IronYieldPerWorker * def.IronModifier, b.IronSeasonMultiplier[(int)season], p);
-	}
-
-	/// <summary>What one diggings brings up: every hand on it at the site's rate, as practised as
-	/// the site is. Nothing where the county has none of it, however many are sent.</summary>
-	private static int Dug(string site, int hands, int capacity, float perHand, float seasonal, ProvinceEconomy p) =>
-		capacity <= 0 ? 0 : Mathf.RoundToInt(hands * perHand * seasonal * p.EfficiencyOf(site) / 100f);
-
 	// --- what goes into the people ----------------------------------------------------------------
 
 	/// <summary>What the reeve will bring in this season at the rate the lord has set
@@ -143,151 +126,6 @@ public static class EconomySimulation
 		summary.LoyaltyFromRations = Livelihood.RationTerm(served);
 		p.Loyalty = Mathf.Clamp(p.Loyalty + summary.LoyaltyFromTax + summary.LoyaltyFromHealth
 			+ summary.LoyaltyFromRations, 0f, 100f);
-	}
-
-	/// <summary>The season's wages, out of what the reeve just brought in. A treasury that cannot
-	/// cover them pays what it can and loses the difference in men: the unpaid do not stand about
-	/// being unpaid, they go home. An army bigger than its county can carry therefore empties the
-	/// purse first and then thins itself, which is the honest end of overreaching — rather than a
-	/// negative number in the treasury that nothing in the game knows how to answer.</summary>
-	private static void PayTheGarrison(ProvinceEconomy p, GameBalance b, TurnSummary summary)
-	{
-		int owed = Mathf.CeilToInt(p.Soldiers * b.WagePerSoldier);
-		if (owed <= 0)
-		{
-			return;
-		}
-
-		summary.Wages = Mathf.Min(owed, p.Gold);
-		p.Gold -= summary.Wages;
-
-		float unpaid = (float)(owed - summary.Wages) / owed;
-		if (unpaid > 0f)
-		{
-			summary.Deserted = Disband(p, unpaid * b.DesertionRate);
-		}
-	}
-
-	/// <summary>Thins every company by the same share and gives back how many left. Rounded up, so
-	/// a company that is owed anything at all loses somebody — a desertion of nought men is a
-	/// consequence the player cannot see.</summary>
-	private static int Disband(ProvinceEconomy p, float share)
-	{
-		int gone = Thin(p.Castle, share);
-		foreach (FieldArmy standing in p.Armies)
-		{
-			gone += Thin(standing.Men, share);
-		}
-
-		// A company nobody is left in is a company that is not there any more, rather than a banner
-		// standing over an empty field.
-		p.Bury();
-		return gone;
-	}
-
-	/// <summary>Thins one roster. The walls go on the same terms as the field: a man on the gate who
-	/// is not paid walks home like anybody else, and a castle that quietly kept its garrison for
-	/// nothing would be the one place in the realm where soldiering was free.</summary>
-	private static int Thin(Dictionary<string, int> roster, float share)
-	{
-		int gone = 0;
-		foreach (string unit in new List<string>(roster.Keys))
-		{
-			int leaving = Mathf.Min(roster[unit], Mathf.CeilToInt(roster[unit] * share));
-			if (leaving <= 0)
-			{
-				continue;
-			}
-
-			gone += leaving;
-			roster[unit] -= leaving;
-			if (roster[unit] <= 0)
-			{
-				roster.Remove(unit);
-			}
-		}
-
-		return gone;
-	}
-
-	// --- work already paid for --------------------------------------------------------------------
-
-	/// <summary>How many weapons the smiths at the anvil can hammer in a season, as practised as the
-	/// smithy is, whatever the stores say.</summary>
-	public static int Forgeable(ProvinceEconomy p, GameBalance b) =>
-		p.SmithWorkers * p.EfficiencyOf(Labour.Smith) / 100 / Mathf.Max(1, b.SmithsPerWeapon);
-
-	/// <summary>A season at the anvil: as many of the weapon in hand as the smiths can make and the
-	/// stores pay for, each paid for as it is made. Whatever an older save still had on order lands
-	/// first — it was paid for long ago.</summary>
-	private static void ForgeWeapons(ProvinceEconomy p, GameBalance b, TurnSummary summary)
-	{
-		if (p.Forging.Length == 0)
-		{
-			return;
-		}
-
-		p.Add(p.Forging, p.ForgeBatch);
-		p.ForgeBatch = 0;
-
-		int made = Mathf.Min(Forgeable(p, b), Smithy.Affordable(p, p.Forging));
-		if (made <= 0)
-		{
-			return;
-		}
-
-		foreach ((string store, int each) in Smithy.Recipe(p.Forging))
-		{
-			p.Add(store, -each * made);
-		}
-
-		p.Add(p.Forging, made);
-		summary.Forged = made;
-	}
-
-	/// <summary>The masons work another season on whatever was ordered, and the new wall replaces
-	/// the old one on the season it is finished. It was paid for when the order was placed, so
-	/// nothing is spent here — a province that falls on hard times still gets the castle it already
-	/// bought.</summary>
-	private static void RaiseFortification(ProvinceEconomy p, GameBalance b, TurnSummary summary)
-	{
-		if (p.Building.Length == 0)
-		{
-			return;
-		}
-
-		// A wall is work, not a wait: the masons on it this season take their share out of what is
-		// left of it. The seasons the fortifications room quotes are what it takes at the nominal
-		// gang, so a lord who puts his idle county on the walls finishes in half the time, and one
-		// who puts nobody on them watches the scaffolding stand there.
-		p.BuildLeft = Mathf.Max(0, p.BuildLeft - p.BuildWorkers);
-		p.BuildSeasonsLeft = Mathf.CeilToInt((float)p.BuildLeft / Mathf.Max(1, b.MasonsPerBuildSeason));
-		if (p.BuildLeft > 0)
-		{
-			return;
-		}
-
-		p.Fortification = p.Building;
-		summary.WallRaised = p.Building;
-		p.Building = "";
-		p.BuildWorkers = 0;
-	}
-
-	/// <summary>Takes men out of the county and puts them under arms, which costs it twice: the
-	/// people are gone from the roll, and the hands they were are gone from the work.
-	///
-	/// The idle are spent first — they are standing about for exactly this — and whatever is still
-	/// owed comes off the industries in proportion to what each of them holds, so a levy does not
-	/// gut the harvest and leave the mine untouched. A county cannot have more men at work than it
-	/// has men, and the screens would otherwise go on reading the old allocation as if it were
-	/// still being worked.</summary>
-	public static void Conscript(ProvinceEconomy p, int men)
-	{
-		// The sons are resented the day they are taken, by the share of the county that went — as in
-		// the original, where a county at nothing can give no more.
-		p.Loyalty = Mathf.Max(0f, p.Loyalty - Livelihood.RecruitingCost(men, p.Population));
-		p.Population = Mathf.Max(0, p.Population - men);
-		FitWorkforce(p);
 	}
 
 	/// <summary>Trims the county's work back to the men it actually has.
