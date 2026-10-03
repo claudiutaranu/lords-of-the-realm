@@ -196,12 +196,14 @@ public partial class CampaignMapPage
 	/// <summary>Sends the men where the cursor was pointing. Everything about the ground was settled
 	/// when the trail was drawn; this pays for it and walks it.</summary>
 	private bool March(FieldArmy army, Vector2 where) =>
-		army != null && !_rivalsMarching && _world.TryMapPixel(where, out Vector2 ground) && MarchOn(army, ground, false);
+		army != null && !_rivalsMarching && _world.TryMapPixel(where, out Vector2 ground) && MarchOn(army, ground, false, null);
 
 	/// <summary>The march itself, to a point on the ground. One that would halt at another lord's gate
 	/// asks first (<paramref name="sure"/> is the lord's yes): it is the one march that starts a battle
-	/// nobody can call off.</summary>
-	private bool MarchOn(FieldArmy army, Vector2 ground, bool sure)
+	/// nobody can call off. One sent onto another of his own companies asks first too whether the two
+	/// are to be one (<paramref name="join"/>, his answer, null until he has given it), so the
+	/// question is put while he is still pointing and not after the walk.</summary>
+	private bool MarchOn(FieldArmy army, Vector2 ground, bool sure, bool? join)
 	{
 		List<(Vector2 At, float Spent)> road = _ground.Way(ArmyPixel(army), ground, Beyond(army));
 		int halt = Halting(road, army.MarchLeft);
@@ -243,7 +245,15 @@ public partial class CampaignMapPage
 				$"{army.Strength:N0} men of {army.Home} will halt at the gate of {into}, held by {holder}, and "
 				+ "the battle for it is fought there and then: whoever stands in the open, then whoever is "
 				+ "on the walls, to the last man.",
-				"Attack", "Not now", () => MarchOn(army, ground, true));
+				"Attack", "Not now", () => MarchOn(army, ground, true, join));
+			return true;
+		}
+
+		FieldArmy meeting = Joinable(army, into, road[^1].At);
+		if (join == null && meeting != null)
+		{
+			_ask.Ask("Two banners, one field", JoinReading(army, meeting, into), "Put them under one banner",
+				"March, but keep them apart", () => MarchOn(army, ground, sure, true), () => MarchOn(army, ground, sure, false));
 			return true;
 		}
 
@@ -305,18 +315,13 @@ public partial class CampaignMapPage
 				return;
 			}
 
-			// Where they have halted beside another of the lord's companies, the two of them are one
-			// army only if he says so. Nothing has joined by the time this is asked.
-			FieldArmy beside = Beside(army);
-			if (beside != null)
+			// Joined as he said when he sent them, and only if they did reach the company he sent them to.
+			if (join == true && meeting is { Strength: > 0 } && meeting.County == army.County
+				&& ArmyPixel(meeting).DistanceTo(ArmyPixel(army)) <= JoinReach)
 			{
-				_ask.Ask("Two banners, one field", JoinReading(army, beside), "Put them under one banner",
-					"Leave them as they are", () =>
-				{
-					_turnManager.Merge(beside, army);
-					ShowArmies();
-					_sidebar.Refresh();
-				});
+				_turnManager.Merge(meeting, army);
+				ShowArmies();
+				_sidebar.Refresh();
 			}
 		});
 

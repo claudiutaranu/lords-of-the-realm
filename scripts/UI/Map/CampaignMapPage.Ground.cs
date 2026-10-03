@@ -83,23 +83,37 @@ public partial class CampaignMapPage
 		return theirs == null || theirs.Realm != _playerRealm;
 	}
 
-	/// <summary>What two companies halted in one field are, told before the lord is asked whether they
-	/// are one army now. Two of the same county are the usual case, and naming it three times in one
-	/// sentence reads like a ledger rather than like a lord being told something.</summary>
-	private static string JoinReading(FieldArmy arriving, FieldArmy standing)
+	/// <summary>What sending a company onto another of the lord's own comes to, told before he says
+	/// whether they are to be one army. Two of the same county are the usual case, and naming it three
+	/// times in one sentence reads like a ledger rather than like a lord being told something.</summary>
+	private static string JoinReading(FieldArmy coming, FieldArmy standing, string county)
 	{
-		string who = arriving.Home == standing.Home
-			? $"{arriving.Strength:N0} men of {arriving.Home} have halted beside {standing.Strength:N0} more "
-				+ "of their own"
-			: $"{arriving.Strength:N0} men of {arriving.Home} have halted beside {standing.Strength:N0} "
-				+ $"of {standing.Home}";
+		string who = coming.Home == standing.Home
+			? $"{coming.Strength:N0} men of {coming.Home} will halt beside {standing.Strength:N0} more of their own"
+			: $"{coming.Strength:N0} men of {coming.Home} will halt beside {standing.Strength:N0} of {standing.Home}";
+		return $"{who}, in {county}. Under one banner they march as one company, with the ground the slower "
+			+ "of them has left.";
+	}
 
-		string where = arriving.County == arriving.Home
-			? "on their own ground"
-			: $"in {arriving.County}";
+	/// <summary>The lord's own company standing where another of his is being sent, which the two could
+	/// be joined to, or null. A hired band is never joined to anybody (TurnManager.Merge).</summary>
+	private FieldArmy Joinable(FieldArmy army, string county, Vector2 at)
+	{
+		if (army.IsHired)
+		{
+			return null;
+		}
 
-		return $"{who}, {where}. Under one banner they march as one company, with the ground "
-			+ "the slower of them has left.";
+		foreach (FieldArmy other in _turnManager.Armies())
+		{
+			if (other != army && other.Strength > 0 && !other.IsHired && other.County == county
+				&& _turnManager.RealmOf(other) == _playerRealm && ArmyPixel(other).DistanceTo(at) <= JoinReach)
+			{
+				return other;
+			}
+		}
+
+		return null;
 	}
 
 	/// <summary>Another lord's company standing where this one has just halted, or null — the one a
@@ -125,29 +139,6 @@ public partial class CampaignMapPage
 		}
 
 		return nearest;
-	}
-
-	/// <summary>The other company of the lord's standing where this one has just halted, or null.
-	/// What the join is offered over: men who could see each other across the same field.</summary>
-	private FieldArmy Beside(FieldArmy army)
-	{
-		// A hired band is never joined to anybody (TurnManager.Merge), so there is nothing to ask.
-		if (army.IsHired)
-		{
-			return null;
-		}
-
-		foreach (FieldArmy other in _turnManager.Armies())
-		{
-			if (other != army && other.Strength > 0 && !other.IsHired && other.County == army.County
-				&& _turnManager.RealmOf(other) == _playerRealm
-				&& ArmyPixel(other).DistanceTo(ArmyPixel(army)) <= JoinReach)
-			{
-				return other;
-			}
-		}
-
-		return null;
 	}
 
 	private string CountyNameAt(Vector2 pixel)

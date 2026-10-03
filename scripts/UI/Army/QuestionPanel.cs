@@ -12,6 +12,7 @@ public partial class QuestionPanel : Control
 	private Button _yes;
 	private Button _no;
 	private System.Action _agreed;
+	private System.Action _declined;
 
 	public override void _Ready()
 	{
@@ -59,7 +60,12 @@ public partial class QuestionPanel : Control
 		});
 		column.AddChild(_yes);
 
-		_no = Order("", Close);
+		_no = Order("", () =>
+		{
+			System.Action declined = _declined;
+			Close();
+			declined?.Invoke();
+		});
 		column.AddChild(_no);
 	}
 
@@ -73,9 +79,13 @@ public partial class QuestionPanel : Control
 
 	/// <summary>Puts the question. <paramref name="agreed"/> is what yes means — the panel decides
 	/// nothing itself, because what it does to the ledger is the ledger's business.</summary>
-	public void Ask(string title, string reading, string yes, string no, System.Action agreed)
+	/// <remarks><paramref name="declined"/> is what the no button means where it is a choice and not a
+	/// refusal; anywhere else, or Escape, still changes nothing.</remarks>
+	public void Ask(string title, string reading, string yes, string no, System.Action agreed,
+		System.Action declined = null)
 	{
 		_agreed = agreed;
+		_declined = declined;
 		_title.Text = title;
 		_reading.Text = reading;
 		_yes.Text = yes;
@@ -89,6 +99,7 @@ public partial class QuestionPanel : Control
 	private void Close()
 	{
 		_agreed = null;
+		_declined = null;
 		Tween tween = CreateTween();
 		tween.TweenProperty(this, "modulate:a", 0.0, FadeSeconds);
 		tween.TweenCallback(Callable.From(() => Visible = false));
