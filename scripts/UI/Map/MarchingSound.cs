@@ -12,6 +12,12 @@ public partial class MarchingSound : AudioStreamPlayer
 	private const float Silent = -60f;
 
 	private int _walking;
+	private float _hurry;
+
+	/// <summary>How much quicker and louder the tramp is when every man moving is running rather than
+	/// walking: the same feet, at a run's pace.</summary>
+	private const float RunPitch = 1.35f;
+	private const float RunLouder = 4f;
 
 	/// <summary>What is heard: the field's tramp unless its owner says otherwise before it is added
 	/// (the map has a march of its own, taken off a film, looped by blending its last second into
@@ -37,13 +43,19 @@ public partial class MarchingSound : AudioStreamPlayer
 	/// <summary>One company has halted.</summary>
 	public void Leave() => _walking = Mathf.Max(0, _walking - 1);
 
-	/// <summary>How many are walking right now, for an owner that counts them itself every frame.</summary>
-	public void Walking(int count) => _walking = count;
+	/// <summary>How many are walking right now, for an owner that counts them itself every frame, and
+	/// how many of those are running.</summary>
+	public void Walking(int count, int running = 0)
+	{
+		_walking = count;
+		_hurry = count > 0 ? running / (float)count : 0f;
+	}
 
 	public override void _Process(double delta)
 	{
-		float wanted = _walking > 0 ? Loudness : Silent;
+		float wanted = _walking > 0 ? Loudness + (RunLouder * _hurry) : Silent;
 		VolumeDb = Mathf.MoveToward(VolumeDb, wanted, FadeRate * (float)delta);
+		PitchScale = Mathf.MoveToward(PitchScale, Mathf.Lerp(1f, RunPitch, _hurry), (float)delta);
 		if (VolumeDb > Silent && !Playing)
 		{
 			Play();

@@ -191,12 +191,15 @@ public partial class Battlefield : Control
 
 		_chosen.RemoveAll(squad => !squad.IsStanding);
 		int walking = 0;
+		int running = 0;
 		foreach (FieldSquad squad in _battle.Squads)
 		{
-			walking += squad.IsStanding && squad.IsMoving && !_isPaused ? 1 : 0;
+			bool moving = squad.IsStanding && squad.IsMoving && !_isPaused;
+			walking += moving ? 1 : 0;
+			running += moving && squad.IsRunning ? 1 : 0;
 		}
 
-		_tramp.Walking(walking);
+		_tramp.Walking(walking, running);
 		_tramp.Loudness = TrampLoudness + Hushed();
 		_squads.Follow(_isPaused ? 0f : (float)delta, _owed / FieldBattle.Slice, _chosen, _camera, _eye <= BarsWithin && _eye >= BarsBeyond);
 		_bar.Refresh(_chosen, _isPaused);
