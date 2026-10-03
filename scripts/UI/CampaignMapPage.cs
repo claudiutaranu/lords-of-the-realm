@@ -425,7 +425,6 @@ public partial class CampaignMapPage : Control
 			ShowArmies();
 			ShowFortifications();
 			ShowSettlements();
-			LayGround();
 			if (_selected != null)
 			{
 				SelectProvince(_markers.IndexOf(_selected));
@@ -564,12 +563,12 @@ public partial class CampaignMapPage : Control
 		ShowArmies();
 		Conquered(); // takes note of what the lord opens with; nothing is announced
 
-		// The ground an army may cross, cut once the map and the ledger both exist: it needs the
-		// height of the land, the roads drawn on it, and which counties are already somebody's.
+		// The ground an army may cross, cut once: the height of the land, the ditches dug along its
+		// borders and the roads drawn on it. Who holds a county is no part of it — a conquest moves a
+		// frontier on the map, not a stone of the ground — so nothing ever lays it again.
 		LayGround();
 
 		// And handed to the turn, so the other lords march over the same ground by the same rules.
-		// Through a closure on the field, because a county taken lays the ground again.
 		var towns = new Dictionary<string, Vector2>();
 		foreach (ProvinceData province in _provinces)
 		{
@@ -580,7 +579,7 @@ public partial class CampaignMapPage : Control
 		}
 
 		_turnManager.Survey((from, to) => _ground.Way(from, to, float.MaxValue), CountyNameAt, towns,
-			MapDecoration.TownRing, FieldUnder, SiteUnder, _world.GroundOf, (from, to) => _ground.Reaches(from, to));
+			MapDecoration.TownRing, FieldUnder, SiteUnder, _world.GroundOf, _ground.Reaches);
 
 		// What the counties are growing — the first thing back on the ground, because a field is not
 		// decoration: it is the one thing out here a lord changes from a screen and then sees from the
@@ -1042,7 +1041,6 @@ public partial class CampaignMapPage : Control
 			ShowSettlements();
 			ShowFields(); // and every field the road crossed, trodden black if it was another lord's
 			SelectProvince(county);
-			LayGround(); // a county taken is a county open to walk through
 			Conquered();
 
 			// A county is taken at its own gate and nowhere else. Men who have halted on another
@@ -1378,8 +1376,6 @@ public partial class CampaignMapPage : Control
 		ModulateColor = tint,
 	};
 
-	/// <summary>Reads the played campaign's realms, which of them is yours, and its provinces. Who
-	/// holds what and where each seat sits are the campaign's own file; this page only draws it.</summary>
 	/// <summary>The lines the campaign's roads are drawn along. The same file the map draws them
 	/// from, so the cheap ground an army looks for is exactly the stone the player can see under
 	/// it — a second idea of where the roads are would be wrong the first time somebody moved
@@ -1418,8 +1414,9 @@ public partial class CampaignMapPage : Control
 	/// costs, and whose county it is. Built once, off the same height and ID images the map itself is
 	/// drawn from, so what the player sees and what his army can cross are the same thing.
 	///
-	/// A rival's county is shut outright. There is no way to fight for it yet, and ground an army can
-	/// walk across but not stop on would be a border it could ignore.</summary>
+	/// Everybody's ground is open, a rival's as much as the player's: the men cross his border, and
+	/// what happens when they reach his town happens at his town. His ditches still stop them
+	/// everywhere but at a ford or a road, which is what a ditch is for.</summary>
 	private void LayGround()
 	{
 		LoadRoads();
@@ -1460,13 +1457,10 @@ public partial class CampaignMapPage : Control
 		{
 			_ground.LayRoad(road, _balance.MarchCostByRoad);
 		}
-
-		// A rival's county used to be shut to an army — there was no way to fight for it, so there
-		// was no reason to let anybody walk into it. There is one now: the men cross his border, and
-		// what happens when they reach his town happens at his town. His ditches still stop them
-		// everywhere but at a ford or a road, which is what a ditch is for.
 	}
 
+	/// <summary>Reads the played campaign's realms, which of them is yours, and its provinces. Who
+	/// holds what and where each seat sits are the campaign's own file; this page only draws it.</summary>
 	private void LoadCampaignProvinces()
 	{
 		var file = GD.Load<Json>(Campaign.Data(ProvincesDataFile));
@@ -1623,7 +1617,6 @@ public partial class CampaignMapPage : Control
 			ShowFortifications();
 			ShowSettlements();
 			ShowFields(); // the fields their roads crossed lie trodden black
-			LayGround(); // a county they took is somebody else's ground now
 			if (!Fell())
 			{
 				TurnTheSeason();
