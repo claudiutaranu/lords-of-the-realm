@@ -165,6 +165,19 @@ public partial class CampaignMapPage
 		AddChild(room);
 		_rooms.Add(room);
 
+		// A company raised is a company to march: every room is put away and the lord is back on the
+		// map, with the new banner standing at its seat.
+		if (room is RecruitsPage yard)
+		{
+			yard.ArmyRaised += () =>
+			{
+				foreach (RoomPage open in _rooms.ToArray())
+				{
+					open.Close();
+				}
+			};
+		}
+
 		room.Open(economy);
 		room.Closed += () =>
 		{

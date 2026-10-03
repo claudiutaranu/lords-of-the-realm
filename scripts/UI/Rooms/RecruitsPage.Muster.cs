@@ -34,6 +34,9 @@ public partial class RecruitsPage
 		ShowDetail();
 	}
 
+	/// <summary>Raised once a muster is called and the company stands: the lord goes out to it.</summary>
+	public event System.Action ArmyRaised;
+
 	/// <summary>Calls the muster: everything on the list is paid for and raised, in one go. This is
 	/// the moment the army exists — before it, nothing has been spent and nobody has left the
 	/// fields.</summary>
@@ -69,6 +72,7 @@ public partial class RecruitsPage
 		_muster.Clear();
 		ShowDetail();
 		Refresh();
+		ArmyRaised?.Invoke();
 	}
 
 	private readonly Dictionary<string, int> _muster = new();

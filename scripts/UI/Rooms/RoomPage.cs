@@ -121,8 +121,9 @@ public abstract partial class RoomPage : Control
 		ShowDetail();
 	}
 
-	/// <summary>Shuts the room from inside it, for a page that has its own way out.</summary>
-	protected void Close() => Closed?.Invoke();
+	/// <summary>Shuts the room, from inside it for a page that has its own way out, or from the map
+	/// when everything over it is being put away.</summary>
+	public void Close() => Closed?.Invoke();
 
 	/// <summary>How wide the reading panel stands. The yard's is narrower: eight cards share its row.</summary>
 	protected virtual int DetailWidth => 470;
