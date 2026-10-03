@@ -6,9 +6,9 @@ using Godot;
 /// man, which is what lets a few hundred of them fight ten times a second.</summary>
 public sealed partial class FieldBattle
 {
-	/// <summary>A man who fell: where, facing which way, and of which squad. The screen lays him down
-	/// there, and lets him go a few seconds later.</summary>
-	public readonly record struct Fall(Vector2 At, Vector2 Facing, FieldSquad Squad);
+	/// <summary>A man who fell: who, where, facing which way, and of which squad. The screen lays him
+	/// down there, lets him go a few seconds later, and forgets how he walked.</summary>
+	public readonly record struct Fall(FieldSoldier Man, Vector2 At, Vector2 Facing, FieldSquad Squad);
 
 	private const float Cell = 4f;
 
@@ -139,10 +139,18 @@ public sealed partial class FieldBattle
 	{
 		foreach (FieldSquad squad in Squads)
 		{
-			foreach (FieldSoldier man in squad.Soldiers.FindAll(man => !man.IsStanding))
+			// In the order they stood, as each closing-up leaves the files for the next; walked by hand,
+			// because a list of the dead made for every squad ten times a second was garbage for nothing.
+			for (int i = 0; i < squad.Soldiers.Count; i++)
 			{
-				Fell.Add(new Fall(man.At, man.Facing, squad));
-				squad.Soldiers.Remove(man);
+				FieldSoldier man = squad.Soldiers[i];
+				if (man.IsStanding)
+				{
+					continue;
+				}
+
+				Fell.Add(new Fall(man, man.At, man.Facing, squad));
+				squad.Soldiers.RemoveAt(i--);
 				_meeting.Remove(man);
 				squad.CloseUp(man);
 			}

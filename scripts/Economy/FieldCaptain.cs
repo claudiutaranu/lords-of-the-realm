@@ -91,7 +91,18 @@ public sealed partial class FieldBattle
 		return front.At - (toward * (front.Depth + RowDepth)) + aside;
 	}
 
-	private bool Joined(bool attacking) => Squads.Exists(squad => squad.IsAttacking == attacking && squad.IsFighting);
+	private bool Joined(bool attacking)
+	{
+		foreach (FieldSquad squad in Squads)
+		{
+			if (squad.IsAttacking == attacking && squad.IsFighting)
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
 
 	private bool UnderFire(bool attacking)
 	{

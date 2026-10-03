@@ -72,18 +72,17 @@ public partial class BattlefieldSquads
 	private void HealthBar(int index, Vector3 head, float left, Basis facingUs, Color side)
 	{
 		Vector3 over = head + (Vector3.Up * BarOver);
-		_barsBehind.Multimesh.SetInstanceTransform(index,
-			new Transform3D(facingUs.ScaledLocal(new Vector3(BarWide, BarHigh, 1f)), over));
-		_barsBehind.Multimesh.SetInstanceColor(index, BarBehind);
+		_barsBehind.Place(index, new Transform3D(facingUs.ScaledLocal(new Vector3(BarWide, BarHigh, 1f)), over));
+		_barsBehind.Colour(index, BarBehind);
 
 		// The dark bar is its frame: the health inside it stops short of its edges all round.
 		float share = Mathf.Clamp(left, 0f, 1f);
 		float inside = BarWide - (2f * BarEdge);
 		float wide = inside * share;
 		Vector3 shifted = over - (facingUs.X * ((inside - wide) / 2f));
-		_barsFilled.Multimesh.SetInstanceTransform(index,
+		_barsFilled.Place(index,
 			new Transform3D(facingUs.ScaledLocal(new Vector3(Mathf.Max(0.001f, wide), BarHigh - (2f * BarEdge), 1f)), shifted));
-		_barsFilled.Multimesh.SetInstanceColor(index, side.Lerp(Dying, Mathf.Clamp((LowHealth - share) / LowHealth, 0f, 1f)));
+		_barsFilled.Colour(index, side.Lerp(Dying, Mathf.Clamp((LowHealth - share) / LowHealth, 0f, 1f)));
 	}
 
 	/// <summary>Everyone the battle says has fallen, laid on his back where he stood — and, a few
@@ -92,6 +91,9 @@ public partial class BattlefieldSquads
 	{
 		foreach (FieldBattle.Fall fall in _battle.Fell)
 		{
+			// He is done walking and turning: kept, every man who ever fell stayed in the books.
+			_turned.Remove(fall.Man);
+			_gaits.Remove(fall.Man);
 			Drawn drawn = _bySquad[fall.Squad];
 			SoldierFigure figure = drawn.Figure;
 			float stature = figure.Stature;
@@ -102,12 +104,13 @@ public partial class BattlefieldSquads
 					? Standing(figure, Ground(fall.At), Yaw(fall.Facing), stature)
 					: new Transform3D(lying.Scaled(Vector3.One * ScaleOf(figure, stature)), Ground(fall.At) + (Vector3.Up * 0.2f)),
 				clock));
+			drawn.HasNewDead = true;
 		}
 
 		_battle.Fell.Clear();
 		foreach (Drawn drawn in _drawn)
 		{
-			Lay(drawn.Dead, drawn.Fallen.Multimesh, drawn.Figure, clock);
+			Lay(drawn, clock);
 		}
 	}
 
@@ -115,29 +118,57 @@ public partial class BattlefieldSquads
 	/// one the first of them to fall took the field down with him.</summary>
 	private static bool Dies(SoldierFigure figure) => figure.IsBaked && figure.Clips.ContainsKey(DeathClip);
 
-	/// <summary>The dead of one kind, drawn going as they go, and gone once they have.</summary>
-	private static void Lay(List<(Transform3D Lying, float Fell)> dead, MultiMesh drawn, SoldierFigure figure, float clock)
+	/// <summary>The dead of one kind, drawn going as they go, and gone once they have. A man lying
+	/// still is not handed to the renderer again: only a new death, a body let go, or one still
+	/// falling or fading sends the squad's dead over.</summary>
+	private static void Lay(Drawn drawn, float clock)
 	{
-		dead.RemoveAll(body => clock - body.Fell > LyingFor + GoingFor);
-		drawn.VisibleInstanceCount = Mathf.Min(dead.Count, drawn.InstanceCount);
-		for (int i = 0; i < drawn.VisibleInstanceCount; i++)
+		List<(Transform3D Lying, float Fell)> dead = drawn.Dead;
+		int kept = 0;
+		for (int i = 0; i < dead.Count; i++)
 		{
+			if (clock - dead[i].Fell <= LyingFor + GoingFor)
+			{
+				dead[kept++] = dead[i];
+			}
+		}
+
+		bool isMoved = drawn.HasNewDead || kept < dead.Count;
+		dead.RemoveRange(kept, dead.Count - kept);
+		drawn.HasNewDead = false;
+		BattlefieldBatch bodies = drawn.Fallen;
+		int shown = Mathf.Min(dead.Count, bodies.Count);
+		bool isChanged = isMoved;
+		for (int i = 0; i < shown; i++)
+		{
+			if (isMoved)
+			{
+				bodies.Place(i, dead[i].Lying);
+			}
+
 			float going = Mathf.Clamp((clock - dead[i].Fell - LyingFor) / GoingFor, 0f, 1f);
-			drawn.SetInstanceTransform(i, dead[i].Lying);
-			float dying = Dies(figure) ? figure.Row(DeathClip, clock - dead[i].Fell) : 0f;
-			drawn.SetInstanceCustomData(i, new Color(dying, 0f, 0f, -going));
+			float dying = Dies(drawn.Figure) ? drawn.Figure.Row(DeathClip, clock - dead[i].Fell) : 0f;
+			isChanged |= bodies.Custom(i, new Color(dying, 0f, 0f, -going));
+		}
+
+		if (isChanged)
+		{
+			bodies.Show(shown);
+		}
+		else
+		{
+			bodies.Shown(shown);
 		}
 	}
 
 	/// <summary>Every arrow on its arc, from the bowman's shoulder to where it comes down.</summary>
 	private void Fly(float clock)
 	{
-		MultiMesh drawn = _arrows.Multimesh;
 		int shown = 0;
 		foreach (FieldBattle.Arrow arrow in _battle.Arrows)
 		{
 			float along = (clock - arrow.Loosed) / arrow.Flight;
-			if (along < 0f || along > 1f || shown >= drawn.InstanceCount)
+			if (along < 0f || along > 1f || shown >= _arrows.Count)
 			{
 				continue;
 			}
@@ -150,11 +181,11 @@ public partial class BattlefieldSquads
 			Vector3 ahead = Point(Mathf.Min(1f, along + 0.02f)) - here;
 			if (ahead.LengthSquared() > 1e-6f)
 			{
-				drawn.SetInstanceTransform(shown++, new Transform3D(Basis.LookingAt(ahead.Normalized()), here));
+				_arrows.Place(shown++, new Transform3D(Basis.LookingAt(ahead.Normalized()), here));
 			}
 		}
 
-		drawn.VisibleInstanceCount = shown;
+		_arrows.Show(shown);
 	}
 
 	private MultiMeshInstance3D Many(Mesh mesh, int count, Material look, bool coloured)
