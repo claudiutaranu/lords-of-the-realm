@@ -63,6 +63,24 @@ public partial class Battlefield
 	/// set them walking, and the second only quickens them.</summary>
 	private bool _isOrderedTwice;
 
+	/// <summary>When and where the right button last went down, to tell a second click from a first.
+	/// Timed here rather than read off the event's own double-click flag, which a trackpad's
+	/// two-finger tap never set: the lord's double click on open ground only ever walked.</summary>
+	private ulong _lastOrderTicks;
+	private Vector2 _lastOrderAt;
+	private const ulong TwiceWithinMsec = 400;
+	private const float TwiceWithinPixels = 40f;
+
+	private bool IsSecondClick(Vector2 at)
+	{
+		ulong now = Time.GetTicksMsec();
+		bool isSecond = now - _lastOrderTicks <= TwiceWithinMsec && at.DistanceTo(_lastOrderAt) <= TwiceWithinPixels;
+		// Counted afresh after a second click, so a third is a first again.
+		_lastOrderTicks = isSecond ? 0 : now;
+		_lastOrderAt = at;
+		return isSecond;
+	}
+
 	/// <summary>The right button let go: a click sends the chosen squads (<see cref="Send"/>); a drag
 	/// draws the front they are to stand on — along it, facing away from the lord's eye, as wide as
 	/// the line he drew, which is how two ranks are made one long one, or one made two.</summary>
