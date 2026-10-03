@@ -618,5 +618,143 @@
   "southern_density": 0.72,
   "northern_density": 1.0,
   "treeline_strength": 0.7
- }
+ },
+ "ranges": [
+  {
+   "name": "Cheviots",
+   "line": [
+    [
+     1712,
+     363
+    ],
+    [
+     1777,
+     388
+    ]
+   ],
+   "width": 45,
+   "height": 0.7
+  },
+  {
+   "name": "Pennines",
+   "line": [
+    [
+     1733,
+     515
+    ],
+    [
+     1733,
+     659
+    ],
+    [
+     1777,
+     803
+    ],
+    [
+     1799,
+     984
+    ],
+    [
+     1820,
+     1128
+    ],
+    [
+     1831,
+     1219
+    ]
+   ],
+   "width": 60,
+   "height": 0.9
+  },
+  {
+   "name": "Lake District",
+   "line": [
+    [
+     1527,
+     677
+    ],
+    [
+     1581,
+     713
+    ]
+   ],
+   "width": 55,
+   "height": 1.0
+  },
+  {
+   "name": "North York Moors",
+   "line": [
+    [
+     1961,
+     731
+    ],
+    [
+     2070,
+     738
+    ]
+   ],
+   "width": 40,
+   "height": 0.45
+  },
+  {
+   "name": "Snowdonia",
+   "line": [
+    [
+     1342,
+     1193
+    ],
+    [
+     1386,
+     1255
+    ]
+   ],
+   "width": 55,
+   "height": 1.0
+  },
+  {
+   "name": "Cambrian Mountains",
+   "line": [
+    [
+     1386,
+     1327
+    ],
+    [
+     1407,
+     1471
+    ],
+    [
+     1429,
+     1580
+    ]
+   ],
+   "width": 55,
+   "height": 0.75
+  },
+  {
+   "name": "Brecon Beacons",
+   "line": [
+    [
+     1375,
+     1641
+    ],
+    [
+     1505,
+     1634
+    ]
+   ],
+   "width": 40,
+   "height": 0.6
+  },
+  {
+   "name": "Dartmoor",
+   "line": [
+    [
+     1364,
+     2110
+    ]
+   ],
+   "width": 35,
+   "height": 0.5
+  }
+ ]
 }

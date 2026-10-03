@@ -422,6 +422,25 @@ def crag_field(rng, land):
     return np.clip((field - cut) / 0.075, 0, 1) ** 0.75
 
 
+def range_field(ranges):
+    """0..1, how far up each named range a pixel stands: one where its line runs, falling away over
+    its width. A range is {"line": [[x, y], ...], "width": pixels, "height": share of a full ridge}."""
+    ys, xs = np.mgrid[0:H, 0:W].astype(np.float32)
+    field = np.zeros((H, W), dtype=np.float32)
+    for each in ranges:
+        points = np.array(each["line"], dtype=np.float32)
+        if len(points) == 1:
+            points = np.vstack([points, points])
+        nearest = np.full((H, W), np.inf, dtype=np.float32)
+        for (ax, ay), (bx, by) in zip(points[:-1], points[1:]):
+            dx, dy = bx - ax, by - ay
+            span = max(dx * dx + dy * dy, 1e-6)
+            t = np.clip(((xs - ax) * dx + (ys - ay) * dy) / span, 0, 1)
+            nearest = np.minimum(nearest, np.hypot(xs - (ax + t * dx), ys - (ay + t * dy)))
+        field = np.maximum(field, each.get("height", 1.0) * np.exp(-(nearest / each["width"]) ** 2))
+    return field
+
+
 def build_terrain(rng, land, province_id, dist_to_seed, islet_field, islet_base):
     """The height field, plus the fields the albedo pass needs to paint it afterwards.
 
@@ -443,6 +462,11 @@ def build_terrain(rng, land, province_id, dist_to_seed, islet_field, islet_base)
     # runs the border and falls away on both sides.
     north_field = blurred(north, 115.0)
     ridge = np.clip(1.0 - np.abs(north_field * 2.0 - 1.0), 0, 1) ** 1.7
+    # A map drawn from a real country names its own ranges (map.json "ranges"): lines along which
+    # the mountains stand, each as wide as it says. England's are the Pennines, the Lakes, Snowdonia
+    # and the rest; a frontier ridge there would be a wall across the Midlands.
+    if MAP.get("ranges"):
+        ridge = range_field(MAP["ranges"])
 
     seats = np.zeros_like(land, dtype=np.float32)
     for _, sx, sy, _, _, _ in PROVINCES:

@@ -1,14 +1,5 @@
 [
  {
-  "x": 1680.7,
-  "y": 539.2,
-  "between": [
-   "Cumbria",
-   "Northumbria"
-  ],
-  "kind": "road"
- },
- {
   "x": 1793.1,
   "y": 1496.0,
   "between": [
@@ -27,11 +18,11 @@
   "kind": "road"
  },
  {
-  "x": 1880.0,
-  "y": 939.6,
+  "x": 1704.0,
+  "y": 449.5,
   "between": [
-   "Lancaster",
-   "York"
+   "Cumbria",
+   "Northumbria"
   ],
   "kind": "road"
  },
@@ -45,20 +36,11 @@
   "kind": "road"
  },
  {
-  "x": 1992.0,
-  "y": 1236.0,
+  "x": 1984.0,
+  "y": 1221.5,
   "between": [
    "Lincoln",
    "Mercia"
-  ],
-  "kind": "road"
- },
- {
-  "x": 1635.3,
-  "y": 796.0,
-  "between": [
-   "Cumbria",
-   "Lancaster"
   ],
   "kind": "road"
  },
@@ -68,24 +50,6 @@
   "between": [
    "Kent",
    "London"
-  ],
-  "kind": "road"
- },
- {
-  "x": 1328.0,
-  "y": 1448.0,
-  "between": [
-   "Deheubarth",
-   "Gwynedd"
-  ],
-  "kind": "road"
- },
- {
-  "x": 1564.0,
-  "y": 1643.2,
-  "between": [
-   "Deheubarth",
-   "Gloucester"
   ],
   "kind": "road"
  },
@@ -108,8 +72,26 @@
   "kind": "road"
  },
  {
-  "x": 1656.0,
-  "y": 2062.7,
+  "x": 1897.0,
+  "y": 668.2,
+  "between": [
+   "Northumbria",
+   "York"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 1556.0,
+  "y": 1687.4,
+  "between": [
+   "Deheubarth",
+   "Gloucester"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 1696.0,
+  "y": 2048.0,
   "between": [
    "Dumnonia",
    "Wessex"
@@ -117,8 +99,17 @@
   "kind": "road"
  },
  {
-  "x": 1592.6,
-  "y": 1112.0,
+  "x": 1665.8,
+  "y": 740.0,
+  "between": [
+   "Cumbria",
+   "Lancaster"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 1568.0,
+  "y": 1137.2,
   "between": [
    "Gwynedd",
    "Lancaster"
@@ -135,19 +126,46 @@
   "kind": "road"
  },
  {
-  "x": 1894.0,
-  "y": 667.0,
+  "x": 1990.3,
+  "y": 1060.4,
   "between": [
-   "Northumbria",
+   "Lincoln",
+   "York"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 1979.8,
+  "y": 1220.0,
+  "between": [
+   "Lincoln",
+   "Mercia"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 1832.0,
+  "y": 684.0,
+  "between": [
+   "Cumbria",
+   "Northumbria"
+  ],
+  "kind": "ford"
+ },
+ {
+  "x": 1806.0,
+  "y": 712.0,
+  "between": [
+   "Cumbria",
    "York"
   ],
   "kind": "ford"
  },
  {
-  "x": 1819.0,
-  "y": 745.0,
+  "x": 1875.0,
+  "y": 913.0,
   "between": [
-   "Cumbria",
+   "Lancaster",
    "York"
   ],
   "kind": "ford"
@@ -189,8 +207,8 @@
   "kind": "ford"
  },
  {
-  "x": 1647.0,
-  "y": 1313.0,
+  "x": 1603.0,
+  "y": 1293.0,
   "between": [
    "Gwynedd",
    "Mercia"
@@ -207,17 +225,35 @@
   "kind": "ford"
  },
  {
-  "x": 1584.0,
-  "y": 1455.0,
+  "x": 1319.0,
+  "y": 1426.0,
   "between": [
-   "Gloucester",
+   "Deheubarth",
    "Gwynedd"
   ],
   "kind": "ford"
  },
  {
-  "x": 1467.0,
-  "y": 1858.0,
+  "x": 1585.0,
+  "y": 1366.0,
+  "between": [
+   "Deheubarth",
+   "Gwynedd"
+  ],
+  "kind": "ford"
+ },
+ {
+  "x": 1585.0,
+  "y": 1367.0,
+  "between": [
+   "Deheubarth",
+   "Gloucester"
+  ],
+  "kind": "ford"
+ },
+ {
+  "x": 1445.0,
+  "y": 1839.0,
   "between": [
    "Deheubarth",
    "Dumnonia"
@@ -252,8 +288,8 @@
   "kind": "ford"
  },
  {
-  "x": 1575.0,
-  "y": 1886.0,
+  "x": 1594.0,
+  "y": 1852.0,
   "between": [
    "Dumnonia",
    "Gloucester"

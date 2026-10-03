@@ -22,15 +22,15 @@
  "provinces": [
   {
    "name": "Northumbria",
-   "x": 1799,
+   "x": 1853,
    "y": 442,
    "realm": "marshal-realm",
    "region": "south"
   },
   {
    "name": "Cumbria",
-   "x": 1581,
-   "y": 659,
+   "x": 1586,
+   "y": 554,
    "realm": "neutral",
    "region": "south"
   },
@@ -66,8 +66,8 @@
   },
   {
    "name": "Gwynedd",
-   "x": 1375,
-   "y": 1237,
+   "x": 1294,
+   "y": 1186,
    "realm": "neutral",
    "region": "south"
   },
@@ -116,8 +116,8 @@
   },
   {
    "name": "Dumnonia",
-   "x": 1375,
-   "y": 2103,
+   "x": 1455,
+   "y": 2060,
    "realm": "neutral",
    "region": "south"
   }
