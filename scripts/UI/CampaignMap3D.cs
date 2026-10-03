@@ -236,11 +236,24 @@ public partial class CampaignMap3D : Node3D
 	/// minimap, which washes its counties from the same strip the ground does.</summary>
 	public static event System.Action<Image> HoldersChanged;
 
+	private ImageTexture _holders;
+
 	/// <summary>Who holds every province now, one texel each in province order: the holder's colour,
 	/// and his realm's number + 1 in alpha. The ground draws the frontiers between them.</summary>
 	public void ShowHolders(Image strip)
 	{
-		_ground?.SetShaderParameter("campaign_owners", ImageTexture.CreateFromImage(strip));
+		// One texture for the whole reign, written over in place: the strip is a texel a province
+		// and the provinces do not change in number, only in hands.
+		if (_holders == null || _holders.GetSize() != (Vector2)strip.GetSize())
+		{
+			_holders = ImageTexture.CreateFromImage(strip);
+		}
+		else
+		{
+			_holders.Update(strip);
+		}
+
+		_ground?.SetShaderParameter("campaign_owners", _holders);
 		HoldersChanged?.Invoke(strip);
 	}
 
@@ -597,8 +610,13 @@ public partial class CampaignMap3D : Node3D
 	private static float Fit(float value, float least, float most) =>
 		least > most ? (least + most) / 2f : Mathf.Clamp(value, least, most);
 
+	/// <summary>Bumped whenever the camera moves. What is pinned to the ground over the viewport only
+	/// has to be put back where the camera has it when this has changed.</summary>
+	public int CameraMoved { get; private set; }
+
 	private void UpdateCamera()
 	{
+		CameraMoved++;
 		float pitch = Mathf.DegToRad(CameraPitchDegrees);
 		_camera.Position = _focus + new Vector3(0, -Mathf.Sin(pitch) * _distance, Mathf.Cos(pitch) * _distance);
 		_camera.RotationDegrees = new Vector3(CameraPitchDegrees, 0, 0);

@@ -191,6 +191,13 @@ public partial class CampaignMapPage : Control
 	/// every frame, the same as the province pins, so it stays on the ground while the lord pans.</summary>
 	private readonly List<(Vector2 At, MarchTrail.Mark Mark, int Season, bool Reachable)> _trailSteps = new();
 	private MarchTrail _trail;
+
+	/// <summary>The question the trail on the map answers: which company, from where, to which cell,
+	/// with how much of its season left. The mouse moves a good deal more often than it changes cell.</summary>
+	private (FieldArmy Army, Vector2 From, Vector2I Cell, float Left)? _marchAsked;
+
+	/// <summary>The camera and window the pins and the trail were last projected for (see _Process).</summary>
+	private (int Camera, Vector2 Window)? _projectedFor;
 	private ArmyPanel _army;
 	private QuestionPanel _ask;
 	private SplitPanel _splitting;
@@ -420,7 +427,6 @@ public partial class CampaignMapPage : Control
 			ShowArmies();
 			ShowFortifications();
 			ShowSettlements();
-			LayGround();
 			if (_selected != null)
 			{
 				SelectProvince(_markers.IndexOf(_selected));
@@ -569,12 +575,12 @@ public partial class CampaignMapPage : Control
 		ShowArmies();
 		Conquered(); // takes note of what the lord opens with; nothing is announced
 
-		// The ground an army may cross, cut once the map and the ledger both exist: it needs the
-		// height of the land, the roads drawn on it, and which counties are already somebody's.
+		// The ground an army may cross, cut once: the height of the land, the ditches dug along its
+		// borders and the roads drawn on it. Who holds a county is no part of it — a conquest moves a
+		// frontier on the map, not a stone of the ground — so nothing ever lays it again.
 		LayGround();
 
 		// And handed to the turn, so the other lords march over the same ground by the same rules.
-		// Through a closure on the field, because a county taken lays the ground again.
 		var towns = new Dictionary<string, Vector2>();
 		foreach (ProvinceData province in _provinces)
 		{
@@ -585,7 +591,7 @@ public partial class CampaignMapPage : Control
 		}
 
 		_turnManager.Survey((from, to) => _ground.Way(from, to, float.MaxValue), CountyNameAt, towns,
-			MapDecoration.TownRing, FieldUnder, SiteUnder, _world.GroundOf);
+			MapDecoration.TownRing, FieldUnder, SiteUnder, _world.GroundOf, _ground.Reaches);
 
 		// What the counties are growing — the first thing back on the ground, because a field is not
 		// decoration: it is the one thing out here a lord changes from a screen and then sees from the
@@ -638,6 +644,7 @@ public partial class CampaignMapPage : Control
 	private void LayTrail(List<(Vector2 At, float Spent)> road, float budget)
 	{
 		_trailSteps.Clear();
+		_projectedFor = null; // a new trail goes on screen whether or not the camera has moved
 		if (road.Count == 0)
 		{
 			_trail.Lay(System.Array.Empty<(Vector2, MarchTrail.Mark, int, bool)>());
@@ -695,8 +702,8 @@ public partial class CampaignMapPage : Control
 	/// <summary>How many season marks a trail shows before it stops counting.</summary>
 	private const int MostSeasonsShown = 9;
 
-	/// <summary>Puts the trail where the camera currently has it. Done every frame with the pins, for
-	/// the same reason: the map moves under them.</summary>
+	/// <summary>Puts the trail where the camera currently has it. Done with the pins, whenever they are,
+	/// for the same reason: the map moves under them.</summary>
 	private void ProjectTrail()
 	{
 		var beads = new List<(Vector2, MarchTrail.Mark, int, bool)>(_trailSteps.Count);
@@ -725,8 +732,8 @@ public partial class CampaignMapPage : Control
 	}
 
 	/// <summary>What the ground under the cursor would cost to reach, beside the cursor, and the road
-	/// the men would take laid out in front of them. Worked out afresh on every movement of the
-	/// mouse, because that is the question being asked.</summary>
+	/// the men would take laid out in front of them. Worked out afresh whenever the mouse moves onto
+	/// another cell of the march grid, because that is the question being asked.</summary>
 	private void ShowMarchCost(Vector2 where)
 	{
 		_marchLabel.Position = where + new Vector2(18, 14);
@@ -738,9 +745,17 @@ public partial class CampaignMapPage : Control
 			_marchLabel.Text = "Nowhere to march";
 			_marchLabel.AddThemeColorOverride("font_color", Chrome.Dim);
 			LayTrail(new List<(Vector2, float)>(), 0f);
+			_marchAsked = null;
 			return;
 		}
 
+		var asked = (army, ArmyPixel(army), (Vector2I)(ground / MarchGrid.CellSize).Floor(), army.MarchLeft);
+		if (_marchAsked == asked)
+		{
+			return; // the same cell as a moment ago, and the same road to it
+		}
+
+		_marchAsked = asked;
 		List<(Vector2 At, float Spent)> road = _ground.Way(ArmyPixel(army), ground, Beyond(army));
 		if (road.Count == 0)
 		{
@@ -791,6 +806,7 @@ public partial class CampaignMapPage : Control
 		_marchingArmy = null;
 		_marchLabel.Visible = false;
 		LayTrail(new List<(Vector2, float)>(), 0f);
+		_marchAsked = null;
 	}
 
 	/// <summary>How far a road is still worth working out, so the lord can be shown where it goes and
@@ -1038,7 +1054,6 @@ public partial class CampaignMapPage : Control
 			ShowSettlements();
 			ShowFields(); // and every field the road crossed, trodden black if it was another lord's
 			SelectProvince(county);
-			LayGround(); // a county taken is a county open to walk through
 			Conquered();
 
 			// A county is taken at its own gate and nowhere else. Men who have halted on another
@@ -1374,8 +1389,6 @@ public partial class CampaignMapPage : Control
 		ModulateColor = tint,
 	};
 
-	/// <summary>Reads the played campaign's realms, which of them is yours, and its provinces. Who
-	/// holds what and where each seat sits are the campaign's own file; this page only draws it.</summary>
 	/// <summary>The lines the campaign's roads are drawn along. The same file the map draws them
 	/// from, so the cheap ground an army looks for is exactly the stone the player can see under
 	/// it — a second idea of where the roads are would be wrong the first time somebody moved
@@ -1414,8 +1427,9 @@ public partial class CampaignMapPage : Control
 	/// costs, and whose county it is. Built once, off the same height and ID images the map itself is
 	/// drawn from, so what the player sees and what his army can cross are the same thing.
 	///
-	/// A rival's county is shut outright. There is no way to fight for it yet, and ground an army can
-	/// walk across but not stop on would be a border it could ignore.</summary>
+	/// Everybody's ground is open, a rival's as much as the player's: the men cross his border, and
+	/// what happens when they reach his town happens at his town. His ditches still stop them
+	/// everywhere but at a ford or a road, which is what a ditch is for.</summary>
 	private void LayGround()
 	{
 		LoadRoads();
@@ -1456,13 +1470,10 @@ public partial class CampaignMapPage : Control
 		{
 			_ground.LayRoad(road, _balance.MarchCostByRoad);
 		}
-
-		// A rival's county used to be shut to an army — there was no way to fight for it, so there
-		// was no reason to let anybody walk into it. There is one now: the men cross his border, and
-		// what happens when they reach his town happens at his town. His ditches still stop them
-		// everywhere but at a ford or a road, which is what a ditch is for.
 	}
 
+	/// <summary>Reads the played campaign's realms, which of them is yours, and its provinces. Who
+	/// holds what and where each seat sits are the campaign's own file; this page only draws it.</summary>
 	private void LoadCampaignProvinces()
 	{
 		var file = GD.Load<Json>(Campaign.Data(ProvincesDataFile));
@@ -1623,14 +1634,19 @@ public partial class CampaignMapPage : Control
 			_rivalsMarching = false;
 			GetNode<Control>("%EndTurnButton").Visible = true;
 			ShowArmies();
-			ShowFortifications();
-			ShowSettlements();
-			ShowFields(); // the fields their roads crossed lie trodden black
-			LayGround(); // a county they took is somebody else's ground now
+
+			// The season turns over next and redraws the walls, the villages and the trodden fields
+			// behind its curtain; drawn here too, the whole map was built twice in a breath. Only a
+			// reign that has ended here gets no curtain, and is shown the map it lost.
 			if (!Fell())
 			{
 				TurnTheSeason();
+				return;
 			}
+
+			ShowFortifications();
+			ShowSettlements();
+			ShowFields();
 		}
 
 		foreach (LordsCampaign.RivalMarch march in marches)
@@ -2278,10 +2294,18 @@ public partial class CampaignMapPage : Control
 
 	private const int ScoutsRoundSmall = 50;
 
-	// Markers are 2D art pinned to 3D ground, so every frame the camera moves they have to be
-	// re-projected; one unproject per province is cheaper than tracking whether it moved.
+	// Markers are 2D art pinned to 3D ground, so every frame the camera moves — or the window is
+	// resized under it — they have to be re-projected. A frame where neither happened leaves them
+	// where they are.
 	public override void _Process(double delta)
 	{
+		var view = (_world.CameraMoved, _world.GetViewport().GetVisibleRect().Size);
+		if (_projectedFor == view)
+		{
+			return;
+		}
+
+		_projectedFor = view;
 		if (_trailSteps.Count > 0)
 		{
 			ProjectTrail();

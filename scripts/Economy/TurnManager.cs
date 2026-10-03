@@ -107,9 +107,9 @@ public partial class TurnManager
 		Dictionary<string, Vector2> towns, float reach,
 		System.Func<Vector2, (string County, int Field)> fieldAt = null,
 		System.Func<Vector2, (string County, string Site)> siteAt = null,
-		System.Func<string, List<Vector2>> groundOf = null)
+		System.Func<string, List<Vector2>> groundOf = null, System.Func<Vector2, Vector2, bool> reaches = null)
 	{
-		_campaign = new LordsCampaign(way, countyAt, towns, reach, groundOf);
+		_campaign = new LordsCampaign(way, countyAt, towns, reach, groundOf, reaches);
 		_way = way;
 		_towns = towns;
 		_gateReach = reach;
