@@ -12,7 +12,21 @@ public partial class BattlefieldBar : Control
 	private const int StandingWide = 260;
 	private static readonly Color Unchosen = new(0.62f, 0.62f, 0.62f);
 
-	private readonly Dictionary<FieldSquad, (Control Card, Label Count)> _cards = new();
+	/// <summary>A squad's card, and what it last said: the bar is brought up every frame, and a label
+	/// rewritten every frame is a string built and a relayout asked for every frame.</summary>
+	private sealed class Card
+	{
+		public Control Face;
+		public Label Count;
+		public int Standing = -1;
+		public Color Tint;
+	}
+
+	private readonly Dictionary<FieldSquad, Card> _cards = new();
+	private float _ourShare = -1f;
+	private float _theirShare = -1f;
+	private string _stateSaid;
+	private string _captainSaid;
 	private FieldBattle _battle;
 	private ColorRect _ourStanding;
 	private ColorRect _theirStanding;
@@ -61,7 +75,7 @@ public partial class BattlefieldBar : Control
 			count.HorizontalAlignment = HorizontalAlignment.Center;
 			stack.AddChild(count);
 			foot.AddChild(card);
-			_cards[squad] = (card, count);
+			_cards[squad] = new Card { Face = card, Count = count, Tint = card.Modulate };
 		}
 
 		foot.AddChild(new Control { CustomMinimumSize = new Vector2(24, 0) });
@@ -91,21 +105,40 @@ public partial class BattlefieldBar : Control
 	/// <summary>Brings the bar up to the moment: who is left, who is in hand, and how the day stands.</summary>
 	public void Refresh(ICollection<FieldSquad> chosen, bool isPaused)
 	{
-		foreach ((FieldSquad squad, (Control card, Label count)) in _cards)
+		foreach ((FieldSquad squad, Card card) in _cards)
 		{
-			count.Text = $"{squad.Standing:N0}";
-			card.Modulate = !squad.IsStanding ? new Color(0.35f, 0.35f, 0.35f)
+			if (card.Standing != squad.Standing)
+			{
+				card.Standing = squad.Standing;
+				card.Count.Text = $"{squad.Standing:N0}";
+			}
+
+			Color tint = !squad.IsStanding ? new Color(0.35f, 0.35f, 0.35f)
 				: chosen.Contains(squad) ? Colors.White : Unchosen;
+			if (card.Tint != tint)
+			{
+				card.Tint = tint;
+				card.Face.Modulate = tint;
+			}
 		}
 
-		Fill(_ourStanding, 1f - _battle.AttackLoss);
-		Fill(_theirStanding, 1f - _battle.DefenceLoss);
-		_captainWord.Text = _battle.IsAttackCaptained ? "Command" : "Captain";
-		_state.Text = _battle.IsAttackFallen ? "Our last man is down"
+		Fill(_ourStanding, 1f - _battle.AttackLoss, ref _ourShare);
+		Fill(_theirStanding, 1f - _battle.DefenceLoss, ref _theirShare);
+		Say(_captainWord, _battle.IsAttackCaptained ? "Command" : "Captain", ref _captainSaid);
+		Say(_state, _battle.IsAttackFallen ? "Our last man is down"
 			: _battle.IsDefenceFallen ? "The field is ours!"
 			: isPaused ? "Paused"
 			: _battle.IsAttackCaptained ? "The captain leads"
-			: "";
+			: "", ref _stateSaid);
+	}
+
+	private static void Say(Label label, string text, ref string said)
+	{
+		if (text != said)
+		{
+			said = text;
+			label.Text = text;
+		}
 	}
 
 	/// <summary>A bar of how much of a side is still standing.</summary>
@@ -122,8 +155,14 @@ public partial class BattlefieldBar : Control
 		return bar;
 	}
 
-	private static void Fill(ColorRect filled, float share)
+	private static void Fill(ColorRect filled, float share, ref float shown)
 	{
+		if (share == shown)
+		{
+			return;
+		}
+
+		shown = share;
 		filled.SizeFlagsStretchRatio = Mathf.Max(0.001f, share);
 		filled.GetParent().GetChild<ColorRect>(1).SizeFlagsStretchRatio = Mathf.Max(0.001f, 1f - share);
 	}

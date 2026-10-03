@@ -94,10 +94,12 @@ public partial class BattlefieldSquads : Node3D
 	{
 		public FieldSquad Squad;
 		public SoldierFigure Figure;
-		public MultiMeshInstance3D Men;
-		public MultiMeshInstance3D Fallen;
+		public BattlefieldBatch Men;
+		public BattlefieldBatch Fallen;
 		public readonly List<(Transform3D Lying, float Fell)> Dead = new();
 		public Color Colour;
+		/// <summary>Whether anyone of the squad has fallen since its dead were last handed over.</summary>
+		public bool HasNewDead;
 	}
 
 	private readonly List<Drawn> _drawn = new();
@@ -139,9 +141,9 @@ public partial class BattlefieldSquads : Node3D
 	/// <summary>How big the mark of a man's place on a drawn front is, and the most there can be.</summary>
 	private const float MarkRadius = 0.35f;
 	private const int MostMarks = 1000;
-	private MultiMeshInstance3D _arrows;
-	private MultiMeshInstance3D _barsBehind;
-	private MultiMeshInstance3D _barsFilled;
+	private BattlefieldBatch _arrows;
+	private BattlefieldBatch _barsBehind;
+	private BattlefieldBatch _barsFilled;
 	/// <summary>Stands every man of the battle on the field, in his lord's colour.</summary>
 	public void Muster(FieldBattle battle, Color ours, Color theirs)
 	{
@@ -162,18 +164,18 @@ public partial class BattlefieldSquads : Node3D
 				Squad = squad,
 				Figure = figure,
 				Colour = colour,
-				Men = Body(figure, squad.Soldiers.Count, colour),
-				Fallen = Body(figure, squad.Soldiers.Count, colour),
+				Men = new BattlefieldBatch(Body(figure, squad.Soldiers.Count, colour).Multimesh),
+				Fallen = new BattlefieldBatch(Body(figure, squad.Soldiers.Count, colour).Multimesh),
 			};
 			figures += squad.Soldiers.Count;
 			_drawn.Add(drawn);
 			_bySquad[squad] = drawn;
 		}
 
-		_arrows = Many(new BoxMesh { Size = ArrowSize }, figures,
-			new StandardMaterial3D { AlbedoColor = new Color("3b2c1d") }, coloured: false);
-		_barsBehind = Many(new QuadMesh(), figures, Bar(0), coloured: true);
-		_barsFilled = Many(new QuadMesh(), figures, Bar(1), coloured: true);
+		_arrows = new BattlefieldBatch(Many(new BoxMesh { Size = ArrowSize }, figures,
+			new StandardMaterial3D { AlbedoColor = new Color("3b2c1d") }, coloured: false).Multimesh);
+		_barsBehind = new BattlefieldBatch(Many(new QuadMesh(), figures, Bar(0), coloured: true).Multimesh);
+		_barsFilled = new BattlefieldBatch(Many(new QuadMesh(), figures, Bar(1), coloured: true).Multimesh);
 	}
 
 	/// <summary>Draws the field as it stands, <paramref name="between"/> of the way from the last slice
@@ -193,7 +195,8 @@ public partial class BattlefieldSquads : Node3D
 		foreach (Drawn drawn in _drawn)
 		{
 			FieldSquad squad = drawn.Squad;
-			MultiMesh body = drawn.Men.Multimesh;
+			BattlefieldBatch men = drawn.Men;
+			MultiMesh body = men.Mesh;
 			Mesh seen = drawn.Figure.Far != null
 				&& eye.GlobalPosition.DistanceTo(new Vector3(squad.At.X, 0f, squad.At.Y)) > FarFrom
 					? drawn.Figure.Far
@@ -218,9 +221,9 @@ public partial class BattlefieldSquads : Node3D
 
 				float yaw = Mathf.LerpAngle(_turned.GetValueOrDefault(man, Yaw(man.Facing)), Yaw(man.Facing), turn);
 				_turned[man] = yaw;
-				body.SetInstanceTransform(i, Standing(figure, at, yaw, stature));
+				men.Place(i, Standing(figure, at, yaw, stature));
 				float lean = struck < LungeSeconds && !squad.Shoots ? Mathf.Sin(Mathf.Pi * struck / LungeSeconds) : 0f;
-				body.SetInstanceCustomData(i++, figure.IsBaked
+				men.Custom(i++, figure.IsBaked
 					? Played(man, figure, man.Was.Lerp(man.At, between), delta, clock, between)
 					: Stride(man, figure, man.Was.Lerp(man.At, between), delta, lean));
 
@@ -232,11 +235,11 @@ public partial class BattlefieldSquads : Node3D
 				}
 			}
 
-			body.VisibleInstanceCount = i;
+			men.Show(i);
 		}
 
-		_barsBehind.Multimesh.VisibleInstanceCount = bars;
-		_barsFilled.Multimesh.VisibleInstanceCount = bars;
+		_barsBehind.Show(bars);
+		_barsFilled.Show(bars);
 		LayDown(clock);
 		Fly(clock);
 	}
