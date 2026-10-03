@@ -141,7 +141,7 @@ public partial class TurnManager
 	/// Refused where any of its lord's companies still stand in the open: a castle cannot be shut in
 	/// while his field army is at large behind the siege lines. The town's own militia is not such an
 	/// army — a siege shuts it in with the rest of the town.</summary>
-	public bool Besiege(FieldArmy army, string county)
+	public bool Besiege(FieldArmy army, string county, IReadOnlyDictionary<string, int> engines = null)
 	{
 		ProvinceEconomy here = army == null ? null : _provincesByName.GetValueOrDefault(army.Home);
 		ProvinceEconomy there = _provincesByName.GetValueOrDefault(county);
@@ -155,7 +155,35 @@ public partial class TurnManager
 		there.BesiegedFrom = army.Key;
 		there.SiegeSeasons = 0;
 		there.HungrySeasons = 0;
+		there.SiegeEngines = engines == null ? new Dictionary<string, int>() : new Dictionary<string, int>(engines);
 		return true;
+	}
+
+	/// <summary>The county a company is sitting outside, or empty.</summary>
+	public string Besieging(FieldArmy army)
+	{
+		foreach (ProvinceEconomy province in _provincesByName.Values)
+		{
+			if (army != null && province.BesiegedFrom == army.Key)
+			{
+				return province.ProvinceName;
+			}
+		}
+
+		return "";
+	}
+
+	/// <summary>How many more seasons the siege of a county must go on before its engines are built
+	/// and the walls can be stormed; nought when they can be, and -1 when nobody is besieging it.</summary>
+	public int SiegeSeasonsLeft(string county)
+	{
+		ProvinceEconomy there = _provincesByName.GetValueOrDefault(county);
+		if (there == null || there.BesiegedFrom.Length == 0)
+		{
+			return -1;
+		}
+
+		return Mathf.Max(0, SiegeEngines.Seasons(there.SiegeEngines, _balance) - there.SiegeSeasons);
 	}
 
 	/// <summary>Takes one company out of every siege it was keeping.</summary>
@@ -165,9 +193,7 @@ public partial class TurnManager
 		{
 			if (besieger != null && province.BesiegedFrom == besieger.Key)
 			{
-				province.BesiegedFrom = "";
-				province.SiegeSeasons = 0;
-				province.HungrySeasons = 0;
+				province.EndSiege();
 			}
 		}
 	}
@@ -194,9 +220,7 @@ public partial class TurnManager
 			// Nobody out there any more — the besiegers starved, deserted or were beaten off.
 			if (besieger == null || besieger.Strength == 0)
 			{
-				province.BesiegedFrom = "";
-				province.SiegeSeasons = 0;
-				province.HungrySeasons = 0;
+				province.EndSiege();
 				continue;
 			}
 

@@ -81,6 +81,39 @@ public partial class BattleCheck
 		}
 	}
 
+	/// <summary>Engines built outside the gate: the seasons they take, and the walls they open.</summary>
+	private void TheEngines(GameBalance b)
+	{
+		TurnManager turns = Realm(b, out ProvinceEconomy crown, out ProvinceEconomy watch);
+		watch.Fortification = "large-castle";
+		watch.Castle["spear"] = 40;
+		watch.CastleStores = 100_000;
+		crown.Muster("sword", 200, b.MarchReach);
+		FieldArmy sitting = crown.Armies[0];
+		sitting.X = 900f;
+		sitting.Y = 200f;
+
+		var bare = Battle.Weighed(sitting.Men, turns.DefendersOf("Valmere"), true, false, b);
+		var engines = new System.Collections.Generic.Dictionary<string, int>
+		{
+			[SiegeEngines.Ram] = 1,
+			[SiegeEngines.Catapult] = 2,
+		};
+		Is("a siege can be laid with engines to build", turns.Besiege(sitting, "Valmere", engines), true);
+		int seasons = b.RamSeasons + (2 * b.CatapultSeasons);
+		Is("  and they take their seasons", turns.SiegeSeasonsLeft("Valmere"), seasons);
+		var built = Battle.Weighed(sitting.Men, turns.DefendersOf("Valmere"), true, false, b);
+		Is("  a breached and rammed castle is weaker against the same host", built.Attacker > bare.Attacker
+			|| built.Defender < bare.Defender, true);
+		for (int season = 0; season < seasons; season++)
+		{
+			turns.AdvanceTurn();
+		}
+
+		Is("  and once they are built the walls can be stormed", turns.SiegeSeasonsLeft("Valmere"), 0);
+		Is("a company knows what it is besieging", turns.Besieging(sitting), "Valmere");
+	}
+
 	private void TheSiege(GameBalance b)
 	{
 		TurnManager turns = Realm(b, out ProvinceEconomy crown, out ProvinceEconomy watch);

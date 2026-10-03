@@ -41,6 +41,7 @@ public partial class ArmyPanel : PaintedPanel
 	public event System.Action<FieldArmy> SplitPressed;
 	public event System.Action<FieldArmy> GarrisonPressed;
 	public event System.Action<FieldArmy> DisbandPressed;
+	public event System.Action<FieldArmy> StormPressed;
 
 	private Label _subtitle;
 	private Label _standing;
@@ -60,6 +61,7 @@ public partial class ArmyPanel : PaintedPanel
 	private Button _march;
 	private Button _split;
 	private Button _garrison;
+	private Button _storm;
 	private Button _disband;
 
 	/// <summary>Whether Disband has been pressed once already. Sending a company home cannot be
@@ -278,6 +280,16 @@ public partial class ArmyPanel : PaintedPanel
 		}, out Label _);
 		row.AddChild(_garrison);
 
+		// The assault on the castle this company is sitting outside, once its engines are built.
+		_storm = Chrome.Order("Storm the Walls", "crossed-swords", () =>
+		{
+			FieldArmy storming = _army;
+			Close();
+			StormPressed?.Invoke(storming);
+		}, out Label _);
+		_storm.Visible = false;
+		row.AddChild(_storm);
+
 		_disband = Chrome.Order("Disband", "morale", () =>
 		{
 			if (!_disbandAsked)
@@ -298,6 +310,9 @@ public partial class ArmyPanel : PaintedPanel
 	/// <summary>Offers the walls of the county the company is standing in, when the map says they
 	/// will take it. Asked after Show, which does not know whose walls are whose.</summary>
 	public void OfferWalls(bool open) => _garrison.Visible = open;
+
+	/// <summary>Offers the assault on the castle the company is besieging, once its engines are ready.</summary>
+	public void OfferStorm(bool ready) => _storm.Visible = ready;
 
 	/// <summary>Shows one company: these men, their own legs, and the county that pays them.
 	/// <paramref name="yours"/> decides whether the lord may order them about from here — a rival's

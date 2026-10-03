@@ -53,7 +53,10 @@ public partial class TurnManager
 				field = Militia(held.Population);
 			}
 
-			return new Defenders(field, held.Castle, held.Fortification, held.Loyalty);
+			// The engines built outside the gate are against whoever holds it, if they are being built.
+			int rams = held.BesiegedFrom.Length > 0 ? held.SiegeEngines.GetValueOrDefault(SiegeEngines.Ram) : 0;
+			int catapults = held.BesiegedFrom.Length > 0 ? held.SiegeEngines.GetValueOrDefault(SiegeEngines.Catapult) : 0;
+			return new Defenders(field, held.Castle, held.Fortification, held.Loyalty, false, rams, catapults);
 		}
 
 		ProvinceDefinition free = _unheld.GetValueOrDefault(county);

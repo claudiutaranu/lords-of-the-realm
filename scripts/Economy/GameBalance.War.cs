@@ -111,6 +111,18 @@ public partial class GameBalance
 	[Export] public float StarvedGarrisonRate = 0.2f;
 	[Export] public int SurrenderAfterHungrySeasons = 3;
 
+	/// <summary>The engines a besieging army can build before it storms (SiegeEngines): how many in
+	/// all, how many seasons of the siege each one takes, and what each does to the walls. A ram
+	/// opens the gate, so more men can come at it at once; a catapult knocks a breach in the curtain,
+	/// which does the same and takes some of the stone from in front of the defenders. They widen the
+	/// frontage rather than adding a multiplier, as fortifications.json has always meant them to. [I]</summary>
+	[Export] public int SiegeEnginesMost = 3;
+	[Export] public int RamSeasons = 1;
+	[Export] public int CatapultSeasons = 2;
+	[Export] public int RamFrontage = 15;
+	[Export] public int CatapultFrontage = 10;
+	[Export] public float CatapultDefenceCut = 0.15f;
+
 	/// <summary>What a county thinks of the lord who has just taken it. Nobody is glad to be
 	/// conquered, and a county held down is a county that has to be fed, garrisoned and watched
 	/// before it is worth anything — which is what stops a lord from simply taking everything he can

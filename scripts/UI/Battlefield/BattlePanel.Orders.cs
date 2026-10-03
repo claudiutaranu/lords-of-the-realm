@@ -1,36 +1,10 @@
 using System.Collections.Generic;
 using Godot;
 
-/// <summary>What the lord can answer: sit down before the gate, lead the field in person, or strike
-/// and let the captain's reckoning settle it.</summary>
+/// <summary>What the lord can answer: lead the field in person, or strike and let the captain's
+/// reckoning settle it. Sitting down before a castle is BattlePanel.Siege.</summary>
 public partial class BattlePanel
 {
-	/// <summary>Sits the army down in front of the gate instead of climbing it. Nothing happens
-	/// today — that is the point of it — so the panel says so and closes.</summary>
-	private void Sit()
-	{
-		if (!_turns.Besiege(_attacker, _county))
-		{
-			return;
-		}
-
-		Settled?.Invoke();
-		foreach (Node old in _terms.GetChildren())
-		{
-			old.QueueFree();
-		}
-
-		Note("Our men hold the ground and nothing else, for as long as it takes");
-		Note("The county pays its lord nothing while we sit here");
-		_question.Text = "";
-		_verdict.Text = $"We sit down before {_county}.";
-		_verdict.AddThemeColorOverride("font_color", Chrome.Cream);
-		_attack.Visible = false;
-		_lead.Visible = false;
-		_siege.Visible = false;
-		_leaveWord.Text = "Done";
-	}
-
 	/// <summary>Takes the lord down onto the field to fight the day himself. The panel steps aside
 	/// while he is there, and comes back with the reckoning of whatever he made of it.</summary>
 	private void Lead()

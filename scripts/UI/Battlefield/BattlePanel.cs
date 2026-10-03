@@ -156,7 +156,7 @@ public partial class BattlePanel : PaintedPanel
 
 		_attack = Chrome.Order("Take the Field", "crossed-swords", () => Strike(), out _attackWord);
 		_lead = Chrome.Order("Lead in Person", "sword", Lead, out Label _);
-		_siege = Chrome.Order("Lay Siege", "castle", Sit, out Label _);
+		_siege = Chrome.Order("Lay Siege", "castle", Sit, out _siegeWord);
 		orders.AddChild(_attack);
 		orders.AddChild(_lead);
 		orders.AddChild(_siege);
@@ -243,10 +243,7 @@ public partial class BattlePanel : PaintedPanel
 		_attackWord.Text = _walls ? "Storm the Walls" : ProvinceEconomy.Men(holding) == 0 ? "March In" : "Take the Field";
 		_leaveWord.Text = "Retreat";
 
-		// Sitting down in front of it is the other way, and against the stone rungs it is the only
-		// way. It costs the army every season it lasts — they are standing here and nowhere else —
-		// so it is offered as an order of its own and not as a thing that happens by waiting.
-		_siege.Visible = _walls && ProvinceEconomy.Men(against.Castle) > 0;
+		Besieged(against);
 
 		// The field can be fought by hand; the walls, not yet — the captain climbs them.
 		_lead.Visible = !_walls && ProvinceEconomy.Men(holding) > 0;

@@ -182,6 +182,19 @@ public partial class ProvinceEconomy
 	/// while and then they open the gate.</summary>
 	public int SiegeSeasons;
 
+	/// <summary>The engines the besiegers are building outside the gate, by kind (SiegeEngines), and
+	/// so how many seasons of the siege go by before they can storm it.</summary>
+	public Dictionary<string, int> SiegeEngines = new();
+
+	/// <summary>Nobody is sitting outside the gate any more, whichever way it ended.</summary>
+	public void EndSiege()
+	{
+		BesiegedFrom = "";
+		SiegeSeasons = 0;
+		HungrySeasons = 0;
+		SiegeEngines.Clear();
+	}
+
 	/// <summary>The turn the town's own militia was last beaten in the field. A beaten militia does
 	/// not turn out again the same season (TurnManager.DefendersOf), which is what lets the victor go
 	/// on to the walls or sit down before them.</summary>

@@ -16,7 +16,9 @@ public readonly record struct Defenders(
 	Dictionary<string, int> Castle,
 	string Fortification,
 	float Loyalty,
-	bool InOpenCountry = false)
+	bool InOpenCountry = false,
+	int Rams = 0,
+	int Catapults = 0)
 {
 	// InOpenCountry: two companies meeting away from any town. Nobody is holding his own town and no
 	// people are at anybody's back, so neither the town's nor the people's term is reckoned.

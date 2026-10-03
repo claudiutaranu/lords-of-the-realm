@@ -95,7 +95,11 @@ public static class Battle
 	private static Terms Walls(Defenders against, bool marched, GameBalance b)
 	{
 		Fortifications.Wall wall = Fortifications.Of(against.Fortification);
-		return new(wall.Defence * b.TownDefence * Heart(against.Loyalty, b), wall.Frontage,
+		// The engines outside: the gate rammed open and the curtain breached let more men at the
+		// defenders at once, and a breach leaves them less stone to stand behind.
+		int frontage = wall.Frontage + (against.Rams * b.RamFrontage) + (against.Catapults * b.CatapultFrontage);
+		float stone = Mathf.Max(1f, wall.Defence * (1f - (against.Catapults * b.CatapultDefenceCut)));
+		return new(stone * b.TownDefence * Heart(against.Loyalty, b), frontage,
 			b.AssaultVolley, Legs(marched, b), b.AssaultExposure, b.BattleBite, true);
 	}
 

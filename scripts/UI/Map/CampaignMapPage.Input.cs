@@ -44,6 +44,8 @@ public partial class CampaignMapPage
 					_realms.TryGetValue(realmKey, out RealmData lord) ? lord.Name : realmKey, realmKey,
 					realmKey == _playerRealm);
 				_army.OfferWalls(WallsFor(company) != null);
+				string besieged = realmKey == _playerRealm ? _turnManager.Besieging(company) : "";
+				_army.OfferStorm(besieged.Length > 0 && _turnManager.SiegeSeasonsLeft(besieged) == 0);
 				return;
 			}
 

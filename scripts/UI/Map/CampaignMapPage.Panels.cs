@@ -163,6 +163,16 @@ public partial class CampaignMapPage
 			ShowSaveToast($"{half.Strength:N0} men of {army.Home} now march under their own banner");
 		});
 		_army.GarrisonPressed += AskWalls;
+		_army.StormPressed += army =>
+		{
+			string county = _turnManager.Besieging(army);
+			int index = _provinces.FindIndex(province => province.Name == county);
+			if (index >= 0)
+			{
+				_battle.Open(_turnManager, _balance, army, county, ArmyPixel(army),
+					ColoursOf(_turnManager.RealmOf(army)), ColoursOf(HolderOf(_provinces[index])));
+			}
+		};
 		_army.DisbandPressed += army =>
 		{
 			ProvinceEconomy home = _turnManager.GetProvince(army.Home);

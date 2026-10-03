@@ -238,9 +238,7 @@ public partial class TurnManager
 		}
 
 		// A county taken is a county nobody is besieging any more, whichever way it fell.
-		there.BesiegedFrom = "";
-		there.SiegeSeasons = 0;
-		there.HungrySeasons = 0;
+		there.EndSiege();
 
 		// Whoever was holding it is not holding it any more, and neither are the men who were
 		// standing in it: they are dead, scattered or walked off by the time anybody is claiming
