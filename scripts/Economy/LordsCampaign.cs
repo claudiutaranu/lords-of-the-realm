@@ -22,6 +22,12 @@ public sealed class LordsCampaign
 	public record RivalMarch(string Army, Vector2 From, List<Vector2> Road);
 
 	private readonly Way _way;
+	private readonly System.Func<Vector2, Vector2, bool> _reaches;
+
+	/// <summary>The roads worked out this season, by where they start and end. A host whose companies
+	/// set out from the same spot, or a company sent the same way twice — the ground has not moved
+	/// between them, so the road is walked out once.</summary>
+	private readonly Dictionary<(Vector2 From, Vector2 To), List<(Vector2 At, float Spent)>> _roads = new();
 	private readonly System.Func<Vector2, string> _countyAt;
 	private readonly Dictionary<string, Vector2> _towns;
 	private readonly float _reach;
@@ -38,11 +44,14 @@ public sealed class LordsCampaign
 	/// <param name="reach">How close to a village counts as standing at its gate
 	/// (MapDecoration.TownRing).</param>
 	/// <param name="groundOf">A county's fields and diggings, as map pixels: where a raid goes.</param>
+	/// <param name="reaches">Whether there is any road at all between two map pixels, answered without
+	/// walking it (MarchGrid.Reaches). Without it the road is walked to find out.</param>
 	public LordsCampaign(Way way, System.Func<Vector2, string> countyAt, Dictionary<string, Vector2> towns, float reach,
-		System.Func<string, List<Vector2>> groundOf = null)
+		System.Func<string, List<Vector2>> groundOf = null, System.Func<Vector2, Vector2, bool> reaches = null)
 	{
 		_groundOf = groundOf;
 		_way = way;
+		_reaches = reaches ?? ((from, to) => way(from, to).Count > 0);
 		_countyAt = countyAt;
 		_towns = towns;
 		_reach = reach;
@@ -56,6 +65,7 @@ public sealed class LordsCampaign
 	{
 		var news = new List<FiredEvent>();
 		int skill = (int)turns.Difficulty;
+		_roads.Clear();
 
 		// One banner a county from the first season, marching or not.
 		Gather(turns);
@@ -487,7 +497,7 @@ public sealed class LordsCampaign
 				break;
 			}
 
-			if (army.County != county && _way(here, _towns[county]).Count == 0)
+			if (army.County != county && !_reaches(here, _towns[county]))
 			{
 				continue;
 			}
@@ -514,7 +524,12 @@ public sealed class LordsCampaign
 	private void Go(TurnManager turns, FieldArmy army, Vector2 to, List<RivalMarch> walked, float stopShort = 0f)
 	{
 		Vector2 from = Pixel(army);
-		List<(Vector2 At, float Spent)> road = _way(from, to);
+		if (!_roads.TryGetValue((from, to), out List<(Vector2 At, float Spent)> road))
+		{
+			road = _way(from, to);
+			_roads[(from, to)] = road;
+		}
+
 		int halt = -1;
 		for (int step = 0; step < road.Count; step++)
 		{

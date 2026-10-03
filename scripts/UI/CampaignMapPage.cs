@@ -191,6 +191,10 @@ public partial class CampaignMapPage : Control
 	/// every frame, the same as the province pins, so it stays on the ground while the lord pans.</summary>
 	private readonly List<(Vector2 At, MarchTrail.Mark Mark, int Season, bool Reachable)> _trailSteps = new();
 	private MarchTrail _trail;
+
+	/// <summary>The question the trail on the map answers: which company, from where, to which cell,
+	/// with how much of its season left. The mouse moves a good deal more often than it changes cell.</summary>
+	private (FieldArmy Army, Vector2 From, Vector2I Cell, float Left)? _marchAsked;
 	private ArmyPanel _army;
 	private QuestionPanel _ask;
 	private SplitPanel _splitting;
@@ -576,7 +580,7 @@ public partial class CampaignMapPage : Control
 		}
 
 		_turnManager.Survey((from, to) => _ground.Way(from, to, float.MaxValue), CountyNameAt, towns,
-			MapDecoration.TownRing, FieldUnder, SiteUnder, _world.GroundOf);
+			MapDecoration.TownRing, FieldUnder, SiteUnder, _world.GroundOf, (from, to) => _ground.Reaches(from, to));
 
 		// What the counties are growing — the first thing back on the ground, because a field is not
 		// decoration: it is the one thing out here a lord changes from a screen and then sees from the
@@ -716,8 +720,8 @@ public partial class CampaignMapPage : Control
 	}
 
 	/// <summary>What the ground under the cursor would cost to reach, beside the cursor, and the road
-	/// the men would take laid out in front of them. Worked out afresh on every movement of the
-	/// mouse, because that is the question being asked.</summary>
+	/// the men would take laid out in front of them. Worked out afresh whenever the mouse moves onto
+	/// another cell of the march grid, because that is the question being asked.</summary>
 	private void ShowMarchCost(Vector2 where)
 	{
 		_marchLabel.Position = where + new Vector2(18, 14);
@@ -729,9 +733,17 @@ public partial class CampaignMapPage : Control
 			_marchLabel.Text = "Nowhere to march";
 			_marchLabel.AddThemeColorOverride("font_color", Chrome.Dim);
 			LayTrail(new List<(Vector2, float)>(), 0f);
+			_marchAsked = null;
 			return;
 		}
 
+		var asked = (army, ArmyPixel(army), (Vector2I)(ground / MarchGrid.CellSize).Floor(), army.MarchLeft);
+		if (_marchAsked == asked)
+		{
+			return; // the same cell as a moment ago, and the same road to it
+		}
+
+		_marchAsked = asked;
 		List<(Vector2 At, float Spent)> road = _ground.Way(ArmyPixel(army), ground, Beyond(army));
 		if (road.Count == 0)
 		{
@@ -782,6 +794,7 @@ public partial class CampaignMapPage : Control
 		_marchingArmy = null;
 		_marchLabel.Visible = false;
 		LayTrail(new List<(Vector2, float)>(), 0f);
+		_marchAsked = null;
 	}
 
 	/// <summary>How far a road is still worth working out, so the lord can be shown where it goes and
