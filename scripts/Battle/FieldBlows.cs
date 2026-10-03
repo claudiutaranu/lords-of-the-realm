@@ -279,6 +279,16 @@ public sealed partial class FieldBattle
 	/// <summary>Takes health off a man, and men off his file as it runs out.</summary>
 	private void Hurt(FieldSoldier man, float damage)
 	{
+		// Inside his walls a defender is that much harder to kill, from the walkway, the towers and the
+		// gate as the captain's reckoning has it; an attacker under the walls, in a breach or on a ladder,
+		// that much easier.
+		if (Wall != null)
+		{
+			damage = !man.Squad.IsAttacking && Wall.IsInside(man.At) ? damage / Wall.Stone
+				: man.Squad.IsAttacking && Wall.UnderIt(man.At) ? damage / Mathf.Max(0.05f, Wall.Exposure)
+				: damage;
+		}
+
 		man.Health = Mathf.Max(0f, man.Health - damage);
 		// A man's health is his file's, a man's worth to each of them — but never more men than the
 		// file has: the captain is one man with more than one man's health, and he falls only when

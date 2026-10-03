@@ -158,8 +158,27 @@ public sealed partial class FieldBattle
 	}
 
 	/// <summary>Walks a man toward a spot and stops him <paramref name="short"/> of it.</summary>
-	private static void Walk(FieldSoldier man, Vector2 to, float @short)
+	private void Walk(FieldSoldier man, Vector2 to, float @short)
 	{
+		// A wall in the way is gone round: to the nearest gap the man can use, and through it.
+		bool mounted = man.Squad.Kind.Mounted;
+		// The castle's men hold their walls: sent at anything outside, a man goes to the wall facing
+		// it and fights from behind the stone, which is what a garrison is for.
+		if (Wall != null && !man.Squad.IsAttacking && Wall.IsInside(man.At))
+		{
+			to = Wall.Within(to);
+		}
+
+		if (Wall != null)
+		{
+			Vector2 next = Wall.Detour(man.At, to, mounted);
+			if (next != to)
+			{
+				to = next;
+				@short = 0f;
+			}
+		}
+
 		Vector2 way = to - man.At;
 		float far = way.Length();
 		man.IsMoving = far > @short + 0.05f;
@@ -169,7 +188,9 @@ public sealed partial class FieldBattle
 		}
 
 		man.Facing = way / far;
-		man.At += man.Facing * Mathf.Min(man.Squad.Pace * Hurry * Slice, far - @short);
+		float pace = man.Squad.Pace * Hurry * (Wall != null && Wall.Climbing(man.At) ? FieldWall.Climb : 1f);
+		Vector2 step = man.At + (man.Facing * Mathf.Min(pace * Slice, far - @short));
+		man.At = Wall == null ? step : Wall.Stop(man.At, step, mounted);
 	}
 
 	/// <summary>Takes the fallen out of the ranks, closes their files up behind them, and tells the

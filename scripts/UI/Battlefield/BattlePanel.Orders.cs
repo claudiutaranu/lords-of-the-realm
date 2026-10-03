@@ -9,7 +9,13 @@ public partial class BattlePanel
 	/// while he is there, and comes back with the reckoning of whatever he made of it.</summary>
 	private void Lead()
 	{
-		var battle = new FieldBattle(_attacker.Men, Against(), _attacker.MarchLeft <= 0f, _balance);
+		// At the walls the men who fight are the castle's own, behind its wall; in the field, whoever
+		// stands in front of the town.
+		Defenders against = Against();
+		var battle = _walls
+			? new FieldBattle(_attacker.Men, against with { Field = against.Castle, Castle = new Dictionary<string, int>() },
+				_attacker.MarchLeft <= 0f, _balance, atTheWalls: true)
+			: new FieldBattle(_attacker.Men, against, _attacker.MarchLeft <= 0f, _balance);
 		var field = new Battlefield();
 		GetParent().AddChild(field);
 		field.Begin(battle, _us, _them);

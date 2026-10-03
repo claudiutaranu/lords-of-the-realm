@@ -143,6 +143,10 @@ public partial class Battlefield : Control
 		world.AddChild(grass);
 		grass.Sow(bare, BareFrom, Field, new FastNoiseLite { Frequency = TallGrassStands, Seed = (int)WoodsSeed + 1 }, WoodsSeed, _land);
 		world.AddChild(Wood(_land));
+		if (battle.Wall != null)
+		{
+			world.AddChild(BattlefieldWalls.Build(battle.Wall, _land));
+		}
 
 		_tramp = new MarchingSound { Loudness = TrampLoudness };
 		AddChild(_tramp);

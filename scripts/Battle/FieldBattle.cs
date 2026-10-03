@@ -67,15 +67,21 @@ public sealed partial class FieldBattle
 	/// <summary>Draws the two lines up facing each other: the attacker to the south, the defender
 	/// to the north, each with its foot in front and its bows behind.</summary>
 	public FieldBattle(Dictionary<string, int> attacker, Defenders against, bool marched, GameBalance balance,
-		ulong seed = Seed)
+		ulong seed = Seed, bool atTheWalls = false)
 	{
 		_balance = balance;
+		// An assault is fought by the castle's own men inside its walls, where they would draw up.
+		Wall = atTheWalls ? new FieldWall(new Vector2(0f, -Gap / 2f), against, balance) : null;
 		_dice = new RandomNumberGenerator { Seed = seed };
 		(_ground, _vigour) = Battle.FieldOdds(against, marched, balance);
 		_menPerFigure = Mathf.Max(1, Mathf.CeilToInt((ProvinceEconomy.Men(attacker) + ProvinceEconomy.Men(against.Field))
 			/ (float)MostFigures));
 		DrawUp(attacker, true);
 		DrawUp(against.Field, false);
+		if (Wall != null)
+		{
+			Garrison();
+		}
 		foreach (FieldSquad squad in Squads)
 		{
 			for (int i = 0; i < squad.Soldiers.Count; i++)
@@ -106,6 +112,30 @@ public sealed partial class FieldBattle
 	}
 
 	public List<FieldSquad> Squads { get; } = new();
+
+	/// <summary>The castle's wall, when this is an assault on it; null in the open field.</summary>
+	public FieldWall Wall { get; }
+
+	/// <summary>Stands the castle's men inside its walls: the foot along the face the enemy comes at,
+	/// the bows behind them, each row spread across what room the square has.</summary>
+	private void Garrison()
+	{
+		var foot = Squads.FindAll(squad => !squad.IsAttacking && !squad.Shoots);
+		var bows = Squads.FindAll(squad => !squad.IsAttacking && squad.Shoots);
+		float room = Wall.Half - 4f;
+		foreach ((List<FieldSquad> row, float y) in new[] { (foot, Wall.Middle.Y + room - 2f), (bows, Wall.Middle.Y) })
+		{
+			for (int i = 0; i < row.Count; i++)
+			{
+				float x = Wall.Middle.X + Mathf.Lerp(-room, room, (i + 0.5f) / row.Count);
+				row[i].At = new Vector2(x, y);
+			}
+		}
+	}
+
+	/// <summary>How long the day is: a day at the walls is shorter, as the captain's is, and an assault
+	/// that has not cleared them by nightfall has failed.</summary>
+	private float DayLong => Wall == null ? _balance.FieldDaySeconds : _balance.AssaultDaySeconds;
 
 	/// <summary>Whether each side's squads take their orders from the captain rather than from the
 	/// lord. The defence always does; the lord may hand the attack over at any moment.</summary>
@@ -161,7 +191,7 @@ public sealed partial class FieldBattle
 
 		IsAttackFallen = Lost(true) >= _attackBrought;
 		IsDefenceFallen = Lost(false) >= _defenceBrought;
-		IsOver = IsAttackFallen || IsDefenceFallen || Clock >= _balance.FieldDaySeconds;
+		IsOver = IsAttackFallen || IsDefenceFallen || Clock >= DayLong;
 	}
 
 	/// <summary>The day, fought to its end by both captains. What the check runs.</summary>

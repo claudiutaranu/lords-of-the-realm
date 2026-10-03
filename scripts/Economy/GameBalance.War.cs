@@ -104,6 +104,11 @@ public partial class GameBalance
 	[Export] public float FieldDaySeconds = 600f;
 	[Export] public float FieldRoundSeconds = 20f;
 
+	/// <summary>How long an assault fought by hand lasts before night ends it, in seconds: half a day
+	/// in the open, as the captain's assault is short beside his field. Not his twelve rounds scaled,
+	/// which came to under a minute and left no time to reach the wall. [I]</summary>
+	[Export] public float AssaultDaySeconds = 300f;
+
 	/// <summary>How much of a starving garrison is lost each season once the larder is out, and how
 	/// many of those seasons they hold before the gate opens. Men do not sit behind a wall until the
 	/// last of them is dead: they hold out for a while on nothing and then somebody draws the bolt,

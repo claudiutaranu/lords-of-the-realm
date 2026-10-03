@@ -44,6 +44,7 @@ public partial class BattleCheck : Node
 		Trampled(b);
 		ByHand(b);
 		AboutFace(b);
+		ThroughTheWalls(b);
 
 		GD.Print(_failed == 0
 			? "\nthe fighting: all checks passed"

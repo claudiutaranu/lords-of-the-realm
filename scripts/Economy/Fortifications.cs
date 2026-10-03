@@ -67,6 +67,15 @@ public static class Fortifications
 	/// <summary>What a hundred heads pay at a rate of one behind these walls (Livelihood.TaxDue).</summary>
 	public static int TaxBase(string fortification) => Of(fortification).TaxBase;
 
+	/// <summary>Whether a rung is raised in timber, which is what its wall is drawn in on the field.</summary>
+	public static bool IsTimber(string fortification)
+	{
+		_walls ??= Read();
+		return _timber.Contains(fortification ?? "");
+	}
+
+	private static readonly HashSet<string> _timber = new();
+
 	/// <summary>The original's figure for a county with no walls at all.</summary>
 	public const int OpenGroundTaxBase = 320;
 
@@ -107,6 +116,10 @@ public static class Fortifications
 					fort.TryGetValue("seasons", out Variant seasons) ? (int)seasons : 1,
 					cost);
 				_ladder.Add(key);
+				if (material.AsGodotDictionary()["key"].AsString() == "wood")
+				{
+					_timber.Add(key);
+				}
 			}
 		}
 

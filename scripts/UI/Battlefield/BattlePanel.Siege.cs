@@ -24,6 +24,8 @@ public partial class BattlePanel
 
 		_attack.Visible = !castle || left == 0;
 		_siege.Visible = castle && !ours;
+		// The assault, once it can go in, can be led by hand as the field can.
+		_lead.Visible |= castle && left == 0;
 		if (ours && left > 0)
 		{
 			_question.Text = "The engines are building";

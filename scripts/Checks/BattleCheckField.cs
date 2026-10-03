@@ -75,6 +75,46 @@ public partial class BattleCheck
 			farthest <= squad.Gap * 1.5f, true);
 	}
 
+	/// <summary>An assault by hand: in every slice of it no man's step goes through stone, and horse
+	/// gets in by no ladder.</summary>
+	private void ThroughTheWalls(GameBalance b)
+	{
+		foreach ((string fort, int rams, int catapults) in new[] { ("large-castle", 1, 2), ("small-palisade", 0, 0) })
+		{
+			var against = new Defenders(Men(("spear", 40), ("bow", 20)), new Dictionary<string, int>(), fort, 50f, false,
+				rams, catapults);
+			var assault = new FieldBattle(Men(("sword", 120), ("horse", 30)), against, false, b, atTheWalls: true);
+			assault.IsAttackCaptained = true;
+			int through = 0;
+			int horseIn = 0;
+			while (!assault.IsOver)
+			{
+				var was = new Dictionary<FieldSoldier, Vector2>();
+				foreach (FieldSquad squad in assault.Squads)
+				{
+					foreach (FieldSoldier man in squad.Soldiers)
+					{
+						was[man] = man.At;
+					}
+				}
+
+				assault.Step();
+				foreach (FieldSquad squad in assault.Squads)
+				{
+					foreach (FieldSoldier man in squad.Soldiers)
+					{
+						through += was.TryGetValue(man, out Vector2 from) && assault.Wall.Blocked(from, man.At, squad.Kind.Mounted) ? 1 : 0;
+						horseIn += rams == 0 && catapults == 0 && squad.Kind.Mounted && squad.IsAttacking
+							&& assault.Wall.IsInside(man.At) ? 1 : 0;
+					}
+				}
+			}
+
+			Is($"at the walls of a {fort}, nobody steps through stone", through, 0);
+			Is($"  and no horse comes in by a ladder", horseIn, 0);
+		}
+	}
+
 	private void ByHand(GameBalance b)
 	{
 		Dictionary<string, int> crown = Men(("spear", 25), ("bow", 15));
