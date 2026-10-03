@@ -58,6 +58,11 @@ public partial class Battlefield
 		}
 	}
 
+	/// <summary>Whether the right button now being let go was the second of a double click: a march
+	/// ordered once is at a walk, ordered twice quick it is at the run — the first click has already
+	/// set them walking, and the second only quickens them.</summary>
+	private bool _isOrderedTwice;
+
 	/// <summary>The right button let go: a click sends the chosen squads (<see cref="Send"/>); a drag
 	/// draws the front they are to stand on — along it, facing away from the lord's eye, as wide as
 	/// the line he drew, which is how two ranks are made one long one, or one made two.</summary>
@@ -78,7 +83,7 @@ public partial class Battlefield
 		if (_chosen.Count > 0 && front is var (from, to, facing))
 		{
 			_battle.IsAttackCaptained = false;
-			_battle.Form(_chosen, from, to, facing);
+			_battle.Form(_chosen, from, to, facing, _isOrderedTwice);
 			Answer("move");
 		}
 	}
@@ -116,7 +121,7 @@ public partial class Battlefield
 		}
 		else
 		{
-			_battle.March(_chosen, spot);
+			_battle.March(_chosen, spot, _isOrderedTwice);
 			Answer("move");
 		}
 	}

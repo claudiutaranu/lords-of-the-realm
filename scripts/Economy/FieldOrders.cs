@@ -5,8 +5,9 @@ using Godot;
 /// call the day off.</summary>
 public sealed partial class FieldBattle
 {
-	/// <summary>Sends squads to a spot on the field, keeping the shape they stand in.</summary>
-	public void March(IReadOnlyList<FieldSquad> squads, Vector2 to)
+	/// <summary>Sends squads to a spot on the field, keeping the shape they stand in, at the run or at
+	/// a walk.</summary>
+	public void March(IReadOnlyList<FieldSquad> squads, Vector2 to, bool running = true)
 	{
 		if (squads.Count == 0)
 		{
@@ -26,6 +27,7 @@ public sealed partial class FieldBattle
 			squad.FaceGoal = null;
 			squad.KeepsFront = false;
 			squad.IsPlaced = true;
+			squad.IsRunning = running;
 			squad.Goal = to + (squad.At - middle);
 		}
 	}
@@ -33,11 +35,12 @@ public sealed partial class FieldBattle
 	/// <summary>Draws squads up along a line the lord drew on the field, from one end to the other,
 	/// facing <paramref name="facing"/>: side by side in the order they already stand along it,
 	/// each as wide as its share of the line — so a long line is a thin one and a short one deep.</summary>
-	public void Form(IReadOnlyList<FieldSquad> squads, Vector2 from, Vector2 to, Vector2 facing)
+	public void Form(IReadOnlyList<FieldSquad> squads, Vector2 from, Vector2 to, Vector2 facing, bool running = true)
 	{
 		foreach ((FieldSquad squad, int files, Vector2 front) in Plan(squads, from, to))
 		{
 			squad.Reform(files);
+			squad.IsRunning = running;
 			squad.Target = null;
 			squad.KeepsFront = false;
 			squad.IsPlaced = true;
@@ -111,6 +114,7 @@ public sealed partial class FieldBattle
 			squad.Goal = null;
 			squad.KeepsFront = false;
 			squad.IsPlaced = false;
+			squad.IsRunning = true; // a charge is at the run, whatever the last march was
 			squad.Target = foe;
 		}
 	}

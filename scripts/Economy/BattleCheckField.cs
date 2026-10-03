@@ -52,6 +52,25 @@ public partial class BattleCheck
 		}
 
 		// A step and a half at most: the short rear rank has to come round to be the full front.
+		// Sent once it walks, sent twice quick it runs: the same ten seconds, half the ground.
+		var paces = new List<float>();
+		foreach (bool running in new[] { false, true })
+		{
+			var march = new FieldBattle(Men(("peasant", 30)),
+				new Defenders(Men(("spear", 10)), new Dictionary<string, int>(), "", 50f), false, b);
+			FieldSquad sent = march.Squads.Find(each => each.IsAttacking);
+			Vector2 from = sent.At;
+			march.March(new[] { sent }, from - (sent.Facing * 200f), running);
+			for (int slice = 0; slice < 100; slice++)
+			{
+				march.Step();
+			}
+
+			paces.Add(sent.At.DistanceTo(from));
+		}
+
+		Is("a squad marched at a walk covers half the ground of one at the run",
+			Mathf.Abs((paces[0] * 2f) - paces[1]) < 0.5f, true);
 		Is("turned about, no man of a squad goes further than a step and a half to his new place",
 			farthest <= squad.Gap * 1.5f, true);
 	}

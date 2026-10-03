@@ -81,7 +81,7 @@ public partial class BattlefieldBar : Control
 		bottom.Position -= new Vector2(0, 12);
 		AddChild(bottom);
 
-		Label help = Chrome.Line("Left: choose · Right: march or fall on (drag: draw their front) · WASD / Q E / wheel: look · Space: pause", 15, Chrome.Dim);
+		Label help = Chrome.Line("Left: choose · Right: march, twice to run, or fall on (drag: draw their front) · WASD / Q E / wheel: look · Space: pause", 15, Chrome.Dim);
 		help.SetAnchorsPreset(LayoutPreset.BottomLeft);
 		help.GrowVertical = GrowDirection.Begin;
 		help.Position += new Vector2(16, -8);

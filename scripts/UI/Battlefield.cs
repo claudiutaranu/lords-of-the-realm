@@ -246,6 +246,7 @@ public partial class Battlefield : Control
 				Choose(release.Position, release.ShiftPressed);
 				break;
 			case InputEventMouseButton { ButtonIndex: MouseButton.Right, Pressed: true } order:
+				_isOrderedTwice = order.DoubleClick;
 				_orderedAt = order.Position;
 				_orderedFrom = OnGround(order.Position);
 				break;
