@@ -25,13 +25,17 @@ public partial class CampaignRealmCard : PanelContainer
 
 	private readonly List<(Control Face, string Film)> _faces = new();
 	private bool _isOpen;
+	private string _tale = "";
+	private int _maps;
 
 	public static CampaignRealmCard Make(string title, string view, IReadOnlyList<LordFace> lords,
-		bool isOpen, Color left, Color right)
+		bool isOpen, Color left, Color right, string tale = "", int maps = 0)
 	{
 		var card = new CampaignRealmCard { _isOpen = isOpen, CustomMinimumSize = new Vector2(680, 0) };
 		card.AddThemeStyleboxOverride("panel", Chrome.PaintedStyle());
 		card.MouseFilter = MouseFilterEnum.Stop;
+		card._tale = tale;
+		card._maps = maps;
 		card.Build(title, view, lords, left, right);
 		return card;
 	}
@@ -81,9 +85,28 @@ public partial class CampaignRealmCard : PanelContainer
 			}
 
 			column.AddChild(faces);
-			Label count = Chrome.Line($"{lords.Count} Lords", 22, Chrome.Cream);
-			count.HorizontalAlignment = HorizontalAlignment.Center;
-			column.AddChild(count);
+
+			// What the campaign is, in a line, and how long: so the card says more than who is in it.
+			if (_tale.Length > 0)
+			{
+				Label tale = Chrome.Line(_tale, 17, Chrome.Soft);
+				tale.HorizontalAlignment = HorizontalAlignment.Center;
+				tale.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+				tale.CustomMinimumSize = new Vector2(560, 0);
+				var told = new CenterContainer { MouseFilter = MouseFilterEnum.Ignore };
+				told.AddChild(tale);
+				column.AddChild(told);
+			}
+
+			var tally = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center, MouseFilter = MouseFilterEnum.Ignore };
+			tally.AddThemeConstantOverride("separation", 28);
+			if (_maps > 0)
+			{
+				tally.AddChild(Tally("castle", $"{_maps} Maps"));
+			}
+
+			tally.AddChild(Tally("helmet", $"{lords.Count} Lords"));
+			column.AddChild(tally);
 			MouseEntered += Stir;
 			return;
 		}
@@ -96,6 +119,17 @@ public partial class CampaignRealmCard : PanelContainer
 		Label soon = Chrome.Line("Coming Soon", 18, Chrome.Soft);
 		soon.HorizontalAlignment = HorizontalAlignment.Center;
 		column.AddChild(soon);
+	}
+
+	private static Control Tally(string icon, string text)
+	{
+		var line = new HBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
+		line.AddThemeConstantOverride("separation", 8);
+		line.AddChild(Chrome.Icon(icon, 26));
+		Label said = Chrome.Line(text, 22, Chrome.Cream);
+		said.VerticalAlignment = VerticalAlignment.Center;
+		line.AddChild(said);
+		return line;
 	}
 
 	/// <summary>A lord in his gilt frame, his shield over the foot of it.</summary>
