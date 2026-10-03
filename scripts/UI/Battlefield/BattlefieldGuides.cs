@@ -2,16 +2,20 @@ using System.Collections.Generic;
 using Godot;
 
 /// <summary>What the chosen squads mean to do, painted on the ground under them in broad strips of worn
-/// paint, lit like the turf so shadows and woods darken them (battlefield-guide.gdshader): how far a squad that shoots can carry (a red ring, as wide as the reach the
+/// paint, lit like the turf so shadows and woods darken them (battlefield-guide.gdshader): how far a squad that shoots can carry (a red fan ahead of it, as far as the reach the
 /// battle measures its shots by, FieldSquad.Range from the standard), and where each has been sent
 /// — a gold line to the spot it marches to, ending in an arrowhead, or a red one to the enemy it
 /// falls on. Only for squads in hand, so the field is not scored with lines, and laid again every
 /// frame as they move.</summary>
 public partial class BattlefieldSquads
 {
-	/// <summary>How many short straight pieces bend the ring round and over the ground, how long a
+	/// <summary>How many short straight pieces bend the reach's arc round and over the ground, how long a
 	/// piece of a line is at most, and how far over the turf the strips lie.</summary>
-	private const int RingPieces = 180;
+	private const int FanPieces = 60;
+
+	/// <summary>How far either side of the way a squad faces its reach is drawn: the arc of what it
+	/// can loose at without turning.</summary>
+	private const float FanHalf = Mathf.Pi / 3f;
 	private const float LinePiece = 3f;
 	private const float GuideLift = 0.2f;
 
@@ -79,7 +83,7 @@ public partial class BattlefieldSquads
 
 			if (squad.Shoots)
 			{
-				Ring(squad.At, squad.Range, ReachRed);
+				Fan(squad.At, squad.Facing, squad.Range, ReachRed);
 			}
 
 			if (isLine)
@@ -94,14 +98,30 @@ public partial class BattlefieldSquads
 		}
 	}
 
-	private void Ring(Vector2 middle, float radius, Color colour)
+	/// <summary>The reach of a squad that shoots, ahead of it and not all round: an arc as far off as
+	/// its bows carry across the way it faces, and its two sides drawn back to the squad. It turns as
+	/// the squad does, and a squad turns to face whatever comes at it.</summary>
+	private void Fan(Vector2 middle, Vector2 facing, float radius, Color colour)
 	{
-		float piece = Mathf.Tau / RingPieces;
-		for (int i = 0; i < RingPieces; i++)
+		float ahead = Mathf.Atan2(facing.Y, facing.X);
+		float from = ahead - FanHalf;
+		float piece = 2f * FanHalf / FanPieces;
+		for (int i = 0; i < FanPieces; i++)
 		{
-			Vector2 from = middle + (new Vector2(Mathf.Cos(i * piece), Mathf.Sin(i * piece)) * radius);
-			Vector2 to = middle + (new Vector2(Mathf.Cos((i + 1) * piece), Mathf.Sin((i + 1) * piece)) * radius);
-			Strip(from, to, (from - middle).Normalized(), (to - middle).Normalized(), colour);
+			Vector2 outFrom = new(Mathf.Cos(from + (i * piece)), Mathf.Sin(from + (i * piece)));
+			Vector2 outTo = new(Mathf.Cos(from + ((i + 1) * piece)), Mathf.Sin(from + ((i + 1) * piece)));
+			Strip(middle + (outFrom * radius), middle + (outTo * radius), outFrom, outTo, colour);
+		}
+
+		foreach (float side in new[] { from, ahead + FanHalf })
+		{
+			Vector2 way = new(Mathf.Cos(side), Mathf.Sin(side));
+			var across = new Vector2(-way.Y, way.X);
+			int pieces = Mathf.CeilToInt(radius / LinePiece);
+			for (int i = 0; i < pieces; i++)
+			{
+				Strip(middle + (way * (radius * i / pieces)), middle + (way * (radius * (i + 1) / pieces)), across, across, colour);
+			}
 		}
 	}
 
