@@ -188,7 +188,7 @@ public partial class BattlefieldSquads : Node3D
 			return;
 		}
 
-		Reach(chosen);
+		Guide(chosen, eye.GlobalPosition.DistanceTo(Land.On(new Vector2(eye.GlobalPosition.X, eye.GlobalPosition.Z))));
 		float turn = Mathf.Min(1f, delta * Turning);
 		float clock = _battle.Clock + (between * FieldBattle.Slice);
 		int bars = 0;
