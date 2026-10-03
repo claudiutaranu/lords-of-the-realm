@@ -8,10 +8,10 @@ using Godot;
 public static class BattlefieldStreak
 {
 	/// <summary>How long the streak is behind its head and how wide, in metres.</summary>
-	private const float Long = 3.2f;
+	private const float Long = 1.6f;
 	private const float Wide = 0.05f;
 
-	private static readonly Color Head = new(0.95f, 0.93f, 0.86f, 0.85f);
+	private static readonly Color Head = new(0.95f, 0.93f, 0.86f, 0.6f);
 
 	public static Mesh Mesh()
 	{

@@ -15,7 +15,7 @@ public partial class BattlefieldSquads
 
 	/// <summary>How far either side of the way a squad faces its reach is drawn: the arc of what it
 	/// can loose at without turning.</summary>
-	private const float FanHalf = Mathf.Pi / 3f;
+	private const float FanHalf = FieldBattle.ShootsWithin;
 
 	/// <summary>How strongly the fan's two sides are painted against its arc: the arc is the reach,
 	/// the sides only say which way it lies.</summary>

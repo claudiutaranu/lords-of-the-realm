@@ -34,7 +34,10 @@ public sealed partial class FieldBattle
 
 	/// <summary>How near an enemy squad must come before a squad standing still turns to face it, and
 	/// how quickly it turns, a share a slice: a body of men wheels, it does not spin.</summary>
-	private const float FaceWithin = 40f;
+	private const float FaceWithin = 15f;
+
+	/// <summary>How far either side of the way it faces a squad of bowmen will loose.</summary>
+	public const float ShootsWithin = Mathf.Pi / 3f;
 	private const float Wheel = 0.06f;
 
 	private const float ArrowSpeed = 45f;
@@ -77,11 +80,21 @@ public sealed partial class FieldBattle
 			// archers stood and watched three swordsmen cut down the end of it.
 			if (squad.Shoots && !squad.IsMoving)
 			{
-				squad.ShootingAt = squad.Target is { IsStanding: true } target && InRange(squad, target)
+				FieldSquad mark = squad.Target is { IsStanding: true } target && InRange(squad, target)
 					? target
 					: Nearest(squad, squad.Range);
+				squad.ShootingAt = mark != null && IsAhead(squad, mark) ? mark : null;
 			}
 		}
+	}
+
+	/// <summary>Whether an enemy stands in the arc a squad faces (ShootsWithin either side): bowmen
+	/// loose at what is before them and not at what is behind their backs, and the reach drawn on the
+	/// field (BattlefieldGuides) is that same arc.</summary>
+	private static bool IsAhead(FieldSquad squad, FieldSquad mark)
+	{
+		Vector2 toward = mark.At - squad.At;
+		return toward.LengthSquared() < 0.01f || squad.Facing.Dot(toward.Normalized()) >= Mathf.Cos(ShootsWithin);
 	}
 
 	/// <summary>One man's slice: keep his place in the ranks, and swing at whoever is in reach of

@@ -17,6 +17,8 @@ public partial class BattlefieldBar : Control
 	private static readonly Color Unchosen = new(0.62f, 0.62f, 0.62f);
 	private static readonly Color Navy = new(0.04f, 0.07f, 0.14f, 0.94f);
 	private static readonly Color Gilt = new(0.78f, 0.62f, 0.32f);
+	private static readonly Color ChargeBlue = new(0.09f, 0.2f, 0.42f, 0.97f);
+	private static readonly Color RetreatRed = new(0.38f, 0.07f, 0.07f, 0.97f);
 
 	/// <summary>A squad's card, and what it last said: the bar is brought up every frame, and a label
 	/// rewritten every frame is a string built and a relayout asked for every frame.</summary>
@@ -100,11 +102,11 @@ public partial class BattlefieldBar : Control
 		var orders = new GridContainer { Columns = 3 };
 		orders.AddThemeConstantOverride("h_separation", 8);
 		orders.AddThemeConstantOverride("v_separation", 8);
-		orders.AddChild(Order("Charge", "crossed-swords", charge, out _));
-		orders.AddChild(Order("Hold", "shield", hold, out _));
-		orders.AddChild(Order("", "helmet", () => captain(!_battle.IsAttackCaptained), out _captainWord));
-		orders.AddChild(Order("Retreat", "footsteps", retreat, out _));
-		orders.AddChild(Order("Auto-resolve", "scales", autoResolve, out _));
+		orders.AddChild(Order("Charge", "crossed-swords", ChargeBlue, charge, out _));
+		orders.AddChild(Order("Hold", "shield", Navy, hold, out _));
+		orders.AddChild(Order("", "helmet", Navy, () => captain(!_battle.IsAttackCaptained), out _captainWord));
+		orders.AddChild(Order("Retreat", "footsteps", RetreatRed, retreat, out _));
+		orders.AddChild(Order("Auto-resolve", "scales", Navy, autoResolve, out _));
 		var middle = new CenterContainer();
 		middle.AddChild(orders);
 		foot.AddChild(middle);
@@ -245,11 +247,36 @@ public partial class BattlefieldBar : Control
 		filled.GetParent().GetChild<ColorRect>(1).SizeFlagsStretchRatio = Mathf.Max(0.001f, 1f - share);
 	}
 
-	private static Button Order(string text, string icon, Action pressed, out Label word)
+	/// <summary>An order on its plate, as wide as its word needs: dark blue in a gilt edge, the charge
+	/// in a brighter blue and the retreat in red, its glyph beside its word.</summary>
+	private static Button Order(string text, string icon, Color ground, Action pressed, out Label word)
 	{
-		Button order = Chrome.Order(text, icon, pressed, out word);
-		order.CustomMinimumSize = new Vector2(176, 46);
-		word.AddThemeFontSizeOverride("font_size", 18);
+		var order = new Button { CustomMinimumSize = new Vector2(196, 52) };
+		foreach ((string state, Color fill, Color edge) in new[]
+		{
+			("normal", ground, Gilt),
+			("focus", ground, Gilt),
+			("hover", ground.Lightened(0.15f), Gilt.Lightened(0.3f)),
+			("pressed", ground.Darkened(0.25f), Gilt),
+		})
+		{
+			var face = new StyleBoxFlat { BgColor = fill, BorderColor = edge };
+			face.SetBorderWidthAll(2);
+			face.SetCornerRadiusAll(3);
+			face.ShadowColor = new Color(0f, 0f, 0f, 0.4f);
+			face.ShadowSize = 3;
+			order.AddThemeStyleboxOverride(state, face);
+		}
+
+		order.Pressed += pressed;
+		var said = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center, MouseFilter = MouseFilterEnum.Ignore };
+		said.AddThemeConstantOverride("separation", 12);
+		said.SetAnchorsPreset(LayoutPreset.FullRect);
+		said.AddChild(Chrome.Icon(icon, 30));
+		word = Chrome.Line(text, 22, Chrome.Cream);
+		word.VerticalAlignment = VerticalAlignment.Center;
+		said.AddChild(word);
+		order.AddChild(said);
 		return order;
 	}
 }
