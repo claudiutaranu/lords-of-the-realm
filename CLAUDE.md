@@ -28,8 +28,13 @@ everything else is hand-built UI over a turn-based economy.
   signature is not worth its line.
 - No dead code, no commented-out code, no `TODO: fix later`. A deliberate corner cut is marked
   `ponytail:` with its ceiling and the upgrade path.
-- Files over ~300 lines want splitting. `CampaignMapPage`, `MapDecoration` and
-  `tools/generate_campaign_map.py` are over it and known to be.
+- Files over ~300 lines want splitting. A big class is a partial class over files named
+  `Class.Part.cs` (`CampaignMapPage.March.cs`, `TurnManager.War.cs`), each with a doc comment
+  saying which part of the whole it holds; the check suites keep their `SuiteSubject.cs` names
+  (`LordCheckWar.cs`). `tools/generate_campaign_map.py` is over it and known to be.
+- Scripts live by what they do: `scripts/Core` (campaign, saves, router, settings, music,
+  narrator), `Economy` (the county's year), `Turn`, `Lords`, `Battle`, `Checks`, `Harness` (out
+  of git), and `UI/{Map,Battlefield,County,Rooms,Army,Diplomacy,Menus,Chrome}`.
 - Commit messages read like chapter titles with a body that explains what changed and why.
 
 ## The economy
