@@ -178,6 +178,15 @@ public partial class Battlefield
 
 	private void Captain(bool handing) => _battle.IsAttackCaptained = handing;
 
+	/// <summary>The lord leaves the rest of the day to the captains of both sides, and it is fought to
+	/// its end at once, by the same field and the same dice (FieldBattle.Fought): what he hands over
+	/// is the fighting, not the reckoning.</summary>
+	private void AutoResolve()
+	{
+		_battle.Fought();
+		_chosen.Clear();
+	}
+
 	/// <summary>Where on the field a point on the screen falls: the ray from the eye meeting the
 	/// ground, over the hills as they lie.</summary>
 	private Vector2? OnGround(Vector2 screen) =>

@@ -160,7 +160,7 @@ public partial class Battlefield : Control
 
 		_bar = new BattlefieldBar();
 		AddChild(_bar);
-		_bar.Lay(battle, us, them, Pick, Charge, Hold, Captain, battle.Withdraw);
+		_bar.Lay(battle, us, them, Pick, Charge, Hold, Captain, battle.Withdraw, AutoResolve);
 
 		foreach (FieldSquad squad in battle.Squads)
 		{
