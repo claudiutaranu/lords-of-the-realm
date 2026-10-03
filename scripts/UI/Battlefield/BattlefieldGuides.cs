@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using Godot;
 
-/// <summary>What the chosen squads mean to do, laid on the ground under them in soft strips that
-/// fade at their edges: how far a squad that shoots can carry (a red ring, as wide as the reach the
+/// <summary>What the chosen squads mean to do, painted on the ground under them in broad strips, lit
+/// like the turf so shadows and woods darken them (battlefield-guide.gdshader): how far a squad that shoots can carry (a red ring, as wide as the reach the
 /// battle measures its shots by, FieldSquad.Range from the standard), and where each has been sent
 /// — a gold line to the spot it marches to, ending in an arrowhead, or a red one to the enemy it
 /// falls on. Only for squads in hand, so the field is not scored with lines, and laid again every
@@ -17,9 +17,9 @@ public partial class BattlefieldSquads
 
 	/// <summary>How wide a strip is, as a share of the eye's distance, so it reads the same thickness
 	/// from a man's height and from over the whole field; never thinner or wider than these, in metres.</summary>
-	private const float GuideWidthShare = 0.012f;
-	private const float GuideNarrowest = 0.45f;
-	private const float GuideWidest = 2.4f;
+	private const float GuideWidthShare = 0.022f;
+	private const float GuideNarrowest = 0.8f;
+	private const float GuideWidest = 4f;
 
 	/// <summary>How long an arrowhead is and how wide across its barbs, in strip widths.</summary>
 	private const float HeadLong = 4f;
@@ -28,9 +28,12 @@ public partial class BattlefieldSquads
 	/// <summary>Not drawn for a squad already all but there: a stub of an arrow under its feet.</summary>
 	private const float LineShortest = 2f;
 
-	/// <summary>Down the middle of a strip; it fades to nothing at both edges, soft as a glow.</summary>
-	private static readonly Color ReachRed = new(1f, 0.12f, 0.08f, 0.85f);
-	private static readonly Color MarchGold = new(1f, 0.7f, 0.08f, 0.9f);
+	/// <summary>The paint; its alpha down the middle of a strip, falling to nothing at the edges, tells
+	/// the shader where the edge is.</summary>
+	private static readonly Color ReachRed = new(0.78f, 0.06f, 0.12f, 1f);
+	private static readonly Color MarchGold = new(1f, 0.72f, 0.1f, 1f);
+
+	private const string GuideShaderPath = "res://assets/shaders/battlefield-guide.gdshader";
 
 	private MeshInstance3D _guides;
 	private ImmediateMesh _guideMesh;
@@ -46,13 +49,7 @@ public partial class BattlefieldSquads
 			{
 				Mesh = _guideMesh,
 				CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
-				MaterialOverride = new StandardMaterial3D
-				{
-					VertexColorUseAsAlbedo = true,
-					ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
-					Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
-					CullMode = BaseMaterial3D.CullModeEnum.Disabled,
-				},
+				MaterialOverride = new ShaderMaterial { Shader = GD.Load<Shader>(GuideShaderPath) },
 			};
 			AddChild(_guides);
 		}
