@@ -26,6 +26,18 @@ public sealed class MarchGrid
 	private readonly int _down;
 	private readonly float[] _cost;		 // what crossing this cell costs, or nothing where it cannot be
 	private readonly int[] _county;		 // which county owns the ground, or -1
+	private readonly int[] _region;		 // which stretch of walkable ground the cell is on, or -1
+
+	// The search's working, kept between searches so the mouse can ask on every movement without
+	// the country being allocated again each time. A cell's figures are this search's only when it
+	// carries this search's mark (_search).
+	private readonly float[] _spent;
+	private readonly int[] _cameFrom;
+	private readonly int[] _reckoned;	 // the search that last priced the cell
+	private readonly int[] _opened;		 // the search the cell is waiting in, 0 once it has been settled
+	private readonly int[] _joined;		 // when it joined the waiting, which settles a tie
+	private readonly PriorityQueue<int, (float Reckoned, int Joined)> _open = new();
+	private int _search;
 
 	public MarchGrid(int width, int height)
 	{
@@ -33,6 +45,12 @@ public sealed class MarchGrid
 		_down = Mathf.Max(1, height / CellSize);
 		_cost = new float[_across * _down];
 		_county = new int[_across * _down];
+		_region = new int[_across * _down];
+		_spent = new float[_across * _down];
+		_cameFrom = new int[_across * _down];
+		_reckoned = new int[_across * _down];
+		_opened = new int[_across * _down];
+		_joined = new int[_across * _down];
 	}
 
 	/// <summary>Lays the ground out: what each cell costs and whose county it is. Called once, while
@@ -48,6 +66,8 @@ public sealed class MarchGrid
 				_county[(down * _across) + across] = county;
 			}
 		}
+
+		Region();
 	}
 
 	/// <summary>Marks the cells a road runs through as road. Done from the drawn line itself, so what
@@ -91,116 +111,158 @@ public sealed class MarchGrid
 	/// two is the matter, the distance or the ground.</summary>
 	public List<(Vector2 At, float Spent)> Way(Vector2 from, Vector2 to, float budget)
 	{
-		var none = new List<(Vector2, float)>();
 		// An army can come to rest a step off the walkable ground — on the shoulder of a mountain road —
 		// and a click can land on a crag beside the path. Both are read as the nearest ground a man
 		// can stand on, or an army halted there could never be moved again.
 		int start = Footing(CellOf(from));
 		int goal = Footing(CellOf(to));
-		if (start < 0 || goal < 0 || _cost[start] <= 0f || _cost[goal] <= 0f)
+		if (start < 0 || goal < 0 || _cost[start] <= 0f || _cost[goal] <= 0f || _region[start] != _region[goal])
 		{
-			return none;
+			// Across the sea or behind a ditch with no ford is known before a step is taken; searching
+			// for it would walk every cell on this side of the water to say no.
+			return new List<(Vector2, float)>();
 		}
 
-		var spent = new Dictionary<int, float> { [start] = 0f };
-		var cameFrom = new Dictionary<int, int>();
-		var open = new List<int> { start };
-		while (open.Count > 0)
+		// A fresh mark for this search: whatever an older one left in the arrays is not this one's.
+		_search++;
+		_open.Clear();
+		int joined = 0;
+		_spent[start] = 0f;
+		_reckoned[start] = _search;
+		_opened[start] = _search;
+		_joined[start] = joined++;
+		_open.Enqueue(start, (Guess(start, goal), _joined[start]));
+		while (_open.TryDequeue(out int at, out (float Reckoned, int Joined) entry))
 		{
-			// Cheapest first, with the distance still to go as a hint. The hint is what keeps this
-			// from searching the whole country to answer about the next valley.
-			int at = open[0];
-			float best = spent[at] + Guess(at, goal);
-			foreach (int cell in open)
+			// Cheapest first, with the distance still to go as a hint — the hint is what keeps this
+			// from searching the whole country to answer about the next valley — and of two as cheap,
+			// the one that joined the search first. A cell made cheaper while waiting is queued again
+			// in its old place in that order; the dearer copy it leaves behind is passed over.
+			if (_opened[at] != _search || _joined[at] != entry.Joined)
 			{
-				float reckoned = spent[cell] + Guess(cell, goal);
-				if (reckoned < best)
-				{
-					best = reckoned;
-					at = cell;
-				}
+				continue;
 			}
 
 			if (at == goal)
 			{
-				return Trace(cameFrom, spent, start, goal);
+				return Trace(start, goal);
 			}
 
-			open.Remove(at);
-			foreach ((int next, float step) in Around(at))
+			_opened[at] = 0;
+			int across = at % _across;
+			int down = at / _across;
+			for (int dx = -1; dx <= 1; dx++)
 			{
-				float price = spent[at] + step;
-				if (price > budget || (spent.TryGetValue(next, out float known) && known <= price))
+				for (int dy = -1; dy <= 1; dy++)
 				{
-					continue;
-				}
+					if (!Step(across, down, dx, dy, out int next))
+					{
+						continue;
+					}
 
-				spent[next] = price;
-				cameFrom[next] = at;
-				if (!open.Contains(next))
-				{
-					open.Add(next);
+					// The cost of the ground being entered, paid over the distance covered to enter it.
+					float price = _spent[at] + (_cost[next] * (dx != 0 && dy != 0 ? Diagonal : 1f) * CellSize);
+					if (price > budget || (_reckoned[next] == _search && _spent[next] <= price))
+					{
+						continue;
+					}
+
+					_spent[next] = price;
+					_reckoned[next] = _search;
+					_cameFrom[next] = at;
+					if (_opened[next] != _search)
+					{
+						_opened[next] = _search;
+						_joined[next] = joined++;
+					}
+
+					_open.Enqueue(next, (price + Guess(next, goal), _joined[next]));
 				}
 			}
 		}
 
-		return none;
+		return new List<(Vector2, float)>();
 	}
 
-	private IEnumerable<(int Cell, float Step)> Around(int cell)
+	/// <summary>Whether <see cref="Way"/> with no limit on what may be spent would find a road, without
+	/// walking it: the two points stand on the same stretch of ground and are not the same cell. A
+	/// company already standing where it is going has no road to take.</summary>
+	public bool Reaches(Vector2 from, Vector2 to)
 	{
-		int across = cell % _across;
-		int down = cell / _across;
-		for (int dx = -1; dx <= 1; dx++)
+		int start = Footing(CellOf(from));
+		int goal = Footing(CellOf(to));
+		return start >= 0 && goal >= 0 && start != goal && _cost[start] > 0f && _cost[goal] > 0f
+			&& _region[start] == _region[goal];
+	}
+
+	/// <summary>The cell one step from (across, down), if a man can take that step.</summary>
+	private bool Step(int across, int down, int dx, int dy, out int next)
+	{
+		next = -1;
+		int x = across + dx;
+		int y = down + dy;
+		if ((dx == 0 && dy == 0) || x < 0 || y < 0 || x >= _across || y >= _down)
 		{
-			for (int dy = -1; dy <= 1; dy++)
+			return false;
+		}
+
+		next = (y * _across) + x;
+		// No slipping between two corners. A diagonal step passes the two cells either side of it, and
+		// if either of those is ground an army cannot stand on, the step squeezes through a gap that
+		// is not there — which let a line of rock, or a border ditch, one cell thick be walked straight
+		// through on the slant.
+		return _cost[next] > 0f
+			&& (dx == 0 || dy == 0 || (_cost[(down * _across) + x] > 0f && _cost[(y * _across) + across] > 0f));
+	}
+
+	/// <summary>Numbers every stretch of ground a man can walk from end to end without a boat or a ford
+	/// that is not there, by the same steps <see cref="Way"/> takes. Roads only make ground cheaper,
+	/// never walkable, so this is settled once the ground is described.</summary>
+	private void Region()
+	{
+		System.Array.Fill(_region, -1);
+		var reached = new Stack<int>();
+		int regions = 0;
+		for (int cell = 0; cell < _cost.Length; cell++)
+		{
+			if (_cost[cell] <= 0f || _region[cell] >= 0)
 			{
-				if (dx == 0 && dy == 0)
-				{
-					continue;
-				}
-
-				int x = across + dx;
-				int y = down + dy;
-				if (x < 0 || y < 0 || x >= _across || y >= _down)
-				{
-					continue;
-				}
-
-				int next = (y * _across) + x;
-				if (_cost[next] <= 0f)
-				{
-					continue;
-				}
-
-				// No slipping between two corners. A diagonal step passes the two cells either side of
-				// it, and if either of those is ground an army cannot stand on, the step squeezes
-				// through a gap that is not there — which let a line of rock, or a border ditch, one
-				// cell thick be walked straight through on the slant.
-				if (dx != 0 && dy != 0
-					&& (_cost[(down * _across) + x] <= 0f || _cost[(y * _across) + across] <= 0f))
-				{
-					continue;
-				}
-
-				// The cost of the ground being entered, paid over the distance covered to enter it.
-				yield return (next, _cost[next] * (dx != 0 && dy != 0 ? Diagonal : 1f) * CellSize);
+				continue;
 			}
+
+			_region[cell] = regions;
+			reached.Push(cell);
+			while (reached.TryPop(out int at))
+			{
+				for (int dx = -1; dx <= 1; dx++)
+				{
+					for (int dy = -1; dy <= 1; dy++)
+					{
+						if (Step(at % _across, at / _across, dx, dy, out int next) && _region[next] < 0)
+						{
+							_region[next] = regions;
+							reached.Push(next);
+						}
+					}
+				}
+			}
+
+			regions++;
 		}
 	}
 
 	private float Guess(int cell, int goal) =>
 		Middle(cell % _across, cell / _across).DistanceTo(Middle(goal % _across, goal / _across));
 
-	private List<(Vector2 At, float Spent)> Trace(Dictionary<int, int> cameFrom,
-		Dictionary<int, float> spent, int start, int goal)
+	private List<(Vector2 At, float Spent)> Trace(int start, int goal)
 	{
 		var way = new List<(Vector2, float)>();
-		for (int at = goal; at != start; at = cameFrom[at])
+		for (int at = goal; at != start; at = _cameFrom[at])
 		{
-			way.Insert(0, (Middle(at % _across, at / _across), spent[at]));
+			way.Add((Middle(at % _across, at / _across), _spent[at]));
 		}
 
+		way.Reverse();
 		return way;
 	}
 
