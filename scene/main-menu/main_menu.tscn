@@ -1,6 +1,6 @@
 [gd_scene load_steps=6 format=3 uid="uid://crobhea020v3x"]
 
-[ext_resource type="Script" uid="uid://b7d5xdma2m0ye" path="res://scripts/UI/MainMenu.cs" id="1_fvxcm"]
+[ext_resource type="Script" uid="uid://b7d5xdma2m0ye" path="res://scripts/UI/Menus/MainMenu.cs" id="1_fvxcm"]
 [ext_resource type="VideoStream" path="res://assets/video/menu-background.ogv" id="2_bg"]
 [ext_resource type="Theme" path="res://theme/main-menu.tres" id="3_theme"]
 [ext_resource type="Texture2D" path="res://assets/ui/logo.png" id="4_logo"]

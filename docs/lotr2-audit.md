@@ -49,12 +49,12 @@ de acolo are `using Godot`: `Mathf`, `RandomNumberGenerator`, `Vector2`, `GD.Loa
 
 | Rol | Unde |
 | --- | --- |
-| Turn loop (toate comitatele) | `scripts/Economy/TurnManager.cs:756` `AdvanceTurn()` |
+| Turn loop (toate comitatele) | `scripts/Turn/TurnManager.cs:756` `AdvanceTurn()` |
 | Pipeline pe un comitat | `scripts/Economy/EconomySimulation.cs:19` `RunTurn()` |
 | Starea comitatului / armatei | `ProvinceEconomy.cs`, `FieldArmy.cs` |
 | Reguli și constante | `GameBalance.cs` + `data/game-balance.tres`, `data/*.json` |
 | Evenimente, AI, piață, luptă | `EventEngine.cs`, `LordAI.cs`, `Market.cs`, `Battle.cs` + `TurnManager.Sieges` |
-| Save | `scripts/SaveGame.cs` (JSON v4) |
+| Save | `scripts/Core/SaveGame.cs` (JSON v4) |
 | Teste | `*Check.cs` → `scene/checks/*.tscn`, Godot headless |
 | UI care atinge regulile direct | `CityPage`, `FieldPanel`, `TaxPanel`, `RationPanel`, `LabourBar`, `BlacksmithPage`, `RecruitsPage`… |
 
@@ -83,7 +83,7 @@ de acolo are `using Godot`: `Mathf`, `RandomNumberGenerator`, `Vector2`, `GD.Loa
 - [ ] LIPSĂ — Nu există gloate revoltate.
 - [ ] LIPSĂ — Nu există negustori pe rute. `Market.cs` e o piață fixă, fără deplasare.
 - [ ] DIFERIT — `TurnManager.cs:756` `AdvanceTurn()` — Sfârșitul de sezon există, dar în altă ordine (vezi tabelul de mai jos).
-- [ ] DIFERIT — `TurnManager.cs:158` `March`, `scripts/UI/MarchGrid.cs` — Armatele se mișcă doar când omul dă ordin în turul lui, dintr-un buget `float` `MarchLeft` resetat la începutul `AdvanceTurn` (`:777`). Nu există tick-uri și nici mișcare în afara fazei jucătorului. Armatele AI nu se mișcă deloc.
+- [ ] DIFERIT — `TurnManager.cs:158` `March`, `scripts/UI/Map/MarchGrid.cs` — Armatele se mișcă doar când omul dă ordin în turul lui, dintr-un buget `float` `MarchLeft` resetat la începutul `AdvanceTurn` (`:777`). Nu există tick-uri și nici mișcare în afara fazei jucătorului. Armatele AI nu se mișcă deloc.
 
 **Calendarul**
 
@@ -550,7 +550,7 @@ La noi e o singură piață fixă, `Market.cs`, comună tuturor lorzilor (`TurnM
 - [ ] LIPSĂ — Nu există condiție de victorie. Nici `CampaignMapPage` și nici `TurnManager` nu verifică dacă a mai rămas vreun adversar.
 - [ ] LIPSĂ — Nu există scor (castele ×50, % din hartă ×10 etc.).
 - [ ] LIPSĂ — Nu există „Greatest noble” la 1270.
-- [ ] DIFERIT — `UI/CampaignPage.cs:24-32`, `scripts/Campaign.cs`, `UI/CampaignBriefingPage.cs:28-36`, `EconomyEnums.cs` `Difficulty`, `ProvinceDefinition.cs:36` — Campaniile sunt hărți alese separat, fără lanț. Doar `royal-crown` are date în `data/campaigns/`. Nu există reguli pentru „nu se păstrează nimic” sau „înfrângerea repetă harta”. Dificultatea o alege jucătorul, pe 3 trepte (Easy/Medium/Hard), nu după scara 0,0,1,1,2,2,2,2 pe hărți. Aurul de start e `InitialGold` per comitat, din `.tres` (implicit 400, Kingsreach 800), adunat pe regat. Nu e 5.000/2.500/1.000.
+- [ ] DIFERIT — `UI/CampaignPage.cs:24-32`, `scripts/Core/Campaign.cs`, `UI/CampaignBriefingPage.cs:28-36`, `EconomyEnums.cs` `Difficulty`, `ProvinceDefinition.cs:36` — Campaniile sunt hărți alese separat, fără lanț. Doar `royal-crown` are date în `data/campaigns/`. Nu există reguli pentru „nu se păstrează nimic” sau „înfrângerea repetă harta”. Dificultatea o alege jucătorul, pe 3 trepte (Easy/Medium/Hard), nu după scara 0,0,1,1,2,2,2,2 pe hărți. Aurul de start e `InitialGold` per comitat, din `.tres` (implicit 400, Kingsreach 800), adunat pe regat. Nu e 5.000/2.500/1.000.
 - [ ] DIFERIT — `UI/CampaignBriefingPage.cs:28-36` — La joc nou singura opțiune e dificultatea. Lipsesc aurul, castelul, armurăria, garnizoana, stocurile, numărul de lorzi și starea comitatului de start.
 
 ## Goluri și decizii

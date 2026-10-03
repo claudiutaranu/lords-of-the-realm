@@ -14,8 +14,8 @@ everything else is hand-built UI over a turn-based economy.
   `N FAILED`.
 - Checks share `user://saves` with the player. Write a save in a check only through `SaveGame.Write`
   and take it away again with `SaveGame.Forget` — never clear the folder.
-- Renders for eyeballing UI go through a throwaway harness (`scene/shot.tscn` +
-  `scripts/UI/ShotHarness.cs`), kept out of git via `.git/info/exclude`. Delete the PNGs after
+- Renders for eyeballing UI go through a throwaway harness (`scene/harness/shot.tscn` +
+  `scripts/Harness/ShotHarness.cs`), kept out of git via `.git/info/exclude`. Delete the PNGs after
   looking at them.
 
 ## House style

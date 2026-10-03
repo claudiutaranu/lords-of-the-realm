@@ -1,6 +1,6 @@
 [gd_scene load_steps=5 format=3]
 
-[ext_resource type="Script" path="res://scripts/UI/AboutPage.cs" id="1_about"]
+[ext_resource type="Script" path="res://scripts/UI/Menus/AboutPage.cs" id="1_about"]
 [ext_resource type="Texture2D" path="res://assets/ui/main-menu-bg.png" id="2_bg"]
 [ext_resource type="Theme" path="res://theme/main-menu.tres" id="3_theme"]
 [ext_resource type="StyleBoxTexture" path="res://theme/ornate-frame.tres" id="4_frame"]
