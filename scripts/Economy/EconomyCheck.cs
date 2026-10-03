@@ -32,6 +32,7 @@ public partial class EconomyCheck : Node
 		TheYear(b);
 		StoneOrIron();
 		Carts(b);
+		Saves(b);
 
 		GD.Print(_failed == 0
 			? "\nprovince economy: all checks passed"

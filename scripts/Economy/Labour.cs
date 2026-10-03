@@ -80,8 +80,23 @@ public static class Labour
 			Remember(p);
 		}
 
-		// A save made the day the shares were whole percents: every one of them at a hundred or less
-		// and together a whole half's worth. Read in hundredths it would stand the county idle.
+		int people = Mathf.Max(0, p.Workers);
+		int industry = Pct(people, Mathf.Clamp(p.IndustryShare, 0, 100));
+		var given = new Dictionary<string, int>();
+		DealHalf(p, def, b, season, Farm, people - industry, given);
+		DealHalf(p, def, b, season, Industry, industry, given);
+		foreach ((string job, int hands) in given)
+		{
+			Put(p, job, hands);
+		}
+	}
+
+	/// <summary>Reads a save made the days the shares were whole percents: every one of them at a
+	/// hundred or less and together a whole half's worth. Read in hundredths it would stand the county
+	/// idle. Asked once, of an old file as it loads — files of that version were written on both sides
+	/// of the change, which is what the look at the figures is for.</summary>
+	public static void InHundredths(ProvinceEconomy p)
+	{
 		int largest = 0;
 		int sum = 0;
 		foreach (int share in p.Shares.Values)
@@ -96,16 +111,6 @@ public static class Labour
 			{
 				p.Shares[job] *= 100;
 			}
-		}
-
-		int people = Mathf.Max(0, p.Workers);
-		int industry = Pct(people, Mathf.Clamp(p.IndustryShare, 0, 100));
-		var given = new Dictionary<string, int>();
-		DealHalf(p, def, b, season, Farm, people - industry, given);
-		DealHalf(p, def, b, season, Industry, industry, given);
-		foreach ((string job, int hands) in given)
-		{
-			Put(p, job, hands);
 		}
 	}
 

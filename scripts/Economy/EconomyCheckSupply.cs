@@ -45,7 +45,7 @@ public partial class EconomyCheck
 		Is("  and what is on it", read.Shipments[0].Goods["grain"], 200);
 
 		TurnManager loaded = Carting(b, out _, out ProvinceEconomy farLoaded);
-		loaded.Restore(read.Turn, read.Provinces, read.Prices, read.Difficulty, read.Diplomacy, read.Shipments);
+		loaded.Restore(read);
 		farLoaded = loaded.GetProvince("Far");
 		int farGrain = farLoaded.Grain;
 		loaded.Haul();
