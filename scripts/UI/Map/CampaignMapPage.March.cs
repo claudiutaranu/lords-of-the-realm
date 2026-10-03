@@ -232,7 +232,11 @@ public partial class CampaignMapPage
 
 		int county = _world.CountyAt(road[^1].At);
 		string into = county >= 0 && county < _provinces.Count ? _provinces[county].Name : "";
-		if (!sure && Contested(army, into, road[^1].At))
+
+		// A gate is attacked only when the lord pointed at it. Men sent somewhere else who run out of
+		// road beside a town, or whose road runs past one, are passing it, not storming it.
+		bool storms = _world.TownAt(ground) == into && Contested(army, into, road[^1].At);
+		if (!sure && storms)
 		{
 			string holder = _realms[HolderOf(_provinces[county])].Name;
 			_ask.Ask($"March on {into}?",
@@ -277,7 +281,7 @@ public partial class CampaignMapPage
 			// A county is taken at its own gate and nowhere else. Men who have halted on another
 			// lord's seat — his town, or the walls raised on it — are standing where the thing worth
 			// taking is, and that is the one place the fighting happens.
-			if (Contested(army, into, strides[^1]))
+			if (storms)
 			{
 				_battle.Open(_turnManager, _balance, army, into, strides[^1],
 					ColoursOf(_turnManager.RealmOf(army)), ColoursOf(HolderOf(_provinces[county])));
