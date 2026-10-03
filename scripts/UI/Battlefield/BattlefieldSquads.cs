@@ -79,7 +79,6 @@ public partial class BattlefieldSquads : Node3D
 
 	private const float ArrowArc = 0.22f;
 	private const float ArrowRise = 1.5f;
-	private static readonly Vector3 ArrowSize = new(0.04f, 0.04f, 0.9f);
 
 	/// <summary>The bar over a man's head: how wide, how thick, and how high above his feet.</summary>
 	private const float BarWide = 0.55f;
@@ -172,8 +171,7 @@ public partial class BattlefieldSquads : Node3D
 			_bySquad[squad] = drawn;
 		}
 
-		_arrows = new BattlefieldBatch(Many(new BoxMesh { Size = ArrowSize }, figures,
-			new StandardMaterial3D { AlbedoColor = new Color("3b2c1d") }, coloured: false).Multimesh);
+		_arrows = new BattlefieldBatch(Many(BattlefieldStreak.Mesh(), figures, BattlefieldStreak.Look(), coloured: false).Multimesh);
 		_barsBehind = new BattlefieldBatch(Many(new QuadMesh(), figures, Bar(0), coloured: true).Multimesh);
 		_barsFilled = new BattlefieldBatch(Many(new QuadMesh(), figures, Bar(1), coloured: true).Multimesh);
 	}
