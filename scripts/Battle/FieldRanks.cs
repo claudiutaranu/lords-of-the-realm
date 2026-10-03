@@ -15,7 +15,19 @@ public sealed partial class FieldBattle
 	/// <summary>How much faster than his squad's pace a man hurries to his place.</summary>
 	private const float Hurry = 1.3f;
 
-	private readonly Dictionary<Vector2I, List<FieldSoldier>> _grid = new();
+	/// <summary>The men of each side by where they stood as the slice began, the attackers' and the
+	/// defenders' apart: a man looking for an enemy has no business reading through his own side,
+	/// which in a press is half of everybody near him.</summary>
+	private readonly Dictionary<Vector2I, List<FieldSoldier>> _attackers = new();
+	private readonly Dictionary<Vector2I, List<FieldSoldier>> _defenders = new();
+
+	/// <summary>How far a man can have walked from the cell he was put in since the slice began, with
+	/// room to spare: a cell is passed over only when nobody in it could be nearer than the best found.</summary>
+	private const float MovedSince = 1f;
+
+	/// <summary>How much over the best's square a man's may be and still be measured: far more than a
+	/// square and a root can round apart.</summary>
+	private const float Rounding = 1e-4f;
 
 	/// <summary>How many men are at each man this slice, and whom each man with nobody in reach is
 	/// going for (<see cref="Quarry"/>).</summary>
@@ -48,9 +60,12 @@ public sealed partial class FieldBattle
 
 	private void Grid()
 	{
-		foreach (List<FieldSoldier> cell in _grid.Values)
+		foreach (Dictionary<Vector2I, List<FieldSoldier>> side in new[] { _attackers, _defenders })
 		{
-			cell.Clear();
+			foreach (List<FieldSoldier> cell in side.Values)
+			{
+				cell.Clear();
+			}
 		}
 
 		// How many are at each man as the slice begins: those fighting him, and those going for him.
@@ -73,10 +88,11 @@ public sealed partial class FieldBattle
 			{
 				man.Was = man.At;
 				Vector2I key = CellOf(man.At);
-				if (!_grid.TryGetValue(key, out List<FieldSoldier> cell))
+				Dictionary<Vector2I, List<FieldSoldier>> side = squad.IsAttacking ? _attackers : _defenders;
+				if (!side.TryGetValue(key, out List<FieldSoldier> cell))
 				{
 					cell = new List<FieldSoldier>();
-					_grid[key] = cell;
+					side[key] = cell;
 				}
 
 				cell.Add(man);
@@ -87,9 +103,12 @@ public sealed partial class FieldBattle
 	private static Vector2I CellOf(Vector2 at) => new(Mathf.FloorToInt(at.X / Cell), Mathf.FloorToInt(at.Y / Cell));
 
 	/// <summary>The nearest man of the other side still standing within <paramref name="within"/>
-	/// metres of a spot.</summary>
+	/// metres of a spot. Only the other side's grid is read, cell by cell in the same order as ever
+	/// so two men equally near are settled the same way, and a cell wholly further off than the best
+	/// already found is not opened.</summary>
 	private FieldSoldier NearestMan(Vector2 from, bool attacking, float within)
 	{
+		Dictionary<Vector2I, List<FieldSoldier>> enemies = attacking ? _defenders : _attackers;
 		FieldSoldier best = null;
 		float bestFar = within;
 		int reach = Mathf.CeilToInt(within / Cell);
@@ -98,24 +117,44 @@ public sealed partial class FieldBattle
 		{
 			for (int y = -reach; y <= reach; y++)
 			{
-				if (!_grid.TryGetValue(home + new Vector2I(x, y), out List<FieldSoldier> cell))
+				Vector2I key = home + new Vector2I(x, y);
+				float open = bestFar + MovedSince;
+				if (OffCell(from, key) > open * open || !enemies.TryGetValue(key, out List<FieldSoldier> cell))
 				{
 					continue;
 				}
 
+				// The square of the distance first, which needs no root: only a man who might be nearer
+				// than the best is measured properly, and he is measured exactly as he always was, so a
+				// tie still goes the same way. The hair over is for the rounding between the two.
+				float roughly = bestFar * bestFar * (1f + Rounding);
 				foreach (FieldSoldier man in cell)
 				{
+					if (!man.IsStanding || from.DistanceSquaredTo(man.At) > roughly)
+					{
+						continue;
+					}
+
 					float far = from.DistanceTo(man.At);
-					if (man.Squad.IsAttacking != attacking && man.IsStanding && far < bestFar)
+					if (far < bestFar)
 					{
 						best = man;
 						bestFar = far;
+						roughly = bestFar * bestFar * (1f + Rounding);
 					}
 				}
 			}
 		}
 
 		return best;
+	}
+
+	/// <summary>The square of how far a spot is from the nearest edge of a cell, nought inside it.</summary>
+	private static float OffCell(Vector2 from, Vector2I key)
+	{
+		float dx = Mathf.Max(0f, Mathf.Max((key.X * Cell) - from.X, from.X - ((key.X + 1) * Cell)));
+		float dy = Mathf.Max(0f, Mathf.Max((key.Y * Cell) - from.Y, from.Y - ((key.Y + 1) * Cell)));
+		return (dx * dx) + (dy * dy);
 	}
 
 	/// <summary>Walks a man toward a spot and stops him <paramref name="short"/> of it.</summary>
