@@ -10,7 +10,9 @@ using Godot;
 /// nobody else moves. That is what keeps a line a line through a fight.</summary>
 public sealed partial class FieldSquad
 {
-	private const float MetresPerRange = 10f;
+	/// <summary>How far a point of range carries, in metres: at ten, bowmen loosed from eighty metres
+	/// off and a line was thinned long before it could close; seven brings them in to fifty-six.</summary>
+	private const float MetresPerRange = 7f;
 	private const float WalkBase = 0.8f;
 	private const float MetresPerSpeed = 0.35f;
 
