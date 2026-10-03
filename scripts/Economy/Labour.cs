@@ -14,7 +14,7 @@ using Godot;
 /// What a job can use is its useful ceiling. The fields and the herd are finite and change with the
 /// season; the diggings are all but bottomless; a site the county does not have, or one the lord has
 /// shut, can use nobody.</summary>
-public static class Labour
+public static partial class Labour
 {
 	public const string Grain = "grain";
 	public const string Cattle = "cattle";
@@ -236,74 +236,6 @@ public static class Labour
 		: job == Cattle ? Husbandry.Herdsmen(p.Cattle) // the ceiling is twice this: extra hands only help it breed
 		: Ceiling(p, def, b, season, job);
 
-	// --- the lord's hand ----------------------------------------------------------------------
-
-	/// <summary>The lord asks for a number of hands on one job, and the proportions are rewritten so
-	/// the deal gives them — the way dragging a figure rewrites them in the original.
-	///
-	/// A figure taken off a job stands idle: its share is simply not given to anybody else. A figure
-	/// put on one comes from the idle and only from the idle, as in Lords of the Realm — nobody is
-	/// pulled off another job behind the lord's back; he takes them off it himself first. When the
-	/// idle it draws on stand across the bar, the bar moves to fetch them. Asking for hands at a site
-	/// he had shut opens it.</summary>
-	public static void Ask(ProvinceEconomy p, ProvinceDefinition def, GameBalance b, Season season,
-		string job, int hands)
-	{
-		p.Shut.Remove(job);
-		Deal(p, def, b, season); // from the county as it stands, not as it was last dealt
-		int people = p.Workers;
-		if (people <= 0)
-		{
-			return;
-		}
-
-		bool farming = System.Array.IndexOf(Farm, job) >= 0;
-		string[] own = farming ? Farm : Industry;
-		string[] other = farming ? Industry : Farm;
-		var want = new Dictionary<string, int>();
-		foreach (string each in Farm)
-		{
-			want[each] = Hands(p, each);
-		}
-
-		foreach (string each in Industry)
-		{
-			want[each] = Hands(p, each);
-		}
-
-		int industry = Pct(people, p.IndustryShare);
-		int ownHalf = farming ? people - industry : industry;
-		int otherHalf = people - ownHalf;
-		int ownIdle = ownHalf - Sum(own, want);
-		int otherIdle = otherHalf - Sum(other, want);
-
-		int target = Mathf.Clamp(hands, 0, Ceiling(p, def, b, season, job));
-		int need = target - want[job];
-		want[job] = target;
-		if (need > 0)
-		{
-			// The idle alone, wherever they stand — a figure fetched from the other half moves the bar.
-			need -= Draw(ref ownIdle, need);
-			int fetched = Draw(ref otherIdle, need);
-			need -= fetched;
-
-			ownHalf += fetched;
-			otherHalf -= fetched;
-			want[job] -= need; // as in the original, only the idle can be put to work
-		}
-
-		// The bar moves only when a figure crossed it, and to the man: a whole percent of five hundred
-		// men rounded away took five of them off a job nobody had touched.
-		if (ownHalf != (farming ? people - industry : industry))
-		{
-			p.IndustryShare = ShareOf(farming ? otherHalf : ownHalf, people);
-		}
-		int industryNow = Pct(people, p.IndustryShare);
-		Proportion(p, Farm, people - industryNow, want);
-		Proportion(p, Industry, industryNow, want);
-		Deal(p, def, b, season);
-	}
-
 	private static int Sum(string[] jobs, Dictionary<string, int> want)
 	{
 		int total = 0;
@@ -332,12 +264,6 @@ public static class Labour
 		}
 	}
 
-	/// <summary>The most one job could be given now: what it has and every idle hand, never past what
-	/// it can use.</summary>
-	public static int Most(ProvinceEconomy p, ProvinceDefinition def, GameBalance b, Season season, string job) =>
-		Mathf.Min(Ceiling(p, def, b, season, job),
-			Mathf.Min(Mathf.Max(0, p.Workers), Hands(p, job) + EconomySimulation.Idle(p, def, b, season)));
-
 	public static string JobOf(ResourceType type) => type switch
 	{
 		ResourceType.Grain => Grain,
@@ -346,132 +272,4 @@ public static class Labour
 		ResourceType.Stone => Stone,
 		_ => Iron,
 	};
-
-	/// <summary>The lord moves the bar between the farm and the industry, and the county is dealt again.</summary>
-	public static void Divide(ProvinceEconomy p, ProvinceDefinition def, GameBalance b, Season season, double toIndustry)
-	{
-		p.IndustryShare = Mathf.Clamp(toIndustry, 0, 100);
-		Deal(p, def, b, season);
-	}
-
-	/// <summary>Shuts a site or opens it again, and deals the county over it.</summary>
-	public static void Toggle(ProvinceEconomy p, ProvinceDefinition def, GameBalance b, Season season, string site)
-	{
-		if (!p.Shut.Remove(site))
-		{
-			p.Shut.Add(site);
-		}
-
-		Deal(p, def, b, season);
-	}
-
-	/// <summary>A reeve's division rather than the lord's: enough of the county on the farm for every
-	/// field and every beast this season (three herdsmen a head), and the rest to the industry. What a rival lord's county
-	/// runs on, since nobody is moving his bar for him.</summary>
-	public static void FarmsFirst(ProvinceEconomy p, ProvinceDefinition def, GameBalance b, Season season)
-	{
-		int people = Mathf.Max(1, p.Workers);
-		int farm = 0;
-		// What the farm needs, not all it could use: a herd takes twice its herdsmen, but only half
-		// of those are what keeps it alive.
-		foreach (string job in Farm)
-		{
-			farm += Wanted(p, def, b, season, job);
-		}
-
-		p.IndustryShare = Mathf.Clamp(100 - Mathf.CeilToInt(100f * farm / people), 0, 100);
-		p.Shares = OpeningShares(); // and each half divided as a county nobody has touched
-		Deal(p, def, b, season);
-	}
-
-	/// <summary>Reads the proportions off the hands where they are now: how a county saved before it
-	/// kept any is carried over without anybody moving.</summary>
-	private static void Remember(ProvinceEconomy p)
-	{
-		int farm = 0;
-		int industry = 0;
-		foreach (string job in Farm)
-		{
-			farm += Hands(p, job);
-		}
-
-		foreach (string job in Industry)
-		{
-			industry += Hands(p, job);
-		}
-
-		p.IndustryShare = Mathf.RoundToInt(100f * industry / Mathf.Max(1, farm + industry));
-		FromHands(p, Farm, farm);
-		FromHands(p, Industry, industry);
-	}
-
-	private static void FromHands(ProvinceEconomy p, string[] jobs, int total)
-	{
-		foreach (string job in jobs)
-		{
-			p.Shares[job] = total > 0 ? (int)((long)Hands(p, job) * Whole / total) : Opening[job];
-		}
-	}
-
-	// --- the sites ----------------------------------------------------------------------------
-
-	/// <summary>A season at the sites: each one worked this season grows more practised at it, and
-	/// one left with nobody on it goes back to where a new site starts.</summary>
-	public static void Practise(ProvinceEconomy p, GameBalance b)
-	{
-		foreach (string site in Sites)
-		{
-			int now = p.EfficiencyOf(site);
-			p.Efficiency[site] = Hands(p, site) > 0
-				? Mathf.Min(100, now + Mathf.Max(1, Pct(now, b.SiteEfficiencyGrowth)))
-				: b.SiteEfficiencyFloor;
-		}
-	}
-
-	// --- the counts ---------------------------------------------------------------------------
-
-	public static int Hands(ProvinceEconomy p, string job) => job switch
-	{
-		Grain => p.GrainWorkers,
-		Cattle => p.CattleWorkers,
-		Reclaim => p.ReclaimWorkers,
-		Castle => p.BuildWorkers,
-		Iron => p.IronWorkers,
-		Stone => p.StoneWorkers,
-		Wood => p.WoodWorkers,
-		Smith => p.SmithWorkers,
-		_ => 0,
-	};
-
-	public static void Put(ProvinceEconomy p, string job, int hands)
-	{
-		switch (job)
-		{
-			case Grain: p.GrainWorkers = hands; break;
-			case Cattle: p.CattleWorkers = hands; break;
-			case Reclaim: p.ReclaimWorkers = hands; break;
-			case Castle: p.BuildWorkers = hands; break;
-			case Iron: p.IronWorkers = hands; break;
-			case Stone: p.StoneWorkers = hands; break;
-			case Wood: p.WoodWorkers = hands; break;
-			case Smith: p.SmithWorkers = hands; break;
-		}
-	}
-
-	private static int Share(ProvinceEconomy p, string job) =>
-		p.Shares.TryGetValue(job, out int share) ? share : Opening[job];
-
-	/// <summary>The original's percentage: whole people, rounded down.</summary>
-	public static int Pct(int of, int percent) => (int)((long)of * percent / 100);
-
-	/// <summary>The industry's half of a county, off a share that may fall between whole percents: the
-	/// bar's arrows move it a man at a time. The hair of slack keeps 100·k/n from flooring to k − 1.</summary>
-	public static int Pct(int of, double percent) => (int)System.Math.Floor(of * percent / 100 + 1e-6);
-
-	/// <summary>The share that gives the industry exactly this many of the county's hands.</summary>
-	public static double ShareOf(int industry, int people) =>
-		people <= 0 ? 0 : System.Math.Clamp(100.0 * industry / people, 0, 100);
-
-	/// <summary>A job's part of its half, rounded down to whole people.</summary>
-	private static int Part(int half, int share) => (int)((long)half * share / Whole);
 }
