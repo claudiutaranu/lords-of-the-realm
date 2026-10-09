@@ -1,13 +1,13 @@
-[gd_scene load_steps=6 format=3 uid="uid://crobhea020v3x"]
+[gd_scene format=3 uid="uid://crobhea020v3x"]
 
 [ext_resource type="Script" uid="uid://b7d5xdma2m0ye" path="res://scripts/UI/Menus/MainMenu.cs" id="1_fvxcm"]
-[ext_resource type="VideoStream" path="res://assets/video/menu-background.ogv" id="2_bg"]
-[ext_resource type="Theme" path="res://theme/main-menu.tres" id="3_theme"]
-[ext_resource type="Texture2D" path="res://assets/ui/logo.png" id="4_logo"]
-[ext_resource type="StyleBoxTexture" path="res://theme/ornate-frame.tres" id="5_frame"]
-[ext_resource type="Texture2D" path="res://assets/ui/menu-background-still.png" id="6_bg_still"]
+[ext_resource type="VideoStream" uid="uid://clflt44ietysr" path="res://assets/video/king-council.ogv" id="2_bg"]
+[ext_resource type="Theme" uid="uid://d0rgvg6kbrgbp" path="res://theme/main-menu.tres" id="3_theme"]
+[ext_resource type="Texture2D" uid="uid://bikr8kdsfpu56" path="res://assets/ui/logo.png" id="4_logo"]
+[ext_resource type="StyleBox" path="res://theme/ornate-frame.tres" id="5_frame"]
+[ext_resource type="Texture2D" uid="uid://cmi0hq7yaprrg" path="res://assets/ui/king-council-still.png" id="6_bg_still"]
 
-[node name="MainMenu" type="Control"]
+[node name="MainMenu" type="Control" unique_id=148603686]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -17,7 +17,7 @@ grow_vertical = 2
 theme = ExtResource("3_theme")
 script = ExtResource("1_fvxcm")
 
-[node name="BackgroundStill" type="TextureRect" parent="."]
+[node name="BackgroundStill" type="TextureRect" parent="." unique_id=648865614]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -28,7 +28,7 @@ texture = ExtResource("6_bg_still")
 expand_mode = 1
 stretch_mode = 6
 
-[node name="Background" type="VideoStreamPlayer" parent="."]
+[node name="Background" type="VideoStreamPlayer" parent="." unique_id=445284064]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -37,9 +37,9 @@ grow_horizontal = 2
 grow_vertical = 2
 stream = ExtResource("2_bg")
 expand = true
-bus = "SFX"
+bus = &"SFX"
 
-[node name="BannerSlot" type="CenterContainer" parent="."]
+[node name="BannerSlot" type="CenterContainer" parent="." unique_id=245881229]
 layout_mode = 1
 anchors_preset = -1
 anchor_bottom = 1.0
@@ -49,63 +49,63 @@ offset_right = 474.0
 offset_bottom = -22.0
 grow_vertical = 2
 
-[node name="Banner" type="PanelContainer" parent="BannerSlot"]
+[node name="Banner" type="PanelContainer" parent="BannerSlot" unique_id=2120247719]
 custom_minimum_size = Vector2(410, 0)
 layout_mode = 2
 theme_override_styles/panel = ExtResource("5_frame")
 
-[node name="Margin" type="MarginContainer" parent="BannerSlot/Banner"]
+[node name="Margin" type="MarginContainer" parent="BannerSlot/Banner" unique_id=1758673801]
 layout_mode = 2
 theme_override_constants/margin_left = 21
 theme_override_constants/margin_top = 24
 theme_override_constants/margin_right = 21
 theme_override_constants/margin_bottom = 24
 
-[node name="Content" type="VBoxContainer" parent="BannerSlot/Banner/Margin"]
+[node name="Content" type="VBoxContainer" parent="BannerSlot/Banner/Margin" unique_id=916084049]
 layout_mode = 2
 theme_override_constants/separation = 15
 
-[node name="Logo" type="TextureRect" parent="BannerSlot/Banner/Margin/Content"]
+[node name="Logo" type="TextureRect" parent="BannerSlot/Banner/Margin/Content" unique_id=1467818894]
 custom_minimum_size = Vector2(0, 178)
 layout_mode = 2
 texture = ExtResource("4_logo")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="Buttons" type="VBoxContainer" parent="BannerSlot/Banner/Margin/Content"]
+[node name="Buttons" type="VBoxContainer" parent="BannerSlot/Banner/Margin/Content" unique_id=919864820]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="CampaignButton" type="Button" parent="BannerSlot/Banner/Margin/Content/Buttons"]
+[node name="CampaignButton" type="Button" parent="BannerSlot/Banner/Margin/Content/Buttons" unique_id=1167095112]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Campaign"
 
-[node name="LoadGameButton" type="Button" parent="BannerSlot/Banner/Margin/Content/Buttons"]
+[node name="LoadGameButton" type="Button" parent="BannerSlot/Banner/Margin/Content/Buttons" unique_id=1394860263]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Load Game"
 
-[node name="OptionsButton" type="Button" parent="BannerSlot/Banner/Margin/Content/Buttons"]
+[node name="OptionsButton" type="Button" parent="BannerSlot/Banner/Margin/Content/Buttons" unique_id=193677676]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Options"
 
-[node name="AboutButton" type="Button" parent="BannerSlot/Banner/Margin/Content/Buttons"]
+[node name="AboutButton" type="Button" parent="BannerSlot/Banner/Margin/Content/Buttons" unique_id=1473373720]
 unique_name_in_owner = true
 layout_mode = 2
 text = "About"
 
-[node name="QuitButton" type="Button" parent="BannerSlot/Banner/Margin/Content/Buttons"]
+[node name="QuitButton" type="Button" parent="BannerSlot/Banner/Margin/Content/Buttons" unique_id=2058374894]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Quit"
 
-[node name="Rule" type="HSeparator" parent="BannerSlot/Banner/Margin/Content"]
+[node name="Rule" type="HSeparator" parent="BannerSlot/Banner/Margin/Content" unique_id=118308904]
 layout_mode = 2
 
-[node name="Tagline" type="Label" parent="BannerSlot/Banner/Margin/Content"]
+[node name="Tagline" type="Label" parent="BannerSlot/Banner/Margin/Content" unique_id=540927041]
 layout_mode = 2
 theme_type_variation = &"Subtitle"
 theme_override_colors/font_color = Color(0.651, 0.6, 0.522, 1)
@@ -114,7 +114,7 @@ text = "Realms are shaped
 by those who dare."
 horizontal_alignment = 1
 
-[node name="BuildVersion" type="Label" parent="BannerSlot/Banner/Margin/Content"]
+[node name="BuildVersion" type="Label" parent="BannerSlot/Banner/Margin/Content" unique_id=1665740294]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.42, 0.39, 0.35, 1)
@@ -122,7 +122,7 @@ theme_override_font_sizes/font_size = 10
 text = "v0.1.0"
 horizontal_alignment = 1
 
-[node name="FadeOverlay" type="ColorRect" parent="."]
+[node name="FadeOverlay" type="ColorRect" parent="." unique_id=1899153371]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
