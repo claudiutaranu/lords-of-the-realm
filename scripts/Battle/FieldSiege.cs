@@ -39,6 +39,41 @@ public sealed partial class FieldBattle
 		}
 	}
 
+	/// <summary>Where an engine the lord sends somewhere goes: anywhere he likes in the open, but sent
+	/// at the walls — or into them — a catapult stops a throw off the nearest stretch, never at the
+	/// stone where it could throw at nothing, and a ram goes to the gate.</summary>
+	private Vector2 Workable(FieldSquad squad, Vector2 to)
+	{
+		if (Wall == null || !squad.Kind.IsEngine)
+		{
+			return to;
+		}
+
+		bool atTheWalls = Wall.IsInside(to) || Wall.UnderIt(to);
+		if (squad.Unit == SiegeEngines.Ram)
+		{
+			return atTheWalls && RamSpot() is Vector2 gate ? gate : to;
+		}
+
+		bool tooNear = NearestStretch(to) is FieldWall.Target near && Wall.PointOf(near.Gap).DistanceTo(to) < SiegeEngines.ThrowsFrom;
+		return (atTheWalls || tooNear) && ThrowSpot(to) is Vector2 spot ? spot : to;
+	}
+
+	private FieldWall.Target NearestStretch(Vector2 from)
+	{
+		FieldWall.Target best = null;
+		foreach (FieldWall.Target target in Wall.Battered)
+		{
+			if (!target.IsDown && target.Gap.Is == FieldWall.Kind.Breach
+				&& (best == null || Wall.PointOf(target.Gap).DistanceTo(from) < Wall.PointOf(best.Gap).DistanceTo(from)))
+			{
+				best = target;
+			}
+		}
+
+		return best;
+	}
+
 	/// <summary>The captain's order to an engine for this slice.</summary>
 	private void Engineer(FieldSquad engine)
 	{
@@ -75,16 +110,7 @@ public sealed partial class FieldBattle
 	/// <summary>A throw's length out from the nearest stretch still standing, outside the face it is on.</summary>
 	private Vector2? ThrowSpot(Vector2 from)
 	{
-		FieldWall.Target best = null;
-		foreach (FieldWall.Target target in Wall.Battered)
-		{
-			if (!target.IsDown && target.Gap.Is == FieldWall.Kind.Breach
-				&& (best == null || Wall.PointOf(target.Gap).DistanceTo(from) < Wall.PointOf(best.Gap).DistanceTo(from)))
-			{
-				best = target;
-			}
-		}
-
+		FieldWall.Target best = NearestStretch(from);
 		return best == null ? null : Wall.PointOf(best.Gap) + (FieldWall.Outward(best.Gap.On) * SiegeEngines.ThrowsTo * ThrowShare);
 	}
 }

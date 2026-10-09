@@ -28,7 +28,8 @@ public sealed partial class FieldBattle
 			squad.KeepsFront = false;
 			squad.IsPlaced = true;
 			squad.IsRunning = running;
-			squad.Goal = to + (squad.At - middle);
+			// Shifted together and not each on its own, or two engines sent at one stretch were stood on one spot.
+			squad.Goal = Workable(squad, to) + (squad.At - middle);
 		}
 	}
 
@@ -111,6 +112,13 @@ public sealed partial class FieldBattle
 	{
 		foreach (FieldSquad squad in squads)
 		{
+			// An engine strikes no man: sent at the castle's men, it goes where it can work on their walls.
+			if (squad.Kind.IsEngine)
+			{
+				March(new[] { squad }, foe.At, running: false);
+				continue;
+			}
+
 			squad.Goal = null;
 			squad.KeepsFront = false;
 			squad.IsPlaced = false;
