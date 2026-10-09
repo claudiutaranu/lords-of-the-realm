@@ -1,0 +1,254 @@
+[
+ {
+  "x": 848.0,
+  "y": 1099.0,
+  "between": [
+   "Harrowfield",
+   "Kingsbridge"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 552.0,
+  "y": 1193.2,
+  "between": [
+   "Kingsbridge",
+   "Oakfold"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 426.9,
+  "y": 1148.0,
+  "between": [
+   "Oakfold",
+   "Wendmouth"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 364.0,
+  "y": 464.0,
+  "between": [
+   "Frostmere",
+   "Greywatch"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 544.5,
+  "y": 488.0,
+  "between": [
+   "Coldharbour",
+   "Greywatch"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 1441.0,
+  "y": 484.0,
+  "between": [
+   "Ironmarch",
+   "Stonebridge"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 1425.6,
+  "y": 778.5,
+  "between": [
+   "Ashford",
+   "Stonebridge"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 988.0,
+  "y": 518.4,
+  "between": [
+   "Coldharbour",
+   "Stonebridge"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 599.3,
+  "y": 714.3,
+  "between": [
+   "Coldharbour",
+   "Wendmouth"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 544.0,
+  "y": 1180.7,
+  "between": [
+   "Kingsbridge",
+   "Oakfold"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 436.9,
+  "y": 1140.0,
+  "between": [
+   "Oakfold",
+   "Wendmouth"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 376.0,
+  "y": 492.0,
+  "between": [
+   "Frostmere",
+   "Greywatch"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 542.1,
+  "y": 491.1,
+  "between": [
+   "Coldharbour",
+   "Greywatch"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 533.0,
+  "y": 1081.0,
+  "between": [
+   "Kingsbridge",
+   "Wendmouth"
+  ],
+  "kind": "ford"
+ },
+ {
+  "x": 663.0,
+  "y": 747.0,
+  "between": [
+   "Kingsbridge",
+   "Wendmouth"
+  ],
+  "kind": "ford"
+ },
+ {
+  "x": 702.0,
+  "y": 1457.0,
+  "between": [
+   "Kingsbridge",
+   "Oakfold"
+  ],
+  "kind": "ford"
+ },
+ {
+  "x": 942.0,
+  "y": 1449.0,
+  "between": [
+   "Harrowfield",
+   "Kingsbridge"
+  ],
+  "kind": "ford"
+ },
+ {
+  "x": 820.0,
+  "y": 778.0,
+  "between": [
+   "Harrowfield",
+   "Kingsbridge"
+  ],
+  "kind": "ford"
+ },
+ {
+  "x": 176.0,
+  "y": 1234.0,
+  "between": [
+   "Oakfold",
+   "Wendmouth"
+  ],
+  "kind": "ford"
+ },
+ {
+  "x": 1307.0,
+  "y": 1106.0,
+  "between": [
+   "Ashford",
+   "Harrowfield"
+  ],
+  "kind": "ford"
+ },
+ {
+  "x": 686.0,
+  "y": 146.0,
+  "between": [
+   "Coldharbour",
+   "Greywatch"
+  ],
+  "kind": "ford"
+ },
+ {
+  "x": 479.0,
+  "y": 668.0,
+  "between": [
+   "Coldharbour",
+   "Frostmere"
+  ],
+  "kind": "ford"
+ },
+ {
+  "x": 1050.0,
+  "y": 214.0,
+  "between": [
+   "Coldharbour",
+   "Stonebridge"
+  ],
+  "kind": "ford"
+ },
+ {
+  "x": 1112.0,
+  "y": 57.0,
+  "between": [
+   "Ironmarch",
+   "Stonebridge"
+  ],
+  "kind": "ford"
+ },
+ {
+  "x": 1292.0,
+  "y": 259.0,
+  "between": [
+   "Ironmarch",
+   "Stonebridge"
+  ],
+  "kind": "ford"
+ },
+ {
+  "x": 1637.0,
+  "y": 581.0,
+  "between": [
+   "Ashford",
+   "Ironmarch"
+  ],
+  "kind": "ford"
+ },
+ {
+  "x": 1945.0,
+  "y": 596.0,
+  "between": [
+   "Ashford",
+   "Ironmarch"
+  ],
+  "kind": "ford"
+ },
+ {
+  "x": 1251.0,
+  "y": 1043.0,
+  "between": [
+   "Ashford",
+   "Stonebridge"
+  ],
+  "kind": "ford"
+ }
+]

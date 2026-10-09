@@ -150,7 +150,7 @@ public partial class BattlefieldBar : Control
 	/// <summary>A side's shield: its realm's painted crest, or the plain one in its colour.</summary>
 	private static Control Shield(BattlePanel.Colours side)
 	{
-		string painted = $"{Chrome.IconDirectory}/shield-{side.Key}.png";
+		string painted = Heraldry.CrestPath(side.Key);
 		bool isPainted = ResourceLoader.Exists(painted);
 		return new TextureRect
 		{

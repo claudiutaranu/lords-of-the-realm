@@ -1,0 +1,14 @@
+[remap]
+
+importer="image"
+type="Image"
+uid="uid://m5otvpx7royx"
+path="res://.godot/imported/map-ditch.png-c5cdb8fbf7663afd970bd7b4f8672dfe.image"
+
+[deps]
+
+source_file="res://assets/campaigns/england/maps/two-rivers/map-ditch.png"
+dest_files=["res://.godot/imported/map-ditch.png-c5cdb8fbf7663afd970bd7b4f8672dfe.image"]
+
+[params]
+

@@ -50,7 +50,7 @@ public partial class TurnManager
 	/// The campaign's to say (provinces.json "rivalWallsUpTo").</summary>
 	public string RivalWallsUpTo { get; set; } = "";
 
-	/// <summary>Which of the four lords (Lords) sits in each realm, by key — the campaign's to say
+	/// <summary>Which of the lords (Lords) sits in each realm, by key — the campaign's to say
 	/// (provinces.json "lord"). A realm with nobody seated writes no letters.</summary>
 	public Dictionary<string, string> LordOf { get; set; } = new();
 

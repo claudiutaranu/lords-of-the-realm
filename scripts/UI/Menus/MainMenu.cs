@@ -5,7 +5,8 @@ public partial class MainMenu : Control
 {
 	private const string OptionsScenePath = "res://scene/options/options.tscn";
 	private const string AboutScenePath = "res://scene/about/about.tscn";
-	private const string CampaignScenePath = "res://scene/campaign/campaign.tscn";
+	// A campaign is begun by choosing who to be in it.
+	private const string CampaignScenePath = "res://scene/lord-select/lord_select.tscn";
 	private const string LoadGameScenePath = "res://scene/load-game/load_game.tscn";
 	private const float SceneFadeOutSeconds = 0.4f;
 

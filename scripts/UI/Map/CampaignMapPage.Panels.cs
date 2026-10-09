@@ -22,9 +22,9 @@ public partial class CampaignMapPage
 		AddChild(_fallen);
 		_victory = new VictoryPanel();
 		AddChild(_victory);
-		// ponytail: the England campaign's second map is not playable yet, so Next goes back to the
-		// campaign page; once it is, it opens that map's briefing.
-		_victory.Next += () => SceneRouter.GoTo(this, CampaignSelectionScenePath);
+		// On to the next map's briefing; after a campaign's last, back to the campaigns. Nothing is
+		// carried over (the user's call): the next map opens fresh, as Lords of the Realm's did.
+		_victory.Next += () => SceneRouter.GoTo(this, Campaign.Advance() ? BriefingScenePath : CampaignSelectionScenePath);
 		_fallen.Chosen += load => SceneRouter.GoTo(this, load ? LoadGameScenePath : MainMenuScenePath);
 
 		_taxes = new TaxPanel();

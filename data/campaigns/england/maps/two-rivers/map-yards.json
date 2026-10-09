@@ -1,0 +1,52 @@
+[
+ {
+  "province": "Kingsbridge",
+  "x": 700.0,
+  "y": 1150.0
+ },
+ {
+  "province": "Wendmouth",
+  "x": 300.0,
+  "y": 980.0
+ },
+ {
+  "province": "Oakfold",
+  "x": 450.0,
+  "y": 1300.0
+ },
+ {
+  "province": "Harrowfield",
+  "x": 1000.0,
+  "y": 1080.0
+ },
+ {
+  "province": "Greywatch",
+  "x": 450.0,
+  "y": 380.0
+ },
+ {
+  "province": "Frostmere",
+  "x": 220.0,
+  "y": 580.0
+ },
+ {
+  "province": "Coldharbour",
+  "x": 760.0,
+  "y": 500.0
+ },
+ {
+  "province": "Ironmarch",
+  "x": 1600.0,
+  "y": 360.0
+ },
+ {
+  "province": "Stonebridge",
+  "x": 1260.0,
+  "y": 620.0
+ },
+ {
+  "province": "Ashford",
+  "x": 1680.0,
+  "y": 820.0
+ }
+]

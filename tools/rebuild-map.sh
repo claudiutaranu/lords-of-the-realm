@@ -3,7 +3,7 @@
 # data/campaigns/<campaign>/map.json or provinces.json — the game reads the generated images, not
 # the JSON, so nothing changes in Godot until this has run.
 #
-#   ./tools/rebuild-map.sh
+#   ./tools/rebuild-map.sh [<campaign>/maps/<map>]     (the Royal Crown's island by default)
 #
 # Keeps its own virtualenv in tools/.venv so numpy and pillow never touch the system python.
 set -euo pipefail
@@ -17,10 +17,10 @@ if [ ! -x "$VENV/bin/python" ]; then
 	"$VENV/bin/pip" install --quiet --upgrade pip numpy pillow
 fi
 
-"$VENV/bin/python" "$TOOLS_DIR/generate_campaign_map.py"
+"$VENV/bin/python" "$TOOLS_DIR/generate_campaign_map.py" "$@"
 echo
 # A map that looks right can still have a county no army can reach; this fails the rebuild if so.
-"$VENV/bin/python" "$TOOLS_DIR/check_marches.py"
+"$VENV/bin/python" "$TOOLS_DIR/check_marches.py" "$@"
 echo
 echo "Done. Back in Godot: the images re-import when the editor regains focus."
 echo "If they do not, use Project > Reload Current Project, then F6 on scene/campaign-map/campaign_map.tscn."

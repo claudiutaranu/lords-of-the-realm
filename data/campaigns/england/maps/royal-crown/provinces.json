@@ -1,4 +1,7 @@
 {
+ "name": "The Royal Crown",
+ "next": "england/maps/two-rivers",
+ "opening": "Greetings, sire. The crown is yours, and with it Kingsreach — one seat out of eight on this map. The Northern Watch holds another, and six lie unclaimed between you.\n\nYour county pays no dues yet: set its tax on the coin beside your county, or the treasury will not grow by a single crown.\n\nFill your stores, raise an army, and take the rest.",
  "player": "royal-crown",
  "unclaimed": "neutral",
  "rivalWallsUpTo": "medium-fort",
@@ -8,7 +11,8 @@
   },
   "northern-watch": {
    "name": "The Northern Watch",
-   "lord": "margrave"
+   "lord": "margrave",
+   "about": "Lord Alaric holds the northern highlands, forging a hard realm of ice and iron. He stands as the greatest obstacle to your claim."
   },
   "neutral": {
    "name": "Unclaimed",
@@ -25,8 +29,8 @@
    "capital": true,
    "region": "south",
    "neighbours": [
-	"Redmoor Hold",
-	"Ashenvale",
+    "Redmoor Hold",
+    "Ashenvale",
     "Thornwatch"
    ]
   },
@@ -38,7 +42,7 @@
    "economy": "redmoor-hold",
    "region": "south",
    "neighbours": [
-	"Kingsreach",
+    "Kingsreach",
     "Ashenvale"
    ]
   },
@@ -50,10 +54,10 @@
    "economy": "ashenvale",
    "region": "south",
    "neighbours": [
-	"Kingsreach",
-	"Redmoor Hold",
-	"Thornwatch",
-	"Valmere",
+    "Kingsreach",
+    "Redmoor Hold",
+    "Thornwatch",
+    "Valmere",
     "Icemere Reach"
    ]
   },
@@ -65,9 +69,9 @@
    "economy": "thornwatch",
    "region": "south",
    "neighbours": [
-	"Kingsreach",
-	"Ashenvale",
-	"Farrowmere",
+    "Kingsreach",
+    "Ashenvale",
+    "Farrowmere",
     "Icemere Reach"
    ]
   },
@@ -79,7 +83,7 @@
    "economy": "farrowmere",
    "region": "south",
    "neighbours": [
-	"Thornwatch",
+    "Thornwatch",
     "Icemere Reach"
    ]
   },
@@ -92,8 +96,8 @@
    "capital": true,
    "region": "north",
    "neighbours": [
-	"Ashenvale",
-	"Frostgate",
+    "Ashenvale",
+    "Frostgate",
     "Icemere Reach"
    ]
   },
@@ -105,7 +109,7 @@
    "economy": "frostgate",
    "region": "north",
    "neighbours": [
-	"Valmere",
+    "Valmere",
     "Icemere Reach"
    ]
   },
@@ -117,10 +121,10 @@
    "economy": "icemere-reach",
    "region": "north",
    "neighbours": [
-	"Ashenvale",
-	"Thornwatch",
-	"Farrowmere",
-	"Valmere",
+    "Ashenvale",
+    "Thornwatch",
+    "Farrowmere",
+    "Valmere",
     "Frostgate"
    ]
   }

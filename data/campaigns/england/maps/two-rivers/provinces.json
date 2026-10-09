@@ -1,0 +1,157 @@
+{
+ "name": "The Two Rivers",
+ "opening": "Sire, the island is won, and the crown is carried over the sea to Kingsbridge — one seat out of ten on this map. Two lords hold the rest of it between them: the Northern Watch beyond the Wend under the Grey Fells, and the Marshal's Eastern Host across the water in the east, under the Iron Hills. Seven counties lie unclaimed.\n\nThe rivers are crossed in two places each. Whoever holds the crossings holds the south.\n\nSet your tax, fill your stores, and raise an army before either of them comes over the water.",
+ "player": "royal-crown",
+ "unclaimed": "neutral",
+ "rivalWallsUpTo": "medium-fort",
+ "realms": {
+  "royal-crown": {
+   "name": "The Royal Crown"
+  },
+  "northern-watch": {
+   "name": "The Northern Watch",
+   "lord": "margrave",
+   "about": "Driven off the island, Lord Alaric has dug in beyond the Wend under the Grey Fells. He knows the western crossing as well as you do."
+  },
+  "eastern-host": {
+   "name": "The Eastern Host",
+   "lord": "marshal",
+   "about": "The Marshal holds everything east of the rivers, under the Iron Hills, with the hardest host in the kingdom. He does not wait to be attacked, and he does not stop at a river."
+  },
+  "neutral": {
+   "name": "Unclaimed",
+   "accent": "8b8b86"
+  }
+ },
+ "provinces": [
+  {
+   "name": "Kingsbridge",
+   "x": 700,
+   "y": 1150,
+   "realm": "royal-crown",
+   "economy": "kingsbridge",
+   "capital": true,
+   "region": "south",
+   "neighbours": [
+    "Wendmouth",
+    "Oakfold",
+    "Harrowfield"
+   ]
+  },
+  {
+   "name": "Wendmouth",
+   "x": 300,
+   "y": 980,
+   "realm": "neutral",
+   "economy": "wendmouth",
+   "region": "south",
+   "neighbours": [
+    "Kingsbridge",
+    "Oakfold",
+    "Coldharbour"
+   ]
+  },
+  {
+   "name": "Oakfold",
+   "x": 450,
+   "y": 1300,
+   "realm": "neutral",
+   "economy": "oakfold",
+   "region": "south",
+   "neighbours": [
+    "Kingsbridge",
+    "Wendmouth"
+   ]
+  },
+  {
+   "name": "Harrowfield",
+   "x": 1000,
+   "y": 1080,
+   "realm": "neutral",
+   "economy": "harrowfield",
+   "region": "south",
+   "neighbours": [
+    "Kingsbridge",
+    "Ashford"
+   ]
+  },
+  {
+   "name": "Greywatch",
+   "x": 450,
+   "y": 380,
+   "realm": "northern-watch",
+   "economy": "greywatch",
+   "capital": true,
+   "region": "north",
+   "neighbours": [
+    "Frostmere",
+    "Coldharbour"
+   ]
+  },
+  {
+   "name": "Frostmere",
+   "x": 220,
+   "y": 580,
+   "realm": "neutral",
+   "economy": "frostmere",
+   "region": "north",
+   "neighbours": [
+    "Greywatch",
+    "Coldharbour"
+   ]
+  },
+  {
+   "name": "Coldharbour",
+   "x": 760,
+   "y": 500,
+   "realm": "neutral",
+   "economy": "coldharbour",
+   "region": "north",
+   "neighbours": [
+    "Wendmouth",
+    "Greywatch",
+    "Frostmere",
+    "Stonebridge"
+   ]
+  },
+  {
+   "name": "Ironmarch",
+   "x": 1600,
+   "y": 360,
+   "realm": "eastern-host",
+   "economy": "ironmarch",
+   "capital": true,
+   "region": "north",
+   "neighbours": [
+    "Stonebridge",
+    "Ashford"
+   ]
+  },
+  {
+   "name": "Stonebridge",
+   "x": 1260,
+   "y": 620,
+   "realm": "neutral",
+   "economy": "stonebridge",
+   "region": "north",
+   "neighbours": [
+    "Coldharbour",
+    "Ironmarch",
+    "Ashford"
+   ]
+  },
+  {
+   "name": "Ashford",
+   "x": 1680,
+   "y": 820,
+   "realm": "neutral",
+   "economy": "ashford",
+   "region": "north",
+   "neighbours": [
+    "Harrowfield",
+    "Ironmarch",
+    "Stonebridge"
+   ]
+  }
+ ]
+}

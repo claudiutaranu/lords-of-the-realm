@@ -10,7 +10,7 @@ config_version=5
 
 [application]
 
-config/name="Realm Prototype"
+config/name="Lords and Crowns"
 config/version="0.1.0"
 run/main_scene="res://scene/intro/intro.tscn"
 config/features=PackedStringArray("4.7", "C#", "Forward Plus")

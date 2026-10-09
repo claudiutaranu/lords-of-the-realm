@@ -8,10 +8,8 @@ public partial class LoadGamePage : Control
 	private const string MainMenuScenePath = "res://scene/main-menu/main_menu.tscn";
 	private const string CampaignMapScenePath = "res://scene/campaign-map/campaign_map.tscn";
 	private const string LoadingScenePath = "res://scene/loading/loading.tscn";
-	// Every save is a Royal Crown campaign for now — the only one with a map behind it.
-	// ponytail: pinned to one campaign's art. When a second campaign gets a map, a save has to
-	// record which folder it belongs to, and both this and Campaign.Folder should follow it.
-	private static readonly string PreviewPath = Campaign.AssetOf("england/maps/royal-crown", "card.png");
+	// A map with no card of its own is shown on the first map's.
+	private static readonly string FallbackPreviewPath = Campaign.AssetOf("england/maps/royal-crown", "card.png");
 
 	private TextureRect _preview;
 	private Label _detailName;
@@ -65,7 +63,8 @@ public partial class LoadGamePage : Control
 
 	private void ShowDetail(SaveGame save)
 	{
-		_preview.Texture = GD.Load<Texture2D>(PreviewPath);
+		string card = Campaign.AssetOf(save.CampaignFolder, "card.png");
+		_preview.Texture = GD.Load<Texture2D>(ResourceLoader.Exists(card) ? card : FallbackPreviewPath);
 		_detailName.Text = save.CampaignName;
 		_detailMeta.Text = $"Turn {save.Turn} · {save.SavedAtDisplay}";
 	}
@@ -73,6 +72,9 @@ public partial class LoadGamePage : Control
 	private void Load(SaveGame save)
 	{
 		SaveGame.Pending = save;
+		Campaign.Folder = save.CampaignFolder;
+		Campaign.Name = save.CampaignName;
+		Campaign.Player = save.PlayerLord;
 		LoadingPage.TargetScenePath = CampaignMapScenePath;
 		SceneRouter.GoTo(this, LoadingScenePath);
 	}

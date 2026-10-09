@@ -40,8 +40,63 @@ public partial class EconomyCheck
 		returned.Restore(SaveGame.Of("Check", turns));
 		Is("and through the options and back", returned.GetProvince("Wild")?.Grain, 777);
 
+		Maps(turns);
 		Shares(b);
 		Countyless();
+	}
+
+	/// <summary>A save says which map it was on, so the load screen opens that map and not the first;
+	/// and the England campaign runs from its first map on to its second, and stops there.</summary>
+	private void Maps(TurnManager turns)
+	{
+		string playing = Campaign.Folder;
+		string named = Campaign.Name;
+
+		Campaign.Open("england/maps/two-rivers");
+		SaveGame written = SaveGame.Of("Check", turns);
+		Is("a save on the second map is written", SaveGame.Write(written), true);
+		SaveGame read = SaveGame.List().Find(save => save.SavedAtUnix == written.SavedAtUnix);
+		SaveGame.Forget(read);
+		Is("  and remembers the map it was on", read?.CampaignFolder, "england/maps/two-rivers");
+
+		Campaign.Open("england/maps/royal-crown");
+		Is("the first map is named off its own file", Campaign.Name, "The Royal Crown");
+		Is("after the first map comes the second", Campaign.Advance() && Campaign.Folder == "england/maps/two-rivers", true);
+		Is("  under its own name", Campaign.Name, "The Two Rivers");
+		Is("  and after it, nothing yet", Campaign.Advance(), false);
+
+		Seats();
+		Campaign.Folder = playing;
+		Campaign.Name = named;
+	}
+
+	/// <summary>The lord chosen before the campaign sits in the player's seat under his own realm's
+	/// name; the realm the map gave him passes to the Crown; the map's own file is left as it was
+	/// drawn; and a save remembers who was played.</summary>
+	private void Seats()
+	{
+		string chosen = Campaign.Player;
+		Godot.Collections.Dictionary drawn = GD.Load<Json>("res://data/campaigns/england/maps/royal-crown/provinces.json")
+			.Data.AsGodotDictionary()["realms"].AsGodotDictionary();
+
+		Campaign.Player = Campaign.Crown;
+		Is("played as the Crown, the map is as drawn",
+			Campaign.Seated(drawn, "royal-crown")["northern-watch"].AsGodotDictionary()["lord"].AsString(), "margrave");
+
+		Campaign.Player = "margrave";
+		Godot.Collections.Dictionary seated = Campaign.Seated(drawn, "royal-crown");
+		Is("played as the Margrave, your realm is his", seated["royal-crown"].AsGodotDictionary()["name"].AsString(), "The Northern Watch");
+		Is("  and the Crown holds the realm the map gave him",
+			seated["northern-watch"].AsGodotDictionary()["lord"].AsString(), Campaign.Crown);
+		Is("  under the Crown's name", seated["northern-watch"].AsGodotDictionary()["name"].AsString(), "The Royal Crown");
+		Is("  and the map's own file is untouched", drawn["northern-watch"].AsGodotDictionary()["lord"].AsString(), "margrave");
+
+		SaveGame written = SaveGame.Of("Check", Wilderness(GameBalance.Engine));
+		Is("a save as the Margrave is written", SaveGame.Write(written), true);
+		SaveGame read = SaveGame.List().Find(save => save.SavedAtUnix == written.SavedAtUnix);
+		SaveGame.Forget(read);
+		Is("  and remembers who was played", read?.PlayerLord, "margrave");
+		Campaign.Player = chosen;
 	}
 
 	/// <summary>A file of the days the shares were whole percents is read up into hundredths; a file

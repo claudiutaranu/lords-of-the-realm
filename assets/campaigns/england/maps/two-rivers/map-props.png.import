@@ -1,0 +1,14 @@
+[remap]
+
+importer="image"
+type="Image"
+uid="uid://csn7ccssjg1kx"
+path="res://.godot/imported/map-props.png-436931724196238d333abbae87fd17c1.image"
+
+[deps]
+
+source_file="res://assets/campaigns/england/maps/two-rivers/map-props.png"
+dest_files=["res://.godot/imported/map-props.png-436931724196238d333abbae87fd17c1.image"]
+
+[params]
+

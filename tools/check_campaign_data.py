@@ -7,9 +7,9 @@ three states out loud:
 
   - a province's place in the list is its index on map-ids.png (red channel = index + 1), so the
     order is data, not presentation;
-  - a realm's place in the list is the owner written into that map's green channel (+1), and the
-    terrain shader paints 1, 2 and anything beyond as realm one, realm two and unclaimed - three
-    realms, the played one first;
+  - a realm's place in the list is the owner written into that map's green channel (+1), the
+    played one first (who holds what as the game goes on reaches the shaders as a strip of one texel
+    per county, so there is no ceiling on how many realms a map has);
   - the game keys a province's economy by the name inside its .tres, and looks it up by the name in
     provinces.json, so those two names have to be the same string.
 
@@ -38,7 +38,6 @@ def check(campaign="england/maps/royal-crown"):
     assert data["player"] in realms, f"the played realm '{data['player']}' is not one of the realms"
     assert realms[0] == data["player"], \
         f"'{data['player']}' is played but '{realms[0]}' is listed first - the shader paints the first as yours"
-    assert len(realms) <= 3, f"{len(realms)} realms listed; the terrain shader paints three"
 
     repeated = [name for name, count in Counter(p["name"] for p in provinces).items() if count > 1]
     assert not repeated, f"two provinces share a name: {', '.join(repeated)}"

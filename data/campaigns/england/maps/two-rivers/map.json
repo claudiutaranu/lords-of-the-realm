@@ -1,0 +1,373 @@
+{
+ "_comment": "The England campaign's second map: an island over half again the first's, cut in three by its rivers - the Wend, which comes in from the western sea, meets the Greyrun coming down from the north in the middle of the island, and runs on south to the sea. Each lord holds one of the three pieces, under his own hills; each river is crossed in two places only. Read by tools/generate_campaign_map.py.",
+ "size": [
+  2048,
+  1536
+ ],
+ "outline": [
+  [
+   140,
+   260
+  ],
+  [
+   260,
+   150
+  ],
+  [
+   420,
+   170
+  ],
+  [
+   560,
+   110
+  ],
+  [
+   720,
+   150
+  ],
+  [
+   860,
+   100
+  ],
+  [
+   1080,
+   70
+  ],
+  [
+   1300,
+   66
+  ],
+  [
+   1550,
+   66
+  ],
+  [
+   1800,
+   66
+  ],
+  [
+   1984,
+   66
+  ],
+  [
+   1984,
+   300
+  ],
+  [
+   1984,
+   600
+  ],
+  [
+   1984,
+   880
+  ],
+  [
+   1820,
+   960
+  ],
+  [
+   1770,
+   1050
+  ],
+  [
+   1900,
+   1110
+  ],
+  [
+   1940,
+   1200
+  ],
+  [
+   1800,
+   1270
+  ],
+  [
+   1700,
+   1380
+  ],
+  [
+   1560,
+   1340
+  ],
+  [
+   1500,
+   1460
+  ],
+  [
+   1380,
+   1470
+  ],
+  [
+   1250,
+   1400
+  ],
+  [
+   1150,
+   1460
+  ],
+  [
+   1020,
+   1420
+  ],
+  [
+   900,
+   1470
+  ],
+  [
+   780,
+   1400
+  ],
+  [
+   650,
+   1450
+  ],
+  [
+   520,
+   1470
+  ],
+  [
+   380,
+   1430
+  ],
+  [
+   250,
+   1340
+  ],
+  [
+   200,
+   1190
+  ],
+  [
+   110,
+   1100
+  ],
+  [
+   90,
+   950
+  ],
+  [
+   160,
+   860
+  ],
+  [
+   100,
+   760
+  ],
+  [
+   130,
+   640
+  ],
+  [
+   80,
+   520
+  ],
+  [
+   120,
+   400
+  ]
+ ],
+ "terrain": {
+  "sea_floor_byte": 46.0,
+  "ridge_height": 215.0,
+  "ridge_detail": 112.0,
+  "inland_height": 52.0,
+  "north_lift": 26.0,
+  "seat_height": 16.0,
+  "noise_height": 9.0,
+  "lowland_detail": 0.05,
+  "outcrop_height": 24.0,
+  "outcrop_cover": 0.11,
+  "border_warp": 55.0,
+  "coast_rock_height": 30.0,
+  "coast_rock_width": 3.4,
+  "coast_bays": 48.0
+ },
+ "islands": {
+  "islet_height": 14.0,
+  "stack_height": 24.0,
+  "emergent_shape": 0.55,
+  "base_reach": 6,
+  "stack_count": 0,
+  "islets_per_province": 0.0
+ },
+ "forest": {
+  "southern_density": 0.72,
+  "northern_density": 1.0,
+  "treeline_strength": 0.7
+ },
+ "ranges": [
+  {
+   "name": "The Grey Fells",
+   "line": [
+    [
+     150,
+     330
+    ],
+    [
+     350,
+     230
+    ],
+    [
+     600,
+     230
+    ]
+   ],
+   "width": 70,
+   "height": 0.9
+  },
+  {
+   "name": "The Iron Hills",
+   "line": [
+    [
+     1450,
+     190
+    ],
+    [
+     1750,
+     170
+    ],
+    [
+     1890,
+     350
+    ],
+    [
+     1880,
+     620
+    ]
+   ],
+   "width": 85,
+   "height": 1.0
+  },
+  {
+   "name": "The Spine",
+   "line": [
+    [
+     1170,
+     150
+    ],
+    [
+     1200,
+     430
+    ]
+   ],
+   "width": 45,
+   "height": 0.65
+  },
+  {
+   "name": "The Coldfell",
+   "line": [
+    [
+     1520,
+     1000
+    ],
+    [
+     1620,
+     1240
+    ]
+   ],
+   "width": 55,
+   "height": 0.6
+  },
+  {
+   "name": "The Downs",
+   "line": [
+    [
+     560,
+     1380
+    ],
+    [
+     860,
+     1370
+    ]
+   ],
+   "width": 45,
+   "height": 0.35
+  }
+ ],
+ "rivers": [
+  {
+   "name": "The Wend",
+   "line": [
+    [
+     20,
+     700
+    ],
+    [
+     300,
+     760
+    ],
+    [
+     600,
+     700
+    ],
+    [
+     850,
+     780
+    ],
+    [
+     1000,
+     760
+    ],
+    [
+     1150,
+     950
+    ],
+    [
+     1300,
+     1150
+    ],
+    [
+     1380,
+     1350
+    ],
+    [
+     1450,
+     1560
+    ]
+   ],
+   "width": 38,
+   "crossings": [
+    [
+     600,
+     700
+    ],
+    [
+     1300,
+     1150
+    ]
+   ]
+  },
+  {
+   "name": "The Greyrun",
+   "line": [
+    [
+     980,
+     -20
+    ],
+    [
+     1020,
+     250
+    ],
+    [
+     960,
+     500
+    ],
+    [
+     1000,
+     760
+    ]
+   ],
+   "width": 32,
+   "crossings": [
+    [
+     1020,
+     250
+    ],
+    [
+     960,
+     500
+    ]
+   ]
+  }
+ ]
+}

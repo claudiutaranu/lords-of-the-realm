@@ -1,9 +1,8 @@
 using Godot;
 
-/// <summary>Shown after picking a campaign card: your lord, the rival, the contested
-/// territory, and the campaign's stats/objectives, before play begins. Content here is
-/// hardcoded to the Royal Crown vs. Northern Watch matchup for now, the only one with a
-/// map and rival briefing text ready; generalize once the other four have theirs.</summary>
+/// <summary>Shown before a map is played — after picking a campaign, and after winning the map
+/// before it: your lord, every rival lord on it, the contested territory, and its stats and
+/// objectives, all read off the map's own provinces.json and the lords' roster.</summary>
 public partial class CampaignBriefingPage : Control
 {
 	private const string CampaignScenePath = "res://scene/campaign/campaign.tscn";
@@ -20,7 +19,11 @@ public partial class CampaignBriefingPage : Control
 	/// <summary>How far the words under each face keep from the panel's sides.</summary>
 	private const int TextInset = 26;
 	private const int HeadingDrop = 14;
-	private const string YourLordFilm = "lord.ogv";
+	private const string BriefingArt = "briefing-map.png";
+
+	/// <summary>How large each rival's face is when more than one shares the column.</summary>
+	private const int SharedPortraitSide = 170;
+	private const string RivalColumn = "MainRow/RivalPanel/RivalContent";
 
 	public override void _Ready()
 	{
@@ -42,9 +45,11 @@ public partial class CampaignBriefingPage : Control
 		difficulty.TooltipText = "How well the lords who are not you will play their own counties";
 		difficulty.ItemSelected += chosen => Campaign.Difficulty = (Difficulty)chosen;
 
-		Tally();
+		Godot.Collections.Dictionary data = GD.Load<Json>(Campaign.Data("provinces.json")).Data.AsGodotDictionary();
+		Tally(data);
 		ShowYours();
-		ShowRival();
+		ShowRivals(Campaign.Seated(data["realms"].AsGodotDictionary(), data["player"].AsString()));
+		ShowMap();
 		Inset("MainRow/YourLordPanel/YourLordContent");
 		Inset("MainRow/RivalPanel/RivalContent");
 
@@ -101,48 +106,104 @@ public partial class CampaignBriefingPage : Control
 		}
 	}
 
-	/// <summary>The player's own lord, moving, where the campaign has a film of him.</summary>
+	/// <summary>The lord the player chose, moving, under his realm's name and his motto.</summary>
 	private void ShowYours()
 	{
-		if (LordPortrait.Moving(Campaign.Asset(YourLordFilm), PortraitSide) is Control face)
+		if (Lords.Find(Campaign.Player) is not Lord yours)
 		{
-			var still = GetNode<Control>("MainRow/YourLordPanel/YourLordContent/Portrait");
-			still.AddSibling(LordPortrait.Framed(face));
+			return;
+		}
+
+		const string Column = "MainRow/YourLordPanel/YourLordContent";
+		GetNode<Label>($"{Column}/RealmName").Text = yours.Realm;
+		GetNode<Label>($"{Column}/Tagline").Text = yours.Motto;
+		if (LordPortrait.Of(yours, PortraitSide) is Control face)
+		{
+			var still = GetNode<Control>($"{Column}/Portrait");
+			still.AddSibling(face);
 			still.Visible = false;
 		}
 	}
 
-	/// <summary>The rival's face, moving, where his lord has been painted: the first realm on the
-	/// campaign that names a lord. The still stays where there is no portrait of him yet.</summary>
-	private void ShowRival()
+	/// <summary>The map's own painting where it has one; the scene's is the first map's.</summary>
+	private void ShowMap()
 	{
-		Godot.Collections.Dictionary realms = GD.Load<Json>(Campaign.Data("provinces.json")).Data
-			.AsGodotDictionary()["realms"].AsGodotDictionary();
+		if (ResourceLoader.Exists(Campaign.Asset(BriefingArt)))
+		{
+			GetNode<TextureRect>("MainRow/MapPanel/Map").Texture = GD.Load<Texture2D>(Campaign.Asset(BriefingArt));
+		}
+	}
+
+	/// <summary>Every lord who holds a realm on the map, in the order the map lists them: his face
+	/// (moving where he has been filmed), his name, his realm, his motto and what the map says of
+	/// him. The scene lays out one; each lord after the first is given a copy of it, and the faces
+	/// shrink so two still fit the column.</summary>
+	private void ShowRivals(Godot.Collections.Dictionary realms)
+	{
+		var rivals = new System.Collections.Generic.List<(Lord Lord, Godot.Collections.Dictionary Realm)>();
 		foreach (Variant realm in realms.Values)
 		{
-			if (realm.AsGodotDictionary().TryGetValue("lord", out Variant key)
-				&& LordPortrait.Of(Lords.Find(key.AsString()), PortraitSide) is Control face)
+			Godot.Collections.Dictionary fields = realm.AsGodotDictionary();
+			if (fields.TryGetValue("lord", out Variant key) && Lords.Find(key.AsString()) is Lord lord)
 			{
-				var still = GetNode<Control>("MainRow/RivalPanel/RivalContent/Portrait");
-				still.AddSibling(face);
-				still.Visible = false;
-				return;
+				rivals.Add((lord, fields));
 			}
+		}
+
+		string[] parts = { "Portrait", "RivalName", "RivalRealm", "RivalQuote", "RivalDescription" };
+		Node column = GetNode(RivalColumn);
+		int side = rivals.Count > 1 ? SharedPortraitSide : PortraitSide;
+		for (int i = 0; i < rivals.Count; i++)
+		{
+			var block = new System.Collections.Generic.Dictionary<string, Control>();
+			foreach (string part in parts)
+			{
+				var original = GetNode<Control>($"{RivalColumn}/{part}");
+				block[part] = i == 0 ? original : (Control)original.Duplicate();
+				if (i > 0)
+				{
+					column.AddChild(block[part]);
+				}
+			}
+
+			Introduce(block, rivals[i].Lord, rivals[i].Realm, side);
+		}
+	}
+
+	private static void Introduce(System.Collections.Generic.Dictionary<string, Control> block, Lord lord,
+		Godot.Collections.Dictionary realm, int side)
+	{
+		var name = (Label)block["RivalName"];
+		var realmName = (Label)block["RivalRealm"];
+		var motto = (Label)block["RivalQuote"];
+		var about = (Label)block["RivalDescription"];
+		name.Text = lord.Name.Length > 0 ? lord.Name : lord.Title;
+		realmName.Text = realm["name"].AsString();
+		motto.Text = $"\"{lord.Motto}\"";
+		motto.Visible = lord.Motto.Length > 0;
+		about.Text = realm.TryGetValue("about", out Variant said) ? said.AsString() : "";
+		about.Visible = about.Text.Length > 0;
+
+		Control still = block["Portrait"];
+		still.CustomMinimumSize = new Vector2(0, side);
+		if (LordPortrait.Of(lord, side) is Control face)
+		{
+			still.AddSibling(face);
+			still.Visible = false;
 		}
 	}
 
 	/// <summary>The stats bar read off the campaign itself, not typed into the scene: the lords who
 	/// hold land, the counties that can change hands, the gold the player's seat opens with, and
-	/// the seat the rival rules from.</summary>
-	private void Tally()
+	/// the seats the rivals rule from.</summary>
+	private void Tally(Godot.Collections.Dictionary data)
 	{
-		Godot.Collections.Dictionary data = GD.Load<Json>(Campaign.Data("provinces.json")).Data.AsGodotDictionary();
 		string player = data["player"].AsString();
 		string unclaimed = data["unclaimed"].AsString();
 		var lords = new System.Collections.Generic.HashSet<string>();
 		int counties = 0;
 		int gold = 0;
-		string rivalSeat = "";
+		var rivalSeats = new System.Collections.Generic.List<string>();
 		foreach (Variant entry in data["provinces"].AsGodotArray())
 		{
 			Godot.Collections.Dictionary county = entry.AsGodotDictionary();
@@ -163,9 +224,9 @@ public partial class CampaignBriefingPage : Control
 			{
 				gold += GD.Load<ProvinceDefinition>(Campaign.Data($"provinces/{economy}.tres")).InitialGold;
 			}
-			else if (realm != unclaimed && rivalSeat.Length == 0)
+			else if (realm != unclaimed && county.TryGetValue("capital", out Variant seat) && seat.AsBool())
 			{
-				rivalSeat = county["name"].AsString();
+				rivalSeats.Add(county["name"].AsString());
 			}
 		}
 
@@ -174,7 +235,25 @@ public partial class CampaignBriefingPage : Control
 		GetNode<Label>($"{Stats}/EnemyLords/Value").Text = (lords.Count - 1).ToString();
 		GetNode<Label>($"{Stats}/Provinces/Value").Text = counties.ToString();
 		GetNode<Label>($"{Stats}/Gold/Text/Value").Text = gold.ToString("N0");
-		GetNode<Label>($"{Stats}/Objectives/Value").Text =
-			$"Take {rivalSeat}, Lord Alaric's seat  ·  Hold all {counties} counties";
+		// One rival is named with his seat, as the first map always was; more are only their seats,
+		// or the line runs off the bar.
+		string take = rivalSeats.Count == 1 && RivalNamed(Campaign.Seated(data["realms"].AsGodotDictionary(), player)) is { Length: > 0 } rival
+			? $"{rivalSeats[0]}, {rival}'s seat"
+			: string.Join(" and ", rivalSeats);
+		GetNode<Label>($"{Stats}/Objectives/Value").Text = $"Take {take}  ·  Hold all {counties} counties";
+	}
+
+	/// <summary>The name of the first lord the map seats, or nothing if he has none.</summary>
+	private static string RivalNamed(Godot.Collections.Dictionary realms)
+	{
+		foreach (Variant realm in realms.Values)
+		{
+			if (realm.AsGodotDictionary().TryGetValue("lord", out Variant key) && Lords.Find(key.AsString()) is Lord lord)
+			{
+				return lord.Name;
+			}
+		}
+
+		return "";
 	}
 }

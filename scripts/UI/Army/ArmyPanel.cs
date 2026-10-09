@@ -338,7 +338,7 @@ public partial class ArmyPanel : PaintedPanel
 		_walls.Text = $"{army.Strength:N0} in the field, {county?.CastleMen ?? 0:N0} behind the walls of "
 			+ $"{army.Home}.";
 
-		string crest = $"{IconDirectory}/shield-{realmKey}.png";
+		string crest = Heraldry.CrestPath(realmKey);
 		_crest.Texture = ResourceLoader.Exists(crest)
 			? new AtlasTexture { Atlas = GD.Load<Texture2D>(crest), Region = CrestRegion }
 			: null;

@@ -157,7 +157,7 @@ public partial class DiplomacyPanel : PaintedPanel
 	/// <summary>His realm's shield where one has been painted, and the plain one in his colour where not.</summary>
 	private Control Shield(string realm)
 	{
-		string painted = $"{Chrome.IconDirectory}/shield-{realm}.png";
+		string painted = Heraldry.CrestPath(realm);
 		bool isPainted = ResourceLoader.Exists(painted);
 		return new TextureRect
 		{

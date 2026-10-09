@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://nqwm1rlo50p1"
-path="res://.godot/imported/shield-northern-watch.png-9e7e9e52e636172d6bcd57d873bacab0.ctex"
+path="res://.godot/imported/shield-margrave.png-3347bbcc97cc864ec8febc8307663ac5.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/ui/icons/shield-northern-watch.png"
-dest_files=["res://.godot/imported/shield-northern-watch.png-9e7e9e52e636172d6bcd57d873bacab0.ctex"]
+source_file="res://assets/ui/icons/shield-margrave.png"
+dest_files=["res://.godot/imported/shield-margrave.png-3347bbcc97cc864ec8febc8307663ac5.ctex"]
 
 [params]
 

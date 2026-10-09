@@ -14,14 +14,6 @@ public partial class CampaignMapPage
 	private const string FortificationsScenePath = "res://scene/campaign-map/fortifications.tscn";
 	private const string CityScenePath = "res://scene/campaign-map/city.tscn";
 
-	/// <summary>What the narrator says over the map on the first turn, and what stays on screen after
-	/// he has stopped. Kept to what a first turn can actually do, because a briefing nobody can act
-	/// on is a cutscene with a Close button.</summary>
-	private const string Briefing =
-		"Greetings, sire. The crown is yours, and with it Kingsreach \u2014 one seat out of eight " +
-		"on this map. The Northern Watch holds another, and six lie unclaimed between you.\n\n" +
-		"Your county pays no dues yet: set its tax on the coin beside your county, or the treasury will not grow by a single crown.\n\n" +
-		"Fill your stores, raise an army, and take the rest.";
 
 	/// <summary>The tax table for the county in hand. It is the one decision on this page that is not
 	/// made in a room: the reeve comes to the lord, not the other way round.</summary>
@@ -243,14 +235,14 @@ public partial class CampaignMapPage
 	/// The voice is optional. Until it is recorded the briefing simply reads itself.</summary>
 	private void OpenBriefing()
 	{
-		string crestPath = $"res://assets/ui/icons/shield-{_playerRealm}.png";
+		string crestPath = Heraldry.CrestPath(_playerRealm);
 		Texture2D crest = ResourceLoader.Exists(crestPath)
 			? new AtlasTexture { Atlas = GD.Load<Texture2D>(crestPath), Region = ProvinceSidebar.CrestRegion }
 			: null;
 		var opening = new OpeningPanel();
 		AddChild(opening);
 		opening.Open($"{_turnManager.CurrentSeason}, {_turnManager.CurrentYear}",
-			$"Welcome to {_provinces[0].Name}", Briefing, crest, GetNode<Control>("Sidebar").Size.X);
+			$"Welcome to {_provinces[0].Name}", _opening, crest, GetNode<Control>("Sidebar").Size.X);
 
 		Narrator.Say(OpeningVoicePath);
 	}

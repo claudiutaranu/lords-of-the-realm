@@ -7,6 +7,7 @@ public partial class CampaignMapPage
 {
 	private const string MainMenuScenePath = "res://scene/main-menu/main_menu.tscn";
 	private const string CampaignSelectionScenePath = "res://scene/campaign/campaign.tscn";
+	private const string BriefingScenePath = "res://scene/campaign-briefing/campaign_briefing.tscn";
 	private const string LoadGameScenePath = "res://scene/load-game/load_game.tscn";
 	private const string OptionsScenePath = "res://scene/options/options.tscn";
 	private const string SelfScenePath = "res://scene/campaign-map/campaign_map.tscn";

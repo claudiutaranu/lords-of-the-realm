@@ -138,7 +138,7 @@ public sealed class BattleSide
 		_under.Text = under;
 		_cloth.BgColor = accent.Darkened(0.35f);
 
-		string crest = $"{Chrome.IconDirectory}/shield-{realmKey}.png";
+		string crest = Heraldry.CrestPath(realmKey);
 		_crest.Texture = ResourceLoader.Exists(crest)
 			? new AtlasTexture { Atlas = GD.Load<Texture2D>(crest), Region = CrestRegion }
 			: null;

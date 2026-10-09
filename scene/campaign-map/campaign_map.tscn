@@ -10,7 +10,7 @@
 [ext_resource type="Texture2D" uid="uid://nrcso8p87lso" path="res://assets/ui/icons/iron.png" id="8_iron"]
 [ext_resource type="Script" uid="uid://bks4k4qh0qbs6" path="res://scripts/UI/Chrome/SeasonIcon.cs" id="9_season"]
 [ext_resource type="PackedScene" path="res://scene/campaign-map/nav_rail.tscn" id="10_rail"]
-[ext_resource type="Texture2D" uid="uid://c8lilxprfpr2o" path="res://assets/ui/icons/shield-royal-crown.png" id="12_shield"]
+[ext_resource type="Texture2D" uid="uid://c8lilxprfpr2o" path="res://assets/ui/icons/shield-crown.png" id="12_shield"]
 [ext_resource type="Script" uid="uid://dblsc5tul8tn7" path="res://scripts/UI/Chrome/ShieldMenuButton.cs" id="13_shield_script"]
 [ext_resource type="Script" uid="uid://dklap3fwva5s5" path="res://scripts/UI/Chrome/NavRailIcon.cs" id="14_navicon"]
 [ext_resource type="Texture2D" uid="uid://dlmqj6lrsvg4c" path="res://assets/ui/top-bar-frame.png" id="19_barframe"]

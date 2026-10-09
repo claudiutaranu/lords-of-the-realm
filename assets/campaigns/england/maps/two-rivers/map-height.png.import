@@ -1,0 +1,14 @@
+[remap]
+
+importer="image"
+type="Image"
+uid="uid://dyhogkeug6sca"
+path="res://.godot/imported/map-height.png-44bd603e80c93fc372e572be9e40053c.image"
+
+[deps]
+
+source_file="res://assets/campaigns/england/maps/two-rivers/map-height.png"
+dest_files=["res://.godot/imported/map-height.png-44bd603e80c93fc372e572be9e40053c.image"]
+
+[params]
+

@@ -99,6 +99,14 @@ public class SaveGame
 
 	public string CampaignName { get; set; } = "";
 
+	/// <summary>Which map the campaign was on (Campaign.Folder). Every file written before a campaign
+	/// had a second map was on its first, which is what one with nothing here is read as.</summary>
+	public string CampaignFolder { get; set; } = "england/maps/royal-crown";
+
+	/// <summary>The lord the player chose to play (Campaign.Player). Every file written before there
+	/// was a choice was played as the Crown.</summary>
+	public string PlayerLord { get; set; } = Campaign.Crown;
+
 	/// <summary>How well the other lords were playing. Defaulted rather than required: a save written
 	/// before there were any lords to be good at it says nothing on the subject, and the middle
 	/// setting is the honest reading of a file that never had one.</summary>
@@ -145,6 +153,8 @@ public class SaveGame
 	{
 		SaveGame save = Snapshot(campaignName, turns.Turn, turns.Provinces, turns.Market.Pressure, turns.Difficulty,
 			turns.Diplomacy, turns.Shipments);
+		save.CampaignFolder = Campaign.Folder;
+		save.PlayerLord = Campaign.Player;
 		save.WorldLastStirred = new Dictionary<string, int>(turns.WorldLastStirred);
 		return save;
 	}

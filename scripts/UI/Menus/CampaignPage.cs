@@ -1,3 +1,4 @@
+using System.Linq;
 using Godot;
 
 /// <summary>The campaigns, each a realm fought over level after level: England, whose first level is
@@ -5,7 +6,7 @@ using Godot;
 /// campaign; the first level sets the player against only the first of them.</summary>
 public partial class CampaignPage : Control
 {
-	private const string MainMenuScenePath = "res://scene/main-menu/main_menu.tscn";
+	private const string LordSelectScenePath = "res://scene/lord-select/lord_select.tscn";
 	private const string BriefingScenePath = "res://scene/campaign-briefing/campaign_briefing.tscn";
 	private const string Art = "res://assets/ui/campaign";
 	private const float FadeInSeconds = 0.4f;
@@ -15,14 +16,8 @@ public partial class CampaignPage : Control
 
 	/// <summary>England's first level: the map, data and art everything downstream reads.</summary>
 	private const string FirstLevelFolder = "england/maps/royal-crown";
-	private const string FirstLevelName = "The Royal Crown";
 
-	// Blue for the player and red for the first lord against him, as on every map
-	// (CampaignMapPage.PlayerColour/RivalColours); the green and the gold are the lords of the levels after.
-	private static readonly Color Blue = new("3a6fd8");
-	private static readonly Color Red = new("b23a3a");
-	private static readonly Color Green = new("4f8f4a");
-	private static readonly Color Gold = new("d1a34f");
+	// The lords wear their own colours (lords.json); a campaign not yet made wears ash.
 	private static readonly Color Ash = new("3a3a3a");
 
 	public override void _Ready()
@@ -33,15 +28,21 @@ public partial class CampaignPage : Control
 		GoldTitle.Apply(GetNode<Label>("TitleBlock/Title"));
 		GetNode<Label>("TitleBlock/Subtitle").Text = "Two realms. Different destinies. Choose your campaign.";
 
-		var england = CampaignRealmCard.Make("England Campaign", $"{Art}/england.jpg", new CampaignRealmCard.LordFace[]
+		// The lord the player chose, first and larger, then the four the campaign is fought against in
+		// the order its maps bring them in; whoever is not played, the Crown among them, is fought.
+		Lord yours = Lords.Find(Campaign.Player) ?? Lords.Find(Campaign.Crown);
+		var lords = new System.Collections.Generic.List<CampaignRealmCard.LordFace> { Face(yours, isYours: true) };
+		foreach (Lord lord in Lords.All)
 		{
-			new($"{Art}/lord-crown.png", $"res://assets/campaigns/{FirstLevelFolder}/lord.ogv",
-				$"{Chrome.IconDirectory}/shield-royal-crown.png", Blue),
-			new($"{Art}/lord-margrave.png", "res://assets/video/lords/margrave.ogv",
-				$"{Chrome.IconDirectory}/shield-northern-watch.png", Red),
-			new($"{Art}/lord-duchess.png", "", "", Green),
-			new($"{Art}/lord-marshal.png", "", "", Gold),
-		}, isOpen: true, Red, Blue,
+			if (lord != yours)
+			{
+				lords.Add(Face(lord));
+			}
+		}
+
+		// The banners either side of the view: the first lord against you on the left, you on the right.
+		var england = CampaignRealmCard.Make("England Campaign", $"{Art}/england.jpg", lords, isOpen: true,
+			lords[1].Colour, lords[0].Colour,
 			"Take up the crown of a broken kingdom and win it back, county by county, from the lords who carved it up.",
 			maps: 2);
 		var romania = CampaignRealmCard.Make("Romania Campaign", $"{Art}/romania.jpg",
@@ -62,7 +63,7 @@ public partial class CampaignPage : Control
 		start.OffsetBottom = -36f;
 		AddChild(start);
 
-		GetNode<Button>("%BackButton").Pressed += () => SceneRouter.GoTo(this, MainMenuScenePath);
+		GetNode<Button>("%BackButton").Pressed += () => SceneRouter.GoTo(this, LordSelectScenePath);
 
 		Modulate = new Color(1, 1, 1, 0);
 		CreateTween().TweenProperty(this, "modulate:a", 1.0, FadeInSeconds);
@@ -83,11 +84,15 @@ public partial class CampaignPage : Control
 		cardTween.TweenCallback(Callable.From(() => narration.Play()));
 	}
 
+	private static CampaignRealmCard.LordFace Face(Lord lord, bool isYours = false) => new(
+		$"{Art}/lord-{lord.Key}.png", $"res://assets/video/lords/{lord.Key}.ogv",
+		$"{Chrome.IconDirectory}/shield-{lord.Key}.png", lord.Colour ?? Ash, isYours);
+
 	/// <summary>England, from its first level.</summary>
 	private void Begin()
 	{
-		Campaign.Folder = FirstLevelFolder;
-		Campaign.Name = FirstLevelName;
+		// A game started on a later map (Campaign's --map) is begun there.
+		Campaign.Open(OS.GetCmdlineUserArgs().Any(arg => arg.StartsWith("--map=")) ? Campaign.Folder : FirstLevelFolder);
 		SceneRouter.GoTo(this, BriefingScenePath);
 	}
 }

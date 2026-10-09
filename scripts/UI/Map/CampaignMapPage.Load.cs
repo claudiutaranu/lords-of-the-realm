@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 
 /// <summary>The campaign read off disk: its realms and counties from provinces.json, where each
@@ -26,12 +27,11 @@ public partial class CampaignMapPage
 	/// belonging to it is drawn in.</summary>
 	private record RealmData(string Name, Color Accent);
 
-	/// <summary>Whose colour is whose, whatever the campaign: the player is always blue, and the lords
-	/// against him take their colours in the order the campaign lists them — the first of them red —
-	/// so a lord knows his own banners and his first enemy's at a glance on every map (the user's
-	/// call). Only the unclaimed country keeps the colour the campaign gives it.</summary>
-	private static readonly Color PlayerColour = new("2f5fb0");
-	private static readonly Color[] RivalColours =
+	/// <summary>Whose colour is whose: every lord wears his own (lords.json "colour") on every map,
+	/// whoever plays him — the Crown blue, the Margrave red (the user's call). A realm the campaign
+	/// seats nobody in that is not the unclaimed country takes these in turn; the unclaimed country
+	/// keeps the colour the campaign gives it.</summary>
+	private static readonly Color[] UnseatedColours =
 	{
 		new("b23a3a"), new("d1a34f"), new("4f8f4a"), new("7a4fa8"),
 	};
@@ -49,7 +49,7 @@ public partial class CampaignMapPage
 		Vector2 TownPosition);
 
 	private readonly Dictionary<string, RealmData> _realms = new();
-	// Which of the four lords (data/lords.json) holds each realm on this map.
+	// Which of the lords (data/lords.json) holds each realm on this map.
 	private readonly Dictionary<string, string> _lordOf = new();
 	// Which realm is yours. The others' provinces, and the unclaimed ones, run on nobody's orders yet.
 	private string _playerRealm = "";
@@ -59,6 +59,11 @@ public partial class CampaignMapPage
 
 	/// <summary>The highest rung the other lords may build on this map (provinces.json).</summary>
 	private string _rivalWallsUpTo = "";
+
+	/// <summary>What the narrator says over the map on the first turn, and what stays on screen after
+	/// he has stopped (provinces.json "opening"). Kept to what a first turn can actually do, because
+	/// a briefing nobody can act on is a cutscene with a Close button.</summary>
+	private string _opening = "";
 	// Authored order is load-bearing: it is the ID map's index + 1 encoding, so a province's place
 	// in provinces.json is what ties it to its pixels on the map.
 	private readonly List<ProvinceData> _provinces = new();
@@ -161,19 +166,48 @@ public partial class CampaignMapPage
 		_playerRealm = data["player"].AsString();
 		_unclaimedRealm = data["unclaimed"].AsString();
 		_rivalWallsUpTo = data.TryGetValue("rivalWallsUpTo", out Variant walls) ? walls.AsString() : "";
-		int rivals = 0;
-		foreach (System.Collections.Generic.KeyValuePair<Variant, Variant> realm in data["realms"].AsGodotDictionary())
+		_opening = data.TryGetValue("opening", out Variant opening) ? opening.AsString() : "";
+		int unseated = 0;
+		var renamed = new Dictionary<string, string>();
+		Heraldry.Clear();
+		foreach (System.Collections.Generic.KeyValuePair<Variant, Variant> realm in Campaign.Seated(data["realms"].AsGodotDictionary(), _playerRealm))
 		{
 			Godot.Collections.Dictionary fields = realm.Value.AsGodotDictionary();
 			string key = realm.Key.AsString();
-			Color colour = key == _playerRealm ? PlayerColour
-				: key == _unclaimedRealm ? new Color(fields["accent"].AsString())
-				: RivalColours[rivals++ % RivalColours.Length];
+			string wearer = key == _playerRealm ? Campaign.Player
+				: fields.TryGetValue("lord", out Variant lord) ? lord.AsString() : "";
+			Color colour = key == _unclaimedRealm ? new Color(fields["accent"].AsString())
+				: Lords.Find(wearer)?.Colour ?? UnseatedColours[unseated++ % UnseatedColours.Length];
 			_realms[key] = new RealmData(fields["name"].AsString(), colour);
-			if (fields.TryGetValue("lord", out Variant lord))
+			string drawnAs = data["realms"].AsGodotDictionary()[key].AsGodotDictionary()["name"].AsString();
+			if (drawnAs != fields["name"].AsString())
 			{
-				_lordOf[realm.Key.AsString()] = lord.AsString();
+				renamed[drawnAs] = fields["name"].AsString();
 			}
+			if (wearer.Length > 0)
+			{
+				Heraldry.Seat(key, wearer);
+			}
+
+			// The player's own realm is played, not seated: the lords' table is for the others.
+			if (key != _playerRealm && wearer.Length > 0)
+			{
+				_lordOf[key] = wearer;
+			}
+		}
+
+		// The speech names the realms as the map drew them; a realm seated under another name is spoken
+		// of under that one. In one pass, since two realms may have traded names.
+		if (renamed.Count > 0)
+		{
+			string any = string.Join("|", renamed.Keys.Select(System.Text.RegularExpressions.Regex.Escape));
+			_opening = System.Text.RegularExpressions.Regex.Replace(_opening, any, said => renamed[said.Value]);
+		}
+
+		// The great crest over the map is the played lord's: the scene draws the Crown's.
+		if (ResourceLoader.Exists(Heraldry.CrestPath(_playerRealm)) && GetNode<TextureRect>("Crest").Texture is AtlasTexture crest)
+		{
+			crest.Atlas = GD.Load<Texture2D>(Heraldry.CrestPath(_playerRealm));
 		}
 
 		Dictionary<string, Vector2> yards = LoadYards();

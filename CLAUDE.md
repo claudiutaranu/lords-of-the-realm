@@ -1,6 +1,7 @@
-# Realm Prototype
+# Lords and Crowns
 
-Lords of the Realm II, rebuilt in Godot 4.7.2 (C#/mono, Forward+). The campaign map is Terrain3D;
+The game is called Lords and Crowns (assets/ui/logo.png; the repo, the solution and the C# assembly
+keep the old name, Realm Prototype). It is Lords of the Realm II, rebuilt in Godot 4.7.2 (C#/mono, Forward+). The campaign map is Terrain3D;
 everything else is hand-built UI over a turn-based economy.
 
 ## Working here
@@ -41,10 +42,23 @@ everything else is hand-built UI over a turn-based economy.
 
 A campaign is a realm fought over map after map: `data/campaigns/<campaign>/maps/<map>/` holds a
 map's provinces.json, map.json and roads, `assets/campaigns/<campaign>/maps/<map>/` its images and
-art. `Campaign.Folder` is the path below campaigns/ (`england/maps/royal-crown`). England's first map
-is the Royal Crown's island; its second, `kingdom`, is England and Wales on a 3584x2560 canvas (a
-map's sides must be multiples of 512 for Terrain3D's regions; the world's size is read off its height
-map). Generate a map with `tools/generate_campaign_map.py <campaign>/maps/<map>`.
+art (its `briefing-map.png` the briefing's picture), `assets/campaigns/<campaign>/` what belongs to
+every map of it (the player's `lord.ogv`, `Campaign.RealmAsset`). `Campaign.Folder` is the path below
+campaigns/ (`england/maps/royal-crown`); `Campaign.Open` sets it and the name the map's provinces.json
+gives it (`"name"`), and its `"next"` is the map Victory's Next opens the briefing of
+(`Campaign.Advance`; nothing carries over). A map's first-turn speech is its `"opening"`, and a realm's
+`"about"` is what the briefing says of its lord (his name and motto are `lords.json`'s).
+England's first map is the Royal Crown's island against the Margrave; its second, `two-rivers`
+(2048x1536), is three lords on an island cut in three by the Wend and the Greyrun, each crossed in
+two places only — the Margrave north-west, the Marshal east, the player south-west; `kingdom`
+(England and Wales, 3584x2560) is drawn but has no economies yet and is on nobody's "next". A map's
+sides must be multiples of 512 for Terrain3D's regions; the world's size is read off its height map.
+Generate a map with `tools/rebuild-map.sh <campaign>/maps/<map>` (or the generator directly, through
+tools/.venv). A river (map.json `"rivers"`) is the sea let into the land along a meandering line with
+its crossings left standing, and the counties are drawn within the pieces it leaves
+(`river_channels`, `regions_of`); a range (`"ranges"`) is where the mountains stand. New map images
+want the first map's `.import` settings (map-ids/height/ditch/props are `image`), or the editor imports
+them as textures.
 
 ## The economy
 
@@ -268,12 +282,24 @@ The men live in **companies** (`FieldArmy`), not in one roster per county:
 
 ## Diplomacy
 
-- The player is always blue and the first lord against him red, on every campaign
-  (`CampaignMapPage.PlayerColour`/`RivalColours`, the user's call): a campaign names its realms but
-  does not colour them — only the unclaimed country keeps its `provinces.json` "accent".
-- There are four lords in the whole game, written once in `data/lords.json` (`Lords`): the Marshal,
-  the Margrave, the Duchess and the Abbot, carrying Lords of the Realm's Knight, Baron, Countess and
-  Bishop. A campaign never describes a lord; its realm names one (`provinces.json` `"lord"`), and
+- Before the campaign the player chooses who to be (`LordSelectPage`, scene/lord-select, between
+  the main menu and the campaign page): the Crown or any of the four (`Campaign.Player`, saved as
+  `SaveGame.PlayerLord`). Whoever he chooses starts in the player's seat; on a map that seats the
+  chosen lord, the Crown takes that realm instead, under the Crown's realm name
+  (`Campaign.Seated`, which both the map and the briefing read; the opening speech is renamed to
+  match). Every lord wears his own colour on every map whoever plays him (`lords.json` "colour":
+  the Crown blue, the Margrave red, the Marshal gold, the Castellan black, the Countess purple — the
+  user's call, replacing "the player is always blue"); a campaign names its realms but does not
+  colour them — only the unclaimed country keeps its `provinces.json` "accent". A crest belongs to
+  its lord: `Heraldry.CrestPath(realm)` → assets/ui/icons/shield-<lord>.png (the Crown's and the
+  Margrave's painted, the others' by `tools/paint_shields.py` from their emblems).
+- There are four lords in the whole game besides the player, written once in `data/lords.json`
+  (`Lords`): the Margrave (red, Lords of the Realm's Baron), the Marshal (gold, the Knight), the
+  Castellan (black, the Bishop — he was the Abbot until the user had him painted as a lord of towers)
+  and Countess Melanis (purple under the rose, the Countess; she replaced the Duchess). A lord's name, motto and own colour are his (`lords.json`; the colour holds on any map
+  except as the first rival, who is always red); his film is assets/video/lords/<key>.ogv with its
+  last frame beside it as <key>.png, and his emblem assets/ui/emblems/<key>.png. A campaign never
+  describes a lord; its realm names one (`provinces.json` `"lord"`), and
   `TurnManager.LordOf` seats him. The first map has one: the Northern Watch is the Margrave.
 - `Diplomacy` is keyed by realm, so one rival or four play the same rules: standing −30..+30 a
   pair, the seven letters, one alliance a lord, the grudge that ends it, two warnings and then a war
@@ -291,7 +317,8 @@ The men live in **companies** (`FieldArmy`), not in one roster per county:
 ## Saves
 
 `SaveGame` writes `user://saves/<unix>.json`, version 7 (5 the lords' letters, 6 the carts, 7 the
-world's last visit to each realm); `SaveGame.Of` takes the whole turn, and `TurnManager.Restore`
+world's last visit to each realm), with the map it was on (`CampaignFolder`, the first map for a file
+that has none), which the load screen opens; `SaveGame.Of` takes the whole turn, and `TurnManager.Restore`
 takes the whole file — it brings a county taken from the empty country back into the turn, and
 reads a file older than `SharesInHundredthsFrom` up from whole-percent labour once. Save and
 Options are refused while the season is turning (`TurnUnderway`): the rivals' turn is not in the

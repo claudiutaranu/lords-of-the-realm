@@ -14,7 +14,7 @@ public record Letter(string From, string To, string Kind, int Gold = 0, string A
 /// lords' turn; what they write back is waiting for him when the next season opens. Everything here
 /// is saved whole with the campaign — a lord who forgot a slight on reload would be no lord at all.
 ///
-/// Every table is keyed by realm, never by lord: a campaign seats one of the four lords (Lords) in
+/// Every table is keyed by realm, never by lord: a campaign seats one of the lords (Lords) in
 /// each realm it has, and one with a single rival is played with exactly the same rules as one with
 /// four.</summary>
 public partial class Diplomacy

@@ -19,8 +19,9 @@ effect of the same pixel scan.
 
 To change the map, edit the campaign's data, not this file:
 
-  data/campaigns/<CAMPAIGN>/map.json       - canvas size, the island's outline, and the terrain,
-                                             island and forest knobs
+  data/campaigns/<CAMPAIGN>/map.json       - canvas size, the island's outline, the terrain,
+                                             island and forest knobs, and any named ranges and
+                                             rivers
   data/campaigns/<CAMPAIGN>/provinces.json - each province's name, seat (x, y in map pixels),
                                              region (north/south geography), owner and capital flag
 
@@ -180,6 +181,20 @@ ROAD_BED = 22.0
 ROAD_SHOULDER = 22.0
 # Shortcuts kept on top of the minimum network that reaches every seat.
 EXTRA_ROUTES = 2
+
+# A river (map.json "rivers") is the sea let into the land: a channel cut out of the landmass, so the
+# water, the surf, the roads and the march grid all treat it as the coast they already know. Its
+# crossings are left standing as necks of land this far from their middle, wide enough for a road
+# and the ford the border ditch leaves beside it. How much the banks wander, as a share of the width.
+RIVER_CROSSING = 46.0
+RIVER_WANDER = 0.22
+# How far a river swings either side of the line it is drawn on, in map pixels (a river's own
+# "meander" overrides it), and the lengths of the two swells that make up its bends — the long one
+# the river's course, the short one its turns. RIVER_STEP is how finely the line is cut to bend it.
+RIVER_MEANDER = 42.0
+RIVER_BEND_LONG = 46.0
+RIVER_BEND_SHORT = 17.0
+RIVER_STEP = 6.0
 
 # Map pixels of clearing either side of a route, before the edges are softened.
 ROAD_CLEAR_DIRT = 13
@@ -422,23 +437,104 @@ def crag_field(rng, land):
     return np.clip((field - cut) / 0.075, 0, 1) ** 0.75
 
 
+def distance_to_line(line):
+    """Every pixel's distance to a drawn line of [[x, y], ...], in map pixels."""
+    ys, xs = np.mgrid[0:H, 0:W].astype(np.float32)
+    points = np.array(line, dtype=np.float32)
+    if len(points) == 1:
+        points = np.vstack([points, points])
+    nearest = np.full((H, W), np.inf, dtype=np.float32)
+    for (ax, ay), (bx, by) in zip(points[:-1], points[1:]):
+        dx, dy = bx - ax, by - ay
+        span = max(dx * dx + dy * dy, 1e-6)
+        t = np.clip(((xs - ax) * dx + (ys - ay) * dy) / span, 0, 1)
+        nearest = np.minimum(nearest, np.hypot(xs - (ax + t * dx), ys - (ay + t * dy)))
+    return nearest
+
+
 def range_field(ranges):
     """0..1, how far up each named range a pixel stands: one where its line runs, falling away over
     its width. A range is {"line": [[x, y], ...], "width": pixels, "height": share of a full ridge}."""
-    ys, xs = np.mgrid[0:H, 0:W].astype(np.float32)
     field = np.zeros((H, W), dtype=np.float32)
     for each in ranges:
-        points = np.array(each["line"], dtype=np.float32)
-        if len(points) == 1:
-            points = np.vstack([points, points])
-        nearest = np.full((H, W), np.inf, dtype=np.float32)
-        for (ax, ay), (bx, by) in zip(points[:-1], points[1:]):
-            dx, dy = bx - ax, by - ay
-            span = max(dx * dx + dy * dy, 1e-6)
-            t = np.clip(((xs - ax) * dx + (ys - ay) * dy) / span, 0, 1)
-            nearest = np.minimum(nearest, np.hypot(xs - (ax + t * dx), ys - (ay + t * dy)))
+        nearest = distance_to_line(each["line"])
         field = np.maximum(field, each.get("height", 1.0) * np.exp(-(nearest / each["width"]) ** 2))
     return field
+
+
+def meandered(line, rng, amplitude):
+    """A drawn line made to wander the way water does: cut into short steps, each pushed sideways by
+    two swells of different length, and left where it was drawn at both ends so a river still meets
+    the sea, or the river it runs into, where the map says."""
+    points = np.array(line, dtype=np.float32)
+    steps = []
+    for a, b in zip(points[:-1], points[1:]):
+        count = max(int(np.hypot(*(b - a)) / RIVER_STEP), 1)
+        steps.extend(a + (b - a) * (k / count) for k in range(count))
+    steps.append(points[-1])
+    steps = np.array(steps)
+    along = np.concatenate([[0.0], np.cumsum(np.hypot(*np.diff(steps, axis=0).T))])
+    heading = np.gradient(steps, axis=0)
+    normal = np.stack([-heading[:, 1], heading[:, 0]], axis=1)
+    normal /= np.maximum(np.linalg.norm(normal, axis=1, keepdims=True), 1e-6)
+    phase = rng.uniform(0, 2 * np.pi, 2)
+    swing = 0.65 * np.sin(along / RIVER_BEND_LONG + phase[0]) + 0.35 * np.sin(along / RIVER_BEND_SHORT + phase[1])
+    taper = np.sin(np.pi * along / max(along[-1], 1.0))
+    return steps + normal * (amplitude * swing * taper)[:, None]
+
+
+def river_channels(rivers):
+    """The water each river lets into the land, and the whole of its course with the crossings in it.
+    A river is {"line": [[x, y], ...], "width": pixels, "crossings": [[x, y], ...]}: the line is made
+    to meander, the channel cut along it with banks wandering a little, and left uncut round each
+    crossing — which is put on the water's own course, nearest where the map asks for it, since the
+    meander has moved the river off the drawn line. A river whose end lies on an earlier one is run
+    on into it, or a neck of land would be left between them that no crossing guards. Its own
+    generator, so a map without rivers draws everything else exactly as it did."""
+    rng = np.random.default_rng(MAP.get("river_seed", 517))
+    ys, xs = np.mgrid[0:H, 0:W].astype(np.float32)
+    water = np.zeros((H, W), dtype=bool)
+    course = np.zeros((H, W), dtype=bool)
+    courses = []
+    for river in rivers:
+        line = meandered(river["line"], rng, river.get("meander", RIVER_MEANDER))
+        for earlier in courses:
+            for end in (0, -1):
+                reach = np.hypot(*(earlier - line[end]).T)
+                if reach.min() < river["width"] * 3:
+                    joined = earlier[np.argmin(reach)]
+                    line = np.vstack([joined[None, :], line]) if end == 0 else np.vstack([line, joined[None, :]])
+        courses.append(line)
+
+        half = river["width"] / 2.0
+        banks = half * (1.0 + RIVER_WANDER * smooth_noise(rng, 22))
+        channel = distance_to_line(line.tolist()) < banks
+        dry = np.zeros((H, W), dtype=bool)
+        for cx, cy in river.get("crossings", []):
+            nearest = line[np.argmin(np.hypot(line[:, 0] - cx, line[:, 1] - cy))]
+            dry |= (xs - nearest[0]) ** 2 + (ys - nearest[1]) ** 2 < RIVER_CROSSING ** 2
+        course |= channel
+        water |= channel & ~dry
+    return water, course
+
+
+def regions_of(open_land):
+    """Which piece of the country every pixel is in once the rivers have cut it, -1 off it: a flood
+    from each seat, so a county is only ever drawn on its own seat's side of the water."""
+    region = np.full((H, W), -1, dtype=np.int32)
+    for index, (_, sx, sy, _, _, _) in enumerate(PROVINCES):
+        start = (int(sy), int(sx))
+        if region[start] >= 0:
+            continue
+        region[start] = index
+        frontier = [start]
+        while frontier:
+            y, x = frontier.pop()
+            for ny, nx in ((y + 1, x), (y - 1, x), (y, x + 1), (y, x - 1)):
+                if 0 <= ny < H and 0 <= nx < W and open_land[ny, nx] and region[ny, nx] < 0:
+                    region[ny, nx] = index
+                    frontier.append((ny, nx))
+    return region
 
 
 def build_terrain(rng, land, province_id, dist_to_seed, islet_field, islet_base):
@@ -1166,8 +1262,8 @@ def cheapest_network(roads, province_count):
 
 
 def capital_route(edges):
-    """Province-to-province hops along the shortest chain between the two capitals, as name pairs,
-    following only the roads that were actually kept."""
+    """Province-to-province hops along the shortest chains from the first capital to every other, as
+    name pairs, following only the roads that were actually kept."""
     capitals = [index for index, province in enumerate(PROVINCES) if province[4]]
     if len(capitals) < 2:
         return set()
@@ -1177,24 +1273,21 @@ def capital_route(edges):
         neighbours[i].add(j)
         neighbours[j].add(i)
 
-    start, goal = capitals[0], capitals[1]
+    start = capitals[0]
     came, queue = {start: None}, [start]
     while queue:
         current = queue.pop(0)
-        if current == goal:
-            break
         for neighbour in sorted(neighbours[current]):
             if neighbour not in came:
                 came[neighbour] = current
                 queue.append(neighbour)
 
-    if goal not in came:
-        return set()
-
-    hops, node = set(), goal
-    while came[node] is not None:
-        hops.add(tuple(sorted((PROVINCES[node][0], PROVINCES[came[node]][0]))))
-        node = came[node]
+    hops = set()
+    for goal in capitals[1:]:
+        node = goal
+        while node in came and came[node] is not None:
+            hops.add(tuple(sorted((PROVINCES[node][0], PROVINCES[came[node]][0]))))
+            node = came[node]
 
     return hops
 
@@ -1247,6 +1340,17 @@ def main():
     for name, sx, sy, _, _, _ in PROVINCES:
         assert land[int(sy), int(sx)], f"the coast warp put {name}'s seat in the sea"
 
+    # The rivers, cut out of the land before anything is laid on it. The pieces they leave are what
+    # the counties are drawn within: a county on both banks would be a county half of which can
+    # only be reached through a neighbour's crossing.
+    river_water, river_course = river_channels(MAP.get("rivers", []))
+    land &= ~river_water
+    region = regions_of(land & ~river_course) if MAP.get("rivers") else np.full((H, W), -1, dtype=np.int32)
+    for name, sx, sy, _, _, _ in PROVINCES:
+        assert land[int(sy), int(sx)], f"a river runs through {name}'s seat"
+    if MAP.get("rivers"):
+        print(f"Rivers: {len(MAP['rivers'])}, {sum(len(r.get('crossings', [])) for r in MAP['rivers'])} crossings")
+
 
     islets, stacks = build_islets(rng, land)
     islet_field = np.zeros((H, W), dtype=np.float32)
@@ -1279,7 +1383,10 @@ def main():
     province_id = np.full((H, W), -1, dtype=np.int32)
     for i, (_, sx, sy, _, _, _) in enumerate(PROVINCES):
         d = (warp_x - sx) ** 2 + (warp_y - sy) ** 2
-        closer = d < best_dist
+        # Across the water from its seat a county does not reach; on a crossing, or anywhere the
+        # flood did not come, it competes as it always did.
+        own_side = (region < 0) | (region == region[int(sy), int(sx)])
+        closer = (d < best_dist) & own_side
         best_dist = np.where(closer, d, best_dist)
         province_id = np.where(closer, i, province_id)
     province_id = np.where(land, province_id, -1)
