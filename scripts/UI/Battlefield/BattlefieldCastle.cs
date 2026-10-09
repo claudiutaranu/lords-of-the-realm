@@ -19,6 +19,11 @@ public partial class BattlefieldCastle : Node3D
 	private readonly Dictionary<FieldWall.Target, MeshInstance3D> _bars = new();
 	private readonly Dictionary<FieldSquad, (Node3D Model, bool IsBroken)> _engines = new();
 	private readonly IReadOnlyList<FieldSquad> _squads;
+	private readonly Dictionary<FieldSquad, float> _yaws = new();
+
+	/// <summary>How quickly a drawn engine catches up with where it stands, and how much slower it turns.</summary>
+	private const float EnginesFollow = 6f;
+	private const float EnginesTurn = 0.35f;
 	private Node3D _built;
 	private int _laid = -1;
 
@@ -49,7 +54,8 @@ public partial class BattlefieldCastle : Node3D
 			AddChild(_built);
 		}
 
-		Engines();
+		Engines((float)delta);
+		Throw((float)delta);
 		foreach (FieldWall.Target target in _wall.Battered)
 		{
 			if (!_bars.TryGetValue(target, out MeshInstance3D bar))
@@ -67,8 +73,11 @@ public partial class BattlefieldCastle : Node3D
 	}
 
 	/// <summary>Every engine where its man stands, turned to his facing; swapped for its wreck when it falls.</summary>
-	private void Engines()
+	private void Engines(float delta)
 	{
+		// Eased toward where the engine stands and the way it faces: the field moves in tenths of a
+		// second, and an engine set straight onto each slice's spot went forward and round in jerks.
+		float ease = 1f - Mathf.Exp(-EnginesFollow * delta);
 		foreach (FieldSquad squad in _squads)
 		{
 			if (!squad.Kind.IsEngine)
@@ -89,9 +98,15 @@ public partial class BattlefieldCastle : Node3D
 			}
 
 			FieldSoldier man = squad.Soldiers.Count > 0 ? squad.Soldiers[0] : null;
-			if (man != null)
+			if (man != null && !isBroken)
 			{
-				drawn.Model.Transform = new Transform3D(new Basis(Vector3.Up, BattlefieldWalls.EngineYaw(man.Facing)), _land.On(man.At));
+				float yaw = BattlefieldWalls.EngineYaw(man.Facing);
+				bool isNew = !_yaws.ContainsKey(squad);
+				float turned = isNew ? yaw : Mathf.LerpAngle(_yaws[squad], yaw, ease * EnginesTurn);
+				_yaws[squad] = turned;
+				Vector3 there = _land.On(man.At);
+				Vector3 now = isNew ? there : drawn.Model.Position.Lerp(there, ease);
+				drawn.Model.Transform = new Transform3D(new Basis(Vector3.Up, turned), now);
 			}
 		}
 	}
