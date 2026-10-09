@@ -4,17 +4,39 @@ using Godot;
 /// <summary>The field's scenery: its sky and sun, its ground, and the wood round it.</summary>
 public partial class Battlefield
 {
-	private static WorldEnvironment Sky() => new()
+	/// <summary>The hour a battle is fought at, drawn by chance as the field opens (the user's call): an
+	/// evening, dark and low-sunned, or a bright day. Only the light changes, never the fight.</summary>
+	private readonly record struct Light(Color SkyTop, Color SkyHorizon, Color Fog, float Ambient, float Exposure,
+		float Contrast, float SunEnergy, Color SunColour, float SunPitch);
+
+	private static readonly Light Evening = new(new Color("2b4a74"), new Color("3a4240"), new Color("0c0f0b"),
+		0.55f, 1.0f, 1.12f, 1.6f, new Color("ffd9b0"), -24f);
+
+	private static readonly Light Day = new(new Color("4a80c0"), new Color("c8d4d8"), new Color("38423a"),
+		1.05f, 1.6f, 1.06f, 2.5f, new Color("fff6e8"), -55f);
+
+	private static Light _light = Day;
+
+	private static WorldEnvironment Sky()
 	{
-		Environment = new Godot.Environment
+		_light = OS.GetEnvironment("BATTLE_LIGHT") switch
 		{
+			"day" => Day,
+			"evening" => Evening,
+			_ => GD.Randf() < 0.5f ? Evening : Day,
+		};
+		return new WorldEnvironment { Environment = Air(_light) };
+	}
+
+	private static Godot.Environment Air(Light light) => new()
+	{
 			BackgroundMode = Godot.Environment.BGMode.Sky,
 			Sky = new Sky
 			{
 				SkyMaterial = new ProceduralSkyMaterial
 				{
-					SkyTopColor = new Color("2b4a74"),
-					SkyHorizonColor = new Color("3a4240"),
+					SkyTopColor = light.SkyTop,
+					SkyHorizonColor = light.SkyHorizon,
 					GroundHorizonColor = new Color("0a0c09"),
 					GroundBottomColor = new Color("060706"),
 				},
@@ -22,19 +44,19 @@ public partial class Battlefield
 			AmbientLightSource = Godot.Environment.AmbientSource.Sky,
 			// Enough of the sky's light in the shade that a man with the sun behind him is still a man and
 			// not his own silhouette.
-			AmbientLightEnergy = 0.55f,
+			AmbientLightEnergy = light.Ambient,
 			// Graded down toward a real summer's day, as Manor Lords is: softer colour, a little
 			// more contrast, nothing glowing.
 			TonemapMode = Godot.Environment.ToneMapper.Agx,
-			TonemapExposure = 1.0f,
+			TonemapExposure = light.Exposure,
 			AdjustmentEnabled = true,
 			AdjustmentSaturation = 0.95f,
-			AdjustmentContrast = 1.12f,
+			AdjustmentContrast = light.Contrast,
 			FogEnabled = true,
 			// A haze in the woods, the way morning lies among the trees: none over the field, where
 			// the armies are, and thickening from its far edge into the treeline behind it.
 			FogMode = Godot.Environment.FogModeEnum.Depth,
-			FogLightColor = new Color("0c0f0b"),
+			FogLightColor = light.Fog,
 			FogDensity = 1f,
 			FogDepthBegin = 110f,
 			FogDepthEnd = 420f,
@@ -45,7 +67,6 @@ public partial class Battlefield
 			// No screen-space occlusion: at a man's size on the field it is not shading but grain, a
 			// dark speckle over every figure that darkened the whole army a shade.
 			SsaoEnabled = false,
-		},
 	};
 
 	/// <summary>A low afternoon sun off the attacker's shoulder, so the shadows run toward the enemy
@@ -54,14 +75,14 @@ public partial class Battlefield
 	{
 		var sun = new DirectionalLight3D
 		{
-			LightEnergy = 1.6f,
-			LightColor = new Color("ffeed6"),
+			LightEnergy = _light.SunEnergy,
+			LightColor = _light.SunColour,
 			// Soft-edged shadows, as a sun through a little haze throws them.
 			LightAngularDistance = 0f,
 			ShadowEnabled = true,
 			DirectionalShadowMaxDistance = 300f,
-			// Two cascades, not four: every man on the field is drawn again for each, and four
-			// hundred and eighty of them five times over held the field under thirty a second.
+			// One map, not cascades: every man on the field is drawn again for each, and the shadow's
+			// reach follows the eye (BattlefieldOrders.Look), so one is enough.
 			DirectionalShadowMode = DirectionalLight3D.ShadowMode.Orthogonal,
 			// Clear of his own surface by the normal, not by depth: pushed off by depth far enough to
 			// stop a man shadowing himself in dots, the shadow came loose from his feet and lay a pace
@@ -72,7 +93,7 @@ public partial class Battlefield
 			ShadowBlur = 1f,
 			ShadowOpacity = 0.85f,
 		};
-		sun.RotationDegrees = new Vector3(-42f, -30f, 0f);
+		sun.RotationDegrees = new Vector3(_light.SunPitch, -30f, 0f);
 		return sun;
 	}
 

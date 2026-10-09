@@ -17,6 +17,9 @@ public sealed partial class FieldBattle
 	/// <summary>How far out from the gate a ram stands to beat at it.</summary>
 	private const float RamStandsOff = 3f;
 
+	/// <summary>How near its spot a catapult in reach settles down to throw.</summary>
+	private const float SettlesWithin = 6f;
+
 	private void Engines(Defenders against)
 	{
 		int count = against.Rams + against.Catapults;
@@ -39,14 +42,24 @@ public sealed partial class FieldBattle
 	/// <summary>The captain's order to an engine for this slice.</summary>
 	private void Engineer(FieldSquad engine)
 	{
-		Vector2? spot = engine.Unit == SiegeEngines.Ram ? RamSpot() : ThrowSpot(engine.At);
-		if (spot is not Vector2 there || (engine.Unit == SiegeEngines.Catapult && Wall.InThrow(engine.At) != null))
+		// Where the engine itself stands, which is where it works from (FieldWall.Pound).
+		Vector2 at = engine.Soldiers[0].At;
+		Vector2? spot = engine.Unit == SiegeEngines.Ram ? RamSpot() : ThrowSpot(at);
+		if (spot is not Vector2 there)
 		{
 			engine.Goal = null;
 			return;
 		}
 
-		if (engine.At.DistanceTo(there) > 1f)
+		// A catapult already throwing stays put; one only just in reach goes on to its spot, or it
+		// stopped at the very edge of its throw and a step to either side took it out again.
+		if (engine.Unit == SiegeEngines.Catapult && Wall.InThrow(at) != null && at.DistanceTo(there) < SettlesWithin)
+		{
+			engine.Goal = null;
+			return;
+		}
+
+		if (at.DistanceTo(there) > 1f)
 		{
 			engine.Goal = there;
 			engine.FaceGoal = (Wall.Middle - there).Normalized();
@@ -59,7 +72,7 @@ public sealed partial class FieldBattle
 		return gate == null ? null : Wall.PointOf(gate.Gap) + (Vector2.Down * RamStandsOff);
 	}
 
-	/// <summary>A throw's length off the nearest stretch still standing, on the attacker's side of it.</summary>
+	/// <summary>A throw's length out from the nearest stretch still standing, outside the face it is on.</summary>
 	private Vector2? ThrowSpot(Vector2 from)
 	{
 		FieldWall.Target best = null;
@@ -72,6 +85,6 @@ public sealed partial class FieldBattle
 			}
 		}
 
-		return best == null ? null : Wall.PointOf(best.Gap) + new Vector2(0f, SiegeEngines.ThrowsTo * ThrowShare);
+		return best == null ? null : Wall.PointOf(best.Gap) + (FieldWall.Outward(best.Gap.On) * SiegeEngines.ThrowsTo * ThrowShare);
 	}
 }

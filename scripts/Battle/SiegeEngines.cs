@@ -29,6 +29,6 @@ public static class SiegeEngines
 	/// how near the gate a ram has to be to beat at it; and how many men's health an engine has. [I]</summary>
 	public const float ThrowsFrom = 18f;
 	public const float ThrowsTo = 75f;
-	public const float RamsWithin = 6f;
+	public const float RamsWithin = 9f;
 	public const float EngineHealth = 12f;
 }

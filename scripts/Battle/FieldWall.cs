@@ -72,36 +72,43 @@ public sealed partial class FieldWall
 		IsTimber = Fortifications.IsTimber(against.Fortification);
 		float side = Half * 2f;
 
-		float soft = IsTimber ? TimberShare : 1f;
-		if (against.Rams > 0)
-		{
-			Batter(new Opening(Face.South, Half - (GateWide / 2f), Half + (GateWide / 2f), Kind.Gate), GateSeconds * soft);
-		}
-
-		for (int i = 0; i < against.Catapults; i++)
-		{
-			float at = Half + ((i % 2 == 0 ? -1f : 1f) * side * (0.22f + (0.1f * (i / 2))));
-			Batter(new Opening(Face.South, at - (BreachWide / 2f), at + (BreachWide / 2f), Kind.Breach), CurtainSeconds * soft);
-		}
-
-		// Ladders: half on the south face, the rest shared by the east and west, spread along each.
+		// Ladders first, clear of the gate's span; then the gate and every stretch of curtain between
+		// them is something the engines can bring down, each with its own health (the user's call).
 		int ladders = Mathf.Clamp(Mathf.RoundToInt(wall.Frontage / (float)MenToALadder), FewestLadders, MostLadders);
 		int south = (ladders + 1) / 2;
 		int flank = ladders - south;
 		Spread(Face.South, south, side);
 		Spread(Face.East, (flank + 1) / 2, side);
 		Spread(Face.West, flank / 2, side);
+
+		float soft = IsTimber ? TimberShare : 1f;
+		Batter(new Opening(Face.South, Half - (GateWide / 2f), Half + (GateWide / 2f), Kind.Gate), GateSeconds * soft);
+		foreach (Face face in Faces)
+		{
+			for (float at = CornerKept; at + BreachWide <= side - CornerKept; at += BreachWide)
+			{
+				var stretch = new Opening(face, at, at + BreachWide, Kind.Breach);
+				if (!IsGateSpan(face, stretch.From - 1f, stretch.To + 1f) && Gap(face, stretch.Middle, BreachWide / 2f + LadderWide) == null)
+				{
+					Batter(stretch, CurtainSeconds * soft);
+				}
+			}
+		}
 	}
 
-	/// <summary>Puts so many ladders along a face, clear of the gaps already in it and of the stretches
-	/// the engines will open.</summary>
+	/// <summary>How far from each corner the curtain is left to its tower and not cut into stretches.</summary>
+	private const float CornerKept = 4f;
+
+	private bool IsGateSpan(Face face, float from, float to) =>
+		face == Face.South && from < Half + (GateWide / 2f) && to > Half - (GateWide / 2f);
+
+	/// <summary>Puts so many ladders along a face, clear of the gaps already in it and of the gate.</summary>
 	private void Spread(Face face, int count, float side)
 	{
 		for (int i = 0; i < count; i++)
 		{
 			float at = side * (i + 1) / (count + 1);
-			while (Gap(face, at, LadderWide * 2f) != null || Battered.Exists(t => t.Gap.On == face
-				&& at >= t.Gap.From - (LadderWide * 2f) && at <= t.Gap.To + (LadderWide * 2f)))
+			while (Gap(face, at, LadderWide * 2f) != null || IsGateSpan(face, at - (LadderWide * 2f), at + (LadderWide * 2f)))
 			{
 				at += LadderWide * 3f;
 			}
@@ -126,7 +133,7 @@ public sealed partial class FieldWall
 	}
 
 	/// <summary>The way out of the castle across a face.</summary>
-	private static Vector2 Outward(Face face) => face switch
+	public static Vector2 Outward(Face face) => face switch
 	{
 		Face.South => Vector2.Down,
 		Face.North => Vector2.Up,

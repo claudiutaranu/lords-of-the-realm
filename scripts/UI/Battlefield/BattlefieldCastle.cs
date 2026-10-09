@@ -3,11 +3,12 @@ using Godot;
 
 /// <summary>The castle on the field of an assault as the day goes: laid again whenever the engines
 /// bring a stretch of it down (FieldWall.Version), and over every stretch a bar of what it has left,
-/// in the holder's colour, so the lord can see how near the breach is; and the besiegers' engines,
+/// in the holder's colour while the engines are at it, so the lord can see how near the breach is; and the besiegers' engines,
 /// each where its company of one stands and facing the way it goes, broken once it is.</summary>
 public partial class BattlefieldCastle : Node3D
 {
 	private const float BarWide = 6f;
+	private const float BarLingers = 3f;
 	private const float BarHigh = 0.45f;
 	private const float BarOver = 3.2f;
 	private static readonly Color Spent = new(0.12f, 0.1f, 0.08f, 0.85f);
@@ -57,7 +58,8 @@ public partial class BattlefieldCastle : Node3D
 				_bars[target] = bar;
 			}
 
-			bar.Visible = !target.IsDown;
+			// Every stretch has its health, but its bar shows only while the engines are at it.
+			bar.Visible = !target.IsDown && _wall.Clock - target.StruckAt < BarLingers;
 			float share = Mathf.Clamp(target.Health / target.Full, 0f, 1f);
 			// Shrinking to its middle: a billboard turns with the eye, so an offset to one end would not.
 			bar.GetChild<MeshInstance3D>(0).Scale = new Vector3(Mathf.Max(0.001f, share), 1f, 1f);

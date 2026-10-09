@@ -201,8 +201,14 @@ public partial class BattlefieldBar : Control
 				card.Health.GetParent().GetChild<ColorRect>(1).SizeFlagsStretchRatio = Mathf.Max(0.001f, 1f - share);
 			}
 
-			Color tint = !squad.IsStanding ? new Color(0.35f, 0.35f, 0.35f)
-				: chosen.Contains(squad) ? Colors.White : Unchosen;
+			// A company with nobody left standing has no card: the row closes up over it (the user's call).
+			if (!squad.IsStanding)
+			{
+				card.Face.Visible = false;
+				continue;
+			}
+
+			Color tint = chosen.Contains(squad) ? Colors.White : Unchosen;
 			if (card.Tint != tint)
 			{
 				card.Tint = tint;

@@ -16,7 +16,7 @@ public partial class BattlefieldGrass : Node3D
 	/// <summary>Where the grass begins to thin toward the woods: past it fewer tufts and fewer, so the
 	/// sward runs out into the turf instead of stopping at a line.</summary>
 	private const float ThinsFrom = 95f;
-	private const float Spacing = 1.15f;
+	private const float Spacing = 1.9f;
 	private const float Chunk = 30f;
 
 	/// <summary>How far off a chunk of grass is still drawn, in metres.</summary>
@@ -28,7 +28,7 @@ public partial class BattlefieldGrass : Node3D
 	private const float BladeWide = 0.08f;
 	private static readonly Vector2 ShortHigh = new(0.22f, 0.45f);
 	private static readonly Vector2 TallHigh = new(0.5f, 0.9f);
-	private const float TallFrom = 0.6f;
+	private const float TallFrom = 0.7f;
 
 	/// <summary>How many tufts are in flower, white and yellow.</summary>
 	private const float FlowersWhite = 0.025f;
