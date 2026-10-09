@@ -191,7 +191,7 @@ The men live in **companies** (`FieldArmy`), not in one roster per county:
   fights well does better. A kind is drawn with its own model when there is one —
   assets/models/units/<key>.glb, cut down from a Meshy export with
   `tools/decimate_meshy.py --unit <key> <file>`, or baked whole with its clips by
-  `tools/bake_figure.py <key> <file>` (the archer, bow; the knight, horse, drawn `MountedStature`
+  `tools/bake_figure.py <key> <file>` (the archer, bow (arcas_v2, the user's own rig: body, a bow on its own bones and an arrow on its node, baked with `idle_ready=idle_loop walk=walk_loop run=run_loop shoot_close=shoot death=death`; walk 0.93 m/s, run 2.55, the arrow loosed at 34/30 s); the knight, horse, drawn `MountedStature`
   tall, galloping past `GallopsFrom` and playing his `attack` from each blow; and the peasant, running
   past `RunsFrom`, with no death of his own, so laid down like an unbaked man; each moving clip's pace
   is in `BattlefieldSquads.ClipPaces`, the knight's measured off his hooves). A rig that comes as a
@@ -220,7 +220,27 @@ The men live in **companies** (`FieldArmy`), not in one roster per county:
   (the peasants are the first). While anyone is on the move a tramp is heard (`MarchingSound`,
   faded in and out): quietly on the map for every army walking (map-marching.mp3, taken off a film and
   looped by blending its last second into its first), and marching.mp3 on the field, fainter and
-  hushed with the eye like the voices. The walls are still the captain's — docs/siege-battle-plan.md.
+  hushed with the eye like the voices. The walls can be stormed by hand too (`FieldWall`,
+  docs/siege-battle-plan.md): every assault begins with the wall whole (the user's call); the rams
+  beat at the gate and each catapult at its own stretch of curtain, each with its health
+  (`FieldWall.Engines`, `Pound` every slice), and only when one is spent is it open — until then
+  the ladders are the only way in. The castle's captain holds his walls (`FieldDefence`): bows on
+  the walkway of the face attacked, a company at the head of each ladder, the rest in reserve behind
+  the gate; they keep their posts and go only for an enemy inside the walls. A blade does not reach
+  between the walkway and the ground outside (only from a ladder; arrows do), and the stone's
+  armour is only for the men on the walkway (`FieldWall.OnWalls`), not the bailey (the user's call).
+  The castle is Kenney's Castle Kit (CC0, assets/models/castle), its walls dressed in the field's
+  rock and its engines' palette turned to timber and iron. The rams and catapults the siege built
+  (`Defenders.Rams/Catapults`) are on the field as companies of one (`FieldSiege`,
+  `SiegeEngines.Kinds`, `Units.Unit.IsEngine`): carded in the bar and moved like any company,
+  striking nobody, struck like a man, never inside the walls; a catapult works only standing still
+  within `ThrowsFrom..ThrowsTo` of a stretch outside the walls, a ram only up against the gate
+  (`FieldWall.Pound`), and the captain takes them there (`Engineer`). `BattlefieldCastle` draws them
+  where they stand, a wreck once they fall. `BattlefieldCastle` draws it as it stands, laid again when a
+  stretch comes down, with a bar of what each stretch has left; `BattlefieldWalls` is the stone, the
+  walkway the defenders standing off the wall are drawn on (`Raised`, as are men half way up a
+  ladder; the fight itself stays on the flat), the towers and gatehouse with the holder's banners
+  and torches, the ram and the catapults. Placeholder art built in code until the castle kit comes.
 - Nothing falls back behind the walls. The gate watch is the men who were always on it.
 - A county that falls loses the men standing in it; the companies it raised that were elsewhere pass
   to another county of the same lord (`TurnManager.Refuge` → `ProvinceEconomy.Adopt`).

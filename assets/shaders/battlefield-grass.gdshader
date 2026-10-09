@@ -4,10 +4,14 @@
 shader_type spatial;
 render_mode cull_disabled, diffuse_lambert_wrap;
 
-uniform vec3 root_colour : source_color = vec3(0.30, 0.38, 0.16);
-uniform vec3 tip_colour : source_color = vec3(0.66, 0.74, 0.38);
+uniform vec3 root_colour : source_color = vec3(0.22, 0.27, 0.12);
+uniform vec3 tip_colour : source_color = vec3(0.50, 0.55, 0.30);
 uniform vec2 wind = vec2(1.0, 0.3);
 uniform float sway = 0.05; // metres at the tip
+// Far off a blade is thinner than a pixel and flickers as the eye moves: so between these distances
+// the tufts sink into the turf, and past the second they are the ground's colour and nothing more.
+uniform float sink_from = 28.0;
+uniform float sink_to = 70.0;
 
 void vertex() {
 	// UV.y is how far up the blade this is: 0 at the root, 1 at the tip.
@@ -20,6 +24,8 @@ void vertex() {
 	// MODEL_NORMAL_MATRIX carries the instance's scale the wrong way round for this — a tuft cut to
 	// a hand's height barely stirred, and the trees, seventeen metres tall, swam.
 	VERTEX += inverse(mat3(MODEL_MATRIX)) * vec3(lean.x, 0.0, lean.y);
+	float far = distance(base, (INV_VIEW_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz);
+	VERTEX.y *= 1.0 - smoothstep(sink_from, sink_to, far);
 }
 
 void fragment() {

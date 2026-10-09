@@ -11,20 +11,28 @@ public partial class BattlefieldGrass : Node3D
 	/// <summary>How far out from the middle of the field grass grows, in metres — past where the woods
 	/// begin it is under the trees and nobody sees it — how far apart its tufts are, and how big a
 	/// chunk is.</summary>
-	private const float Reach = 90f;
+	private const float Reach = 160f;
+
+	/// <summary>Where the grass begins to thin toward the woods: past it fewer tufts and fewer, so the
+	/// sward runs out into the turf instead of stopping at a line.</summary>
+	private const float ThinsFrom = 95f;
 	private const float Spacing = 1.15f;
 	private const float Chunk = 30f;
 
 	/// <summary>How far off a chunk of grass is still drawn, in metres.</summary>
-	private const float SeenWithin = 110f;
+	private const float SeenWithin = 150f;
 
 	/// <summary>A tuft: how many blades, how wide each is at the root. Short turf and tall grass by
 	/// height in metres, and where the tall grows: above this much of the stand noise.</summary>
 	private const int Blades = 10;
 	private const float BladeWide = 0.08f;
-	private static readonly Vector2 ShortHigh = new(0.14f, 0.26f);
-	private static readonly Vector2 TallHigh = new(0.34f, 0.55f);
-	private const float TallFrom = 0.72f;
+	private static readonly Vector2 ShortHigh = new(0.22f, 0.45f);
+	private static readonly Vector2 TallHigh = new(0.5f, 0.9f);
+	private const float TallFrom = 0.6f;
+
+	/// <summary>How many tufts are in flower, white and yellow.</summary>
+	private const float FlowersWhite = 0.025f;
+	private const float FlowersYellow = 0.02f;
 
 	/// <summary>Sows the field. <paramref name="bare"/> says where the earth shows, 0..1 across the
 	/// field of <paramref name="field"/> metres, above <paramref name="bareFrom"/>; <paramref name="stands"/>
@@ -40,8 +48,12 @@ public partial class BattlefieldGrass : Node3D
 		{
 			for (float z = -Reach; z < Reach; z += Spacing)
 			{
-				var at = new Vector2(x + dice.RandfRange(-0.3f, 0.3f), z + dice.RandfRange(-0.3f, 0.3f));
-				if (at.Length() > Reach || Bare(bare, bareFrom, field, at))
+				// Anywhere in its cell, and every row nudged across by its own amount: a tuft only a
+				// little off its grid point left the grass standing in rows a man could count.
+				float row = Mathf.PosMod(z * 7.31f, Spacing);
+				var at = new Vector2(x + row + dice.RandfRange(-Spacing, Spacing) * 0.5f, z + dice.RandfRange(-Spacing, Spacing) * 0.5f);
+				float thin = Mathf.SmoothStep(ThinsFrom, Reach, at.Length());
+				if (at.Length() > Reach || Bare(bare, bareFrom, field, at) || dice.Randf() < thin)
 				{
 					continue;
 				}
@@ -60,9 +72,13 @@ public partial class BattlefieldGrass : Node3D
 				}
 
 				list.Add(new Transform3D(basis, land.On(at)));
-				// A little warmer or cooler, tuft to tuft, and the tall grass going to seed.
+				// A little warmer or cooler, tuft to tuft, the tall grass going to seed, and here and
+				// there a tuft in flower — the white and the yellow a summer meadow is spotted with.
 				float shade = dice.RandfRange(0.85f, 1.1f);
-				tints[key].Add(tall ? new Color(1.05f * shade, 1.0f * shade, 0.8f * shade) : new Color(shade, shade, shade));
+				float flower = dice.Randf();
+				tints[key].Add(flower < FlowersWhite ? new Color(2.2f, 2.2f, 2.0f)
+					: flower < FlowersWhite + FlowersYellow ? new Color(2.4f, 2.0f, 0.5f)
+					: tall ? new Color(1.05f * shade, 1.0f * shade, 0.8f * shade) : new Color(shade, shade, shade));
 			}
 		}
 
@@ -83,7 +99,7 @@ public partial class BattlefieldGrass : Node3D
 				MaterialOverride = look,
 				CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
 				VisibilityRangeEnd = SeenWithin,
-				VisibilityRangeEndMargin = 20f,
+				VisibilityRangeEndMargin = 45f,
 				VisibilityRangeFadeMode = GeometryInstance3D.VisibilityRangeFadeModeEnum.Self,
 			});
 		}
