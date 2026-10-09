@@ -271,6 +271,44 @@ public partial class BattlefieldSquads : Node3D
 		return best;
 	}
 
+	/// <summary>The squad one of whose men is drawn under a point of the screen, wherever he stands —
+	/// on a wall's walkway or half way up a ladder as much as on the ground: picked by the spot on the
+	/// ground, a man on the walls could never be clicked, since the ground under the cursor there is
+	/// the bailey behind him.</summary>
+	public FieldSquad AtScreen(Vector2 screen, Camera3D eye, bool? attacking = null)
+	{
+		FieldSquad best = null;
+		float bestFar = PickPixels * PickPixels;
+		foreach (FieldSquad squad in _battle.Squads)
+		{
+			if (!squad.IsStanding || (attacking is bool side && squad.IsAttacking != side))
+			{
+				continue;
+			}
+
+			foreach (FieldSoldier man in squad.Soldiers)
+			{
+				Vector3 chest = Ground(man.At) + (Vector3.Up * ChestHigh);
+				if (eye.IsPositionBehind(chest))
+				{
+					continue;
+				}
+
+				float far = eye.UnprojectPosition(chest).DistanceSquaredTo(screen);
+				if (far < bestFar)
+				{
+					best = squad;
+					bestFar = far;
+				}
+			}
+		}
+
+		return best;
+	}
+
+	private const float PickPixels = 28f;
+	private const float ChestHigh = 1.1f;
+
 	private MultiMeshInstance3D Body(SoldierFigure figure, int figures, Color colour)
 	{
 		var body = new MultiMeshInstance3D

@@ -134,7 +134,7 @@ public partial class Battlefield
 		}
 
 		_battle.IsAttackCaptained = false;
-		if (_squads.At(spot) is { IsAttacking: false } foe)
+		if ((_squads.AtScreen(at, _camera, attacking: false) ?? _squads.At(spot)) is { IsAttacking: false } foe)
 		{
 			_battle.Charge(_chosen, foe);
 			Answer("attack");
