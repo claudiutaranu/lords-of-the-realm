@@ -65,6 +65,7 @@ public partial class ProvinceSidebar : VBoxContainer
 	private Label _loyalty;
 	private Label _tax;
 	private Label _ration;
+	private bool _isRationShort;
 	private readonly Dictionary<ResourceType, Label> _stock = new();
 	private readonly Dictionary<ResourceType, Label> _yield = new();
 	private readonly Dictionary<ResourceType, TextureRect> _stockIcon = new();
@@ -133,7 +134,7 @@ public partial class ProvinceSidebar : VBoxContainer
 		// A realm has a crest when someone has drawn one; the accent stripe carries the rest. The slot
 		// keeps its place either way — hiding it would shorten the header, and the whole sidebar
 		// would shift every time the selection moved between a realm's province and an unclaimed one.
-		string crestPath = $"{IconDirectory}/shield-{realmKey}.png";
+		string crestPath = Heraldry.CrestPath(realmKey);
 		_crest.Texture = ResourceLoader.Exists(crestPath)
 			? new AtlasTexture { Atlas = GD.Load<Texture2D>(crestPath), Region = CrestRegion }
 			: null;
@@ -164,8 +165,6 @@ public partial class ProvinceSidebar : VBoxContainer
 		_population.Text = held ? _economy.Population.ToString("N0") : "—";
 		_loyalty.Text = held ? Mathf.RoundToInt(_economy.Loyalty).ToString() : "—";
 		_tax.Text = held ? $"{_economy.Tax}%" : "—";
-
-		_ration.Text = held ? _economy.Ration.ToString() : "—";
 
 		foreach ((ResourceType type, string icon) in Resources)
 		{
@@ -205,6 +204,13 @@ public partial class ProvinceSidebar : VBoxContainer
 			}
 		}
 
+		// The table as it will be laid, not as it was ordered: a lord who has sold the barn and the
+		// herd out from under a Normal ration is told, in red, that next season they get None.
+		RationLevel served = held ? next.Achieved : RationLevel.Normal;
+		_isRationShort = held && served < _economy.Ration;
+		_ration.Text = held ? served.ToString() : "—";
+		_ration.AddThemeColorOverride("font_color", Resting(_ration));
+
 		_labour.Show(held ? _economy : null, _definition, _balance, _season);
 		_works.Show(held ? _economy : null, _balance);
 		_labourFrame.Visible = held;
@@ -242,6 +248,9 @@ public partial class ProvinceSidebar : VBoxContainer
 	}
 
 	/// <summary>What the season's weather is doing to the county, as Climate reckons it.</summary>
+	/// <summary>A stat's colour when the pointer is not on it: red for a table that cannot be laid.</summary>
+	private Color Resting(Label value) => value == _ration && _isRationShort ? Lack : Text;
+
 	private static string Sky(Weather weather) => weather switch
 	{
 		Weather.Sunny => "Sunny: the corn grows by half again, the harvest comes in half as much again, the herd breeds",

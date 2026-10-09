@@ -78,7 +78,7 @@ public partial class ProvinceSidebar
 		cell.AddChild(icon);
 
 		var value = new Label { VerticalAlignment = VerticalAlignment.Center };
-		value.AddThemeFontSizeOverride("font_size", 14);
+		value.AddThemeFontSizeOverride("font_size", 17);
 		value.AddThemeColorOverride("font_color", Text);
 		cell.AddChild(value);
 
@@ -94,7 +94,7 @@ public partial class ProvinceSidebar
 		cell.MouseFilter = MouseFilterEnum.Stop;
 		cell.TooltipText = hint;
 		cell.MouseEntered += () => value.AddThemeColorOverride("font_color", Pointed);
-		cell.MouseExited += () => value.AddThemeColorOverride("font_color", Text);
+		cell.MouseExited += () => value.AddThemeColorOverride("font_color", Resting(value));
 		cell.GuiInput += pointer =>
 		{
 			if (pointer is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left })
