@@ -15,4 +15,20 @@ public static class SiegeEngines
 
 	public static int Count(IReadOnlyDictionary<string, int> engines) =>
 		engines.GetValueOrDefault(Ram) + engines.GetValueOrDefault(Catapult);
+
+	/// <summary>The engines as the field of an assault knows them: slow, hard to break, mounted in the
+	/// sense that matters (they go up no ladder), and striking no man. Not raised in any yard, so they
+	/// are here and not in recruits.json. [I]</summary>
+	public static readonly Dictionary<string, Units.Unit> Kinds = new()
+	{
+		[Catapult] = new Units.Unit("Catapult", 0, 0, 7, 1, true, "stone", IsEngine: true),
+		[Ram] = new Units.Unit("Battering Ram", 0, 0, 9, 2, true, "castle", IsEngine: true),
+	};
+
+	/// <summary>How far a catapult throws, in metres, and how near the wall it can still throw from;
+	/// how near the gate a ram has to be to beat at it; and how many men's health an engine has. [I]</summary>
+	public const float ThrowsFrom = 18f;
+	public const float ThrowsTo = 75f;
+	public const float RamsWithin = 6f;
+	public const float EngineHealth = 12f;
 }

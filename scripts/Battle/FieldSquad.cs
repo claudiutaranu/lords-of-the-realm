@@ -98,8 +98,32 @@ public sealed partial class FieldSquad
 	private Vector2 _rankedFacing;
 	private const float RerankBelow = 0.5f;
 
-	/// <summary>Where he was told to walk to, if anywhere.</summary>
-	public Vector2? Goal { get; internal set; }
+	/// <summary>Where he was told to walk to, if anywhere. A new spot sets each man waiting his own
+	/// moment before he steps off (FieldSoldier.Slow).</summary>
+	public Vector2? Goal
+	{
+		get => _goal;
+		internal set
+		{
+			// Only a company standing still is slow to take an order up: one already on the move, sent
+			// on somewhere else, keeps walking — held up again at every turn of the captain's, it went
+			// in fits and starts.
+			if (!IsMoving && value is Vector2 to && (_goal is not Vector2 was || was.DistanceTo(to) > NewOrderBeyond))
+			{
+				foreach (FieldSoldier man in Soldiers)
+				{
+					man.Waiting = man.Slow;
+				}
+			}
+
+			_goal = value;
+		}
+	}
+
+	private Vector2? _goal;
+
+	/// <summary>How far a goal has to move to be a new order and not the same one carried on.</summary>
+	private const float NewOrderBeyond = 3f;
 
 	/// <summary>When, in the battle's seconds, he last got where he was sent: nought for a squad
 	/// standing where it was drawn up. Two that come to rest on each other, the later gives way.</summary>

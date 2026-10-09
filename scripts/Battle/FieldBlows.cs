@@ -104,6 +104,15 @@ public sealed partial class FieldBattle
 		FieldSquad squad = man.Squad;
 		man.Ready -= Slice;
 		(Vector2 place, Vector2 facing) = squad.Posture(man.Slot);
+		place += man.Loose;
+
+		// An engine strikes nobody: it goes where it is sent and works there (FieldWall.Engines).
+		if (squad.Kind.IsEngine)
+		{
+			Walk(man, place, 0.05f);
+			man.Facing = man.IsMoving ? man.Facing : facing;
+			return;
+		}
 
 		// Ordered to march, he goes: he turns from whoever he was fighting and keeps his place in
 		// the ranks. Left to stand and trade blows, the men of a squad called out of a fight stayed
@@ -118,7 +127,7 @@ public sealed partial class FieldBattle
 
 		if (man.Foe is not { IsStanding: true } || man.Foe.At.DistanceTo(man.At) > StrikeReach)
 		{
-			man.Foe = NearestMan(man.At, squad.IsAttacking, StrikeReach);
+			man.Foe = NearestMan(man.At, squad.IsAttacking, StrikeReach, man);
 		}
 
 		if (man.Foe is FieldSoldier foe)
@@ -197,7 +206,7 @@ public sealed partial class FieldBattle
 			foreach (FieldSoldier enemy in squad.Soldiers)
 			{
 				float far = enemy.At.DistanceTo(man.At);
-				if (enemy.IsStanding && far < bestFar && _pressing.GetValueOrDefault(enemy) < MostOnOne)
+				if (enemy.IsStanding && far < bestFar && _pressing.GetValueOrDefault(enemy) < MostOnOne && CanReach(man, enemy))
 				{
 					best = enemy;
 					bestFar = far;
@@ -279,12 +288,12 @@ public sealed partial class FieldBattle
 	/// <summary>Takes health off a man, and men off his file as it runs out.</summary>
 	private void Hurt(FieldSoldier man, float damage)
 	{
-		// Inside his walls a defender is that much harder to kill, from the walkway, the towers and the
-		// gate as the captain's reckoning has it; an attacker under the walls, in a breach or on a ladder,
-		// that much easier.
+		// On the walls a defender is that much harder to kill, behind the parapet as the captain's
+		// reckoning has it — and only there: down in the bailey he is a man like any other (the user's
+		// call). An attacker under the walls, in a breach or on a ladder, is that much easier.
 		if (Wall != null)
 		{
-			damage = !man.Squad.IsAttacking && Wall.IsInside(man.At) ? damage / Wall.Stone
+			damage = !man.Squad.IsAttacking && Wall.OnWalls(man.At) ? damage / Wall.Stone
 				: man.Squad.IsAttacking && Wall.UnderIt(man.At) ? damage / Mathf.Max(0.05f, Wall.Exposure)
 				: damage;
 		}

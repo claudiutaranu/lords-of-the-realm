@@ -21,9 +21,11 @@ public static class Units
 	/// <summary>One kind of soldier. <paramref name="Mounted"/> is what a man cannot take up a
 	/// ladder: horses are useless against a wall, and the data says so rather than a string
 	/// comparison somewhere in the battle deciding it. <paramref name="Icon"/> is his glyph under
-	/// assets/ui/icons, which is his own key unless the file says otherwise.</summary>
+	/// assets/ui/icons, which is his own key unless the file says otherwise. <paramref name="IsEngine"/>
+	/// is a siege engine on the field of an assault (SiegeEngines): moved like a company, but it
+	/// strikes no man and is struck like one.</summary>
 	public readonly record struct Unit(string Name, int Attack, int Range, int Defence, int Speed,
-		bool Mounted, string Icon);
+		bool Mounted, string Icon, bool IsEngine = false);
 
 	/// <summary>A man nobody has written down. Not zero: a company that fought as nothing would make
 	/// a typo in a save file into a massacre, and this way it fights badly and is noticed.</summary>
@@ -76,6 +78,11 @@ public static class Units
 				man["speed"].AsInt32(),
 				man.TryGetValue("mounted", out Variant mounted) && mounted.AsBool(),
 				man.TryGetValue("icon", out Variant icon) ? icon.AsString() : key);
+		}
+
+		foreach ((string key, Unit engine) in SiegeEngines.Kinds)
+		{
+			units[key] = engine;
 		}
 
 		foreach (MercenaryBand band in Mercenaries.All)

@@ -18,8 +18,9 @@ clip — and battlefield-figure.gdshader reads the frame each man is at out of t
      half floats and bytes, one row a frame; and <key>.figure.json, where each of those starts and which
      rows are which clip.
 
-Run: tools/.venv/bin/python tools/bake_figure.py <key> path-to-animated.glb
-     (the key is the kind of soldier in recruits.json: bow, spear, sword ...)
+Run: tools/.venv/bin/python tools/bake_figure.py <key> path-to-animated.glb [clip=name ...]
+     (the key is the kind of soldier in recruits.json: bow, spear, sword ...; each clip=name keeps
+     that clip under the name the battlefield plays it by — walk=walk_loop — and drops the rest)
 """
 
 import json
@@ -45,6 +46,9 @@ FPS = 15
 # edge, so the knight's blue caparison bled into his horse's brown head and came out red flecks.
 ATLAS_WIDTH = 2048
 
+# How big the swatch is that a part painted only a flat colour is given in the atlas.
+SWATCH = 16
+
 # How wide the baked textures are laid out, in texels.
 ROW_WIDTH = 4096
 
@@ -69,9 +73,19 @@ class Gltf:
 
     def accessor(self, index):
         acc = self.json["accessors"][index]
-        view = self.json["bufferViews"][acc["bufferView"]]
         dtype = COMPONENTS[acc["componentType"]]
         width = WIDTHS[acc["type"]]
+        if "bufferView" not in acc:
+            # A sparse accessor (a shape key touching a few vertices): zeros, and the few it names.
+            values = np.zeros((acc["count"], width), np.float64)
+            sparse = acc.get("sparse")
+            if sparse:
+                at = np.frombuffer(self.view(sparse["indices"]["bufferView"]), COMPONENTS[sparse["indices"]["componentType"]],
+                                   sparse["count"], sparse["indices"].get("byteOffset", 0))
+                values[at] = np.frombuffer(self.view(sparse["values"]["bufferView"]), dtype, sparse["count"] * width,
+                                           sparse["values"].get("byteOffset", 0)).reshape(-1, width)
+            return values
+        view = self.json["bufferViews"][acc["bufferView"]]
         start = view.get("byteOffset", 0) + acc.get("byteOffset", 0)
         stride = view.get("byteStride", 0)
         item = np.dtype(dtype).itemsize * width
@@ -97,7 +111,10 @@ def quaternion_matrix(q):
 
 
 class Rig:
-    """The skeleton, posed at any moment of any clip."""
+    """The skeletons, posed at any moment of any clip. A figure may carry more than one — the man,
+    and a bow on its own bones hung from his hand — and parts on no skin at all, which ride their own
+    node (an arrow, shown and hidden by its scale). Every part's bones are laid end to end in one list
+    (`slots`), so one blend skins them all."""
 
     def __init__(self, gltf):
         self.gltf = gltf
@@ -105,10 +122,18 @@ class Rig:
         self.parent = {child: i for i, node in enumerate(nodes) for child in node.get("children", [])}
         self.rest = [(np.array(n.get("translation", [0, 0, 0]), float), np.array(n.get("rotation", [0, 0, 0, 1]), float),
                       np.array(n.get("scale", [1, 1, 1]), float)) for n in nodes]
-        skin = gltf.json["skins"][0]
-        self.joints = skin["joints"]
-        self.inverse_bind = gltf.accessor(skin["inverseBindMatrices"]).reshape(-1, 4, 4).transpose(0, 2, 1)
+        self.skins = [(skin["joints"], gltf.accessor(skin["inverseBindMatrices"]).reshape(-1, 4, 4).transpose(0, 2, 1))
+                      for skin in gltf.json["skins"]]
         self.clips = {a["name"]: a for a in gltf.json["animations"]}
+        # Where each skin's bones, and each rigid node, start in the one list of slots.
+        self.skin_base, self.rigid, at = [], {}, 0
+        for joints, _ in self.skins:
+            self.skin_base.append(at)
+            at += len(joints)
+        for i, node in enumerate(nodes):
+            if "mesh" in node and "skin" not in node:
+                self.rigid[i] = at
+                at += 1
 
     def duration(self, name):
         clip = self.clips[name]
@@ -117,12 +142,24 @@ class Rig:
     def joint_matrices(self, name, t):
         """The skin's joint matrices at `t` seconds into a clip: LINEAR keys blended, STEP keys held."""
         pose = [list(trs) for trs in self.rest]
+        self.morphs = {}
         clip = self.clips[name]
         for channel in clip["channels"]:
             sampler = clip["samplers"][channel["sampler"]]
             times = self.gltf.accessor(sampler["input"]).ravel()
             values = self.gltf.accessor(sampler["output"])
             key = max(0, int(np.searchsorted(times, t + 1e-6)) - 1)
+            if channel["target"]["path"] == "weights":
+                # The shape keys' weights at this moment, one row of them a key, blended like the rest.
+                node = channel["target"]["node"]
+                count = len(values.ravel()) // len(times)
+                rows = values.reshape(len(times), count)
+                u = 0.0
+                if key + 1 < len(times) and times[key + 1] > times[key]:
+                    u = float(np.clip((t - times[key]) / (times[key + 1] - times[key]), 0.0, 1.0))
+                after = rows[min(key + 1, len(times) - 1)]
+                self.morphs[node] = rows[key] * (1 - u) + after * u
+                continue
             slot = {"translation": 0, "rotation": 1, "scale": 2}[channel["target"]["path"]]
             value = values[key]
             # LINEAR keys are blended to the moment asked for; held from key to key instead, a
@@ -150,7 +187,9 @@ class Rig:
             world[i] = global_of(self.parent[i]) @ local if i in self.parent else local
             return world[i]
 
-        return np.stack([global_of(j) for j in self.joints]) @ self.inverse_bind
+        slots = [np.stack([global_of(j) for j in joints]) @ inverse for joints, inverse in self.skins]
+        slots += [global_of(node)[None] for node in self.rigid]
+        return np.concatenate(slots)
 
 
 def skinned(points, normals, joints, weights, matrices):
@@ -161,28 +200,63 @@ def skinned(points, normals, joints, weights, matrices):
     return moved, turned / np.maximum(np.linalg.norm(turned, axis=1, keepdims=True), 1e-12)
 
 
-def primitives(gltf):
-    """Each part of the mesh: its points, normals, UVs (V up, as trimesh holds them), faces, joints,
-    weights and the colour texture it is painted with."""
+def primitives(gltf, rig):
+    """Each part of the figure, from every node that carries a mesh: its points, normals, UVs (V up,
+    as trimesh holds them), faces, the slots of the bones it hangs from (Rig) and their weights, and
+    the colour texture it is painted with — a part painted only a flat colour gets a swatch of it."""
     parts = []
-    for prim in gltf.json["meshes"][0]["primitives"]:
-        attrs = prim["attributes"]
-        material = gltf.json["materials"][prim["material"]]
-        pbr = material["pbrMetallicRoughness"]
-        texture = gltf.json["textures"][pbr["baseColorTexture"]["index"]]
-        metal = pbr.get("metallicRoughnessTexture")
-        uv = gltf.accessor(attrs["TEXCOORD_0"])
-        parts.append({
-            "points": gltf.accessor(attrs["POSITION"]),
-            "normals": gltf.accessor(attrs["NORMAL"]),
-            "uv": np.column_stack([uv[:, 0], 1.0 - uv[:, 1]]),
-            "faces": gltf.accessor(prim["indices"]).reshape(-1, 3).astype(np.int64),
-            "joints": gltf.accessor(attrs["JOINTS_0"]).astype(np.int64),
-            "weights": gltf.accessor(attrs["WEIGHTS_0"]).astype(np.float64),
-            "image": gltf.image(texture["source"]),
-            "metal": gltf.image(gltf.json["textures"][metal["index"]]["source"]) if metal else None,
-        })
+    for index, node in enumerate(gltf.json["nodes"]):
+        if "mesh" not in node:
+            continue
+        for prim in gltf.json["meshes"][node["mesh"]]["primitives"]:
+            attrs = prim["attributes"]
+            material = gltf.json["materials"][prim["material"]]
+            pbr = material.get("pbrMetallicRoughness", {})
+            points = gltf.accessor(attrs["POSITION"])
+            if "baseColorTexture" in pbr:
+                image = gltf.image(gltf.json["textures"][pbr["baseColorTexture"]["index"]]["source"])
+                uv = gltf.accessor(attrs["TEXCOORD_0"])
+            else:
+                colour = tuple(int(round(min(1.0, c) ** (1 / 2.2) * 255)) for c in pbr.get("baseColorFactor", [1, 1, 1])[:3])
+                image = Image.new("RGB", (SWATCH, SWATCH), colour)
+                uv = np.full((len(points), 2), 0.5)
+            metal = pbr.get("metallicRoughnessTexture")
+            if "skin" in node:
+                base = rig.skin_base[node["skin"]]
+                joints = gltf.accessor(attrs["JOINTS_0"]).astype(np.int64) + base
+                weights = gltf.accessor(attrs["WEIGHTS_0"]).astype(np.float64)
+            else:
+                joints = np.zeros((len(points), 4), np.int64) + rig.rigid[index]
+                weights = np.tile([1.0, 0.0, 0.0, 0.0], (len(points), 1))
+            targets = [gltf.accessor(target["POSITION"]) for target in prim.get("targets", []) if "POSITION" in target]
+            parts.append({
+                "node": index,
+                "targets": targets,
+                "rest_weights": np.array(gltf.json["meshes"][node["mesh"]].get("weights", [0.0] * len(targets)), float),
+                "points": points,
+                "normals": gltf.accessor(attrs["NORMAL"]),
+                "uv": np.column_stack([uv[:, 0], 1.0 - uv[:, 1]]),
+                "faces": gltf.accessor(prim["indices"]).reshape(-1, 3).astype(np.int64),
+                "joints": joints,
+                "weights": weights,
+                "image": image,
+                "metal": gltf.image(gltf.json["textures"][metal["index"]]["source"]) if metal else None,
+            })
     return parts
+
+
+def Shaped(parts, morphs):
+    """Every part's points with its shape keys at the weights the clip has them at this moment (a
+    corrective at the shoulder as the bow is drawn), in the order the parts were laid end to end."""
+    shaped = []
+    for part in parts:
+        points = part["points"].astype(np.float64)
+        weights = morphs.get(part["node"], part["rest_weights"])
+        for weight, delta in zip(weights, part["targets"]):
+            if weight:
+                points = points + weight * delta
+        shaped.append(points)
+    return np.vstack(shaped)
 
 
 def combined(parts):
@@ -228,10 +302,15 @@ def cloth_value(atlas):
 
 def main():
     key, path = sys.argv[1], Path(sys.argv[2])
+    # Clips kept under the names the battlefield plays them by: idle_ready=idle_loop, and so on. With
+    # none given every clip is kept as it is named; with any, only those.
+    renamed = dict(arg.split("=", 1) for arg in sys.argv[3:])
     started = time.time()
     gltf = Gltf(path)
     rig = Rig(gltf)
-    parts = primitives(gltf)
+    if renamed:
+        rig.clips = {renamed[name]: clip for name, clip in rig.clips.items() if name in renamed}
+    parts = primitives(gltf, rig)
     original, joints, weights, sheet, metals, placed = combined(parts)
     surface = OriginalSurface(original)
 
@@ -266,8 +345,8 @@ def main():
             # leg every time his idle came round.
             steps = [seconds if t == 0.0 else t for t in steps]
         for t in steps:
-            moved, turned = skinned(original.vertices, original.vertex_normals, joints, weights,
-                                    rig.joint_matrices(name, t))
+            matrices = rig.joint_matrices(name, t)
+            moved, turned = skinned(Shaped(parts, rig.morphs), original.vertex_normals, joints, weights, matrices)
             at = np.einsum("vk,vkj->vj", bary, moved[corners])
             normal = np.einsum("vk,vkj->vj", bary, turned[corners])
             normal /= np.maximum(np.linalg.norm(normal, axis=1, keepdims=True), 1e-12)

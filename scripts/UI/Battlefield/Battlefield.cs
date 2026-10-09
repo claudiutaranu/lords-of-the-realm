@@ -20,18 +20,16 @@ public partial class Battlefield : Control
 	public event Action<Battle.Result> Finished;
 
 	private const float Field = 540f;
-	private const float GroundTile = 8f;
+	private const float GroundTile = 6f;
 
 	/// <summary>The bare earth: how fine its map is, how big its patches (a noise frequency a metre),
 	/// and above what of it the ground is bare.</summary>
-	private const int BareMap = 256;
+	private const int BareMap = 1024;
 	private const float BareFrequency = 0.018f;
 	private const float BareFrom = 0.66f;
 
 	/// <summary>How big the stands of tall grass are, as a noise frequency a metre.</summary>
 	private const float TallGrassStands = 0.03f;
-	private const string GroundAlbedo = "res://assets/terrain/pbr/ground037_alb_ht.png";
-	private const string EarthAlbedo = "res://assets/terrain/pbr/path_alb_ht.png";
 	private const string GroundShader = "res://assets/shaders/battlefield-ground.gdshader";
 
 	/// <summary>The woods round the field: the campaign map's own trees (tools/decimate_meshy.py),
@@ -59,6 +57,8 @@ public partial class Battlefield : Control
 	private const float NearestEye = 7f;
 	private const float FurthestEye = 260f;
 	private const float StartingEye = 120f;
+	private const float AssaultEye = 105f;
+	private const float AssaultFocusOut = 4f;
 	/// <summary>How steeply the eye looks down: from high over the field, and — come close — from
 	/// nearly level with the men, a head over the grass among the ranks. It levels out over the
 	/// nearer part of the zoom, below <see cref="LevelsBelow"/>.</summary>
@@ -72,6 +72,12 @@ public partial class Battlefield : Control
 	private const float TurnSpeed = 1.6f;
 	private const float ZoomStep = 1.12f;
 	private const float DragToBox = 6f;
+
+	/// <summary>How far the right button has to be dragged, on the screen and on the ground, before it
+	/// draws a front: held and barely moved, it is a march that keeps the companies as they stood (the
+	/// user's call) — a hand on a trackpad never holds perfectly still.</summary>
+	private const float DragToFront = 28f;
+	private const float ShortestFront = 6f;
 
 	/// <summary>How close the eye must be before every man's health is drawn over his head. From
 	/// further out the bars are a haze over the ranks and hide the men they are about.</summary>
@@ -104,6 +110,8 @@ public partial class Battlefield : Control
 	private Vector3 _focus;
 	private float _yaw;
 	private float _eye = StartingEye;
+	private DirectionalLight3D _sun;
+	private WorldEnvironment _sky;
 	private float _owed;
 	private float _ending = -1f;
 	private bool _isPaused;
@@ -130,12 +138,18 @@ public partial class Battlefield : Control
 		{
 			OwnWorld3D = true,
 			Msaa3D = Viewport.Msaa.Msaa4X,
+			// A screen-space pass over the edges MSAA does not catch, for the fine blades and textures
+			// that shimmered like fleas as the eye moved. Not TAA: in a SubViewport at the editor's
+			// embedded size it drew the whole field black.
+			ScreenSpaceAA = Viewport.ScreenSpaceAAEnum.Fxaa,
 			HandleInputLocally = false,
 		};
 		frame.AddChild(world);
 
-		world.AddChild(Sky());
-		world.AddChild(Sun());
+		_sky = Sky();
+		world.AddChild(_sky);
+		_sun = Sun();
+		world.AddChild(_sun);
 		_land = new BattlefieldLand(Field, (int)WoodsSeed + 2);
 		(MeshInstance3D ground, Image bare) = Ground(_land);
 		world.AddChild(ground);
@@ -145,18 +159,25 @@ public partial class Battlefield : Control
 		world.AddChild(Wood(_land));
 		if (battle.Wall != null)
 		{
-			world.AddChild(BattlefieldWalls.Build(battle.Wall, _land));
+			world.AddChild(new BattlefieldCastle(battle.Wall, _land, them.Accent, battle.Squads));
 		}
 
 		_tramp = new MarchingSound { Loudness = TrampLoudness };
 		AddChild(_tramp);
-		_squads = new BattlefieldSquads { Land = _land };
+		_squads = new BattlefieldSquads { Land = _land, Wall = battle.Wall };
 		world.AddChild(_squads);
 		_squads.Muster(battle, us.Accent, them.Accent);
 
 		_camera = new Camera3D { Far = 2000f, Fov = 50f };
 		world.AddChild(_camera);
 		_focus = new Vector3(0f, 0f, FieldBattle.Gap * 0.35f);
+		if (battle.Wall != null)
+		{
+			// An assault opens on the castle from the attacker's side, both hosts in the frame.
+			_focus = new Vector3(0f, 0f, battle.Wall.Middle.Y + battle.Wall.Half + AssaultFocusOut);
+			_eye = AssaultEye;
+		}
+
 		Look();
 
 		_box = new ColorRect { Color = new Color(0.85f, 0.7f, 0.4f, 0.18f), Visible = false, MouseFilter = MouseFilterEnum.Ignore };
@@ -261,7 +282,7 @@ public partial class Battlefield : Control
 				Order(order.Position);
 				break;
 			case InputEventMouseMotion motion when _orderedAt is Vector2 start:
-				if (start.DistanceTo(motion.Position) > DragToBox && Front(motion.Position) is var (near, far, facing))
+				if (start.DistanceTo(motion.Position) > DragToFront && Front(motion.Position) is var (near, far, facing))
 				{
 					List<Vector2> spots = _battle.Planned(_chosen, near, far, facing, out List<Vector2> fronts);
 					_squads.Mark(spots, fronts, facing);

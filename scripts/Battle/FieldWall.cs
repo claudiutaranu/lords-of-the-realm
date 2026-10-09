@@ -3,8 +3,9 @@ using Godot;
 
 /// <summary>A castle's wall on the field, for an assault fought by hand: a closed square round the
 /// defenders, as big as the rung (a palisade small, the royal castle large), crossed only where it is
-/// open — the gate where the rams broke it, a breach for each catapult, both in the face toward the
-/// attacker, and ladders on that face and the two beside it, which are the frontage the captain's
+/// open — the gate once the rams have beaten it down, a breach once a catapult has (both in the face
+/// toward the attacker, and whole when the day begins: <see cref="Pound"/>), and ladders on that face
+/// and the two beside it, which are the frontage the captain's
 /// reckoning counts made into places to climb. A horse goes up no ladder. Anyone else who would cross
 /// it goes round its corners to the nearest gap he can use; no step passes through stone.
 ///
@@ -16,7 +17,7 @@ using Godot;
 /// captain's reckoning of the same walls (a large castle the captain holds falls by hand); a balance
 /// pass, and a BattleCheck holding the two together as ByHand holds the field, is what it wants. The field's metres: the attacker to the
 /// south (y larger), the castle to the north.</summary>
-public sealed class FieldWall
+public sealed partial class FieldWall
 {
 	/// <summary>What a gap in the wall is: the gate rammed open, a breach, or a ladder.</summary>
 	public enum Kind { Gate, Breach, Ladder }
@@ -60,6 +61,7 @@ public sealed class FieldWall
 
 	public List<Opening> Openings { get; } = new();
 
+
 	public FieldWall(Vector2 middle, Defenders against, GameBalance b)
 	{
 		Middle = middle;
@@ -70,15 +72,16 @@ public sealed class FieldWall
 		IsTimber = Fortifications.IsTimber(against.Fortification);
 		float side = Half * 2f;
 
+		float soft = IsTimber ? TimberShare : 1f;
 		if (against.Rams > 0)
 		{
-			Openings.Add(new Opening(Face.South, Half - (GateWide / 2f), Half + (GateWide / 2f), Kind.Gate));
+			Batter(new Opening(Face.South, Half - (GateWide / 2f), Half + (GateWide / 2f), Kind.Gate), GateSeconds * soft);
 		}
 
 		for (int i = 0; i < against.Catapults; i++)
 		{
 			float at = Half + ((i % 2 == 0 ? -1f : 1f) * side * (0.22f + (0.1f * (i / 2))));
-			Openings.Add(new Opening(Face.South, at - (BreachWide / 2f), at + (BreachWide / 2f), Kind.Breach));
+			Batter(new Opening(Face.South, at - (BreachWide / 2f), at + (BreachWide / 2f), Kind.Breach), CurtainSeconds * soft);
 		}
 
 		// Ladders: half on the south face, the rest shared by the east and west, spread along each.
@@ -90,13 +93,15 @@ public sealed class FieldWall
 		Spread(Face.West, flank / 2, side);
 	}
 
-	/// <summary>Puts so many ladders along a face, clear of the gaps already in it.</summary>
+	/// <summary>Puts so many ladders along a face, clear of the gaps already in it and of the stretches
+	/// the engines will open.</summary>
 	private void Spread(Face face, int count, float side)
 	{
 		for (int i = 0; i < count; i++)
 		{
 			float at = side * (i + 1) / (count + 1);
-			while (Gap(face, at, LadderWide * 2f) != null)
+			while (Gap(face, at, LadderWide * 2f) != null || Battered.Exists(t => t.Gap.On == face
+				&& at >= t.Gap.From - (LadderWide * 2f) && at <= t.Gap.To + (LadderWide * 2f)))
 			{
 				at += LadderWide * 3f;
 			}

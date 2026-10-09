@@ -6,7 +6,8 @@ using Godot;
 /// battle measures its shots by, FieldSquad.Range from the standard), and where each has been sent
 /// — a gold line to the spot it marches to, ending in an arrowhead, or a red one to the enemy it
 /// falls on. Only for squads in hand, so the field is not scored with lines, and laid again every
-/// frame as they move.</summary>
+/// frame as they move. Each squad's paint fades in when it is taken in hand or given an order, stands a
+/// moment and fades away, so the field is not left painted over (the user's call).</summary>
 public partial class BattlefieldSquads
 {
 	/// <summary>How many short straight pieces bend the reach's arc round and over the ground, how long a
@@ -45,6 +46,16 @@ public partial class BattlefieldSquads
 
 	private const string GuideShaderPath = "res://assets/shaders/battlefield-guide.gdshader";
 
+	/// <summary>How long a squad's guides stand at full strength, and how long they take to fade.</summary>
+	private const float GuideComes = 0.25f;
+	private const float GuideStands = 1.5f;
+	private const float GuideFades = 0.8f;
+
+	/// <summary>When each squad's guides were last laid afresh, and what it was then doing, on the
+	/// wall clock so they fade while the battle is paused too.</summary>
+	private readonly Dictionary<FieldSquad, (float Since, Vector2? Goal, FieldSquad Target)> _guidedSince = new();
+	private float _fade = 1f;
+
 	private MeshInstance3D _guides;
 	private ImmediateMesh _guideMesh;
 	private float _guideWide;
@@ -66,10 +77,36 @@ public partial class BattlefieldSquads
 
 		_guideMesh.ClearSurfaces();
 		_guideWide = Mathf.Clamp(eyeFar * GuideWidthShare, GuideNarrowest, GuideWidest);
+		float now = Time.GetTicksMsec() / 1000f;
+		// A squad let go and taken in hand again is a fresh choice: its guides come back.
+		foreach (FieldSquad gone in new List<FieldSquad>(_guidedSince.Keys))
+		{
+			if (!chosen.Contains(gone))
+			{
+				_guidedSince.Remove(gone);
+			}
+		}
+
 		bool begun = false;
 		foreach (FieldSquad squad in chosen)
 		{
 			if (!squad.IsStanding)
+			{
+				continue;
+			}
+
+			// Laid afresh when it is first in hand, and again on every new order.
+			if (!_guidedSince.TryGetValue(squad, out (float Since, Vector2? Goal, FieldSquad Target) laid)
+				|| IsNewOrder(laid.Goal, squad.Goal) || laid.Target != squad.Target)
+			{
+				laid = (now, squad.Goal, squad.Target);
+				_guidedSince[squad] = laid;
+			}
+
+			// Faded in, held, faded out.
+			float age = now - laid.Since;
+			_fade = Mathf.Min(Mathf.Clamp(age / GuideComes, 0f, 1f), 1f - Mathf.Clamp((age - GuideStands) / GuideFades, 0f, 1f));
+			if (_fade <= 0f)
 			{
 				continue;
 			}
@@ -103,6 +140,12 @@ public partial class BattlefieldSquads
 			_guideMesh.SurfaceEnd();
 		}
 	}
+
+	/// <summary>Whether a squad has been sent somewhere new, not merely had its spot nudged as it goes.</summary>
+	private static bool IsNewOrder(Vector2? was, Vector2? now) =>
+		was.HasValue != now.HasValue || (was is Vector2 a && now is Vector2 b && a.DistanceTo(b) > NewOrderBeyond);
+
+	private const float NewOrderBeyond = 3f;
 
 	/// <summary>The reach of a squad that shoots, ahead of it and not all round: an arc as far off as
 	/// its bows carry across the way it faces, and its two sides drawn back to the squad. It turns as
@@ -187,7 +230,7 @@ public partial class BattlefieldSquads
 	{
 		// How strongly this piece is painted, carried to the shader in the UV: the colour's alpha already
 		// says where the strip's edge is.
-		_guideMesh.SurfaceSetUV(new Vector2(_strength, 0f));
+		_guideMesh.SurfaceSetUV(new Vector2(_strength * _fade, 0f));
 		_guideMesh.SurfaceSetColor(colour);
 		_guideMesh.SurfaceAddVertex(at);
 	}

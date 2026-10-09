@@ -4,21 +4,25 @@ using Godot;
 
 /// <summary>What the lord has in hand on the field, in the realm's own colours: across the top each
 /// side's shield and name and how much of it is still standing — the day is won when the other bar is
-/// empty — and along the foot his banner, a card for each of his squads (its weapon, how many are
-/// left, and a bar of how many it brought that still stand), and his orders, with the day left to
-/// the captains to settle at once (Auto-resolve).</summary>
+/// empty — and along the foot a card for each of his squads (its weapon, how many are
+/// left, and a bar of how many it brought that still stand), and his orders on the game's gilded
+/// plates: attack, hold, leave it to the captain (Auto Attack), settle the day at once (Auto Resolve),
+/// or retreat.</summary>
 public partial class BattlefieldBar : Control
 {
-	private const int CardWide = 84;
-	private const int CardHigh = 112;
+	private const int CardWide = 116;
+	private const int CardHigh = 156;
+	private const int RoomyCards = 8;
+	private const int LeastCardWide = 72;
+	private int _cardWide = CardWide;
+	private static readonly Vector2 OrderSize = new(252, 56);
+	private const string MenuTheme = "res://theme/main-menu.tres";
 	private const int StandingWide = 220;
 	private const int ShieldSide = 46;
-	private const float BannerHigh = 118f;
 	private static readonly Color Unchosen = new(0.62f, 0.62f, 0.62f);
+	private static readonly Color RetreatWord = new("e0715c");
 	private static readonly Color Navy = new(0.04f, 0.07f, 0.14f, 0.94f);
 	private static readonly Color Gilt = new(0.78f, 0.62f, 0.32f);
-	private static readonly Color ChargeBlue = new(0.09f, 0.2f, 0.42f, 0.97f);
-	private static readonly Color RetreatRed = new(0.38f, 0.07f, 0.07f, 0.97f);
 
 	/// <summary>A squad's card, and what it last said: the bar is brought up every frame, and a label
 	/// rewritten every frame is a string built and a relayout asked for every frame.</summary>
@@ -48,6 +52,8 @@ public partial class BattlefieldBar : Control
 	{
 		_battle = battle;
 		Chrome.Fill(this);
+		// The menus' theme, for its gilded order plates: the field is its own world, under no scene's theme.
+		Theme = GD.Load<Theme>(MenuTheme);
 		MouseFilter = MouseFilterEnum.Ignore;
 		AddChild(Head(us, them));
 		AddChild(Foot(battle, us, pick, charge, hold, captain, retreat, autoResolve));
@@ -82,14 +88,15 @@ public partial class BattlefieldBar : Control
 		return top;
 	}
 
-	/// <summary>Along the foot: his banner, his squads' cards, and his orders.</summary>
+	/// <summary>Along the foot: his squads' cards, and his orders.</summary>
 	private Control Foot(FieldBattle battle, BattlePanel.Colours us, Action<FieldSquad, bool> pick, Action charge,
 		Action hold, Action<bool> captain, Action retreat, Action autoResolve)
 	{
 		var foot = new HBoxContainer();
 		foot.AddThemeConstantOverride("separation", 10);
-		foot.AddChild(DiplomacyArt.Banner(false, BannerHigh, us.Accent));
-
+		// Narrower cards for a host with more companies than the bar has room for at full width.
+		int cards = battle.Squads.FindAll(squad => squad.IsAttacking).Count;
+		_cardWide = cards > RoomyCards ? Mathf.Max(LeastCardWide, CardWide * RoomyCards / cards) : CardWide;
 		foreach (FieldSquad squad in battle.Squads)
 		{
 			if (squad.IsAttacking)
@@ -102,11 +109,12 @@ public partial class BattlefieldBar : Control
 		var orders = new GridContainer { Columns = 3 };
 		orders.AddThemeConstantOverride("h_separation", 8);
 		orders.AddThemeConstantOverride("v_separation", 8);
-		orders.AddChild(Order("Charge", "crossed-swords", ChargeBlue, charge, out _));
-		orders.AddChild(Order("Hold", "shield", Navy, hold, out _));
-		orders.AddChild(Order("", "helmet", Navy, () => captain(!_battle.IsAttackCaptained), out _captainWord));
-		orders.AddChild(Order("Retreat", "footsteps", RetreatRed, retreat, out _));
-		orders.AddChild(Order("Auto-resolve", "scales", Navy, autoResolve, out _));
+		orders.AddChild(Order("Attack", "crossed-swords", charge, out _));
+		orders.AddChild(Order("Hold", "shield", hold, out _));
+		orders.AddChild(Order("", "helmet", () => captain(!_battle.IsAttackCaptained), out _captainWord));
+		orders.AddChild(Order("Auto Resolve", "scales", autoResolve, out _));
+		orders.AddChild(Order("Retreat", "footsteps", retreat, out Label away));
+		away.AddThemeColorOverride("font_color", RetreatWord);
 		var middle = new CenterContainer();
 		middle.AddChild(orders);
 		foot.AddChild(middle);
@@ -124,7 +132,7 @@ public partial class BattlefieldBar : Control
 	{
 		(Control card, VBoxContainer stack) = UnitCard.Build(squad.Unit, squad.Kind.Name, CardHigh, titled: false,
 			() => pick(squad, Input.IsKeyPressed(Key.Shift)));
-		card.CustomMinimumSize = new Vector2(CardWide, CardHigh);
+		card.CustomMinimumSize = new Vector2(_cardWide, CardHigh);
 		card.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
 
 		var line = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center, MouseFilter = MouseFilterEnum.Ignore };
@@ -204,7 +212,7 @@ public partial class BattlefieldBar : Control
 
 		Fill(_ourStanding, 1f - _battle.AttackLoss, ref _ourShare);
 		Fill(_theirStanding, 1f - _battle.DefenceLoss, ref _theirShare);
-		Say(_captainWord, _battle.IsAttackCaptained ? "Command" : "Captain", ref _captainSaid);
+		Say(_captainWord, _battle.IsAttackCaptained ? "Take Command" : "Auto Attack", ref _captainSaid);
 		Say(_state, _battle.IsAttackFallen ? "Our last man is down"
 			: _battle.IsDefenceFallen ? "The field is ours!"
 			: isPaused ? "Paused"
@@ -247,36 +255,13 @@ public partial class BattlefieldBar : Control
 		filled.GetParent().GetChild<ColorRect>(1).SizeFlagsStretchRatio = Mathf.Max(0.001f, 1f - share);
 	}
 
-	/// <summary>An order on its plate, as wide as its word needs: dark blue in a gilt edge, the charge
-	/// in a brighter blue and the retreat in red, its glyph beside its word.</summary>
-	private static Button Order(string text, string icon, Color ground, Action pressed, out Label word)
+	/// <summary>An order on the game's gilded plate (Chrome.Order), all of one width.</summary>
+	private static Button Order(string text, string icon, Action pressed, out Label word)
 	{
-		var order = new Button { CustomMinimumSize = new Vector2(196, 52) };
-		foreach ((string state, Color fill, Color edge) in new[]
-		{
-			("normal", ground, Gilt),
-			("focus", ground, Gilt),
-			("hover", ground.Lightened(0.15f), Gilt.Lightened(0.3f)),
-			("pressed", ground.Darkened(0.25f), Gilt),
-		})
-		{
-			var face = new StyleBoxFlat { BgColor = fill, BorderColor = edge };
-			face.SetBorderWidthAll(2);
-			face.SetCornerRadiusAll(3);
-			face.ShadowColor = new Color(0f, 0f, 0f, 0.4f);
-			face.ShadowSize = 3;
-			order.AddThemeStyleboxOverride(state, face);
-		}
-
-		order.Pressed += pressed;
-		var said = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center, MouseFilter = MouseFilterEnum.Ignore };
-		said.AddThemeConstantOverride("separation", 12);
-		said.SetAnchorsPreset(LayoutPreset.FullRect);
-		said.AddChild(Chrome.Icon(icon, 30));
-		word = Chrome.Line(text, 22, Chrome.Cream);
-		word.VerticalAlignment = VerticalAlignment.Center;
-		said.AddChild(word);
-		order.AddChild(said);
+		Button order = Chrome.Order(text, icon, pressed, out word);
+		order.CustomMinimumSize = OrderSize;
+		order.SizeFlagsHorizontal = SizeFlags.ShrinkCenter;
+		word.AddThemeFontSizeOverride("font_size", 18);
 		return order;
 	}
 }

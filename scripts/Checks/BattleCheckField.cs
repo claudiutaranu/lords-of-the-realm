@@ -75,6 +75,36 @@ public partial class BattleCheck
 			farthest <= squad.Gap * 1.5f, true);
 	}
 
+	/// <summary>The wall stands whole until the engines bring it down: no breach and no gate open as
+	/// the day begins, both open once their health is spent; and a man on the walkway is out of reach
+	/// of a blade on the ground outside, but not of one on a ladder.</summary>
+	private void WholeWalls(GameBalance b)
+	{
+		var against = new Defenders(Men(("spear", 40)), new Dictionary<string, int>(), "large-castle", 50f, false, 1, 1);
+		var assault = new FieldBattle(Men(("sword", 60)), against, false, b, atTheWalls: true);
+		FieldWall wall = assault.Wall;
+		bool IsOpen(FieldWall.Kind kind) => wall.Openings.Exists(gap => gap.Is == kind);
+		Is("the walls stand whole as an assault begins", IsOpen(FieldWall.Kind.Breach) || IsOpen(FieldWall.Kind.Gate), false);
+		Is("  and the engines are on the field", assault.Squads.FindAll(squad => squad.Kind.IsEngine).Count, 2);
+		wall.Pound(120f, assault.Squads);
+		Is("  where they were drawn up, out of reach, they bring nothing down", IsOpen(FieldWall.Kind.Breach) || IsOpen(FieldWall.Kind.Gate), false);
+		assault.IsAttackCaptained = true;
+		while (!assault.IsOver && !(IsOpen(FieldWall.Kind.Breach) && IsOpen(FieldWall.Kind.Gate)))
+		{
+			assault.Step();
+		}
+
+		Is("  taken up to the walls by the captain, the catapult opens a breach", IsOpen(FieldWall.Kind.Breach), true);
+		Is("  and the ram the gate", IsOpen(FieldWall.Kind.Gate), true);
+
+		FieldWall.Opening ladder = wall.Openings.Find(gap => gap.Is == FieldWall.Kind.Ladder);
+		(Vector2 post, Vector2 outward) = wall.Post(ladder.On, ladder.Middle);
+		Is("a company posted at a ladder stands on the walls", wall.OnWalls(post), true);
+		Is("  and is out of the bailey", wall.OnWalls(wall.Middle), false);
+		Is("  and the man at the ladder's foot is on it", wall.Climbing(wall.Behind(ladder, -1.2f)), true);
+		Is("  but one a few paces back is on the ground", wall.Climbing(wall.Behind(ladder, -6f)), false);
+	}
+
 	/// <summary>An assault by hand: in every slice of it no man's step goes through stone, and horse
 	/// gets in by no ladder.</summary>
 	private void ThroughTheWalls(GameBalance b)

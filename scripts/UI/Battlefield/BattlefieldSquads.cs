@@ -16,8 +16,8 @@ public partial class BattlefieldSquads : Node3D
 	private const float GoingFor = 1f;
 
 	/// <summary>A baked figure's clips, by the names tools/bake_figure.py keeps them under; where in
-	/// the shoot clip the arrow leaves the string, in seconds (the archer's rig: frame 38 of 60 at
-	/// thirty a second); the paces at which he starts walking and stops; and past which pace a
+	/// the shoot clip the arrow leaves the string, in seconds (the archer's rig, arcas_v2: frame 34 of
+	/// his shoot_close at thirty a second); the paces at which he starts walking and stops; and past which pace a
 	/// figure that can gallop does.</summary>
 	private const string WalkClip = "walk_loop";
 	private const string GallopClip = "gallop_loop";
@@ -26,7 +26,7 @@ public partial class BattlefieldSquads : Node3D
 	private const string ShootClip = "shoot";
 	private const string AttackClip = "attack";
 	private const string DeathClip = "death";
-	private const float LooseInShoot = 38f / 30f;
+	private const float LooseInShoot = 34f / 30f;
 	private const float StartsWalking = 0.6f;
 	private const float StopsWalking = 0.2f;
 	private const float GallopsFrom = 2.5f;
@@ -41,7 +41,8 @@ public partial class BattlefieldSquads : Node3D
 	/// stride it is down: three fifths of a walk, two of a gallop).</summary>
 	private static readonly Dictionary<(string Model, string Clip), float> ClipPaces = new()
 	{
-		[("units/bow", WalkClip)] = 1.2f,
+		[("units/bow", WalkClip)] = 0.93f,
+		[("units/bow", RunClip)] = 2.55f,
 		[("units/horse", WalkClip)] = 0.72f,
 		[("units/horse", GallopClip)] = 3.2f,
 		[("units/peasant", WalkClip)] = 0.89f,
@@ -124,6 +125,9 @@ public partial class BattlefieldSquads : Node3D
 	/// <summary>The ground the men stand on.</summary>
 	public BattlefieldLand Land { get; set; }
 
+	/// <summary>The castle's wall in an assault, whose walkway and ladders lift the men on them; null in the field.</summary>
+	public FieldWall Wall { get; set; }
+
 	private MultiMeshInstance3D _marks;
 	private MultiMeshInstance3D _arrows3;
 
@@ -155,6 +159,12 @@ public partial class BattlefieldSquads : Node3D
 		int figures = 0;
 		foreach (FieldSquad squad in battle.Squads)
 		{
+			// An engine is drawn by the castle (BattlefieldCastle), not as a man.
+			if (squad.Kind.IsEngine)
+			{
+				continue;
+			}
+
 			Color colour = squad.IsAttacking ? ours : theirs;
 			SoldierFigure figure = SoldierFigure.For(squad.Unit);
 			figure = figure.Mesh == null ? SoldierFigure.Standard : figure;
@@ -304,5 +314,6 @@ public partial class BattlefieldSquads : Node3D
 	/// direction on the field.</summary>
 	private static float Yaw(Vector2 facing) => Mathf.Atan2(facing.X, facing.Y);
 
-	private Vector3 Ground(Vector2 at) => Land.On(at);
+	private Vector3 Ground(Vector2 at) =>
+		Wall == null ? Land.On(at) : Land.On(at) + (Vector3.Up * BattlefieldWalls.Raised(Wall, at));
 }

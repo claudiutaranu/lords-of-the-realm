@@ -36,6 +36,19 @@ public sealed class FieldSoldier
 	/// <summary>The man he has picked out to fight, if anybody.</summary>
 	public FieldSoldier Foe { get; internal set; }
 
+	/// <summary>What makes him one man and not a peg in a board (FieldBattle.Loosen): how long after an
+	/// order he takes to move off, how much faster or slower than his company he walks, and how far
+	/// from his exact place in the ranks he stands. So a company does not set off as one, some fall a
+	/// little behind, and the ranks are ranks of men, not a grid.</summary>
+	public float Slow { get; internal set; }
+
+	public float Stride { get; internal set; } = 1f;
+
+	public Vector2 Loose { get; internal set; }
+
+	/// <summary>How long he still stands before stepping off on the order just given.</summary>
+	public float Waiting { get; internal set; }
+
 	/// <summary>When he last swung or loosed, on the battle's clock — what the screen lunges him by.</summary>
 	public float Struck { get; internal set; } = -100f;
 

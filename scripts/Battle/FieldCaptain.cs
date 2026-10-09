@@ -21,6 +21,17 @@ public sealed partial class FieldBattle
 	{
 		// Whatever the lord placed, the captain has it now, and moves it as he sees fit.
 		squad.IsPlaced = false;
+		if (Wall != null && !squad.IsAttacking)
+		{
+			Defend(squad);
+			return;
+		}
+
+		if (squad.Kind.IsEngine)
+		{
+			Engineer(squad);
+			return;
+		}
 
 		// Whoever his men are already fighting is whom he is fighting.
 		if (squad.IsFighting && squad.InMelee != null && !squad.Shoots)

@@ -84,6 +84,7 @@ public sealed partial class FieldBattle
 		}
 		foreach (FieldSquad squad in Squads)
 		{
+			Loosen(squad);
 			for (int i = 0; i < squad.Soldiers.Count; i++)
 			{
 				squad.Soldiers[i].At = squad.Place(squad.Soldiers[i].Slot);
@@ -103,6 +104,12 @@ public sealed partial class FieldBattle
 			}
 		}
 
+		// The besiegers' engines, behind their line: on the field like a company, but not counted in it.
+		if (Wall != null)
+		{
+			Engines(against);
+		}
+
 		// Nobody on one side or the other is no fight at all, the same as the captain's reckoning.
 		if (_attackBrought == 0 || _defenceBrought == 0)
 		{
@@ -113,25 +120,33 @@ public sealed partial class FieldBattle
 
 	public List<FieldSquad> Squads { get; } = new();
 
-	/// <summary>The castle's wall, when this is an assault on it; null in the open field.</summary>
-	public FieldWall Wall { get; }
+	/// <summary>How long a man may take to step off on an order, the more the further back his rank;
+	/// how much his walk may differ from his company's; and how far off his exact place he stands.
+	/// The seeded dice, so a day fought again is the same day. [I] — after Manor Lords' companies,
+	/// which move as men and not as a block.</summary>
+	private const float SlowestStart = 0.8f;
+	private const float SlowerPerRank = 0.12f;
+	private const float StrideSpread = 0.1f;
+	private const float LooseReach = 0.35f;
 
-	/// <summary>Stands the castle's men inside its walls: the foot along the face the enemy comes at,
-	/// the bows behind them, each row spread across what room the square has.</summary>
-	private void Garrison()
+	private void Loosen(FieldSquad squad)
 	{
-		var foot = Squads.FindAll(squad => !squad.IsAttacking && !squad.Shoots);
-		var bows = Squads.FindAll(squad => !squad.IsAttacking && squad.Shoots);
-		float room = Wall.Half - 4f;
-		foreach ((List<FieldSquad> row, float y) in new[] { (foot, Wall.Middle.Y + room - 2f), (bows, Wall.Middle.Y) })
+		if (squad.Kind.IsEngine)
 		{
-			for (int i = 0; i < row.Count; i++)
-			{
-				float x = Wall.Middle.X + Mathf.Lerp(-room, room, (i + 0.5f) / row.Count);
-				row[i].At = new Vector2(x, y);
-			}
+			return;
+		}
+
+		foreach (FieldSoldier man in squad.Soldiers)
+		{
+			int rank = man.Slot / Mathf.Max(1, squad.Files);
+			man.Slow = (_dice.Randf() * SlowestStart) + (rank * SlowerPerRank);
+			man.Stride = 1f + ((_dice.Randf() * 2f) - 1f) * StrideSpread;
+			man.Loose = new Vector2((_dice.Randf() * 2f) - 1f, (_dice.Randf() * 2f) - 1f) * LooseReach;
 		}
 	}
+
+	/// <summary>The castle's wall, when this is an assault on it; null in the open field.</summary>
+	public FieldWall Wall { get; }
 
 	/// <summary>How long the day is: a day at the walls is shorter, as the captain's is, and an assault
 	/// that has not cleared them by nightfall has failed.</summary>
@@ -167,6 +182,7 @@ public sealed partial class FieldBattle
 		}
 
 		Clock += Slice;
+		Wall?.Pound(Slice, Squads);
 		foreach (FieldSquad squad in Squads)
 		{
 			squad.Was = squad.At;
@@ -214,7 +230,7 @@ public sealed partial class FieldBattle
 		var defenceLost = new Dictionary<string, int>();
 		foreach (FieldSquad squad in Squads)
 		{
-			if (squad.Fallen > 0)
+			if (squad.Fallen > 0 && !squad.Kind.IsEngine)
 			{
 				Dictionary<string, int> lost = squad.IsAttacking ? attackLost : defenceLost;
 				lost[squad.Unit] = lost.GetValueOrDefault(squad.Unit) + squad.Fallen;
@@ -230,7 +246,7 @@ public sealed partial class FieldBattle
 		float lost = 0f;
 		foreach (FieldSquad squad in Squads)
 		{
-			lost += squad.IsAttacking == attacking ? squad.Fallen : 0f;
+			lost += squad.IsAttacking == attacking && !squad.Kind.IsEngine ? squad.Fallen : 0f;
 		}
 
 		return lost;

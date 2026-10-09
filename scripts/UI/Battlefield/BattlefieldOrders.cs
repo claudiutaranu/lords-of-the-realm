@@ -89,14 +89,16 @@ public partial class Battlefield
 		Vector2 start = _orderedAt ?? at;
 		_orderedAt = null;
 		_squads.Mark(null, null, Vector2.Zero);
-		if (start.DistanceTo(at) <= DragToBox)
+		(Vector2 From, Vector2 To, Vector2 Facing)? front = start.DistanceTo(at) > DragToFront ? Front(at) : null;
+		if (front is null)
 		{
+			// Clicked, or held without a real drag: they march, as they stood. The march goes to where
+			// the button went down, not to wherever the hand drifted while it was held.
 			_orderedFrom = null;
-			Send(at);
+			Send(start);
 			return;
 		}
 
-		(Vector2 From, Vector2 To, Vector2 Facing)? front = Front(at);
 		_orderedFrom = null;
 		if (_chosen.Count > 0 && front is var (from, to, facing))
 		{
@@ -111,7 +113,7 @@ public partial class Battlefield
 	/// from the lord's eye. Null off the field, or too short.</summary>
 	private (Vector2 From, Vector2 To, Vector2 Facing)? Front(Vector2 end)
 	{
-		if (_orderedFrom is not Vector2 from || OnGround(end) is not Vector2 to || from.DistanceTo(to) < 1f)
+		if (_orderedFrom is not Vector2 from || OnGround(end) is not Vector2 to || from.DistanceTo(to) < ShortestFront)
 		{
 			return null;
 		}
@@ -243,5 +245,20 @@ public partial class Battlefield
 		Vector3 eye = at + (turned * new Vector3(0f, 0f, _eye));
 		eye.Y = Mathf.Max(eye.Y, _land.Rise(new Vector2(eye.X, eye.Z)) + EyeClearance);
 		_camera.Transform = new Transform3D(turned, eye);
+
+		// The shadows reach as far as the eye looks and no further: spread over the whole field
+		// whatever the eye, they were too coarse to show a man's from any height but a man's.
+		_sun.DirectionalShadowMaxDistance = Mathf.Clamp(_eye * ShadowReach, ShadowNearest, ShadowFurthest);
+
+		// The haze begins past what the eye is looking at, however high it is: fixed at a distance,
+		// from high up the whole field lay in it, washed out to grey.
+		_sky.Environment.FogDepthBegin = _eye + HazeBeyond;
+		_sky.Environment.FogDepthEnd = _eye + HazeBeyond + HazeEnd;
 	}
+
+	private const float ShadowReach = 2.6f;
+	private const float HazeBeyond = 110f;
+	private const float HazeEnd = 200f;
+	private const float ShadowNearest = 40f;
+	private const float ShadowFurthest = 520f;
 }

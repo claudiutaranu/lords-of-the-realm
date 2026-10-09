@@ -106,7 +106,7 @@ public sealed partial class FieldBattle
 	/// metres of a spot. Only the other side's grid is read, cell by cell in the same order as ever
 	/// so two men equally near are settled the same way, and a cell wholly further off than the best
 	/// already found is not opened.</summary>
-	private FieldSoldier NearestMan(Vector2 from, bool attacking, float within)
+	private FieldSoldier NearestMan(Vector2 from, bool attacking, float within, FieldSoldier striker = null)
 	{
 		Dictionary<Vector2I, List<FieldSoldier>> enemies = attacking ? _defenders : _attackers;
 		FieldSoldier best = null;
@@ -130,7 +130,7 @@ public sealed partial class FieldBattle
 				float roughly = bestFar * bestFar * (1f + Rounding);
 				foreach (FieldSoldier man in cell)
 				{
-					if (!man.IsStanding || from.DistanceSquaredTo(man.At) > roughly)
+					if (!man.IsStanding || from.DistanceSquaredTo(man.At) > roughly || (striker != null && !CanReach(striker, man)))
 					{
 						continue;
 					}
@@ -169,7 +169,10 @@ public sealed partial class FieldBattle
 			to = Wall.Within(to);
 		}
 
-		if (Wall != null)
+		// An engine goes nowhere inside the walls, and no way round them: it is pushed straight at
+		// where it is sent, and stops at the stone.
+		bool isEngine = man.Squad.Kind.IsEngine;
+		if (Wall != null && !isEngine)
 		{
 			Vector2 next = Wall.Detour(man.At, to, mounted);
 			if (next != to)
@@ -182,15 +185,24 @@ public sealed partial class FieldBattle
 		Vector2 way = to - man.At;
 		float far = way.Length();
 		man.IsMoving = far > @short + 0.05f;
+		if (man.IsMoving && man.Waiting > 0f)
+		{
+			// Not yet: he has heard the order, and is a moment taking it up.
+			man.Waiting -= Slice;
+			man.IsMoving = false;
+		}
+
 		if (!man.IsMoving)
 		{
 			return;
 		}
 
 		man.Facing = way / far;
-		float pace = man.Squad.Pace * Hurry * (Wall != null && Wall.Climbing(man.At) ? FieldWall.Climb : 1f);
+		float pace = man.Squad.Pace * Hurry * man.Stride * (Wall != null && Wall.Climbing(man.At) ? FieldWall.Climb : 1f);
 		Vector2 step = man.At + (man.Facing * Mathf.Min(pace * Slice, far - @short));
-		man.At = Wall == null ? step : Wall.Stop(man.At, step, mounted);
+		man.At = Wall == null ? step
+			: isEngine && (Wall.IsInside(step) || Wall.Blocked(man.At, step, true)) ? man.At
+			: Wall.Stop(man.At, step, mounted);
 	}
 
 	/// <summary>Takes the fallen out of the ranks, closes their files up behind them, and tells the

@@ -94,7 +94,11 @@ public partial class BattlefieldSquads
 			// He is done walking and turning: kept, every man who ever fell stayed in the books.
 			_turned.Remove(fall.Man);
 			_gaits.Remove(fall.Man);
-			Drawn drawn = _bySquad[fall.Squad];
+			if (!_bySquad.TryGetValue(fall.Squad, out Drawn drawn))
+			{
+				continue;
+			}
+
 			SoldierFigure figure = drawn.Figure;
 			float stature = figure.Stature;
 			// A man baked with a death plays it and ends on his back; anyone else is laid there.
