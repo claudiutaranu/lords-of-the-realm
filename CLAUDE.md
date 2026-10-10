@@ -332,6 +332,10 @@ The men live in **companies** (`FieldArmy`), not in one roster per county:
   pair, the seven letters, one alliance a lord, the grudge that ends it, two warnings and then a war
   that is never made up. The player's letters go out through `TurnManager.Write` (a gift is paid
   as it is sent) and are answered at the start of `RivalsTurn`; the replies wait in `Inbox`.
+- The lords march by it (`LordsCampaign.Wanted`): never on an ally's counties, the player's or
+  another lord's; at war with the player, even an Easy lord comes for him, and before the empty
+  country; a lord his ally sent against a realm (`Diplomacy.Errands`) goes for that realm first.
+  Everyone else is fair game, lord against lord.
 - No alliance with fewer than two rival lords (`Diplomacy.IsAllianceOpen`): swearing to the only
   other lord would leave nobody to fight and the map unwinnable, so on the first map the Margrave
   neither offers nor is offered one (the user's call).

@@ -230,6 +230,28 @@ public partial class LordCheck
 		Is("  and the player is told", told, true);
 		Is("  and with his only county gone, his reign is over", hard.PlayerFallen, true);
 
+		// Diplomacy is what he marches by: sworn to the player he leaves him be, however hard a lord he
+		// is; at war with him, even an easy lord comes for him.
+		(TurnManager sworn, FieldArmy _) = Board(Difficulty.Hard, surveyed: true, menInHost: 400);
+		sworn.Diplomacy.Allies["north"] = "crown";
+		sworn.Diplomacy.Allies["crown"] = "north";
+		for (int season = 0; season < 8; season++)
+		{
+			sworn.AdvanceTurn();
+		}
+
+		Is("a lord sworn to the player takes the empty country", sworn.AnyProvince("Middle")?.Realm, "north");
+		Is("  and leaves his ally's county alone", sworn.AnyProvince("South")?.Realm, "crown");
+
+		(TurnManager feud, FieldArmy _) = Board(Difficulty.Easy, surveyed: true, menInHost: 400);
+		feud.Diplomacy.Wars.Add(Diplomacy.Pair("north", "crown"));
+		for (int season = 0; season < 10 && feud.AnyProvince("South")?.Realm == "crown"; season++)
+		{
+			feud.AdvanceTurn();
+		}
+
+		Is("an easy lord at war with the player comes for him", feud.AnyProvince("South")?.Realm, "north");
+
 		// Manned walls are not stormed off the march, his any more than the player's: he sits down
 		// and builds his engines first.
 		(TurnManager walled, FieldArmy _) = Board(Difficulty.Hard, surveyed: true, menInHost: 400);

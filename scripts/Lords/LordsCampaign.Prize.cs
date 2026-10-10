@@ -9,17 +9,22 @@ public partial class LordsCampaign
 	private const int PrizesWeighed = 3;
 
 	/// <summary>The counties he could want: not his, somebody's to take — a county the map draws and
-	/// no economy describes cannot change hands, and a company once sat in one for twenty years — and
-	/// the player's only if his difficulty lets him. Nearest first.</summary>
+	/// no economy describes cannot change hands, and a company once sat in one for twenty years — not
+	/// his ally's, and the player's only if his difficulty lets him. Nearest first, but the realm his
+	/// ally sent him against before anyone.</summary>
 	private List<string> Wanted(TurnManager turns, FieldArmy army, string realm, GameBalance b, int skill)
 	{
 		Vector2 here = Pixel(army);
+		Diplomacy book = turns.Diplomacy;
+		string ally = book.AllyOf(realm);
+		bool isAtWarWithPlayer = book.AtWar(realm, turns.PlayerRealm);
 		var wanted = new List<string>();
 		foreach ((string county, Vector2 _) in _towns)
 		{
 			string holder = turns.AnyProvince(county)?.Realm ?? "";
-			if (holder == realm || !turns.CanBeTaken(county)
-				|| (holder == turns.PlayerRealm && b.LordWillAttackPlayer[skill] == 0))
+			bool isPlayers = holder == turns.PlayerRealm;
+			if (holder == realm || !turns.CanBeTaken(county) || (ally.Length > 0 && holder == ally)
+				|| (isPlayers && b.LordWillAttackPlayer[skill] == 0 && !isAtWarWithPlayer))
 			{
 				continue;
 			}
@@ -30,18 +35,28 @@ public partial class LordsCampaign
 		// The empty country first: while any county is still nobody's, the player's are not on his
 		// list. He grows on what is free for the taking, and comes for the player once there is
 		// nothing else left — which gives a lord who moves quickly the same country to race him for.
+		// Unless he has declared war on the player: then the player is what he is for.
 		bool free = wanted.Exists(county => turns.AnyProvince(county) == null);
-		if (free)
+		if (free && !isAtWarWithPlayer)
 		{
 			wanted.RemoveAll(county => turns.AnyProvince(county)?.Realm == turns.PlayerRealm);
 		}
 
+		string errand = book.Errands.GetValueOrDefault(realm, "");
 		wanted.Sort((x, y) =>
 		{
+			int sent = IsErrand(y).CompareTo(IsErrand(x));
+			if (sent != 0)
+			{
+				return sent;
+			}
+
 			int nearer = here.DistanceSquaredTo(_towns[x]).CompareTo(here.DistanceSquaredTo(_towns[y]));
 			return nearer != 0 ? nearer : string.CompareOrdinal(x, y);
 		});
 		return wanted;
+
+		bool IsErrand(string county) => errand.Length > 0 && turns.AnyProvince(county)?.Realm == errand;
 	}
 
 	/// <summary>The gate of a county he wants, if the company is standing at one.</summary>
