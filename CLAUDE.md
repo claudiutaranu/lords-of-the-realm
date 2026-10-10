@@ -143,7 +143,8 @@ The men live in **companies** (`FieldArmy`), not in one roster per county:
 - The barracks turns out a NEW company per muster. The walls (`FortificationsPage`) take from and
   give back to the company at the seat, through `ProvinceEconomy.Muster/Mustered`.
 - Two companies halting in the same field are joined only if the player says so (`JoinPanel` →
-  `TurnManager.Merge`, which keeps the slower pair of legs). Splitting is `SplitPanel`. Disbanding
+  `TurnManager.Merge`, which keeps the slower pair of legs); a hired band is joined and split like
+  any company (the user's call), the army panel saying how many of a company are hired. Splitting is `SplitPanel`. Disbanding
   returns the men to `Population` — they were taken out of it when they were raised.
 - A company is marched from its own banner on the map (or its army panel's Move); the sidebar has no March.
 
@@ -283,7 +284,7 @@ The men live in **companies** (`FieldArmy`), not in one roster per county:
 - Each lord keeps one raid out (`LordsCampaign.Raid`, the original AI's step 10): `LordRaidMen`
   peasants from his most peopled county, walking over his nearest enemy's fields and diggings for
   `LordRaidSeasons` (`Trample` does the harm), then home, where they go back to the county. A raid
-  (`FieldArmy.Raider`) keeps its banner like a hired band, takes no gate, and can be caught in the open.
+  (`FieldArmy.Raider`) keeps its own banner (`KeepsItsBanner`: never joined), takes no gate, and can be caught in the open.
 - A lord who takes a county settles it for `LordSettles` seasons before marching on the next, and
   the player hears of it ("rival-took"). Without it the Northern Watch had the whole empty country
   in five seasons on Medium and the player's seat by the fourth year.

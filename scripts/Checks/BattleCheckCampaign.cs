@@ -89,15 +89,20 @@ public partial class BattleCheck
 		own.Men["spear"] = 100;
 		FieldArmy band = watch.Raise(b.MarchReach);
 		band.Men["swiss"] = 100;
-		Is("a hired band is never joined to the county's own men", turns.Merge(own, band), false);
-		Is("  nor they to it", turns.Merge(band, own), false);
+		FieldArmy ours = crown.Raise(b.MarchReach);
+		ours.Men["spear"] = 50;
+		FieldArmy hired = crown.Raise(b.MarchReach);
+		hired.Men["swiss"] = 50;
+		Is("a hired band is joined to the county's own men when the lord says so (the user's call)",
+			turns.Merge(ours, hired) && ours.Men["swiss"] == 50 && crown.Armies.Count == 1, true);
+		crown.Disband(ours);
 
 		crown.Muster("sword", 80, b.MarchReach);
 		Battle.Result day = turns.Attack(crown.Armies[0], "Valmere", new Vector2(900, 200), walls: false);
-		Is("  it holds the gate beside them under its own banner", watch.Armies.Count, 2);
+		Is("  it holds the gate beside them, as one host", watch.Armies.Count, 1);
 		Is("  and the day's dead come off the two of them",
-			200 - own.Strength - band.Strength, day.DefenderFell);
-		Is("  and some of them off the band", band.Strength < 100 || day.DefenderFell == 0, true);
+			200 - watch.Armies[0].Strength, day.DefenderFell);
+		Is("  and some of them off the band", watch.Armies[0].Men.GetValueOrDefault("swiss") < 100 || day.DefenderFell == 0, true);
 	}
 
 	/// <summary>An army over another lord's land treads his corn and scatters his herd, a field once

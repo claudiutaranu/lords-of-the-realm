@@ -101,7 +101,9 @@ public partial class EconomyCheck
 		all.Disband(last);
 		Is("a company's number is never given out again", all.Raise(0f).Id, lastId + 1);
 		all.Disband(all.Armies[^1]);
-		Is("  and a hired band is not cut at all", all.Split(band, new Dictionary<string, int> { ["swiss"] = 40 }) == null, true);
+		FieldArmy piece = all.Split(band, new Dictionary<string, int> { ["swiss"] = 40 });
+		Is("  and a hired band is cut like any company", piece?.Strength, 40);
+		all.Disband(piece);
 		all.Disband(band);
 		Is("  and more than he has is only what he has",
 			all.Split(only, new Dictionary<string, int> { ["spear"] = 99 }) == null, true);

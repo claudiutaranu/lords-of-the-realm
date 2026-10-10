@@ -69,8 +69,7 @@ public partial class ProvinceEconomy
 	/// whose, because that is the part a save has to carry.</summary>
 	public FieldArmy Split(FieldArmy army, Dictionary<string, int> taken)
 	{
-		// A hired band is one company under one captain: it is not cut, as it is not joined.
-		if (!Armies.Contains(army) || army.IsHired)
+		if (!Armies.Contains(army))
 		{
 			return null;
 		}

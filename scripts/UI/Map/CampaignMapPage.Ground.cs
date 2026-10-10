@@ -111,17 +111,17 @@ public partial class CampaignMapPage
 	}
 
 	/// <summary>The lord's own company standing where another of his is being sent, which the two could
-	/// be joined to, or null. A hired band is never joined to anybody (TurnManager.Merge).</summary>
+	/// be joined to, or null. A raid is never joined to anybody (TurnManager.Merge).</summary>
 	private FieldArmy Joinable(FieldArmy army, string county, Vector2 at)
 	{
-		if (army.IsHired)
+		if (army.KeepsItsBanner)
 		{
 			return null;
 		}
 
 		foreach (FieldArmy other in _turnManager.Armies())
 		{
-			if (other != army && other.Strength > 0 && !other.IsHired && other.County == county
+			if (other != army && other.Strength > 0 && !other.KeepsItsBanner && other.County == county
 				&& _turnManager.RealmOf(other) == _playerRealm && ArmyPixel(other).DistanceTo(at) <= JoinReach)
 			{
 				return other;

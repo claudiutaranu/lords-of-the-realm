@@ -56,27 +56,9 @@ public class FieldArmy
 	[System.Text.Json.Serialization.JsonIgnore]
 	public int Strength => ProvinceEconomy.Men(Men);
 
-	/// <summary>Whether this company is never folded into another: a hired band, or a raid.</summary>
+	/// <summary>Whether this company is never folded into another: a raid. A hired band is joined to
+	/// the lord's own men when he says so (the user's call); the army panel still says how many of a
+	/// company are hired.</summary>
 	[System.Text.Json.Serialization.JsonIgnore]
-	public bool KeepsItsBanner => Raider || IsHired;
-
-	/// <summary>Whether any of these men are a hired band. A band marches under its own banner and
-	/// is never folded into the county's own men (TurnManager.Merge): a lord has to be able to see
-	/// which of his companies he is paying a captain for.</summary>
-	[System.Text.Json.Serialization.JsonIgnore]
-	public bool IsHired
-	{
-		get
-		{
-			foreach (string unit in Men.Keys)
-			{
-				if (Units.IsHired(unit))
-				{
-					return true;
-				}
-			}
-
-			return false;
-		}
-	}
+	public bool KeepsItsBanner => Raider;
 }

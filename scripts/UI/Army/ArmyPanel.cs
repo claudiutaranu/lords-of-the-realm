@@ -371,7 +371,7 @@ public partial class ArmyPanel : PaintedPanel
 			: $"{hired:N0} of them hired";
 
 		_march.Visible = yours && army.Strength > 0 && army.MarchLeft > 0f;
-		_split.Visible = yours && army.Strength > 1 && !army.IsHired;
+		_split.Visible = yours && army.Strength > 1;
 		_garrison.Visible = false;
 		_disband.Visible = yours;
 		_disbandAsked = false;
