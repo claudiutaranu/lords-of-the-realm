@@ -1,18 +1,32 @@
 {
+ "name": "The Kingdom",
  "player": "royal-crown",
  "unclaimed": "neutral",
- "rivalWallsUpTo": "medium-fort",
+ "rivalWallsUpTo": "medium-castle",
+ "opening": "Sire, the Marches are won, and the crown comes home to Wessex — one seat out of fourteen, and all of England and Wales to take back. Every lord who carved up the realm holds his share of it now: the Northern Watch in Cumbria, the Marshal's Eastern Host at York, the Castellan's Black Tower in the Welsh hills, and the Countess's Rose Court in East Anglia. Five counties lie unclaimed between you.\n\nThis is the last of it. Set your tax, fill your stores, and take back the kingdom.",
  "realms": {
   "royal-crown": {
    "name": "The Royal Crown"
   },
-  "duchess-realm": {
-   "name": "The Mercian March",
-   "lord": "countess"
+  "northern-watch": {
+   "name": "The Northern Watch",
+   "lord": "margrave",
+   "about": "Lord Alaric holds Cumbria and the Lancaster fells, the last of the north that is still his."
   },
-  "marshal-realm": {
-   "name": "The Northern Host",
-   "lord": "marshal"
+  "eastern-host": {
+   "name": "The Eastern Host",
+   "lord": "marshal",
+   "about": "Sir William rules from York, and the whole of the north-east answers to his host."
+  },
+  "black-tower": {
+   "name": "The Black Tower",
+   "lord": "castellan",
+   "about": "Lord Mortimer has walled Gwynedd and Deheubarth in stone. Wales is his, and he means to keep it."
+  },
+  "rose-court": {
+   "name": "The Rose Court",
+   "lord": "countess",
+   "about": "Countess Melanis holds East Anglia and Lincoln, rich in grain and in friends. She remembers every slight."
   },
   "neutral": {
    "name": "Unclaimed",
@@ -24,102 +38,200 @@
    "name": "Northumbria",
    "x": 1853,
    "y": 442,
-   "realm": "marshal-realm",
-   "region": "south"
+   "realm": "eastern-host",
+   "economy": "northumbria",
+   "region": "north",
+   "neighbours": [
+    "Cumbria",
+    "York"
+   ]
   },
   {
    "name": "Cumbria",
    "x": 1586,
    "y": 554,
-   "realm": "neutral",
-   "region": "south"
+   "realm": "northern-watch",
+   "economy": "cumbria",
+   "capital": true,
+   "region": "north",
+   "neighbours": [
+    "Northumbria",
+    "York",
+    "Lancaster"
+   ]
   },
   {
    "name": "York",
    "x": 1988,
    "y": 890,
-   "realm": "marshal-realm",
-   "region": "south",
-   "capital": true
+   "realm": "eastern-host",
+   "economy": "york",
+   "capital": true,
+   "region": "north",
+   "neighbours": [
+    "Northumbria",
+    "Cumbria",
+    "Lancaster",
+    "Lincoln",
+    "Mercia"
+   ]
   },
   {
    "name": "Lancaster",
    "x": 1657,
    "y": 966,
-   "realm": "neutral",
-   "region": "south"
+   "realm": "northern-watch",
+   "economy": "lancaster",
+   "region": "north",
+   "neighbours": [
+    "Cumbria",
+    "York",
+    "Mercia",
+    "Gwynedd"
+   ]
   },
   {
    "name": "Lincoln",
    "x": 2124,
    "y": 1183,
-   "realm": "neutral",
-   "region": "south"
+   "realm": "rose-court",
+   "economy": "lincoln",
+   "region": "south",
+   "neighbours": [
+    "York",
+    "Mercia",
+    "East Anglia",
+    "London"
+   ]
   },
   {
    "name": "Mercia",
    "x": 1842,
    "y": 1381,
-   "realm": "duchess-realm",
+   "realm": "neutral",
+   "economy": "mercia",
    "region": "south",
-   "capital": true
+   "neighbours": [
+    "York",
+    "Lancaster",
+    "Lincoln",
+    "Gwynedd",
+    "London",
+    "Gloucester"
+   ]
   },
   {
    "name": "Gwynedd",
    "x": 1294,
    "y": 1186,
-   "realm": "neutral",
-   "region": "south"
+   "realm": "black-tower",
+   "economy": "gwynedd",
+   "capital": true,
+   "region": "north",
+   "neighbours": [
+    "Lancaster",
+    "Mercia",
+    "Deheubarth"
+   ]
   },
   {
    "name": "Deheubarth",
    "x": 1331,
    "y": 1616,
-   "realm": "neutral",
-   "region": "south"
+   "realm": "black-tower",
+   "economy": "deheubarth",
+   "region": "south",
+   "neighbours": [
+    "Gwynedd",
+    "Gloucester",
+    "Dumnonia"
+   ]
   },
   {
    "name": "East Anglia",
    "x": 2439,
    "y": 1399,
-   "realm": "duchess-realm",
-   "region": "south"
+   "realm": "rose-court",
+   "economy": "east-anglia",
+   "capital": true,
+   "region": "south",
+   "neighbours": [
+    "Lincoln",
+    "London",
+    "Kent"
+   ]
   },
   {
    "name": "London",
    "x": 2190,
    "y": 1742,
    "realm": "neutral",
-   "region": "south"
+   "economy": "london",
+   "region": "south",
+   "neighbours": [
+    "Lincoln",
+    "Mercia",
+    "East Anglia",
+    "Kent",
+    "Wessex",
+    "Gloucester"
+   ]
   },
   {
    "name": "Kent",
    "x": 2407,
    "y": 1886,
    "realm": "neutral",
-   "region": "south"
+   "economy": "kent",
+   "region": "south",
+   "neighbours": [
+    "East Anglia",
+    "London",
+    "Wessex"
+   ]
   },
   {
    "name": "Wessex",
    "x": 1918,
    "y": 1923,
    "realm": "royal-crown",
+   "economy": "wessex",
+   "capital": true,
    "region": "south",
-   "capital": true
+   "neighbours": [
+    "London",
+    "Kent",
+    "Gloucester",
+    "Dumnonia"
+   ]
   },
   {
    "name": "Gloucester",
    "x": 1712,
    "y": 1634,
    "realm": "neutral",
-   "region": "south"
+   "economy": "gloucester",
+   "region": "south",
+   "neighbours": [
+    "Mercia",
+    "Deheubarth",
+    "London",
+    "Wessex",
+    "Dumnonia"
+   ]
   },
   {
    "name": "Dumnonia",
    "x": 1455,
    "y": 2060,
    "realm": "neutral",
-   "region": "south"
+   "economy": "dumnonia",
+   "region": "south",
+   "neighbours": [
+    "Deheubarth",
+    "Wessex",
+    "Gloucester"
+   ]
   }
  ]
 }

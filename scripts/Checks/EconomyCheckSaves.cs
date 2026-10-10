@@ -63,7 +63,9 @@ public partial class EconomyCheck
 		Is("the first map is named off its own file", Campaign.Name, "The Royal Crown");
 		Is("after the first map comes the second", Campaign.Advance() && Campaign.Folder == "england/maps/two-rivers", true);
 		Is("  under its own name", Campaign.Name, "The Two Rivers");
-		Is("  and after it, nothing yet", Campaign.Advance(), false);
+		Is("  then the Marches", Campaign.Advance() && Campaign.Folder == "england/maps/the-marches", true);
+		Is("  then the whole kingdom", Campaign.Advance() && Campaign.Folder == "england/maps/kingdom", true);
+		Is("  and after it, nothing", Campaign.Advance(), false);
 
 		Seats();
 		Campaign.Folder = playing;

@@ -44,7 +44,7 @@ public partial class CampaignPage : Control
 		var england = CampaignRealmCard.Make("England Campaign", $"{Art}/england.jpg", lords, isOpen: true,
 			lords[1].Colour, lords[0].Colour,
 			"Take up the crown of a broken kingdom and win it back, county by county, from the lords who carved it up.",
-			maps: 2);
+			maps: 4);
 		var romania = CampaignRealmCard.Make("Romania Campaign", $"{Art}/romania.jpg",
 			System.Array.Empty<CampaignRealmCard.LordFace>(), isOpen: false, Ash, Ash);
 

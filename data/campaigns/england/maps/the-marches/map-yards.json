@@ -1,0 +1,62 @@
+[
+ {
+  "province": "Kingsford",
+  "x": 440.0,
+  "y": 1180.0
+ },
+ {
+  "province": "Westmere",
+  "x": 280.0,
+  "y": 960.0
+ },
+ {
+  "province": "Ashbury",
+  "x": 800.0,
+  "y": 1290.0
+ },
+ {
+  "province": "Millbrook",
+  "x": 1120.0,
+  "y": 1060.0
+ },
+ {
+  "province": "Highcairn",
+  "x": 460.0,
+  "y": 420.0
+ },
+ {
+  "province": "Fellmoor",
+  "x": 250.0,
+  "y": 620.0
+ },
+ {
+  "province": "Blacktower",
+  "x": 1180.0,
+  "y": 560.0
+ },
+ {
+  "province": "Ravenscar",
+  "x": 860.0,
+  "y": 420.0
+ },
+ {
+  "province": "Ironhold",
+  "x": 2150.0,
+  "y": 440.0
+ },
+ {
+  "province": "Stagford",
+  "x": 2250.0,
+  "y": 820.0
+ },
+ {
+  "province": "Harwick",
+  "x": 1760.0,
+  "y": 700.0
+ },
+ {
+  "province": "Oakhurst",
+  "x": 1820.0,
+  "y": 1180.0
+ }
+]

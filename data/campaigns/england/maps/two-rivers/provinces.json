@@ -1,5 +1,6 @@
 {
  "name": "The Two Rivers",
+ "next": "england/maps/the-marches",
  "opening": "Sire, the island is won, and the crown is carried over the sea to Kingsbridge — one seat out of ten on this map. Two lords hold the rest of it between them: the Northern Watch beyond the Wend under the Grey Fells, and the Marshal's Eastern Host across the water in the east, under the Iron Hills. Seven counties lie unclaimed.\n\nThe rivers are crossed in two places each. Whoever holds the crossings holds the south.\n\nSet your tax, fill your stores, and raise an army before either of them comes over the water.",
  "player": "royal-crown",
  "unclaimed": "neutral",

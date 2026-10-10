@@ -1,0 +1,281 @@
+[
+ {
+  "x": 376.6,
+  "y": 1072.0,
+  "between": [
+   "Kingsford",
+   "Westmere"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 368.0,
+  "y": 507.9,
+  "between": [
+   "Fellmoor",
+   "Highcairn"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 651.5,
+  "y": 1173.6,
+  "between": [
+   "Ashbury",
+   "Kingsford"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 342.6,
+  "y": 772.0,
+  "between": [
+   "Fellmoor",
+   "Westmere"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 680.0,
+  "y": 391.4,
+  "between": [
+   "Highcairn",
+   "Ravenscar"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 948.0,
+  "y": 1171.1,
+  "between": [
+   "Ashbury",
+   "Millbrook"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 970.5,
+  "y": 532.0,
+  "between": [
+   "Blacktower",
+   "Ravenscar"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 2252.4,
+  "y": 664.0,
+  "between": [
+   "Ironhold",
+   "Stagford"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 2000.0,
+  "y": 773.5,
+  "between": [
+   "Harwick",
+   "Stagford"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 1757.6,
+  "y": 912.0,
+  "between": [
+   "Harwick",
+   "Oakhurst"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 1470.7,
+  "y": 1169.3,
+  "between": [
+   "Millbrook",
+   "Oakhurst"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 1992.0,
+  "y": 540.0,
+  "between": [
+   "Harwick",
+   "Ironhold"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 2100.0,
+  "y": 1064.0,
+  "between": [
+   "Oakhurst",
+   "Stagford"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 749.0,
+  "y": 829.0,
+  "between": [
+   "Kingsford",
+   "Westmere"
+  ],
+  "kind": "ford"
+ },
+ {
+  "x": 143.0,
+  "y": 1236.0,
+  "between": [
+   "Kingsford",
+   "Westmere"
+  ],
+  "kind": "ford"
+ },
+ {
+  "x": 764.0,
+  "y": 903.0,
+  "between": [
+   "Ashbury",
+   "Kingsford"
+  ],
+  "kind": "ford"
+ },
+ {
+  "x": 581.0,
+  "y": 1425.0,
+  "between": [
+   "Ashbury",
+   "Kingsford"
+  ],
+  "kind": "ford"
+ },
+ {
+  "x": 764.0,
+  "y": 902.0,
+  "between": [
+   "Kingsford",
+   "Millbrook"
+  ],
+  "kind": "ford"
+ },
+ {
+  "x": 749.0,
+  "y": 828.0,
+  "between": [
+   "Millbrook",
+   "Westmere"
+  ],
+  "kind": "ford"
+ },
+ {
+  "x": 1179.0,
+  "y": 1427.0,
+  "between": [
+   "Ashbury",
+   "Millbrook"
+  ],
+  "kind": "ford"
+ },
+ {
+  "x": 765.0,
+  "y": 903.0,
+  "between": [
+   "Ashbury",
+   "Millbrook"
+  ],
+  "kind": "ford"
+ },
+ {
+  "x": 1050.0,
+  "y": 780.0,
+  "between": [
+   "Blacktower",
+   "Millbrook"
+  ],
+  "kind": "ford"
+ },
+ {
+  "x": 599.0,
+  "y": 795.0,
+  "between": [
+   "Fellmoor",
+   "Highcairn"
+  ],
+  "kind": "ford"
+ },
+ {
+  "x": 658.0,
+  "y": 761.0,
+  "between": [
+   "Highcairn",
+   "Ravenscar"
+  ],
+  "kind": "ford"
+ },
+ {
+  "x": 631.0,
+  "y": 78.0,
+  "between": [
+   "Highcairn",
+   "Ravenscar"
+  ],
+  "kind": "ford"
+ },
+ {
+  "x": 1251.0,
+  "y": 63.0,
+  "between": [
+   "Blacktower",
+   "Ravenscar"
+  ],
+  "kind": "ford"
+ },
+ {
+  "x": 1112.0,
+  "y": 299.0,
+  "between": [
+   "Blacktower",
+   "Ravenscar"
+  ],
+  "kind": "ford"
+ },
+ {
+  "x": 1479.0,
+  "y": 675.0,
+  "between": [
+   "Blacktower",
+   "Harwick"
+  ],
+  "kind": "ford"
+ },
+ {
+  "x": 1682.0,
+  "y": 80.0,
+  "between": [
+   "Harwick",
+   "Ironhold"
+  ],
+  "kind": "ford"
+ },
+ {
+  "x": 1790.0,
+  "y": 341.0,
+  "between": [
+   "Harwick",
+   "Ironhold"
+  ],
+  "kind": "ford"
+ },
+ {
+  "x": 1458.0,
+  "y": 968.0,
+  "between": [
+   "Harwick",
+   "Oakhurst"
+  ],
+  "kind": "ford"
+ }
+]

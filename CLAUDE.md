@@ -48,10 +48,11 @@ campaigns/ (`england/maps/royal-crown`); `Campaign.Open` sets it and the name th
 gives it (`"name"`), and its `"next"` is the map Victory's Next opens the briefing of
 (`Campaign.Advance`; nothing carries over). A map's first-turn speech is its `"opening"`, and a realm's
 `"about"` is what the briefing says of its lord (his name and motto are `lords.json`'s).
-England's first map is the Royal Crown's island against the Margrave; its second, `two-rivers`
-(2048x1536), is three lords on an island cut in three by the Wend and the Greyrun, each crossed in
-two places only — the Margrave north-west, the Marshal east, the player south-west; `kingdom`
-(England and Wales, 3584x2560) is drawn but has no economies yet and is on nobody's "next". A map's
+England is four maps, a lord more on each (the user's call): the Royal Crown's island against the
+Margrave; the Two Rivers (2048x1536), the Marshal joining, on an island cut in three by the Wend and
+the Greyrun; the Marches (2560x1536), the Castellan's Black Tower added in the hills between the Dee
+and the Wyre; and last the Kingdom, England and Wales (3584x2560), all four against the player, the
+Countess's Rose Court in East Anglia. A map's
 sides must be multiples of 512 for Terrain3D's regions; the world's size is read off its height map.
 Generate a map with `tools/rebuild-map.sh <campaign>/maps/<map>` (or the generator directly, through
 tools/.venv). A river (map.json `"rivers"`) is the sea let into the land along a meandering line with

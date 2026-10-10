@@ -1,0 +1,192 @@
+{
+ "name": "The Marches",
+ "next": "england/maps/kingdom",
+ "player": "royal-crown",
+ "unclaimed": "neutral",
+ "rivalWallsUpTo": "small-castle",
+ "opening": "Sire, the Two Rivers are yours, and the crown has come up to Kingsford in the Marches — one seat out of twelve. Three lords hold the rest: the Northern Watch in the fells of the north-west, the Castellan's Black Tower in the hills at the heart of the country, and the Marshal's Eastern Host beyond the Wyre. Five counties lie unclaimed.\n\nThe Dee and the Wyre are crossed in two places each. The Castellan's towers stand between you and the north.\n\nSet your tax, fill your stores, and raise an army before they come down from the hills.",
+ "realms": {
+  "royal-crown": {
+   "name": "The Royal Crown"
+  },
+  "northern-watch": {
+   "name": "The Northern Watch",
+   "lord": "margrave",
+   "about": "Twice driven back, Lord Alaric holds the fells of the north-west and knows every pass in them."
+  },
+  "black-tower": {
+   "name": "The Black Tower",
+   "lord": "castellan",
+   "about": "Lord Mortimer has walled the hills at the heart of the Marches in stone. He offers friendship freely, and keeps his gates shut."
+  },
+  "eastern-host": {
+   "name": "The Eastern Host",
+   "lord": "marshal",
+   "about": "Sir William holds the country beyond the Wyre and has never yet waited for an enemy to come to him."
+  },
+  "neutral": {
+   "name": "Unclaimed",
+   "accent": "8b8b86"
+  }
+ },
+ "provinces": [
+  {
+   "name": "Kingsford",
+   "x": 440,
+   "y": 1180,
+   "realm": "royal-crown",
+   "economy": "kingsford",
+   "capital": true,
+   "region": "south",
+   "neighbours": [
+    "Westmere",
+    "Ashbury",
+    "Millbrook"
+   ]
+  },
+  {
+   "name": "Westmere",
+   "x": 280,
+   "y": 960,
+   "realm": "neutral",
+   "economy": "westmere",
+   "region": "south",
+   "neighbours": [
+    "Kingsford",
+    "Millbrook",
+    "Fellmoor"
+   ]
+  },
+  {
+   "name": "Ashbury",
+   "x": 800,
+   "y": 1290,
+   "realm": "neutral",
+   "economy": "ashbury",
+   "region": "south",
+   "neighbours": [
+    "Kingsford",
+    "Millbrook"
+   ]
+  },
+  {
+   "name": "Millbrook",
+   "x": 1120,
+   "y": 1060,
+   "realm": "neutral",
+   "economy": "millbrook",
+   "region": "south",
+   "neighbours": [
+    "Kingsford",
+    "Westmere",
+    "Ashbury",
+    "Blacktower",
+    "Oakhurst"
+   ]
+  },
+  {
+   "name": "Highcairn",
+   "x": 460,
+   "y": 420,
+   "realm": "northern-watch",
+   "economy": "highcairn",
+   "capital": true,
+   "region": "north",
+   "neighbours": [
+    "Fellmoor",
+    "Ravenscar"
+   ]
+  },
+  {
+   "name": "Fellmoor",
+   "x": 250,
+   "y": 620,
+   "realm": "northern-watch",
+   "economy": "fellmoor",
+   "region": "north",
+   "neighbours": [
+    "Westmere",
+    "Highcairn"
+   ]
+  },
+  {
+   "name": "Blacktower",
+   "x": 1180,
+   "y": 560,
+   "realm": "black-tower",
+   "economy": "blacktower",
+   "capital": true,
+   "region": "north",
+   "neighbours": [
+    "Millbrook",
+    "Ravenscar",
+    "Harwick"
+   ]
+  },
+  {
+   "name": "Ravenscar",
+   "x": 860,
+   "y": 420,
+   "realm": "black-tower",
+   "economy": "ravenscar",
+   "region": "north",
+   "neighbours": [
+    "Highcairn",
+    "Blacktower"
+   ]
+  },
+  {
+   "name": "Ironhold",
+   "x": 2150,
+   "y": 440,
+   "realm": "eastern-host",
+   "economy": "ironhold",
+   "capital": true,
+   "region": "north",
+   "neighbours": [
+    "Stagford",
+    "Harwick"
+   ]
+  },
+  {
+   "name": "Stagford",
+   "x": 2250,
+   "y": 820,
+   "realm": "eastern-host",
+   "economy": "stagford",
+   "region": "south",
+   "neighbours": [
+    "Ironhold",
+    "Harwick",
+    "Oakhurst"
+   ]
+  },
+  {
+   "name": "Harwick",
+   "x": 1760,
+   "y": 700,
+   "realm": "neutral",
+   "economy": "harwick",
+   "region": "south",
+   "neighbours": [
+    "Blacktower",
+    "Ironhold",
+    "Stagford",
+    "Oakhurst"
+   ]
+  },
+  {
+   "name": "Oakhurst",
+   "x": 1820,
+   "y": 1180,
+   "realm": "neutral",
+   "economy": "oakhurst",
+   "region": "south",
+   "neighbours": [
+    "Millbrook",
+    "Stagford",
+    "Harwick"
+   ]
+  }
+ ]
+}

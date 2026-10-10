@@ -23,6 +23,7 @@ public partial class CampaignBriefingPage : Control
 
 	/// <summary>How large each rival's face is when more than one shares the column.</summary>
 	private const int SharedPortraitSide = 170;
+	private const int CompactPortraitSide = 112;
 	private const string RivalColumn = "MainRow/RivalPanel/RivalContent";
 
 	public override void _Ready()
@@ -150,17 +151,57 @@ public partial class CampaignBriefingPage : Control
 			}
 		}
 
-		string[] parts = { "Portrait", "RivalName", "RivalRealm", "RivalQuote", "RivalDescription" };
+		// Three lords or more do not fit one under another: they stand two to a row, each his face, his
+		// name and his realm, without the motto and the word on him.
+		bool isCompact = rivals.Count > 2;
+		string[] parts = isCompact
+			? new[] { "Portrait", "RivalName", "RivalRealm" }
+			: new[] { "Portrait", "RivalName", "RivalRealm", "RivalQuote", "RivalDescription" };
 		Node column = GetNode(RivalColumn);
-		int side = rivals.Count > 1 ? SharedPortraitSide : PortraitSide;
+		GridContainer grid = null;
+		if (isCompact)
+		{
+			GetNode<Control>($"{RivalColumn}/RivalQuote").Visible = false;
+			GetNode<Control>($"{RivalColumn}/RivalDescription").Visible = false;
+			grid = new GridContainer { Columns = 2 };
+			grid.AddThemeConstantOverride("h_separation", 10);
+			grid.AddThemeConstantOverride("v_separation", 12);
+			column.AddChild(grid);
+		}
+
+		int side = isCompact ? CompactPortraitSide : rivals.Count > 1 ? SharedPortraitSide : PortraitSide;
+		var originals = new System.Collections.Generic.Dictionary<string, Control>();
+		foreach (string part in parts)
+		{
+			originals[part] = GetNode<Control>($"{RivalColumn}/{part}");
+		}
+
 		for (int i = 0; i < rivals.Count; i++)
 		{
 			var block = new System.Collections.Generic.Dictionary<string, Control>();
+			var cell = isCompact ? new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill } : null;
+			grid?.AddChild(cell);
 			foreach (string part in parts)
 			{
-				var original = GetNode<Control>($"{RivalColumn}/{part}");
+				Control original = originals[part];
 				block[part] = i == 0 ? original : (Control)original.Duplicate();
-				if (i > 0)
+				if (cell != null)
+				{
+					if (i == 0)
+					{
+						original.Reparent(cell, false);
+					}
+					else
+					{
+						cell.AddChild(block[part]);
+					}
+
+					if (block[part] is Label words)
+					{
+						words.AddThemeFontSizeOverride("font_size", 14);
+					}
+				}
+				else if (i > 0)
 				{
 					column.AddChild(block[part]);
 				}
@@ -175,14 +216,17 @@ public partial class CampaignBriefingPage : Control
 	{
 		var name = (Label)block["RivalName"];
 		var realmName = (Label)block["RivalRealm"];
-		var motto = (Label)block["RivalQuote"];
-		var about = (Label)block["RivalDescription"];
 		name.Text = lord.Name.Length > 0 ? lord.Name : lord.Title;
 		realmName.Text = realm["name"].AsString();
-		motto.Text = $"\"{lord.Motto}\"";
-		motto.Visible = lord.Motto.Length > 0;
-		about.Text = realm.TryGetValue("about", out Variant said) ? said.AsString() : "";
-		about.Visible = about.Text.Length > 0;
+		if (block.TryGetValue("RivalQuote", out Control quote) && block.TryGetValue("RivalDescription", out Control said))
+		{
+			var motto = (Label)quote;
+			var about = (Label)said;
+			motto.Text = $"\"{lord.Motto}\"";
+			motto.Visible = lord.Motto.Length > 0;
+			about.Text = realm.TryGetValue("about", out Variant word) ? word.AsString() : "";
+			about.Visible = about.Text.Length > 0;
+		}
 
 		Control still = block["Portrait"];
 		still.CustomMinimumSize = new Vector2(0, side);

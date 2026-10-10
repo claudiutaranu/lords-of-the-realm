@@ -1,0 +1,14 @@
+[remap]
+
+importer="image"
+type="Image"
+uid="uid://3of1j0k4tysn"
+path="res://.godot/imported/map-height.png-55053ad99ba26a913ab20997f5ede465.image"
+
+[deps]
+
+source_file="res://assets/campaigns/england/maps/the-marches/map-height.png"
+dest_files=["res://.godot/imported/map-height.png-55053ad99ba26a913ab20997f5ede465.image"]
+
+[params]
+

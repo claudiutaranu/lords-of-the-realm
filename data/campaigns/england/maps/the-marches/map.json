@@ -1,0 +1,342 @@
+{
+ "_comment": "The England campaign's third map: the Marches, where three lords hold the ground between the player and the crown \u2014 the Northern Watch in the fells of the north-west, the Castellan's Black Tower in the hills at the heart of it, and the Marshal's Eastern Host beyond the Wyre. The Dee comes in from the western sea to join the Wyre, and each is crossed in two places only. Read by tools/generate_campaign_map.py.",
+ "size": [
+  2560,
+  1536
+ ],
+ "outline": [
+  [
+   150,
+   300
+  ],
+  [
+   260,
+   170
+  ],
+  [
+   430,
+   150
+  ],
+  [
+   600,
+   90
+  ],
+  [
+   800,
+   120
+  ],
+  [
+   1000,
+   70
+  ],
+  [
+   1250,
+   66
+  ],
+  [
+   1500,
+   66
+  ],
+  [
+   1800,
+   66
+  ],
+  [
+   2100,
+   66
+  ],
+  [
+   2400,
+   66
+  ],
+  [
+   2494,
+   66
+  ],
+  [
+   2494,
+   400
+  ],
+  [
+   2494,
+   700
+  ],
+  [
+   2494,
+   1000
+  ],
+  [
+   2420,
+   1160
+  ],
+  [
+   2300,
+   1240
+  ],
+  [
+   2200,
+   1390
+  ],
+  [
+   2020,
+   1430
+  ],
+  [
+   1880,
+   1370
+  ],
+  [
+   1750,
+   1450
+  ],
+  [
+   1600,
+   1470
+  ],
+  [
+   1420,
+   1400
+  ],
+  [
+   1280,
+   1460
+  ],
+  [
+   1100,
+   1440
+  ],
+  [
+   950,
+   1470
+  ],
+  [
+   800,
+   1410
+  ],
+  [
+   640,
+   1450
+  ],
+  [
+   480,
+   1440
+  ],
+  [
+   340,
+   1380
+  ],
+  [
+   220,
+   1260
+  ],
+  [
+   140,
+   1120
+  ],
+  [
+   110,
+   960
+  ],
+  [
+   160,
+   860
+  ],
+  [
+   100,
+   740
+  ],
+  [
+   150,
+   620
+  ],
+  [
+   110,
+   480
+  ]
+ ],
+ "terrain": {
+  "sea_floor_byte": 46.0,
+  "ridge_height": 215.0,
+  "ridge_detail": 112.0,
+  "inland_height": 52.0,
+  "north_lift": 26.0,
+  "seat_height": 16.0,
+  "noise_height": 9.0,
+  "lowland_detail": 0.05,
+  "outcrop_height": 24.0,
+  "outcrop_cover": 0.11,
+  "border_warp": 55.0,
+  "coast_rock_height": 30.0,
+  "coast_rock_width": 3.4,
+  "coast_bays": 48.0
+ },
+ "islands": {
+  "islet_height": 14.0,
+  "stack_height": 24.0,
+  "emergent_shape": 0.55,
+  "base_reach": 6,
+  "stack_count": 0,
+  "islets_per_province": 0.0
+ },
+ "forest": {
+  "southern_density": 0.72,
+  "northern_density": 1.0,
+  "treeline_strength": 0.7
+ },
+ "ranges": [
+  {
+   "name": "The Fells",
+   "line": [
+    [
+     180,
+     420
+    ],
+    [
+     360,
+     250
+    ],
+    [
+     620,
+     220
+    ]
+   ],
+   "width": 75,
+   "height": 0.9
+  },
+  {
+   "name": "The Black Hills",
+   "line": [
+    [
+     980,
+     420
+    ],
+    [
+     1150,
+     330
+    ],
+    [
+     1380,
+     420
+    ],
+    [
+     1330,
+     640
+    ]
+   ],
+   "width": 85,
+   "height": 1.0
+  },
+  {
+   "name": "The Iron Hills",
+   "line": [
+    [
+     1900,
+     200
+    ],
+    [
+     2250,
+     180
+    ],
+    [
+     2440,
+     420
+    ]
+   ],
+   "width": 80,
+   "height": 0.85
+  },
+  {
+   "name": "The Downs",
+   "line": [
+    [
+     600,
+     1350
+    ],
+    [
+     950,
+     1360
+    ]
+   ],
+   "width": 45,
+   "height": 0.35
+  }
+ ],
+ "rivers": [
+  {
+   "name": "The Wyre",
+   "line": [
+    [
+     1620,
+     -20
+    ],
+    [
+     1560,
+     300
+    ],
+    [
+     1500,
+     700
+    ],
+    [
+     1440,
+     1000
+    ],
+    [
+     1480,
+     1200
+    ],
+    [
+     1440,
+     1560
+    ]
+   ],
+   "width": 40,
+   "crossings": [
+    [
+     1500,
+     700
+    ],
+    [
+     1480,
+     1200
+    ]
+   ]
+  },
+  {
+   "name": "The Dee",
+   "line": [
+    [
+     -20,
+     770
+    ],
+    [
+     380,
+     745
+    ],
+    [
+     800,
+     800
+    ],
+    [
+     1150,
+     790
+    ],
+    [
+     1470,
+     850
+    ]
+   ],
+   "width": 34,
+   "crossings": [
+    [
+     380,
+     745
+    ],
+    [
+     1000,
+     795
+    ]
+   ]
+  }
+ ]
+}

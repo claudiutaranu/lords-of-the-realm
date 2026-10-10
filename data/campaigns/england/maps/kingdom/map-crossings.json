@@ -1,6 +1,6 @@
 [
  {
-  "x": 1793.1,
+  "x": 1796.2,
   "y": 1496.0,
   "between": [
    "Gloucester",
@@ -18,8 +18,8 @@
   "kind": "road"
  },
  {
-  "x": 1704.0,
-  "y": 449.5,
+  "x": 1712.0,
+  "y": 456.0,
   "between": [
    "Cumbria",
    "Northumbria"
@@ -27,17 +27,8 @@
   "kind": "road"
  },
  {
-  "x": 1990.3,
-  "y": 1060.4,
-  "between": [
-   "Lincoln",
-   "York"
-  ],
-  "kind": "road"
- },
- {
-  "x": 1984.0,
-  "y": 1221.5,
+  "x": 1992.0,
+  "y": 1224.0,
   "between": [
    "Lincoln",
    "Mercia"
@@ -63,26 +54,26 @@
   "kind": "road"
  },
  {
-  "x": 2244.4,
-  "y": 1311.8,
+  "x": 2080.0,
+  "y": 1044.0,
   "between": [
-   "East Anglia",
-   "Lincoln"
-  ],
-  "kind": "road"
- },
- {
-  "x": 1897.0,
-  "y": 668.2,
-  "between": [
-   "Northumbria",
+   "Lincoln",
    "York"
   ],
   "kind": "road"
  },
  {
-  "x": 1556.0,
-  "y": 1687.4,
+  "x": 2313.7,
+  "y": 1568.0,
+  "between": [
+   "East Anglia",
+   "London"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 1560.0,
+  "y": 1686.7,
   "between": [
    "Deheubarth",
    "Gloucester"
@@ -99,7 +90,16 @@
   "kind": "road"
  },
  {
-  "x": 1665.8,
+  "x": 1941.5,
+  "y": 664.0,
+  "between": [
+   "Northumbria",
+   "York"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 1666.7,
   "y": 740.0,
   "between": [
    "Cumbria",
@@ -108,8 +108,8 @@
   "kind": "road"
  },
  {
-  "x": 1568.0,
-  "y": 1137.2,
+  "x": 1575.3,
+  "y": 1144.0,
   "between": [
    "Gwynedd",
    "Lancaster"
@@ -117,40 +117,31 @@
   "kind": "road"
  },
  {
-  "x": 2313.7,
-  "y": 1568.0,
+  "x": 2244.4,
+  "y": 1311.8,
   "between": [
    "East Anglia",
+   "Lincoln"
+  ],
+  "kind": "road"
+ },
+ {
+  "x": 2168.0,
+  "y": 1907.8,
+  "between": [
+   "Kent",
    "London"
   ],
   "kind": "road"
  },
  {
-  "x": 1990.3,
-  "y": 1060.4,
+  "x": 2096.0,
+  "y": 1920.0,
   "between": [
-   "Lincoln",
-   "York"
+   "London",
+   "Wessex"
   ],
   "kind": "road"
- },
- {
-  "x": 1979.8,
-  "y": 1220.0,
-  "between": [
-   "Lincoln",
-   "Mercia"
-  ],
-  "kind": "road"
- },
- {
-  "x": 1832.0,
-  "y": 684.0,
-  "between": [
-   "Cumbria",
-   "Northumbria"
-  ],
-  "kind": "ford"
  },
  {
   "x": 1806.0,
@@ -166,15 +157,6 @@
   "y": 913.0,
   "between": [
    "Lancaster",
-   "York"
-  ],
-  "kind": "ford"
- },
- {
-  "x": 2248.0,
-  "y": 1005.0,
-  "between": [
-   "Lincoln",
    "York"
   ],
   "kind": "ford"

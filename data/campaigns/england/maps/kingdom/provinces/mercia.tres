@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="ProvinceDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/Economy/ProvinceDefinition.cs" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+ProvinceName = "Mercia"
+InitialPopulation = 390
+GrainWorkerCapacity = 280
+CattleWorkerCapacity = 140
+WoodWorkerCapacity = 360
+StoneWorkerCapacity = 120
+IronWorkerCapacity = 0
+GrainModifier = 1.0
+CattleModifier = 1.0
+WoodModifier = 1.4
+StoneModifier = 0.8
+IronModifier = 0.6
+InitialGold = 350
+InitialGrain = 280
+InitialCattle = 45
+InitialWood = 320
+InitialStone = 130
+InitialIron = 55
