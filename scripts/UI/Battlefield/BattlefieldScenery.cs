@@ -161,6 +161,9 @@ public partial class Battlefield
 	private const float ShadedWithin = WoodsFrom + 35f;
 	private const float WoodShade = 0.62f;
 
+	/// <summary>Where the dark past the field starts coming down over the wood.</summary>
+	private const float DarkFrom = 150f;
+
 	private static Node3D Wood(BattlefieldLand land)
 	{
 		var wood = new Node3D();
@@ -186,11 +189,9 @@ public partial class Battlefield
 			var far = new List<Transform3D>();
 			for (int i = 0; i < Trees / Woods.Length; i++)
 			{
-				Vector2 at = stands[dice.RandiRange(0, Stands - 1)]
-					+ (new Vector2(dice.RandfRange(-1f, 1f), dice.RandfRange(-1f, 1f)) * StandWide);
-				if (at.Length() < WoodsFrom)
+				if (InStand(stands, dice) is not Vector2 at)
 				{
-					at = at.Normalized() * WoodsFrom;
+					continue;
 				}
 
 				// Trees are never all the same height, nor as tall as they are wide.
@@ -226,7 +227,67 @@ public partial class Battlefield
 			}
 		}
 
+		Leafed(wood, land, dice, stands);
 		return wood;
+	}
+
+	/// <summary>A place for a tree in one of the stands, scattered round its middle; none where the stand
+	/// spills onto the field. Pushed back to the field's edge instead, as they once were, they stood a
+	/// ring of trunks round it like a fence.</summary>
+	private static Vector2? InStand(Vector2[] stands, RandomNumberGenerator dice)
+	{
+		float angle = dice.RandfRange(0f, Mathf.Tau);
+		Vector2 at = stands[dice.RandiRange(0, stands.Length - 1)]
+			+ (new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * StandWide * Mathf.Sqrt(dice.Randf()));
+		return at.Length() < WoodsFrom ? null : at;
+	}
+
+	/// <summary>The leafed trees (tools/thin_leaf_cards.py): branch-card trees in their own alpha-cut
+	/// texture, not the map's baked atlas, in the stands with the others — but only this side of where
+	/// the dark comes down past the field, since their own material does not darken with it.</summary>
+	private static void Leafed(Node3D wood, BattlefieldLand land, RandomNumberGenerator dice, Vector2[] stands)
+	{
+		foreach ((string model, float height, int count) in LeafedTrees)
+		{
+			Mesh tree = Models.MeshOf(model);
+			if (tree == null)
+			{
+				continue;
+			}
+
+			// Cut, not blended: the pack's tree comes alpha-blended and a fifth see-through, and blended
+			// its cards are sorted against each other one by one and throw no shadow.
+			for (int surface = 0; surface < tree.GetSurfaceCount(); surface++)
+			{
+				if (tree.SurfaceGetMaterial(surface) is BaseMaterial3D { Transparency: BaseMaterial3D.TransparencyEnum.Alpha } look)
+				{
+					look.Transparency = BaseMaterial3D.TransparencyEnum.AlphaScissor;
+					look.AlbedoColor = new Color(look.AlbedoColor, 1f);
+				}
+			}
+
+			float scale = height / Mathf.Max(0.01f, tree.GetAabb().Size.Y);
+			var placed = new List<Transform3D>();
+			for (int i = 0; i < count; i++)
+			{
+				if (InStand(stands, dice) is not Vector2 at || at.Length() > DarkFrom)
+				{
+					continue;
+				}
+
+				float grown = scale * dice.RandfRange(0.8f, 1.25f);
+				var basis = new Basis(Vector3.Up, dice.RandfRange(0f, Mathf.Tau)).Scaled(new Vector3(grown, grown, grown));
+				placed.Add(new Transform3D(basis, land.On(at) + (Vector3.Down * 0.6f)));
+			}
+
+			var many = new MultiMesh { TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, Mesh = tree, InstanceCount = placed.Count };
+			for (int i = 0; i < placed.Count; i++)
+			{
+				many.SetInstanceTransform(i, placed[i]);
+			}
+
+			wood.AddChild(new MultiMeshInstance3D { Multimesh = many });
+		}
 	}
 
 	/// <summary>A tree's look, as the campaign map draws it (MapDecoration.Foliage): its baked colour
@@ -245,7 +306,7 @@ public partial class Battlefield
 		// a camouflage of black blots; sun through the leaves; and the crowns stirring.
 		leaves.SetShaderParameter("relief_strength", 0.35f);
 		leaves.SetShaderParameter("shade", WoodShade);
-		leaves.SetShaderParameter("edge_from", 150f);
+		leaves.SetShaderParameter("edge_from", DarkFrom);
 		leaves.SetShaderParameter("edge_to", 255f);
 		leaves.SetShaderParameter("leaf_glow", 0.3f);
 		leaves.SetShaderParameter("crown_height", tree.GetAabb().End.Y);

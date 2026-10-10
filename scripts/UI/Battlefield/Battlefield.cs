@@ -42,16 +42,24 @@ public partial class Battlefield : Control
 		("trees/whispering-oak", false), ("trees/verdant-guardian", false),
 	};
 
+	/// <summary>The leafed trees (tools/thin_leaf_cards.py): each model, how tall it grows and how many of
+	/// it are planted — a scatter in the stands, not a ring of their own: four hundred in the wood's
+	/// first thirty paces stood a black wall round the field and halved the frame rate.</summary>
+	private static readonly (string Model, float Height, int Count)[] LeafedTrees =
+	{
+		("trees/lowpoly-tree-1", 15f, 30), ("trees/lowpoly-tree-2", 15f, 30),
+	};
+
 	private const string FoliageShader = "res://assets/shaders/tree-foliage-close.gdshader";
 	private const float TreeHeight = 17f;
-	private const int Trees = 1400;
+	private const int Trees = 520;
 	private const float WoodsFrom = 95f;
 	private const float WoodsTo = 250f;
 	private const ulong WoodsSeed = 1215;
 
 	/// <summary>How much of the wood grows in stands rather than one tree at a time, and how wide a
 	/// stand is: a wood is thickets and glades, not trees dealt out evenly.</summary>
-	private const int Stands = 90;
+	private const int Stands = 34;
 	private const float StandWide = 22f;
 
 	private const float NearestEye = 7f;
