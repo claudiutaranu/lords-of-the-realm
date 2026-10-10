@@ -127,7 +127,9 @@ public partial class BattleCheck
 	/// of a blade on the ground outside, but not of one on a ladder.</summary>
 	private void WholeWalls(GameBalance b)
 	{
-		var against = new Defenders(Men(("spear", 40)), new Dictionary<string, int>(), "large-castle", 50f, false, 1, 1);
+		// A garrison big enough to keep its flag while the engines work: forty spears lost it to the first
+		// swords over a ladder, and the day ended before the ram was at the gate.
+		var against = new Defenders(Men(("spear", 90)), new Dictionary<string, int>(), "large-castle", 50f, false, 1, 1);
 		var assault = new FieldBattle(Men(("sword", 60)), against, false, b, atTheWalls: true);
 		FieldWall wall = assault.Wall;
 		bool IsOpen(FieldWall.Kind kind) => wall.Openings.Exists(gap => gap.Is == kind);

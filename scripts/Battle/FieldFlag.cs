@@ -1,8 +1,9 @@
 using Godot;
 
 /// <summary>The castle's flag (the user's call): it stands in the middle of the bailey, and an assault
-/// is won not only by killing every man on the walls but by holding the flag — attackers round it with
-/// no defender left near it, for <see cref="HoldToTake"/> seconds. Every captain knows it: the
+/// is won not only by killing every man on the walls but by the flag — attackers at it with no defender
+/// left near it, which brings it down in a few breaths (<see cref="HoldToTake"/>: once the keepers are
+/// gone, the castle is gone, the user's call). Every captain knows it: the
 /// castle's falls back on it when the enemy is in (FieldDefence), the attacker's makes for it the
 /// moment his men are over the wall.</summary>
 public sealed partial class FieldBattle
@@ -10,8 +11,8 @@ public sealed partial class FieldBattle
 	/// <summary>How near the flag a man has to stand to count as holding it or keeping it; how long it
 	/// takes to bring down; how quickly it is raised again when the attackers are driven off it; and
 	/// within what of it an enemy is a danger the whole garrison answers.</summary>
-	public const float FlagReach = 7f;
-	private const float HoldToTake = 12f;
+	public const float FlagReach = 4f;
+	private const float HoldToTake = 3f;
 	private const float RaisedAgain = 0.5f;
 	private const float FlagDanger = 22f;
 

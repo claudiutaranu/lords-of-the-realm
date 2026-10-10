@@ -32,6 +32,9 @@ public static partial class BattlefieldWalls
 	private const float GateHigh = 3.4f;
 	private const float GateWide = 5f;
 
+	/// <summary>How thick the planks of the gallery over a towerless gate are.</summary>
+	private const float GalleryDeep = 0.3f;
+
 	/// <summary>A ladder's lean, and how far out from its foot a man climbing it is still on it.</summary>
 	private const float LadderLean = 0.36f;
 	private const float ClimbReach = 2.4f;
@@ -203,6 +206,23 @@ public static partial class BattlefieldWalls
 		}
 
 		bool isBroken = wall.Openings.Exists(gap => gap.Is == FieldWall.Kind.Gate);
+		if (!rung.GateTowers && !isBroken)
+		{
+			// With no towers to carry a span, a gallery of planks over the gate on two posts, at the
+			// walkway's level: the walkway runs on across a shut gate (FieldWall.OnWalls), and with
+			// nothing drawn there the men walking it trod the air.
+			float deck = (rung.Timber ? BankTop(rung) : high) - Sunk;
+			Vector2 behind = gate - (outward * (Walkway / 2f));
+			built.AddChild(Block(new BoxMesh { Size = new Vector3(GateWide + 0.4f, GalleryDeep, Walkway) },
+				land.On(behind) + (Vector3.Up * (deck - (GalleryDeep / 2f))), Plain(TimberBrown), turned));
+			foreach (float side in new[] { -1f, 1f })
+			{
+				Vector2 post = gate + (along * side * (GateWide / 2f)) - (outward * (Walkway - 0.3f));
+				built.AddChild(Block(new CylinderMesh { TopRadius = 0.16f, BottomRadius = 0.18f, Height = deck, RadialSegments = 6 },
+					land.On(post) + (Vector3.Up * (deck / 2f)), Plain(GateWood)));
+			}
+		}
+
 		if (!isBroken)
 		{
 			// The kit's portcullis lies along its own depth: turned a quarter to stand across the arch.

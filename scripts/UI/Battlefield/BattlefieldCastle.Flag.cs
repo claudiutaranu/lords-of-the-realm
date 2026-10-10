@@ -1,13 +1,13 @@
 using Godot;
 
-/// <summary>The castle's flag on the field (FieldBattle.Flag): a tall pole in the bailey with the
+/// <summary>The castle's flag on the field (FieldBattle.Flag): a small pole in the bailey, no taller than the palisade, with the
 /// holder's banner on it and a ring of worn earth round it, the ground that has to be held. As the
 /// attackers hold it the banner comes down the pole, and when it is down the attacker's goes up.</summary>
 public partial class BattlefieldCastle
 {
-	private const float PoleHigh = 9f;
-	private const float FlagWide = 2.4f;
-	private const float FlagTall = 3.4f;
+	private const float PoleHigh = 4.5f;
+	private const float FlagWide = 1.3f;
+	private const float FlagTall = 0.9f;
 
 	private Node3D _pole;
 	private MeshInstance3D _cloth;

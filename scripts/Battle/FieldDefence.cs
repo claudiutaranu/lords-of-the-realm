@@ -91,7 +91,7 @@ public sealed partial class FieldBattle
 	{
 		int round = _reserve.Count;
 		_reserve.Add(squad);
-		_posts[squad] = (Flag + new Vector2(((round % 3) - 1) * 9f, (round / 3) * 7f + 4f), Vector2.Down);
+		_posts[squad] = (Flag + new Vector2(((round % 3) - 1) * 6f, ((round / 3) * 5f) + 2f), Vector2.Down);
 	}
 
 	/// <summary>The castle's captain's order to one company for this slice.</summary>
