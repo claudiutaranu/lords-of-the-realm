@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://b5x4fxrr0gvo7"
-path="res://.godot/imported/siege-catapult.glb-8947f5fc8f9c962cab3e4c547da69282.scn"
+uid="uid://bemuxwmg5x2d4"
+path="res://.godot/imported/siege-mangonel.glb-dcbb5bc3c8d5e11e14f816bba01625e4.scn"
 
 [deps]
 
-source_file="res://assets/models/castle/siege-catapult.glb"
-dest_files=["res://.godot/imported/siege-catapult.glb-8947f5fc8f9c962cab3e4c547da69282.scn"]
+source_file="res://assets/models/castle/siege-mangonel.glb"
+dest_files=["res://.godot/imported/siege-mangonel.glb-dcbb5bc3c8d5e11e14f816bba01625e4.scn"]
 
 [params]
 

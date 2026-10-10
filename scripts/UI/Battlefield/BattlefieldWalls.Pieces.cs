@@ -27,6 +27,16 @@ public static partial class BattlefieldWalls
 	private const float StairsOff = 1.2f;
 	private const float EngineScale = 2.8f;
 
+	/// <summary>A wrecked mangonel: rolled over on its wheels, half sunk, and burnt black over its paint.</summary>
+	private const float WreckTilt = 0.45f;
+	private const float WreckSunk = 0.35f;
+	private static readonly StandardMaterial3D Charred = new()
+	{
+		AlbedoColor = new Color(0.04f, 0.03f, 0.02f, 0.75f),
+		Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+		Roughness = 1f,
+	};
+
 	private const string BannerDirectory = "res://assets/ui/diplomacy";
 
 	/// <summary>A square tower from the kit, its base, its middle and its crenellated top stacked to the
@@ -124,14 +134,41 @@ public static partial class BattlefieldWalls
 		return torch;
 	}
 
-	/// <summary>A siege engine from the kit, whole or broken, its foot at the node's origin; the kit's
-	/// engines face along their own x, and the caller turns the node to face where it is going.</summary>
+	/// <summary>A siege engine, whole or broken, its foot at the node's origin, facing along its own x;
+	/// the caller turns the node to face where it is going. The ram is the kit's; the catapult is the
+	/// mangonel bought for it (Fab, fitted by tools/fit_engine.py, in metres), which has no wreck of its
+	/// own, so a broken one is the same engine tipped on its side and charred.</summary>
 	public static Node3D Engine(string kind, bool isBroken)
 	{
-		string piece = (kind == SiegeEngines.Ram ? "siege-ram" : "siege-catapult") + (isBroken ? "-demolished" : "");
 		var engine = new Node3D();
-		engine.AddChild(Piece(piece, Basis.FromScale(Vector3.One * EngineScale), Vector3.Zero, Engines()));
+		if (kind == SiegeEngines.Ram)
+		{
+			engine.AddChild(Piece(isBroken ? "siege-ram-demolished" : "siege-ram", Basis.FromScale(Vector3.One * EngineScale), Vector3.Zero, Engines()));
+			return engine;
+		}
+
+		Node3D mangonel = Piece("siege-mangonel", Basis.Identity, Vector3.Zero, Engines());
+		if (isBroken)
+		{
+			mangonel.Transform = new Transform3D(new Basis(Vector3.Right, WreckTilt), Vector3.Down * WreckSunk);
+			Char(mangonel);
+		}
+
+		engine.AddChild(mangonel);
 		return engine;
+	}
+
+	private static void Char(Node node)
+	{
+		if (node is MeshInstance3D mesh)
+		{
+			mesh.MaterialOverlay = Charred;
+		}
+
+		foreach (Node child in node.GetChildren())
+		{
+			Char(child);
+		}
 	}
 
 	/// <summary>The turn about the vertical that points a kit engine along a direction on the field.</summary>

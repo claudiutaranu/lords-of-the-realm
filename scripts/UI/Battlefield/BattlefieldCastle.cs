@@ -78,9 +78,9 @@ public partial class BattlefieldCastle : Node3D
 				_bars[target] = bar;
 			}
 
-			// Every stretch's bar, all day and not only while an engine is at it (the user's call): the
-			// lord sees the whole wall's health, and which stretch is the weakest, before he chooses one.
-			bar.Visible = !target.IsDown;
+			// A stretch's bar only once it has been struck (the user's call): a whole wall wearing a bar on
+			// every stretch was a row of red lines over the castle before a stone had flown.
+			bar.Visible = !target.IsDown && target.Health < target.Full;
 			Fill(bar, target.Health / target.Full);
 		}
 	}

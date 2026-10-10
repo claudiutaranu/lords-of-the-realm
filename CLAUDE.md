@@ -242,10 +242,11 @@ The men live in **companies** (`FieldArmy`), not in one roster per county:
   within `ThrowsFrom..ThrowsTo` of a stretch outside the walls, a ram only up against the gate
   (`FieldWall.Pound`), and the captain takes them there (`Engineer`). `BattlefieldCastle` draws them
   where they stand, a wreck once they fall. `BattlefieldCastle` draws it as it stands, laid again when a
-  stretch comes down, with a bar of what each stretch has left; `BattlefieldWalls` is the stone, the
+  stretch comes down, with a bar of what each stretch has left once it has been struck; `BattlefieldWalls` is the stone, the
   walkway the defenders standing off the wall are drawn on (`Raised`, as are men half way up a
   ladder; the fight itself stays on the flat), the towers and gatehouse with the holder's banners
-  and torches, the ram and the catapults. Placeholder art built in code until the castle kit comes.
+  and torches, the ram and the catapults (the catapult is a bought mangonel, Fab's, fitted by
+  `tools/fit_engine.py`; its wreck is the same engine tipped over and charred). Placeholder art built in code until the castle kit comes.
 - Nothing falls back behind the walls. The gate watch is the men who were always on it.
 - A county that falls loses the men standing in it; the companies it raised that were elsewhere pass
   to another county of the same lord (`TurnManager.Refuge` → `ProvinceEconomy.Adopt`).
