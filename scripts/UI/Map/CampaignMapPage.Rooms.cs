@@ -184,6 +184,8 @@ public partial class CampaignMapPage
 			// a room added later quietly stops updating it.
 			ShowFields(province);
 			ShowArmies();
+			// A band hired in the barracks is off the offer, and its mark comes down with it.
+			ShowMercenaries();
 			if (_rooms.Count > 0)
 			{
 				_rooms[^1].Refresh();
