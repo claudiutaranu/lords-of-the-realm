@@ -86,13 +86,13 @@ public partial class DiplomacyPanel : PaintedPanel
 
 		_shown = Mathf.PosMod(_shown, lords.Count);
 		(string shown, Lord his) = lords[_shown];
-		HangBanners(_accent(shown));
+		HangBanners(_accent(shown), his.Key);
 		_table.AddChild(Face(shown, his, lords.Count > 1));
 		_table.AddChild(Foot(shown));
 	}
 
 	/// <summary>His banners in the table's two top corners, dyed his colour; they change with the lord.</summary>
-	private void HangBanners(Color lord)
+	private void HangBanners(Color lord, string key)
 	{
 		foreach (Control old in _banners)
 		{
@@ -102,7 +102,7 @@ public partial class DiplomacyPanel : PaintedPanel
 		_banners.Clear();
 		foreach (bool isRight in new[] { false, true })
 		{
-			Control banner = DiplomacyArt.Banner(isRight, BannerHeight, lord);
+			Control banner = DiplomacyArt.Banner(isRight, BannerHeight, lord, key);
 			float wide = banner.CustomMinimumSize.X;
 			banner.Position = new Vector2(isRight ? PanelSize.X - Corner.X - wide : Corner.X, Corner.Y);
 			banner.Size = banner.CustomMinimumSize;

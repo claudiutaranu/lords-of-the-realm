@@ -13,12 +13,23 @@ public static partial class DiplomacyArt
 	/// <summary>The banner painting's own shape, pole and all.</summary>
 	private const float BannerAspect = 770f / 1497f;
 
+	/// <summary>The box on the banner painting the lion fills, as shares of its width and height, and
+	/// the gold a cream emblem is turned to stand in for him.</summary>
+	private const float EmblemLeft = 0.29f;
+	private const float EmblemRight = 0.64f;
+	private const float EmblemTop = 0.145f;
+	private const float EmblemBottom = 0.36f;
+	private const string EmblemDirectory = "res://assets/ui/emblems";
+	private static readonly Color EmblemGold = new(1f, 0.74f, 0.32f);
+
 	/// <summary>How far in from the frame's edge the face starts, at the frame's own size.</summary>
 	private const float FrameInset = 0.06f;
 
 	/// <summary>A lord's banner on its pole, for a top corner of the table: the cloth dyed his colour,
-	/// the pole, the fringe and the lion left gold. The right-hand one is the left's mirror.</summary>
-	public static Control Banner(bool isRight, float high, Color lord)
+	/// the pole and the fringe left gold, and on the cloth his emblem in gold (assets/ui/emblems) — or
+	/// the painting's own lion, for a lord who has none of his own (the Crown and the Margrave bear
+	/// lions). The right-hand one is the left's mirror.</summary>
+	public static Control Banner(bool isRight, float high, Color colour, string lord = "")
 	{
 		var banner = new Control
 		{
@@ -26,7 +37,9 @@ public static partial class DiplomacyArt
 			SizeFlagsVertical = Control.SizeFlags.ShrinkBegin,
 			MouseFilter = Control.MouseFilterEnum.Ignore,
 		};
-		foreach ((string layer, Color tint) in new[] { ("cloth", lord), ("trim", Colors.White) })
+		string emblem = $"{EmblemDirectory}/{lord}.png";
+		bool hasEmblem = lord.Length > 0 && ResourceLoader.Exists(emblem);
+		foreach ((string layer, Color tint) in new[] { ("cloth", colour), (hasEmblem ? "trim-plain" : "trim", Colors.White) })
 		{
 			var part = new TextureRect
 			{
@@ -39,6 +52,23 @@ public static partial class DiplomacyArt
 			};
 			part.SetAnchorsPreset(Control.LayoutPreset.FullRect);
 			banner.AddChild(part);
+		}
+
+		if (hasEmblem)
+		{
+			// Where the painting's lion stood, out of banner-trim-plain.png.
+			banner.AddChild(new TextureRect
+			{
+				Texture = GD.Load<Texture2D>(emblem),
+				Modulate = EmblemGold,
+				ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+				StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+				MouseFilter = Control.MouseFilterEnum.Ignore,
+				AnchorLeft = isRight ? 1f - EmblemRight : EmblemLeft,
+				AnchorRight = isRight ? 1f - EmblemLeft : EmblemRight,
+				AnchorTop = EmblemTop,
+				AnchorBottom = EmblemBottom,
+			});
 		}
 
 		return banner;

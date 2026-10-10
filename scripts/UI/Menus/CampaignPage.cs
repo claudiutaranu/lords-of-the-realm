@@ -42,11 +42,11 @@ public partial class CampaignPage : Control
 
 		// The banners either side of the view: the first lord against you on the left, you on the right.
 		var england = CampaignRealmCard.Make("England Campaign", $"{Art}/england.jpg", lords, isOpen: true,
-			lords[1].Colour, lords[0].Colour,
+			(lords[1].Colour, lords[1].Key), (lords[0].Colour, lords[0].Key),
 			"Take up the crown of a broken kingdom and win it back, county by county, from the lords who carved it up.",
 			maps: 4);
 		var romania = CampaignRealmCard.Make("Romania Campaign", $"{Art}/romania.jpg",
-			System.Array.Empty<CampaignRealmCard.LordFace>(), isOpen: false, Ash, Ash);
+			System.Array.Empty<CampaignRealmCard.LordFace>(), isOpen: false, (Ash, ""), (Ash, ""));
 
 		var cardRow = GetNode<HBoxContainer>("%CardRow");
 		cardRow.AddChild(england);
@@ -85,7 +85,7 @@ public partial class CampaignPage : Control
 	}
 
 	private static CampaignRealmCard.LordFace Face(Lord lord, bool isYours = false) => new(
-		$"{Art}/lord-{lord.Key}.png", $"res://assets/video/lords/{lord.Key}.ogv",
+		lord.Key, $"{Art}/lord-{lord.Key}.png", $"res://assets/video/lords/{lord.Key}.ogv",
 		$"{Chrome.IconDirectory}/shield-{lord.Key}.png", lord.Colour ?? Ash, isYours);
 
 	/// <summary>England, from its first level.</summary>

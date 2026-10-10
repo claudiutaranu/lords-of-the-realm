@@ -14,17 +14,17 @@ public partial class CampaignRealmCard : PanelContainer
 {
 	/// <summary>A lord on the card: his face, his film where he has one, his shield, and his colour.
 	/// The player's own lord stands first and larger than the lords he will fight.</summary>
-	public record LordFace(string Face, string Film, string Shield, Color Colour, bool IsYours = false);
+	public record LordFace(string Key, string Face, string Film, string Shield, Color Colour, bool IsYours = false);
 
 	// Wide enough for five lords in a row under the view.
-	private const int CardWidth = 820;
-	private const int ViewHeight = 320;
-	private const int FaceSide = 120;
-	private const int ShieldSide = 48;
-	private const int YourSide = 168;
-	private const int YourShieldSide = 62;
+	private const int CardWidth = 738;
+	private const int ViewHeight = 288;
+	private const int FaceSide = 108;
+	private const int ShieldSide = 43;
+	private const int YourSide = 151;
+	private const int YourShieldSide = 56;
 	private const int YoursApart = 10;
-	private const float BannerHigh = 250f;
+	private const float BannerHigh = 225f;
 	private static readonly Color Locked = new(0.45f, 0.45f, 0.45f);
 	private static readonly Color Ember = new("ff8a2a");
 
@@ -37,7 +37,7 @@ public partial class CampaignRealmCard : PanelContainer
 	private int _maps;
 
 	public static CampaignRealmCard Make(string title, string view, IReadOnlyList<LordFace> lords,
-		bool isOpen, Color left, Color right, string tale = "", int maps = 0)
+		bool isOpen, (Color Colour, string Lord) left, (Color Colour, string Lord) right, string tale = "", int maps = 0)
 	{
 		var card = new CampaignRealmCard { _isOpen = isOpen, CustomMinimumSize = new Vector2(CardWidth, 0) };
 		card.AddThemeStyleboxOverride("panel", Chrome.PaintedStyle());
@@ -51,7 +51,7 @@ public partial class CampaignRealmCard : PanelContainer
 	private const int TitleSize = 24;
 	private const int TitleDrop = 7;
 
-	private void Build(string title, string view, IReadOnlyList<LordFace> lords, Color left, Color right)
+	private void Build(string title, string view, IReadOnlyList<LordFace> lords, (Color Colour, string Lord) left, (Color Colour, string Lord) right)
 	{
 		var column = new VBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
 		column.AddThemeConstantOverride("separation", 12);
@@ -79,9 +79,9 @@ public partial class CampaignRealmCard : PanelContainer
 		};
 		picture.SetAnchorsPreset(LayoutPreset.FullRect);
 		scene.AddChild(picture);
-		foreach ((bool isRight, Color colour) in new[] { (false, left), (true, right) })
+		foreach ((bool isRight, (Color colour, string lord)) in new[] { (false, left), (true, right) })
 		{
-			Control banner = DiplomacyArt.Banner(isRight, BannerHigh, colour);
+			Control banner = DiplomacyArt.Banner(isRight, BannerHigh, colour, lord);
 			banner.AnchorLeft = banner.AnchorRight = isRight ? 1f : 0f;
 			banner.OffsetLeft = isRight ? -banner.CustomMinimumSize.X : 0f;
 			banner.OffsetRight = isRight ? 0f : banner.CustomMinimumSize.X;
