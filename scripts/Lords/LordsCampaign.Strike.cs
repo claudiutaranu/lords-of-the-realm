@@ -57,7 +57,7 @@ public partial class LordsCampaign
 	}
 
 	/// <summary>At the gate: the field first, then the walls, the way the player's battle table
-	/// runs it. What he will not storm he sits down before, if he is the kind of lord who does.</summary>
+	/// runs it — the walls sat down before, if he is the kind of lord who does.</summary>
 	private void Engage(TurnManager turns, FieldArmy army, string county, GameBalance b, int skill,
 		List<FiredEvent> news)
 	{
@@ -82,11 +82,9 @@ public partial class LordsCampaign
 			return;
 		}
 
-		if (Odds(turns, army, county, walls: true, b) >= b.LordAttackOdds[skill])
-		{
-			Strike(turns, army, county, at, walls: true, news);
-		}
-		else if (b.LordBesieges[skill] == 1 && turns.Besiege(army, county))
+		// Manned walls are not stormed off the march, his any more than the player's (the user's call):
+		// he sits down and builds his engines, and storms when they are built (LordsCampaign.March).
+		if (b.LordBesieges[skill] == 1 && turns.Besiege(army, county, SiegeEngines.Against(turns.DefendersOf(county).Fortification)))
 		{
 			Tell(turns, county, "county-besieged", news, new Dictionary<string, string>
 			{

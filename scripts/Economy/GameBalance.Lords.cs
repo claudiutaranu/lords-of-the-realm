@@ -77,7 +77,7 @@ public partial class GameBalance
 	[Export] public int[] LordSettles = { 6, 3, 1 };
 
 	/// <summary>Whether a lord comes for the player's counties at all (1) or only for the empty
-	/// country (0), and whether he will sit down before a gate he cannot storm.</summary>
+	/// country (0).</summary>
 	[Export] public int[] LordWillAttackPlayer = { 0, 1, 1 };
 
 	/// <summary>The original's raid (its AI's step 10): about fifty peasants a lord sends over his
@@ -85,6 +85,9 @@ public partial class GameBalance
 	/// ponytail: how long a raid stays out is not known from the original.</summary>
 	[Export] public int LordRaidMen = 50;
 	[Export] public int LordRaidSeasons = 4;
+
+	/// <summary>Whether a lord will sit down before manned walls at all; one who will not takes a castle
+	/// only once nobody is left on it, since nobody storms walls off the march.</summary>
 	[Export] public int[] LordBesieges = { 0, 1, 1 };
 
 	/// <summary>The share of his taxes a lord will spend on wages, which caps his army whatever his

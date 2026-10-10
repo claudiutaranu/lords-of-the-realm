@@ -13,6 +13,12 @@ public static class SiegeEngines
 	public static int Seasons(IReadOnlyDictionary<string, int> engines, GameBalance b) =>
 		(engines.GetValueOrDefault(Ram) * b.RamSeasons) + (engines.GetValueOrDefault(Catapult) * b.CatapultSeasons);
 
+	/// <summary>What a lord builds before a wall when it is not the player choosing: a ram and a catapult
+	/// against timber, two rams and three catapults against stone. [I]</summary>
+	public static Dictionary<string, int> Against(string fortification) => Fortifications.IsTimber(fortification)
+		? new Dictionary<string, int> { [Ram] = 1, [Catapult] = 1 }
+		: new Dictionary<string, int> { [Ram] = 2, [Catapult] = 3 };
+
 	public static int Count(IReadOnlyDictionary<string, int> engines) =>
 		engines.GetValueOrDefault(Ram) + engines.GetValueOrDefault(Catapult);
 

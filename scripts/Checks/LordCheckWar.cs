@@ -230,6 +230,22 @@ public partial class LordCheck
 		Is("  and the player is told", told, true);
 		Is("  and with his only county gone, his reign is over", hard.PlayerFallen, true);
 
+		// Manned walls are not stormed off the march, his any more than the player's: he sits down
+		// and builds his engines first.
+		(TurnManager walled, FieldArmy _) = Board(Difficulty.Hard, surveyed: true, menInHost: 400);
+		ProvinceEconomy gate = walled.AnyProvince("South");
+		gate.Fortification = "small-palisade";
+		gate.Castle["spear"] = 40;
+		gate.CastleStores = 100_000;
+		for (int season = 0; season < 10 && gate.BesiegedFrom.Length == 0 && gate.Realm == "crown"; season++)
+		{
+			walled.AdvanceTurn();
+		}
+
+		Is("a lord at the player's manned walls sits down before them", gate.BesiegedFrom.Length > 0, true);
+		Is("  and has not stormed them off the march", gate.Realm, "crown");
+		Is("  and builds his engines", walled.SiegeSeasonsLeft("South") > 0, true);
+
 		// A lord who has just taken a county settles it before he marches on the next — and the
 		// player hears of it, because the race for the country is his too.
 		(TurnManager settling, FieldArmy _) = Board(Difficulty.Hard, surveyed: true, menInHost: 400, settles: 20);

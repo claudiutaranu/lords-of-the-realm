@@ -269,7 +269,9 @@ The men live in **companies** (`FieldArmy`), not in one roster per county:
   takes the empty country before he comes for the player (no player county is on his list while an
   unclaimed one is), marches only on counties that can change hands (`TurnManager.CanBeTaken`), picking the likeliest
   of the three nearest, and mans his walls to `LordWatchShare` of what they hold — never through a
-  gate that is under siege.
+  gate that is under siege. He storms no manned walls off the march either (the user's call): he
+  sits down and builds `SiegeEngines.Against` the rung, and storms once they are built
+  (`LordBesieges`: an Easy lord does not besiege, so takes no manned castle at all).
 - Rivals build walls too (`LordWalls`): each season a county with the stores for the next rung may
   order it (`LordBuildChance` by difficulty, off TurnManager's dice), saving the timber for it
   rather than selling it, and puts `LordWatch` men on a wall once it stands. How high they climb is

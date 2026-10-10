@@ -90,9 +90,9 @@ public sealed partial class LordsCampaign
 			string besieged = Besieging(turns, army);
 			if (besieged.Length > 0)
 			{
-				// Still at the gate. He storms it the season he likes his chances on the walls; until
-				// then the larder behind them does the work.
-				if (Odds(turns, army, besieged, walls: true, b) >= b.LordAttackOdds[skill])
+				// Still at the gate. He storms it once his engines are built and he likes his chances
+				// on the walls; until then the larder behind them does the work.
+				if (turns.SiegeSeasonsLeft(besieged) == 0 && Odds(turns, army, besieged, walls: true, b) >= b.LordAttackOdds[skill])
 				{
 					Strike(turns, army, besieged, Pixel(army), walls: true, news);
 				}
