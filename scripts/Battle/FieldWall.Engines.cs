@@ -66,14 +66,14 @@ public sealed partial class FieldWall
 		return best;
 	}
 
-	/// <summary>A slice of the engines' work: every engine where it can work beats at its stretch, and
-	/// a stretch that comes down is open.</summary>
+	/// <summary>A slice of the engines' work: every engine set to it (FieldSquad.IsBattering) and where it
+	/// can work beats at its stretch, and a stretch that comes down is open.</summary>
 	public void Pound(float seconds, IEnumerable<FieldSquad> squads)
 	{
 		Clock += seconds;
 		foreach (FieldSquad engine in squads)
 		{
-			if (!engine.Kind.IsEngine || !engine.IsStanding || engine.IsMoving)
+			if (!engine.Kind.IsEngine || !engine.IsStanding || engine.IsMoving || !engine.IsBattering)
 			{
 				continue;
 			}
@@ -90,6 +90,9 @@ public sealed partial class FieldWall
 			target.StruckAt = Clock;
 			if (target.IsDown)
 			{
+				// The ladders leant on it come down with it.
+				Openings.RemoveAll(gap => gap.Is == Kind.Ladder && gap.On == target.Gap.On
+					&& gap.To > target.Gap.From && gap.From < target.Gap.To);
 				Openings.Add(target.Gap);
 				Version++;
 			}

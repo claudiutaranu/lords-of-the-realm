@@ -133,6 +133,11 @@ public sealed partial class FieldSquad
 	/// told him to stand. A squad the lord placed is never shoved off the spot to make room.</summary>
 	public bool IsPlaced { get; internal set; }
 
+	/// <summary>Whether an engine is set to its work: sent at the walls or the men on them, or taken
+	/// there by the captain. One the lord only marched stands where he put it and throws at nothing
+	/// (the user's call).</summary>
+	public bool IsBattering { get; internal set; }
+
 	/// <summary>Which way he was told to face once he gets where he is going, if the lord said.</summary>
 	public Vector2? FaceGoal { get; internal set; }
 

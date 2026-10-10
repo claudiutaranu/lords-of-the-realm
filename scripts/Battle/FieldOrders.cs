@@ -28,8 +28,10 @@ public sealed partial class FieldBattle
 			squad.KeepsFront = false;
 			squad.IsPlaced = true;
 			squad.IsRunning = running;
+			(Vector2 goal, bool isWork) = Workable(squad, to);
+			squad.IsBattering = isWork;
 			// Shifted together and not each on its own, or two engines sent at one stretch were stood on one spot.
-			squad.Goal = Workable(squad, to) + (squad.At - middle);
+			squad.Goal = goal + (squad.At - middle);
 		}
 	}
 
@@ -41,6 +43,7 @@ public sealed partial class FieldBattle
 		foreach ((FieldSquad squad, int files, Vector2 front) in Plan(squads, from, to))
 		{
 			squad.Reform(files);
+			squad.IsBattering = false;
 			squad.IsRunning = running;
 			squad.Target = null;
 			squad.KeepsFront = false;

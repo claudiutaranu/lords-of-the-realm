@@ -76,8 +76,10 @@ public sealed partial class FieldWall
 		Fortification = against.Fortification;
 		float side = Half * 2f;
 
-		// Ladders first, clear of the gate's span; then the gate and every stretch of curtain between
-		// them is something the engines can bring down, each with its own health (the user's call).
+		// Ladders first, clear of the gate's span; then the gate and every stretch of curtain is something
+		// the engines can bring down, each with its own health (the user's call) — ladder or no ladder
+		// against it: kept clear of the ladders, a small castle's gate face and flank had no stretch left
+		// at all, and a catapult sent at them had nothing to throw at.
 		int ladders = Mathf.Clamp(Mathf.RoundToInt(wall.Frontage / (float)MenToALadder), FewestLadders, MostLadders);
 		int south = (ladders + 1) / 2;
 		int flank = ladders - south;
@@ -92,7 +94,7 @@ public sealed partial class FieldWall
 			for (float at = CornerKept; at + BreachWide <= side - CornerKept; at += BreachWide)
 			{
 				var stretch = new Opening(face, at, at + BreachWide, Kind.Breach);
-				if (!IsGateSpan(face, stretch.From - 1f, stretch.To + 1f) && Gap(face, stretch.Middle, BreachWide / 2f + LadderWide) == null)
+				if (!IsGateSpan(face, stretch.From - 1f, stretch.To + 1f))
 				{
 					Batter(stretch, CurtainSeconds * soft);
 				}

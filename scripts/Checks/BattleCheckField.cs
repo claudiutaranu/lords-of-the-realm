@@ -137,6 +137,15 @@ public partial class BattleCheck
 		Is("  and the engines are on the field", assault.Squads.FindAll(squad => squad.Kind.IsEngine).Count, 2);
 		wall.Pound(120f, assault.Squads);
 		Is("  where they were drawn up, out of reach, they bring nothing down", IsOpen(FieldWall.Kind.Breach) || IsOpen(FieldWall.Kind.Gate), false);
+		FieldSquad catapult = assault.Squads.Find(squad => squad.Unit == SiegeEngines.Catapult);
+		assault.March(new[] { catapult }, wall.Middle + new Vector2(0f, wall.Half + 40f));
+		Is("  a catapult only marched, even into its throw, is not set to work", catapult.IsBattering, false);
+		assault.March(new[] { catapult }, wall.Middle);
+		Is("  sent at the walls, it is", catapult.IsBattering, true);
+		var palisade = new FieldBattle(Men(("sword", 60)), new Defenders(Men(("spear", 40)), new Dictionary<string, int>(),
+			"small-palisade", 50f, false, 0, 1), false, b, atTheWalls: true);
+		Is("  and every face of the smallest wall has a stretch to throw at", System.Array.TrueForAll(FieldWall.Faces,
+			face => palisade.Wall.Battered.Exists(target => target.Gap.On == face && target.Gap.Is == FieldWall.Kind.Breach)), true);
 		assault.IsAttackCaptained = true;
 		while (!assault.IsOver && !(IsOpen(FieldWall.Kind.Breach) && IsOpen(FieldWall.Kind.Gate)))
 		{

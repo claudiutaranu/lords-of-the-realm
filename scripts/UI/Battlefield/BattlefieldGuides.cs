@@ -151,11 +151,12 @@ public partial class BattlefieldSquads
 		}
 	}
 
-	/// <summary>The stretch of wall an engine will beat at once it stands where it is going: the
-	/// stretch a catapult there would throw at, or the gate for a ram. Null for anyone else.</summary>
+	/// <summary>The stretch of wall an engine set to work will beat at once it stands where it is going:
+	/// the stretch a catapult there would throw at, or the gate for a ram. Null for anyone else, and for
+	/// an engine the lord only marched.</summary>
 	private Vector2? Aimed(FieldSquad squad)
 	{
-		if (Wall == null || !squad.Kind.IsEngine || squad.Soldiers.Count == 0)
+		if (Wall == null || !squad.Kind.IsEngine || !squad.IsBattering || squad.Soldiers.Count == 0)
 		{
 			return null;
 		}

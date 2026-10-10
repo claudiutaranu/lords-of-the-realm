@@ -39,24 +39,25 @@ public sealed partial class FieldBattle
 		}
 	}
 
-	/// <summary>Where an engine the lord sends somewhere goes: anywhere he likes in the open, but sent
-	/// at the walls — or into them — a catapult stops a throw off the nearest stretch, never at the
-	/// stone where it could throw at nothing, and a ram goes to the gate.</summary>
-	private Vector2 Workable(FieldSquad squad, Vector2 to)
+	/// <summary>Where an engine the lord sends somewhere goes, and whether it goes to work there: anywhere
+	/// he likes in the open, to stand; but sent at the walls — or into them — a catapult stops a throw
+	/// off the nearest stretch, never at the stone where it could throw at nothing, and a ram goes to
+	/// the gate, and they set to.</summary>
+	private (Vector2 To, bool IsWork) Workable(FieldSquad squad, Vector2 to)
 	{
 		if (Wall == null || !squad.Kind.IsEngine)
 		{
-			return to;
+			return (to, false);
 		}
 
 		bool atTheWalls = Wall.IsInside(to) || Wall.UnderIt(to);
 		if (squad.Unit == SiegeEngines.Ram)
 		{
-			return atTheWalls && RamSpot() is Vector2 gate ? gate : to;
+			return atTheWalls && RamSpot() is Vector2 gate ? (gate, true) : (to, false);
 		}
 
 		bool tooNear = NearestStretch(to, squad.At) is FieldWall.Target near && Wall.PointOf(near.Gap).DistanceTo(to) < SiegeEngines.ThrowsFrom;
-		return (atTheWalls || tooNear) && ThrowSpot(to, squad.At) is Vector2 spot ? spot : to;
+		return (atTheWalls || tooNear) && ThrowSpot(to, squad.At) is Vector2 spot ? (spot, true) : (to, false);
 	}
 
 	/// <summary>The stretch still standing nearest a spot, of the faces the engine is outside of: sent
@@ -81,6 +82,7 @@ public sealed partial class FieldBattle
 	/// <summary>The captain's order to an engine for this slice.</summary>
 	private void Engineer(FieldSquad engine)
 	{
+		engine.IsBattering = true;
 		// Where the engine itself stands, which is where it works from (FieldWall.Pound).
 		Vector2 at = engine.Soldiers[0].At;
 		Vector2? spot = engine.Unit == SiegeEngines.Ram ? RamSpot() : ThrowSpot(at, at);
