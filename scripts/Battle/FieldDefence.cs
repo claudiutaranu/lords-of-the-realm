@@ -18,8 +18,8 @@ public sealed partial class FieldBattle
 	/// <summary>How far from its post a company stands before it is walked back to it.</summary>
 	private const float OffPost = 2f;
 
-	/// <summary>How far in behind the gate the reserve waits.</summary>
-	private const float ReserveBack = 10f;
+	/// <summary>How far from the flag its keepers go out to meet an enemy inside the walls.</summary>
+	private const float KeepersGoOut = 30f;
 	private const int WalkwayRanks = 2;
 
 	private readonly Dictionary<FieldSquad, (Vector2 At, Vector2 Facing)> _posts = new();
@@ -54,22 +54,23 @@ public sealed partial class FieldBattle
 			_posts[walkway[i]] = Wall.Post(FieldWall.Face.South, along);
 		}
 
-		// A company at the head of each ladder, the south face's first, and the rest in reserve.
+		// A company at the head of each ladder, the south face's first, and the rest in reserve — but
+		// however few his men, the captain keeps a third of his foot at the flag: a ladder left
+		// unwatched costs him a stretch of wall, the flag left unwatched costs him the castle.
 		var ladders = Wall.Openings.FindAll(gap => gap.Is == FieldWall.Kind.Ladder);
 		ladders.Sort((a, b) => (a.On == FieldWall.Face.South ? 0 : 1).CompareTo(b.On == FieldWall.Face.South ? 0 : 1));
 		var gate = new FieldWall.Opening(FieldWall.Face.South, Wall.Half - 1f, Wall.Half + 1f, FieldWall.Kind.Gate);
+		int atLadders = foot.Count > 1 ? Mathf.Min(ladders.Count, foot.Count - Mathf.Max(1, foot.Count / 3)) : 0;
 		for (int i = 0; i < foot.Count; i++)
 		{
-			if (i < ladders.Count)
+			if (i < atLadders)
 			{
 				_posts[foot[i]] = Wall.Post(ladders[i].On, ladders[i].Middle);
 				continue;
 			}
 
 			// The reserve stands round the flag, which is what the castle is held for (FieldFlag).
-			_reserve.Add(foot[i]);
-			int round = i - ladders.Count;
-			_posts[foot[i]] = (Flag + new Vector2(((round % 3) - 1) * 9f, (round / 3) * 7f + 4f), Vector2.Down);
+			KeepTheFlag(foot[i]);
 		}
 
 		foreach ((FieldSquad squad, (Vector2 at, Vector2 facing)) in _posts)
@@ -83,6 +84,14 @@ public sealed partial class FieldBattle
 				squad.Reform(Mathf.CeilToInt(squad.Soldiers.Count / (float)WalkwayRanks));
 			}
 		}
+	}
+
+	/// <summary>Makes a company one of the flag's keepers, on the next place in the rings round it.</summary>
+	private void KeepTheFlag(FieldSquad squad)
+	{
+		int round = _reserve.Count;
+		_reserve.Add(squad);
+		_posts[squad] = (Flag + new Vector2(((round % 3) - 1) * 9f, (round / 3) * 7f + 4f), Vector2.Down);
 	}
 
 	/// <summary>The castle's captain's order to one company for this slice.</summary>
@@ -103,23 +112,35 @@ public sealed partial class FieldBattle
 			return;
 		}
 
-		// The nearest enemy who has got inside the walls, if any.
+		// The nearest enemy who has got inside the walls, if any: nearest the flag for its keepers, who
+		// go out only to an enemy near it — drawn off across the bailey after the first man over a
+		// wall, they left the flag to the next — and nearest his post for anyone else.
+		bool isKeeper = _reserve.Contains(squad);
+		Vector2 from = isKeeper ? Flag : squad.At;
 		FieldSquad intruder = null;
 		float nearest = float.MaxValue;
 		foreach (FieldSquad enemy in Squads)
 		{
-			if (enemy.IsAttacking && enemy.IsStanding && Wall.IsInside(enemy.At) && enemy.At.DistanceTo(squad.At) < nearest)
+			if (enemy.IsAttacking && enemy.IsStanding && Wall.IsInside(enemy.At) && enemy.At.DistanceTo(from) < nearest)
 			{
 				intruder = enemy;
-				nearest = enemy.At.DistanceTo(squad.At);
+				nearest = enemy.At.DistanceTo(from);
 			}
 		}
 
-		if (!squad.Shoots && intruder != null && (_reserve.Contains(squad) || nearest < LeavesPostWithin))
+		if (!squad.Shoots && intruder != null && nearest < (isKeeper ? KeepersGoOut : LeavesPostWithin))
 		{
 			squad.Target = intruder;
 			squad.Goal = null;
 			return;
+		}
+
+		// Once the enemy is in, a company of foot watching a ladder nobody is on comes down to the flag
+		// rather than guard an empty stretch while the castle is lost behind it.
+		if (!squad.Shoots && !isKeeper && intruder != null && _posts.TryGetValue(squad, out (Vector2 At, Vector2 Facing) watch)
+			&& !Squads.Exists(enemy => enemy.IsAttacking && enemy.IsStanding && enemy.At.DistanceTo(watch.At) < LeavesPostWithin))
+		{
+			KeepTheFlag(squad);
 		}
 
 		// Otherwise on his post, facing out over the wall, and let them come.

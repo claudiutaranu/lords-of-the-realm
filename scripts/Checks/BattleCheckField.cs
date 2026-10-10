@@ -101,6 +101,25 @@ public partial class BattleCheck
 		var garrison = new Defenders(Men(("spear", 120), ("bow", 20)), new Dictionary<string, int>(), "large-castle", 50f, false);
 		var held = new FieldBattle(Men(("sword", 60)), garrison, false, b, atTheWalls: true);
 		Is("the castle's reserve stands by its flag", held.Squads.Exists(squad => !squad.IsAttacking && squad.At.DistanceTo(held.Flag) < 15f), true);
+
+		// Two companies of foot and as many ladders: one still keeps the flag.
+		var few = new Defenders(Men(("spear", 60)), new Dictionary<string, int>(), "large-castle", 50f, false);
+		var thin = new FieldBattle(Men(("sword", 60)), few, false, b, atTheWalls: true);
+		Is("  however few the garrison", thin.Squads.Exists(squad => !squad.IsAttacking && squad.At.DistanceTo(thin.Flag) < 15f), true);
+
+		// One man over the far corner of the wall does not draw the keepers off the flag.
+		FieldSquad over = held.Squads.Find(squad => squad.IsAttacking);
+		Vector2 corner = held.Wall.Middle + new Vector2(held.Wall.Half, held.Wall.Half) * 0.85f;
+		foreach (FieldSoldier man in over.Soldiers)
+		{
+			man.At = corner + new Vector2((man.Slot % 6) - 3f, (man.Slot / 6) - 3f);
+			man.Was = man.At;
+		}
+
+		over.At = corner;
+		held.Step();
+		Is("  and an enemy over the far wall does not draw its keepers off it",
+			held.Squads.Exists(squad => !squad.IsAttacking && squad.At.DistanceTo(held.Flag) < 15f && squad.Target == over), false);
 	}
 
 	/// <summary>The wall stands whole until the engines bring it down: no breach and no gate open as
