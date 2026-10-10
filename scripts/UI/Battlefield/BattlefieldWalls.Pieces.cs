@@ -6,7 +6,7 @@ using Godot;
 public static partial class BattlefieldWalls
 {
 	/// <summary>A banner's width hung on a tower, and how far down from the tower's top it hangs.</summary>
-	private const float BannerWide = 2.2f;
+	private const float BannerWide = 3.1f;
 	private const float BannerDrop = 0.6f;
 	private const float BannerAspect = 770f / 1497f;
 
@@ -22,6 +22,9 @@ public static partial class BattlefieldWalls
 	/// are drawn beside a man.</summary>
 	private const float KitStorey = 1.01f;
 	private const float KitMidSide = 0.94f;
+	private const float KitTopFloor = 0.17f;
+	private const float KitStairsHigh = 0.67f;
+	private const float StairsOff = 1.2f;
 	private const float EngineScale = 2.8f;
 
 	private const string BannerDirectory = "res://assets/ui/diplomacy";
@@ -47,7 +50,7 @@ public static partial class BattlefieldWalls
 	}
 
 	/// <summary>The holder's banner on a tower's face: the cloth dyed his colour, the trim and lion gold.</summary>
-	private static Node3D Banner(BattlefieldLand land, Vector2 at, float top, Vector2 outward, Color holder)
+	private static Node3D Banner(BattlefieldLand land, Vector2 at, float top, Vector2 outward, Color holder, bool isMirrored = false)
 	{
 		float tall = BannerWide / BannerAspect;
 		var banner = new Node3D
@@ -68,6 +71,9 @@ public static partial class BattlefieldWalls
 					AlbedoColor = tint,
 					Transparency = BaseMaterial3D.TransparencyEnum.AlphaScissor,
 					CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+					// The one on the right of a pair hangs from its pole the other way, as a mirror.
+					Uv1Scale = new Vector3(isMirrored ? -1f : 1f, 1f, 1f),
+					Uv1Offset = new Vector3(isMirrored ? 1f : 0f, 0f, 0f),
 					Roughness = 0.9f,
 				},
 			});
@@ -75,6 +81,25 @@ public static partial class BattlefieldWalls
 		}
 
 		return banner;
+	}
+
+	/// <summary>The top of a kit tower built this tall (Tower): its floor inside the crenellation.</summary>
+	private static float TowerFloor(float high) => -0.3f + ((2f * KitStorey) + KitTopFloor) * ((high + 0.3f) / (2f * KitStorey));
+
+	/// <summary>A flight of stone steps up the inside of the wall to its walkway, along the face.</summary>
+	private static Node3D Stairs(BattlefieldLand land, Vector2 at, Basis turned, float high)
+	{
+		float grow = high / KitStairsHigh;
+		return Piece("stairs-stone", turned * new Basis(Vector3.Up, Mathf.Pi / 2f) * Basis.FromScale(Vector3.One * grow),
+			land.On(at) + (Vector3.Up * -0.3f), Stone(new Color("b7ad9c")));
+	}
+
+	/// <summary>A siege ladder against the wall, for BattlefieldCastle to stand up while it is climbed.</summary>
+	public static Node3D LadderAt(FieldWall wall, BattlefieldLand land, FieldWall.Opening gap)
+	{
+		(Vector2 from, _, Vector2 along, Vector2 outward, _) = Lie(wall, gap.On);
+		Vector2 at = from + (along * gap.Middle);
+		return Ladder(land.On(at + (outward * (OuterLip + 1.2f))), outward, wall.IsTimber ? TimberHigh : StoneHigh);
 	}
 
 	/// <summary>A torch on its bracket, burning, and the light it throws on the stone.</summary>

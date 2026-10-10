@@ -20,6 +20,7 @@ public partial class BattlefieldCastle : Node3D
 	private readonly Dictionary<FieldSquad, (Node3D Model, bool IsBroken)> _engines = new();
 	private readonly IReadOnlyList<FieldSquad> _squads;
 	private readonly Dictionary<FieldSquad, float> _yaws = new();
+	private readonly Dictionary<FieldWall.Opening, Node3D> _ladders = new();
 
 	/// <summary>How quickly a drawn engine catches up with where it stands, and how much slower it turns.</summary>
 	private const float EnginesFollow = 6f;
@@ -54,6 +55,7 @@ public partial class BattlefieldCastle : Node3D
 			AddChild(_built);
 		}
 
+		Ladders();
 		Engines((float)delta);
 		Throw((float)delta);
 		foreach (FieldWall.Target target in _wall.Battered)
@@ -69,6 +71,38 @@ public partial class BattlefieldCastle : Node3D
 			float share = Mathf.Clamp(target.Health / target.Full, 0f, 1f);
 			// Shrinking to its middle: a billboard turns with the eye, so an offset to one end would not.
 			bar.GetChild<MeshInstance3D>(0).Scale = new Vector3(Mathf.Max(0.001f, share), 1f, 1f);
+		}
+	}
+
+	/// <summary>A ladder stands against the wall only while one of the attackers is on it or at its foot.</summary>
+	private void Ladders()
+	{
+		foreach (FieldWall.Opening gap in _wall.Openings)
+		{
+			if (gap.Is != FieldWall.Kind.Ladder)
+			{
+				continue;
+			}
+
+			bool isClimbed = false;
+			foreach (FieldSquad squad in _squads)
+			{
+				if (squad.IsAttacking && squad.IsStanding && !squad.Kind.IsEngine)
+				{
+					isClimbed = squad.Soldiers.Exists(man => _wall.Climbing(man.At) && _wall.PointOf(gap).DistanceTo(man.At) < 3f);
+				}
+
+				if (isClimbed)
+				{
+					break;
+				}
+			}
+
+			if (isClimbed && !_ladders.ContainsKey(gap))
+			{
+				_ladders[gap] = BattlefieldWalls.LadderAt(_wall, _land, gap);
+				AddChild(_ladders[gap]);
+			}
 		}
 	}
 

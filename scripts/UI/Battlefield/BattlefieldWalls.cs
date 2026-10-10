@@ -46,7 +46,11 @@ public static partial class BattlefieldWalls
 	private static readonly Color Portcullis = new("2b2a28");
 
 	/// <summary>The kit's own measures: its curtain's walkway, and its portcullis's height and width.</summary>
-	private const float KitWalkway = 1.01f;
+	private const float KitWalkway = 1.18f;
+
+	/// <summary>How far the stone pieces are sunk into the ground they stand on, so a rolling field
+	/// shows no gap under them.</summary>
+	private const float Sunk = 0.3f;
 	private const float KitGateHigh = 0.73f;
 	private const float KitGateWide = 0.7f;
 
@@ -60,12 +64,13 @@ public static partial class BattlefieldWalls
 		float high = wall.IsTimber ? TimberHigh : StoneHigh;
 		if (wall.OnTower(at))
 		{
-			return high + TowerOver;
+			return wall.IsTimber ? high + TowerOver : TowerFloor(high + TowerOver);
 		}
 
+		// The walkway's own stone: the kit's curtain is sunk a little into the ground, as it is laid.
 		if (wall.OnWalls(at))
 		{
-			return high;
+			return wall.IsTimber ? high : high - Sunk;
 		}
 
 		// Outside, at a ladder: part of the way up it, more the nearer the wall.
@@ -112,7 +117,8 @@ public static partial class BattlefieldWalls
 			built.AddChild(Tower(land, corner, CornerSide, high + TowerOver, towerStone, wall.IsTimber));
 			if (face == FieldWall.Face.South || face == FieldWall.Face.East)
 			{
-				built.AddChild(Banner(land, corner + (outward * ((CornerSide / 2f) + 0.05f)), high + TowerOver, outward, holder));
+				built.AddChild(Banner(land, corner + (outward * ((CornerSide / 2f) + 0.05f)), high + TowerOver, outward, holder,
+					isMirrored: face == FieldWall.Face.East));
 				built.AddChild(Torch(land, corner + (outward * ((CornerSide / 2f) + 0.3f)) + (along * 2.2f), high));
 			}
 		}
@@ -140,8 +146,13 @@ public static partial class BattlefieldWalls
 
 					break;
 				case FieldWall.Kind.Ladder:
-					// The wall stands whole behind a ladder (Lengths): it is climbed, not walked through.
-					built.AddChild(Ladder(land.On(at + (outward * (OuterLip + 1.2f))), outward, high));
+					// No ladder stands against the wall until somebody climbs it (BattlefieldCastle), and the
+					// garrison reach their walkway by the stairs inside (the user's call).
+					if (!wall.IsTimber)
+					{
+						built.AddChild(Stairs(land, at - (outward * (Walkway + StairsOff)), turned, high - Sunk));
+					}
+
 					break;
 			}
 		}
@@ -160,7 +171,8 @@ public static partial class BattlefieldWalls
 		{
 			Vector2 tower = gate + (along * side * ((GateWide / 2f) + (GateTowerSide / 2f))) - (outward * 0.6f);
 			built.AddChild(Tower(land, tower, GateTowerSide, high + TowerOver, stone, wall.IsTimber));
-			built.AddChild(Banner(land, tower + (outward * ((GateTowerSide / 2f) + 0.05f)), high + TowerOver, outward, holder));
+			built.AddChild(Banner(land, tower + (outward * ((GateTowerSide / 2f) + 0.05f)), high + TowerOver, outward, holder,
+				isMirrored: side > 0f));
 			built.AddChild(Torch(land, tower + (outward * ((GateTowerSide / 2f) + 0.3f)) - (along * side * 2f), GateHigh));
 		}
 
