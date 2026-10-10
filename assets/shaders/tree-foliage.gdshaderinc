@@ -22,10 +22,10 @@ uniform float season = 1.0;
 // the top of the tree, which is `crown_height` up). Only in the close shader: written at all, the
 // light through the leaves is paid for by every tree, and the map has thousands.
 uniform float leaf_glow = 0.55;
-// How dark the crowns are drawn: 1 on the map; on the battlefield a shade deeper, as a real wood is
-// beside a sunlit meadow.
+// How dark the crowns are drawn: a shade deeper than the map's, as a real wood is beside a sunlit
+// meadow.
 uniform float shade = 1.0;
-// The battlefield's fog of war (battlefield-ground.gdshader's own edge): 0 to 0 on the map.
+// The battlefield's fog of war (battlefield-ground.gdshader's own edge).
 uniform float edge_from = 0.0;
 uniform float edge_to = 0.0;
 varying float edge_dark;
@@ -81,9 +81,13 @@ void fragment() {
 	vec3 seasoned = light * tone * mix(1.0, 0.72, winter);
 	colour = mix(colour, seasoned, leaf * strength);
 
-	ALBEDO = colour * shade * (1.0 - edge_dark);
 #ifdef CLOSE
+	ALBEDO = colour * shade * (1.0 - edge_dark);
 	BACKLIGHT = colour * leaf_glow * (leaf + evergreen * 0.6) * (1.0 - edge_dark);
+#else
+	// The map's trees have no shade and no fog of war to come down over them; written here as on the
+	// battlefield, the map's shader would not compile, and every tree on it was drawn white.
+	ALBEDO = colour;
 #endif
 	ROUGHNESS = 0.9;
 	SPECULAR = 0.25;
