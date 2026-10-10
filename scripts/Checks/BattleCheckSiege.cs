@@ -130,6 +130,14 @@ public partial class BattleCheck
 		});
 		Is("three rams and three catapults can be built, and no more of either",
 			again.SiegeSeasonsLeft("Valmere"), (b.SiegeEnginesMost * b.RamSeasons) + (3 * b.CatapultSeasons));
+		again.AdvanceTurn();
+		int building = again.SiegeSeasonsLeft("Valmere");
+		ours.Muster("sword", 100, b.MarchReach);
+		FieldArmy second = ours.Armies[^1];
+		second.X = 900f;
+		second.Y = 200f;
+		Is("a second company cannot sit down where the first already sits", again.Besiege(second, "Valmere"), false);
+		Is("  and the engines go on building", again.SiegeSeasonsLeft("Valmere"), building);
 	}
 
 	private void TheSiege(GameBalance b)

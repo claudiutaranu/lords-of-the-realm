@@ -146,8 +146,10 @@ public partial class TurnManager
 		ProvinceEconomy here = army == null ? null : _provincesByName.GetValueOrDefault(army.Home);
 		ProvinceEconomy there = _provincesByName.GetValueOrDefault(county);
 		Defenders against = DefendersOf(county);
+		// Nor where somebody already sits: a second company coming up beside the first set the siege
+		// back to its first day, and the engines were never finished.
 		if (here == null || there == null || army.Strength == 0 || here.Realm == there.Realm
-			|| !against.Held || StandingIn(county).Count > 0)
+			|| !against.Held || StandingIn(county).Count > 0 || ArmyOf(there.BesiegedFrom) is { Strength: > 0 })
 		{
 			return false;
 		}
