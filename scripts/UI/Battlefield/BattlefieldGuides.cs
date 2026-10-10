@@ -113,7 +113,8 @@ public partial class BattlefieldSquads
 
 			Vector2? to = squad.Target is { IsStanding: true } foe ? foe.At : squad.Goal;
 			bool isLine = to is Vector2 end && end.DistanceTo(squad.At) > LineShortest;
-			if (!squad.Shoots && !isLine)
+			Vector2? aimed = Aimed(squad);
+			if (!squad.Shoots && !isLine && aimed == null)
 			{
 				continue;
 			}
@@ -133,12 +134,34 @@ public partial class BattlefieldSquads
 			{
 				Arrow(squad.At, to.Value, squad.Target != null ? ReachRed : MarchGold);
 			}
+
+			// An engine's work, in red: from where it will stand to the stretch of wall it will beat at.
+			if (aimed is Vector2 stone)
+			{
+				Arrow(squad.Goal ?? squad.At, stone, ReachRed);
+			}
 		}
 
 		if (begun)
 		{
 			_guideMesh.SurfaceEnd();
 		}
+	}
+
+	/// <summary>The stretch of wall an engine will beat at once it stands where it is going: the
+	/// stretch a catapult there would throw at, or the gate for a ram. Null for anyone else.</summary>
+	private Vector2? Aimed(FieldSquad squad)
+	{
+		if (Wall == null || !squad.Kind.IsEngine || squad.Soldiers.Count == 0)
+		{
+			return null;
+		}
+
+		Vector2 from = squad.Goal ?? squad.Soldiers[0].At;
+		FieldWall.Target target = squad.Unit == SiegeEngines.Ram
+			? Wall.Battered.Find(t => !t.IsDown && t.Gap.Is == FieldWall.Kind.Gate)
+			: Wall.InThrow(from);
+		return target == null ? null : Wall.PointOf(target.Gap);
 	}
 
 	/// <summary>Whether a squad has been sent somewhere new, not merely had its spot nudged as it goes.</summary>

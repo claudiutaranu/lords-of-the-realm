@@ -55,16 +55,20 @@ public sealed partial class FieldBattle
 			return atTheWalls && RamSpot() is Vector2 gate ? gate : to;
 		}
 
-		bool tooNear = NearestStretch(to) is FieldWall.Target near && Wall.PointOf(near.Gap).DistanceTo(to) < SiegeEngines.ThrowsFrom;
-		return (atTheWalls || tooNear) && ThrowSpot(to) is Vector2 spot ? spot : to;
+		bool tooNear = NearestStretch(to, squad.At) is FieldWall.Target near && Wall.PointOf(near.Gap).DistanceTo(to) < SiegeEngines.ThrowsFrom;
+		return (atTheWalls || tooNear) && ThrowSpot(to, squad.At) is Vector2 spot ? spot : to;
 	}
 
-	private FieldWall.Target NearestStretch(Vector2 from)
+	/// <summary>The stretch still standing nearest a spot, of the faces the engine is outside of: sent
+	/// into the castle, a catapult was taken round to the far side of it, to the stretch nearest the
+	/// middle.</summary>
+	private FieldWall.Target NearestStretch(Vector2 from, Vector2 engine)
 	{
 		FieldWall.Target best = null;
 		foreach (FieldWall.Target target in Wall.Battered)
 		{
-			if (!target.IsDown && target.Gap.Is == FieldWall.Kind.Breach
+			bool isFacing = FieldWall.Outward(target.Gap.On).Dot(engine - Wall.PointOf(target.Gap)) > 0f;
+			if (!target.IsDown && target.Gap.Is == FieldWall.Kind.Breach && isFacing
 				&& (best == null || Wall.PointOf(target.Gap).DistanceTo(from) < Wall.PointOf(best.Gap).DistanceTo(from)))
 			{
 				best = target;
@@ -79,7 +83,7 @@ public sealed partial class FieldBattle
 	{
 		// Where the engine itself stands, which is where it works from (FieldWall.Pound).
 		Vector2 at = engine.Soldiers[0].At;
-		Vector2? spot = engine.Unit == SiegeEngines.Ram ? RamSpot() : ThrowSpot(at);
+		Vector2? spot = engine.Unit == SiegeEngines.Ram ? RamSpot() : ThrowSpot(at, at);
 		if (spot is not Vector2 there)
 		{
 			engine.Goal = null;
@@ -108,9 +112,9 @@ public sealed partial class FieldBattle
 	}
 
 	/// <summary>A throw's length out from the nearest stretch still standing, outside the face it is on.</summary>
-	private Vector2? ThrowSpot(Vector2 from)
+	private Vector2? ThrowSpot(Vector2 from, Vector2 engine)
 	{
-		FieldWall.Target best = NearestStretch(from);
+		FieldWall.Target best = NearestStretch(from, engine);
 		return best == null ? null : Wall.PointOf(best.Gap) + (FieldWall.Outward(best.Gap.On) * SiegeEngines.ThrowsTo * ThrowShare);
 	}
 }
