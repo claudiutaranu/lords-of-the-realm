@@ -99,7 +99,7 @@ public static partial class BattlefieldWalls
 	{
 		(Vector2 from, _, Vector2 along, Vector2 outward, _) = Lie(wall, gap.On);
 		Vector2 at = from + (along * gap.Middle);
-		return Ladder(land.On(at + (outward * (OuterLip + 1.2f))), outward, wall.IsTimber ? TimberHigh : StoneHigh);
+		return Ladder(land.On(at + (outward * (OuterLip + 1.2f))), outward, RungOf(wall).High);
 	}
 
 	/// <summary>A torch on its bracket, burning, and the light it throws on the stone.</summary>

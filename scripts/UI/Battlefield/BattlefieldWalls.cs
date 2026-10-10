@@ -14,8 +14,6 @@ public static partial class BattlefieldWalls
 	/// <summary>How long one length of curtain is, and how high, in metres. Stone stands high enough
 	/// that a man on its walkway is seen above the men below; the timber rungs lower.</summary>
 	private const float Length = 3f;
-	private const float StoneHigh = 4.6f;
-	private const float TimberHigh = 3.2f;
 
 	/// <summary>How far the stone runs inward from the wall's line, which is the walkway a defender
 	/// standing off the wall is drawn on (FieldWall keeps him a metre in), and how far it stands out
@@ -61,16 +59,18 @@ public static partial class BattlefieldWalls
 	/// on a ladder outside it, and on the ground anywhere else.</summary>
 	public static float Raised(FieldWall wall, Vector2 at)
 	{
-		float high = wall.IsTimber ? TimberHigh : StoneHigh;
-		if (wall.OnTower(at))
+		Rung rung = RungOf(wall);
+		float high = rung.High;
+		if (wall.OnTower(at) && rung.CornerTowers)
 		{
-			return wall.IsTimber ? high + TowerOver : TowerFloor(high + TowerOver);
+			return rung.Timber ? high + TowerOver - Sunk : TowerFloor(high + TowerOver);
 		}
 
-		// The walkway's own stone: the kit's curtain is sunk a little into the ground, as it is laid.
+		// The walkway: the kit's curtain is sunk a little into the ground, as it is laid; a palisade's
+		// is the earth bank behind the stakes, a man's chest below their points.
 		if (wall.OnWalls(at))
 		{
-			return wall.IsTimber ? high : high - Sunk;
+			return rung.Timber ? BankTop(rung) : high - Sunk;
 		}
 
 		// Outside, at a ladder: part of the way up it, more the nearer the wall.
@@ -83,7 +83,10 @@ public static partial class BattlefieldWalls
 	public static Node3D Build(FieldWall wall, BattlefieldLand land, Color holder)
 	{
 		var built = new Node3D();
-		float high = wall.IsTimber ? TimberHigh : StoneHigh;
+		Rung rung = RungOf(wall);
+		float high = rung.High;
+		var stakes = new List<Transform3D>();
+		var banks = new List<Transform3D>();
 		Material stone = wall.IsTimber ? Plain(TimberBrown) : Stone(StoneTint);
 		Material towerStone = wall.IsTimber ? Plain(TimberBrown.Darkened(0.15f)) : Stone(TowerTint);
 		var lengths = new List<Transform3D>();
@@ -108,13 +111,25 @@ public static partial class BattlefieldWalls
 					continue;
 				}
 
-				lengths.Add(new Transform3D(turned * Basis.FromScale(new Vector3((upto - d + 0.05f) / Length, 1f, 1f)),
-					land.On(middle) + (Vector3.Up * ((high / 2f) - 0.3f))));
+				// A palisade: stakes along the line, an earth bank behind them for the walkway.
+				Vector2 bank = from + (along * ((d + upto) / 2f)) - (outward * (Walkway / 2f));
+				banks.Add(new Transform3D(turned * Basis.FromScale(new Vector3((upto - d + 0.05f) / Length, 1f, 1f)),
+					land.On(bank) + (Vector3.Up * ((BankTop(rung) / 2f) - Sunk))));
+				for (float s = d; s < upto; s += StakeEvery)
+				{
+					Vector2 at = from + (along * s) + (outward * 0.15f);
+					stakes.Add(new Transform3D(new Basis(Vector3.Up, s * 1.7f), land.On(at) + (Vector3.Up * -Sunk)));
+				}
 			}
 
 			// A tower on the corner the face starts from, hung with the holder's banner toward the field.
 			Vector2 corner = from + ((from - wall.Middle).Normalized() * 1.2f);
-			built.AddChild(Tower(land, corner, CornerSide, high + TowerOver, towerStone, wall.IsTimber));
+			if (!rung.CornerTowers)
+			{
+				continue;
+			}
+
+			built.AddChild(Tower(land, corner, CornerSide * rung.TowerScale, high + TowerOver, towerStone, wall.IsTimber));
 			if (face == FieldWall.Face.South || face == FieldWall.Face.East)
 			{
 				built.AddChild(Banner(land, corner + (outward * ((CornerSide / 2f) + 0.05f)), high + TowerOver, outward, holder,
@@ -123,12 +138,14 @@ public static partial class BattlefieldWalls
 			}
 		}
 
-		if (lengths.Count > 0)
+		if (stakes.Count > 0)
 		{
-			built.AddChild(Many(new BoxMesh { Size = new Vector3(Length, high + 0.6f, deep) }, lengths, stone));
+			built.AddChild(Many(Stake(high), stakes, Plain(TimberBrown)));
+			built.AddChild(Many(new BoxMesh { Size = new Vector3(Length, BankTop(rung), Walkway) }, banks, Plain(Earth)));
 		}
 
-		Gatehouse(built, wall, land, high, towerStone, holder);
+		Gatehouse(built, wall, land, rung, towerStone, holder);
+		Keep(built, wall, land, rung, towerStone);
 		foreach (FieldWall.Opening gap in wall.Openings)
 		{
 			(Vector2 from, _, Vector2 along, Vector2 outward, Basis turned) = Lie(wall, gap.On);
@@ -162,12 +179,13 @@ public static partial class BattlefieldWalls
 
 	/// <summary>The south face's gate in its two towers: shut under its portcullis while it stands,
 	/// the planks thrown down and the ram still in the arch once it has been broken.</summary>
-	private static void Gatehouse(Node3D built, FieldWall wall, BattlefieldLand land, float high, Material stone,
+	private static void Gatehouse(Node3D built, FieldWall wall, BattlefieldLand land, Rung rung, Material stone,
 		Color holder)
 	{
+		float high = rung.High;
 		(Vector2 from, _, Vector2 along, Vector2 outward, Basis turned) = Lie(wall, FieldWall.Face.South);
 		Vector2 gate = from + (along * wall.Half);
-		foreach (float side in new[] { -1f, 1f })
+		foreach (float side in rung.GateTowers ? new[] { -1f, 1f } : System.Array.Empty<float>())
 		{
 			Vector2 tower = gate + (along * side * ((GateWide / 2f) + (GateTowerSide / 2f))) - (outward * 0.6f);
 			built.AddChild(Tower(land, tower, GateTowerSide, high + TowerOver, stone, wall.IsTimber));
@@ -178,15 +196,19 @@ public static partial class BattlefieldWalls
 
 		// The span over the arch, from tower to tower, at the walkway's height.
 		float over = high - GateHigh;
-		built.AddChild(Block(new BoxMesh { Size = new Vector3(GateWide + 0.4f, over, Walkway + OuterLip) },
+		if (rung.GateTowers)
+		{
+			built.AddChild(Block(new BoxMesh { Size = new Vector3(GateWide + 0.4f, over, Walkway + OuterLip) },
 			land.On(gate - (outward * ((Walkway - OuterLip) / 2f))) + (Vector3.Up * (GateHigh + (over / 2f))), stone, turned));
+		}
 
 		bool isBroken = wall.Openings.Exists(gap => gap.Is == FieldWall.Kind.Gate);
 		if (!isBroken)
 		{
 			// The kit's portcullis lies along its own depth: turned a quarter to stand across the arch.
 			built.AddChild(Piece("metal-gate", turned * new Basis(Vector3.Up, Mathf.Pi / 2f)
-				* Basis.FromScale(new Vector3(3f, GateHigh / KitGateHigh, GateWide / KitGateWide)), land.On(gate + (outward * OuterLip)), Plain(Portcullis)));
+				* Basis.FromScale(new Vector3(3f, Mathf.Min(GateHigh, high) / KitGateHigh, GateWide / KitGateWide)),
+				land.On(gate + (outward * OuterLip)), Plain(rung.Timber ? GateWood : Portcullis)));
 			return;
 		}
 

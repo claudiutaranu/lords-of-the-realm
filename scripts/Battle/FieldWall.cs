@@ -59,6 +59,9 @@ public sealed partial class FieldWall
 
 	public bool IsTimber { get; }
 
+	/// <summary>Which rung of fortifications.json the wall is, for how it is drawn.</summary>
+	public string Fortification { get; }
+
 	public List<Opening> Openings { get; } = new();
 
 
@@ -70,6 +73,7 @@ public sealed partial class FieldWall
 		Stone = Mathf.Max(1f, wall.Defence * (1f - (against.Catapults * b.CatapultDefenceCut)));
 		Exposure = b.AssaultExposure;
 		IsTimber = Fortifications.IsTimber(against.Fortification);
+		Fortification = against.Fortification;
 		float side = Half * 2f;
 
 		// Ladders first, clear of the gate's span; then the gate and every stretch of curtain between
