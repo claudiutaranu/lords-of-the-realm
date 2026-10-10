@@ -19,14 +19,16 @@ public partial class BattlePanel
 		_isChoosing = false;
 		_engines.Clear();
 		_siegeWord.Text = "Lay Siege";
-		bool castle = _walls && ProvinceEconomy.Men(against.Castle) > 0;
+		// A manned castle, whoever else stands in front of it: the engines are chosen first, and the men
+		// in the open are fought the day the assault goes in.
+		bool castle = _enemy == null && against.Held;
 		bool ours = castle && _turns.Besieging(_attacker) == _county;
 		int left = ours ? _turns.SiegeSeasonsLeft(_county) : -1;
 
 		_attack.Visible = !castle || left == 0;
 		_siege.Visible = castle && !ours;
-		// The assault, once it can go in, can be led by hand as the field can.
-		_lead.Visible |= castle && left == 0;
+		// The assault, once it can go in, can be led by hand as the field can; not before.
+		_lead.Visible = castle ? left == 0 : _lead.Visible;
 		if (ours && left > 0)
 		{
 			_question.Text = "The engines are building";

@@ -201,9 +201,8 @@ public partial class BattleCheck
 		Is("a county with no walls cannot be besieged", wrong.Besiege(outside, "Valmere"), false);
 		open.Fortification = "medium-castle";
 		open.Castle["spear"] = 10;
-		Is("  nor one whose field army is still standing", wrong.Besiege(outside, "Valmere"), false);
-		open.Armies.Clear();
-		Is("  but a shut gate with nobody outside it can be", wrong.Besiege(outside, "Valmere"), true);
+		Is("  but a manned castle can, its field army still standing before it (the user's call)",
+			wrong.Besiege(outside, "Valmere"), true);
 
 		// What it costs the lord being sat on: his county stops paying him. Run on two copies of the
 		// same county so nothing but the siege is different between them.

@@ -154,7 +154,8 @@ The men live in **companies** (`FieldArmy`), not in one roster per county:
   halts on another lord's **seat** — its castle if it has walls, its town if not (the user's call;
   `CampaignMapPage.Contested`/`AtSeat`, `MapDecoration.AtCastle`/`TownAt`); a march pointed at a walled
   county's town goes round to its castle (`Gate`). Halted before manned walls, the panel opens on the
-  engines to build — up to `SiegeEnginesMost` (3) rams and 3 catapults, the turns they take shown —
+  engines to build, whoever else stands in the open before them (the user's call, as in Lords: they
+  are fought first, the day the assault goes in) — up to `SiegeEnginesMost` (3) rams and 3 catapults, the turns they take shown —
   and the season they are built the assault opens by itself (`TurnManager.IsSiegeJustReady`,
   `CampaignMapPage.StormWhenReady`). The walls are never stormed off the march or off a won field.
 - Two fights in order: whatever stands in the open, then whatever is on the walls. The county does

@@ -138,9 +138,9 @@ public partial class TurnManager
 	/// his army's whole season, every season — the men are standing there rather than anywhere
 	/// else — and it costs the besieged his county's income for as long as it lasts.
 	///
-	/// Refused where any of its lord's companies still stand in the open: a castle cannot be shut in
-	/// while his field army is at large behind the siege lines. The town's own militia is not such an
-	/// army — a siege shuts it in with the rest of the town.</summary>
+	/// Sat down before the walls even with his companies still in the open (the user's call: a castle
+	/// is gone for at the castle, its engines chosen the day the army halts there); they are fought in
+	/// the open first, the day the walls are stormed.</summary>
 	public bool Besiege(FieldArmy army, string county, IReadOnlyDictionary<string, int> engines = null)
 	{
 		ProvinceEconomy here = army == null ? null : _provincesByName.GetValueOrDefault(army.Home);
@@ -149,7 +149,7 @@ public partial class TurnManager
 		// Nor where somebody already sits: a second company coming up beside the first set the siege
 		// back to its first day, and the engines were never finished.
 		if (here == null || there == null || army.Strength == 0 || here.Realm == there.Realm
-			|| !against.Held || StandingIn(county).Count > 0 || ArmyOf(there.BesiegedFrom) is { Strength: > 0 })
+			|| !against.Held || ArmyOf(there.BesiegedFrom) is { Strength: > 0 })
 		{
 			return false;
 		}

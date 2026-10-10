@@ -99,7 +99,13 @@ public partial class BattlePanel
 		_lead.Visible = false;
 		_siege.Visible = isCastleLeft;
 		_leaveWord.Text = isCastleLeft ? "Retreat" : "Done";
-		if (isCastleLeft)
+		if (isCastleLeft && _turns.Besieging(_attacker) == _county && _turns.SiegeSeasonsLeft(_county) == 0)
+		{
+			// The field cleared on the day the engines were ready: the walls are next, that same day.
+			Lay();
+			_verdict.Text = "The field is ours. Now the walls, my lord.";
+		}
+		else if (isCastleLeft)
 		{
 			_walls = true;
 			_isChoosing = false;

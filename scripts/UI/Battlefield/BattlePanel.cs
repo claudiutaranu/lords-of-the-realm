@@ -243,9 +243,7 @@ public partial class BattlePanel : PaintedPanel
 		_attackWord.Text = _walls ? "Storm the Walls" : ProvinceEconomy.Men(holding) == 0 ? "March In" : "Take the Field";
 		_leaveWord.Text = "Retreat";
 
+		_lead.Visible = ProvinceEconomy.Men(holding) > 0;
 		Besieged(against);
-
-		// The field can be fought by hand; the walls, not yet — the captain climbs them.
-		_lead.Visible = !_walls && ProvinceEconomy.Men(holding) > 0;
 	}
 }
