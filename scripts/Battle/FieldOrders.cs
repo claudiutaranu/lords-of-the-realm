@@ -115,7 +115,7 @@ public sealed partial class FieldBattle
 			// An engine strikes no man: sent at the castle's men, it goes where it can work on their walls.
 			if (squad.Kind.IsEngine)
 			{
-				March(new[] { squad }, foe.At, running: false);
+				March(new[] { squad }, foe.At, running: true);
 				continue;
 			}
 

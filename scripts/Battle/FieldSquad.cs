@@ -207,7 +207,8 @@ public sealed partial class FieldSquad
 
 	/// <summary>How fast he goes, in metres a second: at the run unless the lord has sent him at a walk,
 	/// which is half that.</summary>
-	public float Pace => (WalkBase + (Kind.Speed * MetresPerSpeed)) * (IsRunning ? 1f : WalkingShare);
+	// An engine has one pace, its crew's push: it has no walk and run to choose between.
+	public float Pace => (WalkBase + (Kind.Speed * MetresPerSpeed)) * (IsRunning || Kind.IsEngine ? 1f : WalkingShare);
 
 	/// <summary>Whether he goes at the run. A charge always does; a march does when the lord's order was
 	/// given twice, quick (BattlefieldOrders).</summary>

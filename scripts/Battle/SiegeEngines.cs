@@ -21,8 +21,8 @@ public static class SiegeEngines
 	/// are here and not in recruits.json. [I]</summary>
 	public static readonly Dictionary<string, Units.Unit> Kinds = new()
 	{
-		[Catapult] = new Units.Unit("Catapult", 0, 0, 7, 1, true, "stone", IsEngine: true),
-		[Ram] = new Units.Unit("Battering Ram", 0, 0, 9, 2, true, "castle", IsEngine: true),
+		[Catapult] = new Units.Unit("Catapult", 0, 0, 7, 4, true, "stone", IsEngine: true),
+		[Ram] = new Units.Unit("Battering Ram", 0, 0, 9, 4, true, "castle", IsEngine: true),
 	};
 
 	/// <summary>How far a catapult throws, in metres, and how near the wall it can still throw from;
