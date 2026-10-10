@@ -335,6 +335,9 @@ The men live in **companies** (`FieldArmy`), not in one roster per county:
 - The lords march by it (`LordsCampaign.Wanted`): never on an ally's counties, the player's or
   another lord's; at war with the player, even an Easy lord comes for him, and before the empty
   country; a lord his ally sent against a realm (`Diplomacy.Errands`) goes for that realm first.
+  One who answered the player's call for help (an empty errand, `LordsCampaign.Help`) marches on
+  the nearest siege of the player's and falls on the besiegers in the open ("siege-relieved"); with
+  no siege, the player's foe is his errand. He keeps coming while he is sworn.
   Everyone else is fair game, lord against lord.
 - No alliance with fewer than two rival lords (`Diplomacy.IsAllianceOpen`): swearing to the only
   other lord would leave nobody to fight and the map unwinnable, so on the first map the Margrave

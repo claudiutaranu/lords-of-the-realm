@@ -11,7 +11,7 @@ public partial class LordsCampaign
 	/// <summary>The counties he could want: not his, somebody's to take — a county the map draws and
 	/// no economy describes cannot change hands, and a company once sat in one for twenty years — not
 	/// his ally's, and the player's only if his difficulty lets him. Nearest first, but the realm his
-	/// ally sent him against before anyone.</summary>
+	/// ally sent him against before anyone — or, sent to the player's help, the player's foe.</summary>
 	private List<string> Wanted(TurnManager turns, FieldArmy army, string realm, GameBalance b, int skill)
 	{
 		Vector2 here = Pixel(army);
@@ -42,7 +42,7 @@ public partial class LordsCampaign
 			wanted.RemoveAll(county => turns.AnyProvince(county)?.Realm == turns.PlayerRealm);
 		}
 
-		string errand = book.Errands.GetValueOrDefault(realm, "");
+		string errand = IsHelping(turns, realm) ? PlayersFoe(turns, army, realm) : book.Errands.GetValueOrDefault(realm, "");
 		wanted.Sort((x, y) =>
 		{
 			int sent = IsErrand(y).CompareTo(IsErrand(x));

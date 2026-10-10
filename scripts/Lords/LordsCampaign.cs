@@ -100,6 +100,14 @@ public sealed partial class LordsCampaign
 				continue;
 			}
 
+			// Sworn to come to the player's help, he lifts a siege of the player's before anything of
+			// his own.
+			if (Relieve(turns, army, realm, b, skill, walked, news))
+			{
+				marched.Add(army);
+				continue;
+			}
+
 			// A county he has only just taken is settled before he goes looking for the next.
 			if (turns.Turn < _settledBy.GetValueOrDefault(realm))
 			{

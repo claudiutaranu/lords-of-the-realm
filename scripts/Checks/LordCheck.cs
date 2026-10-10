@@ -32,6 +32,7 @@ public partial class LordCheck : Node
 		TheMuster(b);
 		TheWalls();
 		TheirWar();
+		TheirHelp();
 
 		GD.Print(_failed == 0
 			? "\nthe other lords: all checks passed"
