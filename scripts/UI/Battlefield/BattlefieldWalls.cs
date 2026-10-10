@@ -58,6 +58,11 @@ public static partial class BattlefieldWalls
 	public static float Raised(FieldWall wall, Vector2 at)
 	{
 		float high = wall.IsTimber ? TimberHigh : StoneHigh;
+		if (wall.OnTower(at))
+		{
+			return high + TowerOver;
+		}
+
 		if (wall.OnWalls(at))
 		{
 			return high;

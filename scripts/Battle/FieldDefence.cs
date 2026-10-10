@@ -20,6 +20,7 @@ public sealed partial class FieldBattle
 
 	/// <summary>How far in behind the gate the reserve waits.</summary>
 	private const float ReserveBack = 10f;
+	private const int WalkwayRanks = 2;
 
 	private readonly Dictionary<FieldSquad, (Vector2 At, Vector2 Facing)> _posts = new();
 	private readonly HashSet<FieldSquad> _reserve = new();
@@ -31,16 +32,26 @@ public sealed partial class FieldBattle
 		var bows = Squads.FindAll(squad => !squad.IsAttacking && squad.Shoots);
 		float side = Wall.Half * 2f;
 
-		// The bows spread along the south walkway, clear of the gate's span in its middle.
-		for (int i = 0; i < bows.Count; i++)
+		// The bows on the two towers at the corners of the face the enemy comes at, first, and then
+		// spread along its walkway, clear of the gate's span in its middle.
+		var towers = new HashSet<FieldSquad>();
+		for (int i = 0; i < Mathf.Min(2, bows.Count); i++)
 		{
-			float along = side * (i + 0.5f) / bows.Count;
+			bows[i].Reform(Mathf.CeilToInt(bows[i].Soldiers.Count / (float)WalkwayRanks));
+			_posts[bows[i]] = Wall.TowerPost(FieldWall.Face.South, i == 0, bows[i].Files * bows[i].Gap);
+			towers.Add(bows[i]);
+		}
+
+		var walkway = bows.GetRange(towers.Count, bows.Count - towers.Count);
+		for (int i = 0; i < walkway.Count; i++)
+		{
+			float along = side * (i + 0.5f) / walkway.Count;
 			if (Mathf.Abs(along - Wall.Half) < 5f)
 			{
 				along += 6f;
 			}
 
-			_posts[bows[i]] = Wall.Post(FieldWall.Face.South, along);
+			_posts[walkway[i]] = Wall.Post(FieldWall.Face.South, along);
 		}
 
 		// A company at the head of each ladder, the south face's first, and the rest in reserve.
@@ -63,6 +74,12 @@ public sealed partial class FieldBattle
 		{
 			squad.At = at;
 			squad.Facing = facing;
+			// On the walkway two ranks deep, strung out along it, which is all the stone holds — the
+			// companies at the corners standing their end files on the towers (the user's call).
+			if (!_reserve.Contains(squad))
+			{
+				squad.Reform(Mathf.CeilToInt(squad.Soldiers.Count / (float)WalkwayRanks));
+			}
 		}
 	}
 

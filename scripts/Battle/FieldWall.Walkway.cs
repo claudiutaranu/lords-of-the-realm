@@ -45,6 +45,27 @@ public sealed partial class FieldWall
 		return (on - (Outward(face) * Posted), Outward(face));
 	}
 
+	/// <summary>How far in from the wall's line a corner tower's top reaches, either way: a man that
+	/// near both faces stands on the tower, above the walkway.</summary>
+	public const float TowerReach = 2.4f;
+
+	/// <summary>Whether a spot is on the top of one of the corner towers.</summary>
+	public bool OnTower(Vector2 at)
+	{
+		Vector2 off = at - Middle;
+		return OnWalls(at) && Mathf.Abs(off.X) > Half - TowerReach && Mathf.Abs(off.Y) > Half - TowerReach;
+	}
+
+	/// <summary>A post on the top of the tower at one end of a face, facing out across that face's
+	/// corner.</summary>
+	public (Vector2 At, Vector2 Facing) TowerPost(Face face, bool atItsStart, float wide)
+	{
+		// Along the walkway from the corner, as far as the company is wide, so its end files stand on
+		// the tower and the rest on the wall beside it — never off the stone.
+		float along = (wide / 2f) + 0.5f;
+		return Post(face, atItsStart ? along : (Half * 2f) - along);
+	}
+
 	/// <summary>Inside a gap, so far in from it: where a company stands to hold it.</summary>
 	public Vector2 Behind(Opening gap, float depth)
 	{
