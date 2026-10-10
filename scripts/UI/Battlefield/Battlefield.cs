@@ -185,7 +185,7 @@ public partial class Battlefield : Control
 
 		_bar = new BattlefieldBar();
 		AddChild(_bar);
-		_bar.Lay(battle, us, them, Pick, Charge, Hold, Captain, battle.Withdraw, AutoResolve);
+		_bar.Lay(battle, us, them, Pick, Charge, Hold, Captain, battle.Withdraw, AutoResolve, Pace);
 
 		foreach (FieldSquad squad in battle.Squads)
 		{
@@ -227,7 +227,7 @@ public partial class Battlefield : Control
 		_tramp.Walking(walking, running);
 		_tramp.Loudness = TrampLoudness + Hushed();
 		_squads.Follow(_isPaused ? 0f : (float)delta, _owed / FieldBattle.Slice, _chosen, _camera, _eye <= BarsWithin && _eye >= BarsBeyond);
-		_bar.Refresh(_chosen, _isPaused);
+		_bar.Refresh(_chosen, _isPaused, _isRunning);
 
 		if (_battle.IsOver && _ending < 0f)
 		{

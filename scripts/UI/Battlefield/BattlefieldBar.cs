@@ -15,7 +15,11 @@ public partial class BattlefieldBar : Control
 	private const int RoomyCards = 8;
 	private const int LeastCardWide = 72;
 	private int _cardWide = CardWide;
-	private static readonly Vector2 OrderSize = new(252, 56);
+	private static readonly Vector2 OrderSize = new(150, 44);
+	private static readonly Color Lit = new(0.16f, 0.22f, 0.38f, 0.97f);
+	private Button _run;
+	private Button _walk;
+	private bool? _paceShown;
 	private const string MenuTheme = "res://theme/main-menu.tres";
 	private const int StandingWide = 220;
 	private const int ShieldSide = 46;
@@ -48,7 +52,7 @@ public partial class BattlefieldBar : Control
 
 	public void Lay(FieldBattle battle, BattlePanel.Colours us, BattlePanel.Colours them,
 		Action<FieldSquad, bool> pick, Action charge, Action hold, Action<bool> captain, Action retreat,
-		Action autoResolve)
+		Action autoResolve, Action<bool> pace)
 	{
 		_battle = battle;
 		Chrome.Fill(this);
@@ -56,7 +60,7 @@ public partial class BattlefieldBar : Control
 		Theme = GD.Load<Theme>(MenuTheme);
 		MouseFilter = MouseFilterEnum.Ignore;
 		AddChild(Head(us, them));
-		AddChild(Foot(battle, us, pick, charge, hold, captain, retreat, autoResolve));
+		AddChild(Foot(battle, us, pick, charge, hold, captain, retreat, autoResolve, pace));
 
 		Label help = Chrome.Line("Left: choose · Right: march, twice to run, or fall on (drag: draw their front) · WASD / Q E / wheel: look · Space: pause", 13, Chrome.Dim);
 		help.SetAnchorsPreset(LayoutPreset.BottomLeft);
@@ -90,7 +94,7 @@ public partial class BattlefieldBar : Control
 
 	/// <summary>Along the foot: his squads' cards, and his orders.</summary>
 	private Control Foot(FieldBattle battle, BattlePanel.Colours us, Action<FieldSquad, bool> pick, Action charge,
-		Action hold, Action<bool> captain, Action retreat, Action autoResolve)
+		Action hold, Action<bool> captain, Action retreat, Action autoResolve, Action<bool> pace)
 	{
 		var foot = new HBoxContainer();
 		foot.AddThemeConstantOverride("separation", 10);
@@ -105,15 +109,21 @@ public partial class BattlefieldBar : Control
 			}
 		}
 
-		foot.AddChild(new Control { CustomMinimumSize = new Vector2(16, 0) });
-		var orders = new GridContainer { Columns = 3 };
-		orders.AddThemeConstantOverride("h_separation", 8);
-		orders.AddThemeConstantOverride("v_separation", 8);
+		foot.AddChild(new Control { CustomMinimumSize = new Vector2(12, 0) });
+		// Small square-cornered plates in a gilt edge, four to a row: the orders, and the pace the
+		// chosen companies go at.
+		var orders = new GridContainer { Columns = 4 };
+		orders.AddThemeConstantOverride("h_separation", 6);
+		orders.AddThemeConstantOverride("v_separation", 6);
 		orders.AddChild(Order("Attack", "crossed-swords", charge, out _));
 		orders.AddChild(Order("Hold", "shield", hold, out _));
+		_run = Order("Run", "footsteps", () => pace(true), out _);
+		_walk = Order("Walk", "boot", () => pace(false), out _);
+		orders.AddChild(_run);
+		orders.AddChild(_walk);
 		orders.AddChild(Order("", "helmet", () => captain(!_battle.IsAttackCaptained), out _captainWord));
 		orders.AddChild(Order("Auto Resolve", "scales", autoResolve, out _));
-		orders.AddChild(Order("Retreat", "footsteps", retreat, out Label away));
+		orders.AddChild(Order("Retreat", "morale", retreat, out Label away));
 		away.AddThemeColorOverride("font_color", RetreatWord);
 		var middle = new CenterContainer();
 		middle.AddChild(orders);
@@ -188,8 +198,15 @@ public partial class BattlefieldBar : Control
 	}
 
 	/// <summary>Brings the bar up to the moment: who is left, who is in hand, and how the day stands.</summary>
-	public void Refresh(ICollection<FieldSquad> chosen, bool isPaused)
+	public void Refresh(ICollection<FieldSquad> chosen, bool isPaused, bool isRunning)
 	{
+		if (_paceShown != isRunning)
+		{
+			_paceShown = isRunning;
+			Dress(_run, isRunning);
+			Dress(_walk, !isRunning);
+		}
+
 		foreach ((FieldSquad squad, Card card) in _cards)
 		{
 			if (card.Standing != squad.Standing)
@@ -261,13 +278,38 @@ public partial class BattlefieldBar : Control
 		filled.GetParent().GetChild<ColorRect>(1).SizeFlagsStretchRatio = Mathf.Max(0.001f, 1f - share);
 	}
 
-	/// <summary>An order on the game's gilded plate (Chrome.Order), all of one width.</summary>
+	/// <summary>An order on a small plate: dark blue in a gilt edge, its glyph beside its word.</summary>
 	private static Button Order(string text, string icon, Action pressed, out Label word)
 	{
-		Button order = Chrome.Order(text, icon, pressed, out word);
-		order.CustomMinimumSize = OrderSize;
-		order.SizeFlagsHorizontal = SizeFlags.ShrinkCenter;
-		word.AddThemeFontSizeOverride("font_size", 18);
+		var order = new Button { CustomMinimumSize = OrderSize, FocusMode = FocusModeEnum.None };
+		Dress(order, false);
+		order.Pressed += pressed;
+		var said = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center, MouseFilter = MouseFilterEnum.Ignore };
+		said.AddThemeConstantOverride("separation", 8);
+		said.SetAnchorsPreset(LayoutPreset.FullRect);
+		said.AddChild(Chrome.Icon(icon, 22));
+		word = Chrome.Line(text, 16, Chrome.Cream);
+		word.VerticalAlignment = VerticalAlignment.Center;
+		said.AddChild(word);
+		order.AddChild(said);
 		return order;
+	}
+
+	/// <summary>A plate's face: lit brighter, with a brighter edge, while it is the one in force.</summary>
+	private static void Dress(Button order, bool isLit)
+	{
+		foreach ((string state, float lift) in new[] { ("normal", 0f), ("focus", 0f), ("hover", 0.12f), ("pressed", -0.1f) })
+		{
+			var face = new StyleBoxFlat
+			{
+				BgColor = (isLit ? Lit : Navy).Lightened(Mathf.Max(0f, lift)).Darkened(Mathf.Max(0f, -lift)),
+				BorderColor = isLit || lift > 0f ? Gilt.Lightened(0.3f) : Gilt,
+			};
+			face.SetBorderWidthAll(2);
+			face.SetCornerRadiusAll(4);
+			face.ShadowColor = new Color(0f, 0f, 0f, 0.45f);
+			face.ShadowSize = 3;
+			order.AddThemeStyleboxOverride(state, face);
+		}
 	}
 }

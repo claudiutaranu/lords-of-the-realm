@@ -63,6 +63,18 @@ public partial class Battlefield
 	/// set them walking, and the second only quickens them.</summary>
 	private bool _isOrderedTwice;
 
+	/// <summary>The pace the lord's marches go at (the bar's Run and Walk): a click twice quick always runs.</summary>
+	private bool _isRunning;
+
+	private void Pace(bool running)
+	{
+		_isRunning = running;
+		foreach (FieldSquad squad in _chosen)
+		{
+			squad.IsRunning = running;
+		}
+	}
+
 	/// <summary>When and where the right button last went down, to tell a second click from a first.
 	/// Timed here rather than read off the event's own double-click flag, which a trackpad's
 	/// two-finger tap never set: the lord's double click on open ground only ever walked.</summary>
@@ -103,7 +115,7 @@ public partial class Battlefield
 		if (_chosen.Count > 0 && front is var (from, to, facing))
 		{
 			_battle.IsAttackCaptained = false;
-			_battle.Form(_chosen, from, to, facing, _isOrderedTwice);
+			_battle.Form(_chosen, from, to, facing, _isOrderedTwice || _isRunning);
 			Answer("move");
 		}
 	}
@@ -141,7 +153,7 @@ public partial class Battlefield
 		}
 		else
 		{
-			_battle.March(_chosen, spot, _isOrderedTwice);
+			_battle.March(_chosen, spot, _isOrderedTwice || _isRunning);
 			Answer("move");
 		}
 	}
