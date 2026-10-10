@@ -79,7 +79,7 @@ public partial class LordSelectPage : Control
 		stack.AddChild(row);
 		area.AddChild(stack);
 
-		Button onward = Chrome.Order("Choose Campaign", "", () => SceneRouter.GoTo(this, CampaignScenePath), out _);
+		Button onward = Chrome.Order("Choose Lord", "", () => SceneRouter.GoTo(this, CampaignScenePath), out _);
 		onward.CustomMinimumSize = new Vector2(380, 60);
 		onward.SizeFlagsHorizontal = SizeFlags.ShrinkCenter;
 		stack.AddChild(onward);
