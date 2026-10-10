@@ -82,7 +82,7 @@ public sealed partial class FieldBattle
 			{
 				FieldSquad mark = squad.Target is { IsStanding: true } target && InRange(squad, target)
 					? target
-					: Nearest(squad, squad.Range);
+					: AtWork(squad) ?? Nearest(squad, squad.Range);
 				squad.ShootingAt = mark != null && IsAhead(squad, mark) ? mark : null;
 			}
 		}

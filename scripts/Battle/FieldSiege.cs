@@ -79,6 +79,31 @@ public sealed partial class FieldBattle
 		return best;
 	}
 
+	/// <summary>The engine at work nearest a castle's bowmen, in their reach and their arc: what is
+	/// bringing their walls down is what they shoot at first. Left to the nearest company, they shot
+	/// only ever at the men round the ladders, and no engine was so much as scratched.</summary>
+	private FieldSquad AtWork(FieldSquad bows)
+	{
+		if (Wall == null || bows.IsAttacking)
+		{
+			return null;
+		}
+
+		FieldSquad best = null;
+		float bestFar = bows.Range;
+		foreach (FieldSquad engine in Squads)
+		{
+			float far = engine.At.DistanceTo(bows.At);
+			if (engine.Kind.IsEngine && engine.IsBattering && engine.IsStanding && far <= bestFar && IsAhead(bows, engine))
+			{
+				best = engine;
+				bestFar = far;
+			}
+		}
+
+		return best;
+	}
+
 	/// <summary>The captain's order to an engine for this slice.</summary>
 	private void Engineer(FieldSquad engine)
 	{

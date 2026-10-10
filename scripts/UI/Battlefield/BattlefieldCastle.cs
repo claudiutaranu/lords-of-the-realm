@@ -2,21 +2,24 @@ using System.Collections.Generic;
 using Godot;
 
 /// <summary>The castle on the field of an assault as the day goes: laid again whenever the engines
-/// bring a stretch of it down (FieldWall.Version), and over every stretch a bar of what it has left,
-/// in the holder's colour while the engines are at it, so the lord can see how near the breach is; and the besiegers' engines,
-/// each where its company of one stands and facing the way it goes, broken once it is.</summary>
+/// bring a stretch of it down (FieldWall.Version), and over every stretch and the gate a bar of what it
+/// has left in the holder's colour, so the lord can see how near the breach is; and the besiegers'
+/// engines, each where its company of one stands and facing the way it goes, with a bar of its own in
+/// the besiegers' colour, broken once it is.</summary>
 public partial class BattlefieldCastle : Node3D
 {
 	private const float BarWide = 6f;
-	private const float BarLingers = 3f;
 	private const float BarHigh = 0.45f;
 	private const float BarOver = 3.2f;
+	private const float EngineBarWide = 3.5f;
+	private const float EngineBarOver = 4.5f;
 	private static readonly Color Spent = new(0.12f, 0.1f, 0.08f, 0.85f);
 
 	private readonly FieldWall _wall;
 	private readonly BattlefieldLand _land;
 	private readonly Color _holder;
 	private readonly Dictionary<FieldWall.Target, MeshInstance3D> _bars = new();
+	private readonly Dictionary<FieldSquad, MeshInstance3D> _engineBars = new();
 	private readonly Dictionary<FieldSquad, (Node3D Model, bool IsBroken)> _engines = new();
 	private readonly IReadOnlyList<FieldSquad> _squads;
 	private readonly Dictionary<FieldSquad, float> _yaws = new();
@@ -68,17 +71,24 @@ public partial class BattlefieldCastle : Node3D
 		{
 			if (!_bars.TryGetValue(target, out MeshInstance3D bar))
 			{
-				bar = Bar(target);
+				(Vector2 from, Vector2 to) = _wall.Ends(target.Gap.On);
+				Vector2 at = from + ((to - from).Normalized() * target.Gap.Middle);
+				float high = BattlefieldWalls.Raised(_wall, at - ((at - _wall.Middle).Normalized() * 1f));
+				bar = Bar(_land.On(at) + (Vector3.Up * (high + BarOver)), BarWide, _holder);
 				_bars[target] = bar;
 			}
 
-			// Every stretch has its health, but its bar shows only while the engines are at it.
-			bar.Visible = !target.IsDown && _wall.Clock - target.StruckAt < BarLingers;
-			float share = Mathf.Clamp(target.Health / target.Full, 0f, 1f);
-			// Shrinking to its middle: a billboard turns with the eye, so an offset to one end would not.
-			bar.GetChild<MeshInstance3D>(0).Scale = new Vector3(Mathf.Max(0.001f, share), 1f, 1f);
+			// Every stretch's bar, all day and not only while an engine is at it (the user's call): the
+			// lord sees the whole wall's health, and which stretch is the weakest, before he chooses one.
+			bar.Visible = !target.IsDown;
+			Fill(bar, target.Health / target.Full);
 		}
 	}
+
+	/// <summary>Shrinks a bar's fill to its share, toward its middle: a billboard turns with the eye, so
+	/// an offset to one end would not stay at that end.</summary>
+	private static void Fill(MeshInstance3D bar, float share) =>
+		bar.GetChild<MeshInstance3D>(0).Scale = new Vector3(Mathf.Max(0.001f, Mathf.Clamp(share, 0f, 1f)), 1f, 1f);
 
 	/// <summary>A ladder stands against the wall only while one of the attackers is on it or at its foot.</summary>
 	private void Ladders()
@@ -148,22 +158,32 @@ public partial class BattlefieldCastle : Node3D
 				Vector3 now = isNew ? there : drawn.Model.Position.Lerp(there, ease);
 				drawn.Model.Transform = new Transform3D(new Basis(Vector3.Up, turned), now);
 			}
+
+			if (!_engineBars.TryGetValue(squad, out MeshInstance3D bar))
+			{
+				bar = Bar(Vector3.Zero, EngineBarWide, _taker);
+				_engineBars[squad] = bar;
+			}
+
+			bar.Visible = man != null && !isBroken;
+			bar.Position = drawn.Model.Position + (Vector3.Up * EngineBarOver);
+			if (man != null)
+			{
+				Fill(bar, man.Health / man.MostHealth);
+			}
 		}
 	}
 
-	/// <summary>A bar over a stretch, facing the eye: dark for what is spent, the holder's colour over it.</summary>
-	private MeshInstance3D Bar(FieldWall.Target target)
+	/// <summary>A bar facing the eye: dark for what is spent, its side's colour over it.</summary>
+	private MeshInstance3D Bar(Vector3 at, float wide, Color colour)
 	{
-		(Vector2 from, Vector2 to) = _wall.Ends(target.Gap.On);
-		Vector2 at = from + ((to - from).Normalized() * target.Gap.Middle);
-		float high = BattlefieldWalls.Raised(_wall, at - ((at - _wall.Middle).Normalized() * 1f));
 		var back = new MeshInstance3D
 		{
-			Mesh = new QuadMesh { Size = new Vector2(BarWide, BarHigh) },
-			Position = _land.On(at) + (Vector3.Up * (high + BarOver)),
+			Mesh = new QuadMesh { Size = new Vector2(wide, BarHigh) },
+			Position = at,
 			MaterialOverride = Flat(Spent, 0),
 		};
-		back.AddChild(new MeshInstance3D { Mesh = new QuadMesh { Size = new Vector2(BarWide, BarHigh) }, MaterialOverride = Flat(_holder, 1) });
+		back.AddChild(new MeshInstance3D { Mesh = new QuadMesh { Size = new Vector2(wide, BarHigh) }, MaterialOverride = Flat(colour, 1) });
 		AddChild(back);
 		return back;
 	}

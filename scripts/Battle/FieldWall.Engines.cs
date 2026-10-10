@@ -16,14 +16,7 @@ public sealed partial class FieldWall
 		public float Full { get; init; }
 		public float Health { get; set; }
 		public bool IsDown => Health <= 0f;
-
-		/// <summary>When an engine last struck it, on the wall's clock, so its bar shows only while it
-		/// is under attack.</summary>
-		public float StruckAt { get; set; } = -100f;
 	}
-
-	/// <summary>The engines' working day, in seconds, the clock StruckAt is read off.</summary>
-	public float Clock { get; private set; }
 
 	public List<Target> Battered { get; } = new();
 
@@ -70,7 +63,6 @@ public sealed partial class FieldWall
 	/// can work beats at its stretch, and a stretch that comes down is open.</summary>
 	public void Pound(float seconds, IEnumerable<FieldSquad> squads)
 	{
-		Clock += seconds;
 		foreach (FieldSquad engine in squads)
 		{
 			if (!engine.Kind.IsEngine || !engine.IsStanding || engine.IsMoving || !engine.IsBattering)
@@ -87,7 +79,6 @@ public sealed partial class FieldWall
 			}
 
 			target.Health -= seconds;
-			target.StruckAt = Clock;
 			if (target.IsDown)
 			{
 				// The ladders leant on it come down with it.
