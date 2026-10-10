@@ -31,6 +31,10 @@ public partial class MapDecoration
 	public bool AtCastle(string province, Vector2 pixel) =>
 		_settlementSites.TryGetValue(province, out Vector2 seat) && pixel.DistanceTo(CastleSite(seat)) <= CastleReach;
 
+	/// <summary>Where a county's castle stands or would stand, or null for a county with no village.</summary>
+	public Vector2? CastleOf(string province) =>
+		_settlementSites.TryGetValue(province, out Vector2 seat) ? CastleSite(seat) : null;
+
 	/// <summary>The county whose castle ground this map pixel is on, or empty.</summary>
 	public string CastleAt(Vector2 pixel)
 	{

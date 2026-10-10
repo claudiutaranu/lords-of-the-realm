@@ -28,6 +28,8 @@ public partial class CampaignMap3D
 
 	public bool AtCastle(string province, Vector2 mapPixel) => _decoration.AtCastle(province, mapPixel);
 
+	public Vector2? CastleOf(string province) => _decoration.CastleOf(province);
+
 	/// <summary>Which of a county's fields sits under a map pixel, or -1.</summary>
 	public int PlotAt(string province, Vector2 mapPixel) => _decoration.PlotAt(province, mapPixel);
 

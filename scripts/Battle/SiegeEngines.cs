@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 
 /// <summary>What a besieging army builds before it storms a castle: rams for the gate and catapults
-/// for the curtain, no more than GameBalance.SiegeEnginesMost of them, each costing seasons of the
+/// for the curtain, no more than GameBalance.SiegeEnginesMost of each, each costing seasons of the
 /// siege before the assault can go in. What they do to the walls is Battle's (the frontage and the
 /// stone); this is only what there is and how long it takes.</summary>
 public static class SiegeEngines

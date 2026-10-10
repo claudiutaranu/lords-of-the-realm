@@ -150,8 +150,12 @@ The men live in **companies** (`FieldArmy`), not in one roster per county:
 ## Battles
 
 - A county is taken at its own gate. The battle panel opens when one of the player's companies
-  halts on another lord's **seat** — its town, or the walls raised on it, which are the same square
-  of ground (`CampaignMapPage.Contested`, `MapDecoration.TownAt`).
+  halts on another lord's **seat** — its castle if it has walls, its town if not (the user's call;
+  `CampaignMapPage.Contested`/`AtSeat`, `MapDecoration.AtCastle`/`TownAt`); a march pointed at a walled
+  county's town goes round to its castle (`Gate`). Halted before manned walls, the panel opens on the
+  engines to build — up to `SiegeEnginesMost` (3) rams and 3 catapults, the turns they take shown —
+  and the season they are built the assault opens by itself (`TurnManager.IsSiegeJustReady`,
+  `CampaignMapPage.StormWhenReady`). The walls are never stormed off the march or off a won field.
 - Two fights in order: whatever stands in the open, then whatever is on the walls. The county does
   not change hands until both are done, which is what a castle is for. Sitting down in front of the
   gate (`Besiege`) is the other way, and the only way against the top rungs.

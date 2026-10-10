@@ -107,11 +107,29 @@ public partial class BattleCheck
 			|| built.Defender < bare.Defender, true);
 		for (int season = 0; season < seasons; season++)
 		{
+			Is($"  the assault is not put to the lord in season {season} of {seasons}", turns.IsSiegeJustReady("Valmere"), false);
 			turns.AdvanceTurn();
 		}
 
 		Is("  and once they are built the walls can be stormed", turns.SiegeSeasonsLeft("Valmere"), 0);
+		Is("  and that season the assault is put to the lord", turns.IsSiegeJustReady("Valmere"), true);
+		turns.AdvanceTurn();
+		Is("  that season only", turns.IsSiegeJustReady("Valmere"), false);
 		Is("a company knows what it is besieging", turns.Besieging(sitting), "Valmere");
+
+		TurnManager again = Realm(b, out ProvinceEconomy ours, out ProvinceEconomy theirs);
+		theirs.Fortification = "large-castle";
+		theirs.Castle["spear"] = 40;
+		ours.Muster("sword", 200, b.MarchReach);
+		ours.Armies[0].X = 900f;
+		ours.Armies[0].Y = 200f;
+		again.Besiege(ours.Armies[0], "Valmere", new System.Collections.Generic.Dictionary<string, int>
+		{
+			[SiegeEngines.Ram] = 9,
+			[SiegeEngines.Catapult] = 3,
+		});
+		Is("three rams and three catapults can be built, and no more of either",
+			again.SiegeSeasonsLeft("Valmere"), (b.SiegeEnginesMost * b.RamSeasons) + (3 * b.CatapultSeasons));
 	}
 
 	private void TheSiege(GameBalance b)

@@ -155,7 +155,12 @@ public partial class TurnManager
 		there.BesiegedFrom = army.Key;
 		there.SiegeSeasons = 0;
 		there.HungrySeasons = 0;
-		there.SiegeEngines = engines == null ? new Dictionary<string, int>() : new Dictionary<string, int>(engines);
+		there.SiegeEngines = new Dictionary<string, int>();
+		foreach ((string kind, int count) in engines ?? new Dictionary<string, int>())
+		{
+			there.SiegeEngines[kind] = Mathf.Clamp(count, 0, _balance.SiegeEnginesMost);
+		}
+
 		return true;
 	}
 
@@ -184,6 +189,16 @@ public partial class TurnManager
 		}
 
 		return Mathf.Max(0, SiegeEngines.Seasons(there.SiegeEngines, _balance) - there.SiegeSeasons);
+	}
+
+	/// <summary>Whether the engines before a county were finished this very season: the one season the
+	/// assault is put to the lord without his asking for it. A siege with no engines is a starving
+	/// out, and nobody is called to storm anything.</summary>
+	public bool IsSiegeJustReady(string county)
+	{
+		ProvinceEconomy there = _provincesByName.GetValueOrDefault(county);
+		int seasons = there == null ? 0 : SiegeEngines.Seasons(there.SiegeEngines, _balance);
+		return there != null && there.BesiegedFrom.Length > 0 && seasons > 0 && there.SiegeSeasons == seasons;
 	}
 
 	/// <summary>Takes one company out of every siege it was keeping.</summary>

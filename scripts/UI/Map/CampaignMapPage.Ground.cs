@@ -68,19 +68,34 @@ public partial class CampaignMapPage
 	}
 
 	/// <summary>Whether halting here means a fight: the lord's own men, standing on the seat of a
-	/// county that is not his. Its town and its castle are the same square of ground — the walls are
-	/// raised on the seat — so one question covers both, and everything else in the county is ground
-	/// to be walked over.</summary>
+	/// county that is not his — its castle if it has walls, its town if it has none — and everything
+	/// else in the county is ground to be walked over.</summary>
 	private bool Contested(FieldArmy army, string county, Vector2 at)
 	{
 		if (county.Length == 0 || army.Strength == 0 || _turnManager.RealmOf(army) != _playerRealm
-			|| _world.TownAt(at) != county)
+			|| !AtSeat(county, at))
 		{
 			return false;
 		}
 
 		ProvinceEconomy theirs = _turnManager.AnyProvince(county);
 		return theirs == null || theirs.Realm != _playerRealm;
+	}
+
+	/// <summary>Whether a spot is where a county is fought for: at its castle when it has walls (the
+	/// user's call — a walled county is attacked at its walls and only there), at its town when not.</summary>
+	private bool AtSeat(string county, Vector2 at) =>
+		IsWalled(county) ? _world.AtCastle(county, at) : _world.TownAt(at) == county;
+
+	private bool IsWalled(string county) => _turnManager.AnyProvince(county) is { Fortification.Length: > 0 };
+
+	/// <summary>Where a march the lord points goes: pointed at the town of another lord's walled county,
+	/// the men go round to its castle, which is where it is attacked; anywhere else, where he pointed.</summary>
+	private Vector2 Gate(Vector2 ground)
+	{
+		string town = _world.TownAt(ground);
+		bool isTheirs = _turnManager.AnyProvince(town) is { } theirs && theirs.Realm != _playerRealm;
+		return town.Length > 0 && isTheirs && IsWalled(town) && _world.CastleOf(town) is Vector2 castle ? castle : ground;
 	}
 
 	/// <summary>What sending a company onto another of the lord's own comes to, told before he says

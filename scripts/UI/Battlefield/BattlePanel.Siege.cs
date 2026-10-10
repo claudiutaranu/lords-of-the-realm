@@ -3,8 +3,9 @@ using Godot;
 
 /// <summary>A castle with men on its walls is not stormed off the march. The army sits down before
 /// the gate and builds its engines first — rams for the gate, catapults for the curtain, no more than
-/// GameBalance.SiegeEnginesMost — each costing seasons of the siege, and only when they are built is
-/// the assault offered. Starving the garrison out goes on all the while (TurnManager.Sieges).</summary>
+/// GameBalance.SiegeEnginesMost of each — each costing seasons of the siege, and the season they are
+/// built the assault is put to the lord (CampaignMapPage.StormWhenReady). Starving the garrison out
+/// goes on all the while (TurnManager.Sieges).</summary>
 public partial class BattlePanel
 {
 	private readonly Dictionary<string, int> _engines = new();
@@ -29,12 +30,13 @@ public partial class BattlePanel
 		if (ours && left > 0)
 		{
 			_question.Text = "The engines are building";
-			_verdict.Text = $"Ready to storm in {left} season{(left == 1 ? "" : "s")}, my lord.";
+			_verdict.Text = $"Ready to storm in {left} turn{(left == 1 ? "" : "s")}, my lord.";
 		}
 		else if (castle && !ours)
 		{
-			_question.Text = "Will you lay siege?";
-			_verdict.Text = "A castle is not taken off the march. Sit down before it and build your engines.";
+			// Halted before the walls, the lord is asked straight away what to build: a castle is not
+			// taken off the march, so there is no other question to put to him first.
+			Sit();
 		}
 	}
 
@@ -67,7 +69,7 @@ public partial class BattlePanel
 		_question.Text = "";
 		_verdict.Text = seasons == 0
 			? $"We sit down before {_county}, to starve it out."
-			: $"We sit down before {_county}. The engines will be ready in {seasons} season{(seasons == 1 ? "" : "s")}.";
+			: $"We sit down before {_county}. The engines will be ready, and the assault go in, in {seasons} turn{(seasons == 1 ? "" : "s")}.";
 		_verdict.AddThemeColorOverride("font_color", Chrome.Cream);
 		_attack.Visible = false;
 		_lead.Visible = false;
@@ -84,20 +86,21 @@ public partial class BattlePanel
 			old.QueueFree();
 		}
 
-		Engine(SiegeEngines.Ram, "Rams", _balance.RamSeasons, "open the gate: more men at it at once");
-		Engine(SiegeEngines.Catapult, "Catapults", _balance.CatapultSeasons, "breach the curtain, and the stone behind it");
+		Engine(SiegeEngines.Ram, $"Rams, up to {_balance.SiegeEnginesMost}", _balance.RamSeasons, "open the gate: more men at it at once");
+		Engine(SiegeEngines.Catapult, $"Catapults, up to {_balance.SiegeEnginesMost}", _balance.CatapultSeasons, "breach the curtain, and the stone behind it");
 		int seasons = SiegeEngines.Seasons(_engines, _balance);
 		_question.Text = "What will you build?";
 		_verdict.Text = seasons == 0
 			? "No engines: we only starve them out."
-			: $"The assault in {seasons} season{(seasons == 1 ? "" : "s")}, at most {_balance.SiegeEnginesMost} engines.";
+			: $"The assault in {seasons} turn{(seasons == 1 ? "" : "s")}, my lord.";
 		_attack.Visible = false;
+		_lead.Visible = false;
 	}
 
 	private void Engine(string kind, string name, int seasons, string does)
 	{
 		int count = _engines.GetValueOrDefault(kind);
-		Label said = Chrome.Line($"{name} ({seasons} season{(seasons == 1 ? "" : "s")} each): {does}", 16, Chrome.Soft);
+		Label said = Chrome.Line($"{name} ({seasons} turn{(seasons == 1 ? "" : "s")} each): {does}", 16, Chrome.Soft);
 		said.SizeFlagsHorizontal = SizeFlags.ExpandFill;
 		_terms.AddChild(said);
 		_terms.AddChild(Chrome.Plate("−", 30, () =>
@@ -114,7 +117,7 @@ public partial class BattlePanel
 			_engines[kind] = count + 1;
 			Choose();
 		});
-		more.Disabled = SiegeEngines.Count(_engines) >= _balance.SiegeEnginesMost;
+		more.Disabled = count >= _balance.SiegeEnginesMost;
 		_terms.AddChild(more);
 	}
 }

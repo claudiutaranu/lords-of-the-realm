@@ -91,18 +91,20 @@ public partial class BattlePanel
 				: "We are thrown back, my lord.";
 		_verdict.AddThemeColorOverride("font_color", taken || fellBack ? Chrome.Cream : Bad);
 
-		// A beaten field army with a castle still standing is the second question, and it is a real
-		// one: the lord may storm it now, on what the first fight left him, or leave it and come
-		// back with more men next season.
-		_attack.Visible = fellBack && ProvinceEconomy.Men(left.Castle) > 0;
+		// A beaten field army with a castle still standing is the second question: what to build to
+		// storm it with. The walls are not stormed off the back of the field any more than off the
+		// march (the user's call) — or the lord may leave it and come back with more men.
+		bool isCastleLeft = fellBack && ProvinceEconomy.Men(left.Castle) > 0;
+		_attack.Visible = false;
 		_lead.Visible = false;
-		_siege.Visible = _attack.Visible;
-		_leaveWord.Text = _attack.Visible ? "Retreat" : "Done";
-		if (_attack.Visible)
+		_siege.Visible = isCastleLeft;
+		_leaveWord.Text = isCastleLeft ? "Retreat" : "Done";
+		if (isCastleLeft)
 		{
 			_walls = true;
-			_question.Text = "Will you storm the walls?";
-			_attackWord.Text = "Storm the Walls";
+			_isChoosing = false;
+			_engines.Clear();
+			Sit();
 		}
 	}
 }

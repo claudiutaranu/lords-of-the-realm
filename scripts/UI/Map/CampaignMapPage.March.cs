@@ -110,6 +110,7 @@ public partial class CampaignMapPage
 			return;
 		}
 
+		ground = Gate(ground);
 		var asked = (army, ArmyPixel(army), (Vector2I)(ground / MarchGrid.CellSize).Floor(), army.MarchLeft);
 		if (_marchAsked == asked)
 		{
@@ -205,6 +206,7 @@ public partial class CampaignMapPage
 	/// question is put while he is still pointing and not after the walk.</summary>
 	private bool MarchOn(FieldArmy army, Vector2 ground, bool sure, bool? join)
 	{
+		ground = Gate(ground);
 		List<(Vector2 At, float Spent)> road = _ground.Way(ArmyPixel(army), ground, Beyond(army));
 		int halt = Halting(road, army.MarchLeft);
 		if (road.Count == 0)
@@ -237,14 +239,17 @@ public partial class CampaignMapPage
 
 		// A gate is attacked only when the lord pointed at it. Men sent somewhere else who run out of
 		// road beside a town, or whose road runs past one, are passing it, not storming it.
-		bool storms = _world.TownAt(ground) == into && Contested(army, into, road[^1].At);
+		bool storms = AtSeat(into, ground) && Contested(army, into, road[^1].At);
 		if (!sure && storms)
 		{
 			string holder = _realms[HolderOf(_provinces[county])].Name;
 			_ask.Ask($"March on {into}?",
-				$"{army.Strength:N0} men of {army.Home} will halt at the gate of {into}, held by {holder}, and "
-				+ "the battle for it is fought there and then: whoever stands in the open, then whoever is "
-				+ "on the walls, to the last man.",
+				IsWalled(into)
+					? $"{army.Strength:N0} men of {army.Home} will halt before the walls of {into}, held by {holder}. "
+						+ "Whoever stands in the open is fought there and then; the castle is sat down before while "
+						+ "the engines are built, and stormed when they are."
+					: $"{army.Strength:N0} men of {army.Home} will halt at the gate of {into}, held by {holder}, and "
+						+ "the battle for it is fought there and then, to the last man.",
 				"Attack", "Not now", () => MarchOn(army, ground, true, join));
 			return true;
 		}
@@ -289,8 +294,8 @@ public partial class CampaignMapPage
 			Conquered();
 
 			// A county is taken at its own gate and nowhere else. Men who have halted on another
-			// lord's seat — his town, or the walls raised on it — are standing where the thing worth
-			// taking is, and that is the one place the fighting happens.
+			// lord's seat — his castle if he has walls, his town if not — are standing where the thing
+			// worth taking is, and that is the one place the fighting happens.
 			if (storms)
 			{
 				_battle.Open(_turnManager, _balance, army, into, strides[^1],
