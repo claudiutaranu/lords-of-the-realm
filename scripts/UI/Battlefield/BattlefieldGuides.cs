@@ -23,7 +23,8 @@ public partial class BattlefieldSquads
 	private const float FanSidesStrength = 0.5f;
 
 	private float _strength = 1f;
-	private const float LinePiece = 3f;
+	private const float LinePiece = 1.5f;
+	private const float ArrowFadesOver = 14f;
 	private const float GuideLift = 0.2f;
 
 	/// <summary>How wide a strip is, as a share of the eye's distance, so it reads the same thickness
@@ -207,9 +208,14 @@ public partial class BattlefieldSquads
 		float head = _guideWide * HeadLong;
 		Vector2 neck = to - (way * Mathf.Min(head, from.DistanceTo(to)));
 		int pieces = Mathf.Max(1, Mathf.CeilToInt(from.DistanceTo(neck) / LinePiece));
+		// Faded in from the squad's end, so the line rises out of the turf under the men and not out of
+		// their feet (the user's call); the head end is painted whole.
+		float whole = Mathf.Min(from.DistanceTo(neck), ArrowFadesOver);
 		for (int i = 0; i < pieces; i++)
 		{
-			Strip(from.Lerp(neck, i / (float)pieces), from.Lerp(neck, (i + 1) / (float)pieces), across, across, colour);
+			Vector2 a = from.Lerp(neck, i / (float)pieces);
+			float strength = Mathf.SmoothStep(0f, 1f, Mathf.Clamp(a.DistanceTo(from) / Mathf.Max(whole, 0.01f), 0f, 1f));
+			Strip(a, from.Lerp(neck, (i + 1) / (float)pieces), across, across, colour, Mathf.Max(strength, 0.05f));
 		}
 
 		_strength = 1f;
