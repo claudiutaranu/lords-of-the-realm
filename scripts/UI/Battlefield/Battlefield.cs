@@ -159,7 +159,7 @@ public partial class Battlefield : Control
 		world.AddChild(Wood(_land));
 		if (battle.Wall != null)
 		{
-			world.AddChild(new BattlefieldCastle(battle.Wall, _land, them.Accent, battle.Squads));
+			world.AddChild(new BattlefieldCastle(battle, _land, them.Accent, us.Accent));
 		}
 
 		_tramp = new MarchingSound { Loudness = TrampLoudness };

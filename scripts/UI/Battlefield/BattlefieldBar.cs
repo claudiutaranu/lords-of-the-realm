@@ -237,7 +237,9 @@ public partial class BattlefieldBar : Control
 		Fill(_theirStanding, 1f - _battle.DefenceLoss, ref _theirShare);
 		Say(_captainWord, _battle.IsAttackCaptained ? "Take Command" : "Auto Attack", ref _captainSaid);
 		Say(_state, _battle.IsAttackFallen ? "Our last man is down"
+			: _battle.IsFlagTaken ? "Their flag is down!"
 			: _battle.IsDefenceFallen ? "The field is ours!"
+			: _battle.IsFlagContested ? $"Their flag is falling — {Mathf.RoundToInt(_battle.FlagTaken * 100)}%"
 			: isPaused ? "Paused"
 			: _battle.IsAttackCaptained ? "The captain leads"
 			: "", ref _stateSaid);

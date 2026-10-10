@@ -28,13 +28,18 @@ public partial class BattlefieldCastle : Node3D
 	private Node3D _built;
 	private int _laid = -1;
 
-	public BattlefieldCastle(FieldWall wall, BattlefieldLand land, Color holder, IReadOnlyList<FieldSquad> squads)
+	public BattlefieldCastle(FieldBattle battle, BattlefieldLand land, Color holder, Color taker)
 	{
-		_wall = wall;
+		_battle = battle;
+		_wall = battle.Wall;
 		_land = land;
 		_holder = holder;
-		_squads = squads;
+		_taker = taker;
+		_squads = battle.Squads;
 	}
+
+	private readonly FieldBattle _battle;
+	private readonly Color _taker;
 
 	public BattlefieldCastle()
 	{
@@ -56,6 +61,7 @@ public partial class BattlefieldCastle : Node3D
 		}
 
 		Ladders();
+		Flag();
 		Engines((float)delta);
 		Throw((float)delta);
 		foreach (FieldWall.Target target in _wall.Battered)

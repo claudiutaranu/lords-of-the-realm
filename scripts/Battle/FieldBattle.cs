@@ -204,9 +204,10 @@ public sealed partial class FieldBattle
 		Spread();
 		Engage();
 		Fight();
+		HoldTheFlag();
 
 		IsAttackFallen = Lost(true) >= _attackBrought;
-		IsDefenceFallen = Lost(false) >= _defenceBrought;
+		IsDefenceFallen = Lost(false) >= _defenceBrought || IsFlagTaken;
 		IsOver = IsAttackFallen || IsDefenceFallen || Clock >= DayLong;
 	}
 

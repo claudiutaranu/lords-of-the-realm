@@ -27,6 +27,11 @@ public sealed partial class FieldBattle
 			return;
 		}
 
+		if (!(squad.IsFighting && squad.InMelee != null) && Storm(squad))
+		{
+			return;
+		}
+
 		if (squad.Kind.IsEngine)
 		{
 			Engineer(squad);

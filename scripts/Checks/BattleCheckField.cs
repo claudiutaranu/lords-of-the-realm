@@ -75,6 +75,34 @@ public partial class BattleCheck
 			farthest <= squad.Gap * 1.5f, true);
 	}
 
+	/// <summary>The flag in the bailey: men round it with no defender near bring it down and take the
+	/// castle whoever still stands on the walls; and the castle's reserve stands by it from the first.</summary>
+	private void TheFlag(GameBalance b)
+	{
+		var bowsOnly = new Defenders(Men(("bow", 20)), new Dictionary<string, int>(), "large-castle", 50f, false);
+		var assault = new FieldBattle(Men(("sword", 30)), bowsOnly, false, b, atTheWalls: true);
+		FieldSquad swords = assault.Squads.Find(squad => squad.IsAttacking);
+		foreach (FieldSoldier man in swords.Soldiers)
+		{
+			man.At = assault.Flag + new Vector2((man.Slot % 5) - 2f, (man.Slot / 5) - 2f);
+			man.Was = man.At;
+		}
+
+		swords.At = assault.Flag;
+		while (!assault.IsOver)
+		{
+			assault.Step();
+		}
+
+		Is("men holding the flag with nobody near it bring it down", assault.IsFlagTaken, true);
+		Is("  and the castle is theirs", assault.Result().AttackerWon, true);
+		Is("  though its bowmen still stand", assault.Squads.Exists(squad => !squad.IsAttacking && squad.IsStanding), true);
+
+		var garrison = new Defenders(Men(("spear", 120), ("bow", 20)), new Dictionary<string, int>(), "large-castle", 50f, false);
+		var held = new FieldBattle(Men(("sword", 60)), garrison, false, b, atTheWalls: true);
+		Is("the castle's reserve stands by its flag", held.Squads.Exists(squad => !squad.IsAttacking && squad.At.DistanceTo(held.Flag) < 15f), true);
+	}
+
 	/// <summary>The wall stands whole until the engines bring it down: no breach and no gate open as
 	/// the day begins, both open once their health is spent; and a man on the walkway is out of reach
 	/// of a blade on the ground outside, but not of one on a ladder.</summary>

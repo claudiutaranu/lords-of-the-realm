@@ -66,8 +66,10 @@ public sealed partial class FieldBattle
 				continue;
 			}
 
+			// The reserve stands round the flag, which is what the castle is held for (FieldFlag).
 			_reserve.Add(foot[i]);
-			_posts[foot[i]] = (Wall.Behind(gate, ReserveBack) + new Vector2((i - ladders.Count) * 7f, 0f), Vector2.Down);
+			int round = i - ladders.Count;
+			_posts[foot[i]] = (Flag + new Vector2(((round % 3) - 1) * 9f, (round / 3) * 7f + 4f), Vector2.Down);
 		}
 
 		foreach ((FieldSquad squad, (Vector2 at, Vector2 facing)) in _posts)
@@ -89,6 +91,14 @@ public sealed partial class FieldBattle
 		if (squad.IsFighting && squad.InMelee != null && !squad.Shoots)
 		{
 			squad.Target = squad.InMelee;
+			squad.Goal = null;
+			return;
+		}
+
+		// An enemy at the flag is the whole garrison's business: every man not on a bow goes to him.
+		if (!squad.Shoots && AtTheFlag() is FieldSquad raider)
+		{
+			squad.Target = raider;
 			squad.Goal = null;
 			return;
 		}
