@@ -84,7 +84,6 @@ public partial class StorePanel : CountyPanel
 				string icon = type.ToString().ToLowerInvariant();
 				Heading(icon, $"{hands:N0} at the {Labour.SiteName(job)}", $"{Stock(p, type):N0} in store");
 				Say(p.Occupied.ContainsKey(job) ? "An enemy has stood on it: nobody can work it yet."
-					: p.IsShut(job) ? "The lord has shut it."
 					: $"The hands are {p.EfficiencyOf(job)}% practised at it.");
 				Rule();
 				Figure("Dug this season", EconomySimulation.ProjectedYield(type, hands, p, def, b, season));

@@ -29,19 +29,13 @@ public partial class CityPage
 
 	/// <summary>Asks for one figure's worth more or fewer on a site. The proportions are rewritten to
 	/// match and the county dealt again (Labour.Ask), so the figure comes from, or goes back to, the
-	/// idle — and asking at a site the lord had shut opens it.</summary>
+	/// idle.</summary>
 	private void Shift(Site site, int figures)
 	{
 		string job = JobOf(site);
 		int by = figures * WorkerFigures.Size(Province.Workers);
 		Labour.Ask(Province, _definition, _balance, _season, job,
 			Mathf.Clamp(Labour.Hands(Province, job) + by, 0, Labour.Most(Province, _definition, _balance, _season, job)));
-		Rebuild();
-	}
-
-	private void Toggle(Site site)
-	{
-		Labour.Toggle(Province, _definition, _balance, _season, JobOf(site));
 		Rebuild();
 	}
 
@@ -110,16 +104,6 @@ public partial class CityPage
 		foreach ((string what, string value) in Particulars(site))
 		{
 			Detail.AddChild(Reading(what, value, Bright));
-		}
-
-		// The original's click on the building: a site can be shut, and its people dealt elsewhere.
-		if (JobOf(site) is { } job && System.Array.IndexOf(Labour.Sites, job) >= 0)
-		{
-			bool shut = Province.IsShut(job);
-			var toggle = new Button { Text = shut ? "Open it again" : "Shut it", CustomMinimumSize = new Vector2(0, 42) };
-			toggle.AddThemeFontSizeOverride("font_size", 17);
-			toggle.Pressed += () => Toggle(site);
-			Detail.AddChild(toggle);
 		}
 
 		if (site.Room != null)

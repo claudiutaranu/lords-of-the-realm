@@ -240,14 +240,9 @@ public partial class ProvinceEconomy
 
 	public Dictionary<string, int> Shares = new();
 
-	/// <summary>The sites the lord has shut (Labour.Sites): nobody is dealt to them.</summary>
-	public List<string> Shut = new();
-
 	/// <summary>How practised each site's people are at it, in percent (Labour.Practise). A site
 	/// nobody has written down for is one the county has always worked, at its best.</summary>
 	public Dictionary<string, int> Efficiency = new();
-
-	public bool IsShut(string site) => Shut.Contains(site);
 
 	public int EfficiencyOf(string site) => Efficiency.TryGetValue(site, out int at) ? at : 100;
 

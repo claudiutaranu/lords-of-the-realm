@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using Godot;
 
 /// <summary>The lord's hand on the labour bar: a figure moved, the bar divided between the halves,
-/// a site shut or opened, and the rivals' farms-first order.</summary>
+/// and the rivals' farms-first order.</summary>
 public static partial class Labour
 {
 	// --- the lord's hand ----------------------------------------------------------------------
@@ -13,12 +13,10 @@ public static partial class Labour
 	/// A figure taken off a job stands idle: its share is simply not given to anybody else. A figure
 	/// put on one comes from the idle and only from the idle, as in Lords of the Realm — nobody is
 	/// pulled off another job behind the lord's back; he takes them off it himself first. When the
-	/// idle it draws on stand across the bar, the bar moves to fetch them. Asking for hands at a site
-	/// he had shut opens it.</summary>
+	/// idle it draws on stand across the bar, the bar moves to fetch them.</summary>
 	public static void Ask(ProvinceEconomy p, ProvinceDefinition def, GameBalance b, Season season,
 		string job, int hands)
 	{
-		p.Shut.Remove(job);
 		Deal(p, def, b, season); // from the county as it stands, not as it was last dealt
 		int people = p.Workers;
 		if (people <= 0)
@@ -83,17 +81,6 @@ public static partial class Labour
 	public static void Divide(ProvinceEconomy p, ProvinceDefinition def, GameBalance b, Season season, double toIndustry)
 	{
 		p.IndustryShare = Mathf.Clamp(toIndustry, 0, 100);
-		Deal(p, def, b, season);
-	}
-
-	/// <summary>Shuts a site or opens it again, and deals the county over it.</summary>
-	public static void Toggle(ProvinceEconomy p, ProvinceDefinition def, GameBalance b, Season season, string site)
-	{
-		if (!p.Shut.Remove(site))
-		{
-			p.Shut.Add(site);
-		}
-
 		Deal(p, def, b, season);
 	}
 

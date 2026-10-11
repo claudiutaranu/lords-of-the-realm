@@ -21,7 +21,6 @@ public partial class ProvinceEconomy
 		copy.Occupied = new Dictionary<string, int>(Occupied);
 		copy.Armoury = new Dictionary<string, int>(Armoury);
 		copy.Shares = new Dictionary<string, int>(Shares);
-		copy.Shut = new List<string>(Shut);
 		copy.Efficiency = new Dictionary<string, int>(Efficiency);
 		copy.Armies = new List<FieldArmy>(Armies.Count);
 		foreach (FieldArmy standing in Armies)

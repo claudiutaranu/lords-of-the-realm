@@ -62,16 +62,6 @@ public partial class EconomyCheck
 		EconomySimulation.RunTurn(none, def, b, Season.Spring);
 		Is("  not even when the season turns", none.GrainWorkers, 0);
 
-		// A shut site is dealt nobody, and its share goes to the sites still open.
-		ProvinceEconomy shut = Province();
-		Labour.Divide(shut, def, b, Season.Summer, 40);
-		int woodBefore = shut.WoodWorkers;
-		Labour.Toggle(shut, def, b, Season.Summer, Labour.Iron);
-		Is("a shut mine is dealt nobody", shut.IronWorkers, 0);
-		Is("  and the woods take its men", shut.WoodWorkers > woodBefore, true);
-		Labour.Ask(shut, def, b, Season.Summer, Labour.Iron, 20);
-		Is("asking for men at a shut mine opens it", shut.IsShut(Labour.Iron), false);
-
 		// Asking for hands rewrites the shares, and the deal gives them.
 		ProvinceEconomy asked = Province();
 		Labour.Divide(asked, def, b, Season.Summer, 40);

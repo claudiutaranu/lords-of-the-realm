@@ -12,8 +12,8 @@ using Godot;
 /// figure on the screen does not put a man somewhere: it rewrites the proportions and deals again.
 ///
 /// What a job can use is its useful ceiling. The fields and the herd are finite and change with the
-/// season; the diggings are all but bottomless; a site the county does not have, or one the lord has
-/// shut, can use nobody.</summary>
+/// season; the diggings are all but bottomless; a site the county does not have, or one an enemy stands
+/// on, can use nobody.</summary>
 public static partial class Labour
 {
 	public const string Grain = "grain";
@@ -40,7 +40,7 @@ public static partial class Labour
 	/// <summary>Every job a hand can be on, the farm's first; idle is whoever is on none of them.</summary>
 	public static readonly string[] Jobs = { Grain, Cattle, Reclaim, Castle, Iron, Stone, Wood, Smith };
 
-	/// <summary>The four sites a lord can shut with a click on the building.</summary>
+	/// <summary>The four sites whose hands grow practised at them (Practise).</summary>
 	public static readonly string[] Sites = { Iron, Stone, Wood, Smith };
 
 	/// <summary>A diggings' ceiling: more than any county will ever send, which is the original's way
@@ -215,7 +215,7 @@ public static partial class Labour
 		// ponytail: the original gives the masons nobody until every load of stone and timber is
 		// on site; here the wall is paid for when it is ordered, so they can start at once.
 		Castle => EconomySimulation.Masons(p),
-		Smith => p.IsShut(Smith) ? 0 : EconomySimulation.Smiths(p, b),
+		Smith => EconomySimulation.Smiths(p, b),
 		Iron => Open(p, Iron, def.IronWorkerCapacity),
 		Stone => Open(p, Stone, def.StoneWorkerCapacity),
 		Wood => Open(p, Wood, def.WoodWorkerCapacity),
@@ -226,7 +226,7 @@ public static partial class Labour
 	/// county's capacity for it says only whether the ore or the stone or the wood is there at all;
 	/// one an enemy army has stood on is shut for its seasons (ProvinceEconomy.Occupied).</summary>
 	private static int Open(ProvinceEconomy p, string site, int capacity) =>
-		capacity > 0 && !p.IsShut(site) && !p.Occupied.ContainsKey(site) ? Bottomless : 0;
+		capacity > 0 && !p.Occupied.ContainsKey(site) ? Bottomless : 0;
 
 	/// <summary>The fewest a job needs before it is short-handed, for the screen alone — the deal
 	/// never reads it. The fields, the herd, the reclaiming, the scaffolding and the anvil need what

@@ -115,9 +115,9 @@ not round the others about) — twice a season inside `RunTurn` and again at the
 `TurnManager`'s season. A job takes its share or its useful ceiling, whichever is less; a share a
 job cannot use walks on inside the half; shares the lord left unassigned are idle by his choice.
 `Labour.Ask` (a figure moved): taken off stands idle; put on comes from the idle and only the idle
-(either half, the bar moves), as in the original; `Labour.Most` is where + stops. The diggings have no ceiling, only presence and
-the lord's on/off (`Shut`); each site has an efficiency that climbs from 15% while it is worked.
-Nobody writes a `*Workers` field by hand any more: the screens call `Labour.Ask`/`Divide`/`Toggle`,
+(either half, the bar moves), as in the original; `Labour.Most` is where + stops. The diggings have no ceiling, only presence (a site
+cannot be shut: the user's call); each site has an efficiency that climbs from 15% while it is worked.
+Nobody writes a `*Workers` field by hand any more: the screens call `Labour.Ask`/`Divide`,
 the rivals `Labour.FarmsFirst`. A county digs stone or iron, never both (`EconomyCheck.StoneOrIron`).
 
 Stores move between the lord's counties only by cart (`Shipment`, `TurnManagerSupply`, `SupplyPanel`,
