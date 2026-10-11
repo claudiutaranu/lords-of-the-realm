@@ -19,6 +19,7 @@ public partial class CampaignMap3D
 	private const float MaxDistance = 152.0f;
 
 	private const float ZoomStep = 9.5f;
+	private const float SeaAside = 0.5f;
 	// Trackpad gestures carry continuous deltas, not the wheel's discrete clicks, so they need their
 	// own scale: how many world units one unit of two-finger scroll, and one of pinch, are worth.
 	// Tune by feel — these are not comparable to ZoomStep.
@@ -58,11 +59,11 @@ public partial class CampaignMap3D
 		{
 			if (button.ButtonIndex == MouseButton.WheelUp)
 			{
-				Zoom(-ZoomStep);
+				Zoom(-ZoomStep, button.Position);
 			}
 			else if (button.ButtonIndex == MouseButton.WheelDown)
 			{
-				Zoom(ZoomStep);
+				Zoom(ZoomStep, button.Position);
 			}
 		}
 		// A trackpad sends no wheel buttons at all: macOS gives anything with a gesture phase to
@@ -71,11 +72,11 @@ public partial class CampaignMap3D
 		// exactly as the wheel does.
 		else if (@event is InputEventPanGesture pan)
 		{
-			Zoom(pan.Delta.Y * PanGestureZoomStep);
+			Zoom(pan.Delta.Y * PanGestureZoomStep, pan.Position);
 		}
 		else if (@event is InputEventMagnifyGesture magnify)
 		{
-			Zoom((1.0f - magnify.Factor) * MagnifyZoomStep);
+			Zoom((1.0f - magnify.Factor) * MagnifyZoomStep, magnify.Position);
 		}
 		else if (@event is InputEventMouseMotion motion &&
 			(motion.ButtonMask & (MouseButtonMask.Right | MouseButtonMask.Middle)) != 0)
@@ -96,12 +97,34 @@ public partial class CampaignMap3D
 
 	// --- camera ---------------------------------------------------------------------------
 
-	private void Zoom(float amount)
+	/// <summary>Closes in on, or draws back from, the ground under the pointer: it stays under the
+	/// pointer while the eye moves, so what the lord pointed at is what he comes down on — zooming on
+	/// the screen's middle left Kingsreach at its edge. Off the land, the middle it is.</summary>
+	private void Zoom(float amount, Vector2 pointer)
 	{
+		bool isOnLand = RayHitsTerrain(_camera.ProjectRayOrigin(pointer), _camera.ProjectRayNormal(pointer), out Vector3 held);
 		_distance = Mathf.Clamp(_distance + amount, MinDistance, MaxDistance);
+		UpdateCamera();
+		if (isOnLand)
+		{
+			// The ground under the pointer now, taken at the height the held point stands at.
+			Vector3 origin = _camera.ProjectRayOrigin(pointer);
+			Vector3 direction = _camera.ProjectRayNormal(pointer);
+			if (direction.Y < 0f)
+			{
+				Vector3 now = origin + (direction * ((held.Y - origin.Y) / direction.Y));
+				_focus += new Vector3(held.X - now.X, 0f, held.Z - now.Z);
+			}
+		}
+
 		ClampFocus(); // a wider view needs more room around it
 		UpdateCamera();
 	}
+
+	/// <summary>The share of the screen's width the page's own furniture covers down the right-hand
+	/// side (the sidebar). The view may go that much further east, or the counties along the east
+	/// coast sit under the sidebar for good.</summary>
+	public float CoveredRight { get; set; }
 
 	/// <summary>Keeps what the camera SEES on the map, not only the point it looks at. The camera
 	/// leans in from the south, so the bottom of the screen is ground a little south of the focus and
@@ -109,11 +132,6 @@ public partial class CampaignMap3D
 	/// lower half of the screen hang out over open water. So the view's own reach — near edge, far
 	/// edge and half its width at the near edge — is measured off the camera's height and tilt, and
 	/// the focus is held where all of it stays over the map. A view bigger than the map is centred.</summary>
-	/// <summary>The share of the screen's width the page's own furniture covers down the right-hand
-	/// side (the sidebar). The view may go that much further east, or the counties along the east
-	/// coast sit under the sidebar for good.</summary>
-	public float CoveredRight { get; set; }
-
 	private void ClampFocus()
 	{
 		float pitch = Mathf.DegToRad(-CameraPitchDegrees);
@@ -125,7 +143,10 @@ public partial class CampaignMap3D
 		Vector2 screen = IsInsideTree() ? GetViewport().GetVisibleRect().Size : new Vector2(16, 9);
 		float side = height / Mathf.Sin(pitch + half) * Mathf.Tan(half) * (screen.X / Mathf.Max(1f, screen.Y));
 
-		_focus.X = Fit(_focus.X, (-MapWidth / 2) + side, (MapWidth / 2) - side + (2f * side * CoveredRight));
+		// Half the view's width may hang over the sea east and west: held wholly over land, a seat on
+		// the coast (Kingsreach) could only ever be seen at the screen's edge.
+		float inland = side * (1f - SeaAside);
+		_focus.X = Fit(_focus.X, (-MapWidth / 2) + inland, (MapWidth / 2) - inland + (2f * side * CoveredRight));
 
 		// Taller than the map, the view is laid on its southern coast rather than centred: the near
 		// ground fills the bottom half of the screen, so the sea past the south edge was most of what

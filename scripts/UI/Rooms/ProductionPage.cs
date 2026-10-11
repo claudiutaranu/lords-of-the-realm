@@ -289,7 +289,6 @@ public abstract partial class ProductionPage : RoomPage
 	/// its start has no handle to drag.</summary>
 	private int Ceiling(Item item) => Mathf.Max(OrderStep, OrderCeiling(item));
 
-	/// <summary>Pays for the order and puts it on the bench. The turn does the rest.</summary>
 	/// <summary>Anything a room wants under the price line. The yard hangs its muster there — what
 	/// has been picked so far and the button that raises it — because that is a list about the whole
 	/// order and not about the card in hand.</summary>

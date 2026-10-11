@@ -289,14 +289,14 @@ public partial class MarketPage : RoomPage
 		return column;
 	}
 
-	/// <summary>Buy and sell, side by side, each dead when the till or the store cannot answer for
-	/// it. The line under them is what the trade comes to either way.</summary>
 	/// <summary>One side of the counter: how many, and the button that trades them at the price
 	/// written beside it — red on the buying side when the purse cannot cover it.</summary>
 	private Control BuildCounter(bool buying)
 	{
-		int amount = buying ? _buying : _selling;
 		int most = buying ? Affordable : Province.Stored(Trading.Key);
+		// Never more than the side can trade: an empty store offered "5 — Sell for 105" a sale
+		// that could not happen.
+		int amount = Mathf.Min(buying ? _buying : _selling, most);
 		var column = new VBoxContainer();
 		column.AddThemeConstantOverride("separation", 4);
 
@@ -316,7 +316,7 @@ public partial class MarketPage : RoomPage
 			}
 
 			ShowDetail();
-		});
+		}, most < Trading.Step ? 0 : -1);
 		stepper.SizeFlagsHorizontal = SizeFlags.ExpandFill;
 		row.AddChild(stepper);
 
@@ -331,6 +331,18 @@ public partial class MarketPage : RoomPage
 		trade.AddThemeFontSizeOverride("font_size", 17);
 		trade.Pressed += buying ? Buy : Sell;
 		row.AddChild(trade);
+
+		// The order moves the price as it goes (Market.Worth), so a big one does not go at the
+		// figure on the board; said here, or "Buy at 27" for 42 apiece reads as a cheat.
+		int each = amount > 0 ? Mathf.RoundToInt((float)worth / amount) : 0;
+		int board = buying ? _market.Asking(Trading.Key) : _market.Offered(Trading.Key);
+		if (each != board && amount > 0)
+		{
+			column.AddChild(Line(buying
+				? $"{each:N0} apiece on average: every one bought puts the price up."
+				: $"{each:N0} apiece on average: every one sold brings the price down.", 14, Dim));
+		}
+
 		return column;
 	}
 

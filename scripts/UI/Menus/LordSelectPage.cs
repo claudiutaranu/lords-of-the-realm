@@ -112,7 +112,6 @@ public partial class LordSelectPage : Control
 		{
 			CustomMinimumSize = new Vector2(CardWidth, CardHeight),
 			MouseFilter = MouseFilterEnum.Stop,
-			TooltipText = $"Play as {lord.Realm}",
 		};
 		var column = new VBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
 		column.AddThemeConstantOverride("separation", 6);

@@ -78,8 +78,6 @@ public partial class RecruitsPage : ProductionPage
 
 	protected override string BusyLine => "The yard is drilling";
 
-	/// <summary>A company is hired, not recruited: the word on the button follows what is being
-	/// looked at, so it never offers to raise men who are already soldiers.</summary>
 	/// <summary>"Muster" is a word for gathering an army and nothing else, which makes it a word the
 	/// button can be read wrong through. To enlist a man is to put him on the roll, which is exactly
 	/// what pressing this does — the company itself is made by the plate at the foot of the panel.
@@ -104,6 +102,12 @@ public partial class RecruitsPage : ProductionPage
 		column.AddThemeConstantOverride("separation", 6);
 		column.AddChild(Chrome.Rule(420));
 
+		// Side by side and wrapping, not a line a kind: one row each grew the panel with every kind
+		// enlisted and shoved the cards under it down the page.
+		var list = new HFlowContainer();
+		list.AddThemeConstantOverride("h_separation", 16);
+		list.AddThemeConstantOverride("v_separation", 4);
+		column.AddChild(list);
 		int men = 0;
 		foreach ((string key, int count) in _muster)
 		{
@@ -111,10 +115,10 @@ public partial class RecruitsPage : ProductionPage
 			men += count;
 
 			var row = new HBoxContainer();
-			row.AddThemeConstantOverride("separation", 8);
+			row.AddThemeConstantOverride("separation", 6);
 			row.AddChild(Icon(item?.Icon ?? key, 22));
 			row.AddChild(Line($"{count:N0} {item?.Name ?? key}", 16, Bright));
-			column.AddChild(row);
+			list.AddChild(row);
 		}
 
 		var price = new HBoxContainer();

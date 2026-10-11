@@ -38,8 +38,6 @@ public partial class CampaignMapPage
 		return Vector2.Zero;
 	}
 
-	/// <summary>Where a company is standing. Men just raised have never been put anywhere, and they
-	/// are at their own county's seat — which is where they were raised.</summary>
 	/// <summary>Where a company's banner is drawn: where it stands, unless that is a town's own square,
 	/// where the village and its ring would swallow it — which is exactly where a company that has
 	/// just carried a town is standing, and two hundred Swiss "vanished" the day they won. Drawn on
@@ -59,6 +57,8 @@ public partial class CampaignMapPage
 	/// neither in the houses nor in the trees.</summary>
 	private const float BesideTheTown = MapDecoration.TownRing + 8f;
 
+	/// <summary>Where a company is standing. Men just raised have never been put anywhere, and they
+	/// are at their own county's seat — which is where they were raised.</summary>
 	private Vector2 ArmyPixel(FieldArmy army)
 	{
 		var at = new Vector2(army.X, army.Y);
@@ -72,8 +72,24 @@ public partial class CampaignMapPage
 		// it would be in the way of the one thing that square of ground is already for. Each company
 		// takes its own ground around the town, so a second one raised there is a second banner the
 		// lord can point at rather than a figure hidden inside the first.
-		return SeatOf(army.Home) + MusterGround.Rotated((army.Id - 1) * MusterApart);
+		// Off the ploughland, too: Kingsreach's first company stood in the middle of its fields. The
+		// spot goes on round the town until it is clear of them, and stays put where none is.
+		Vector2 seat = SeatOf(army.Home);
+		float turn = (army.Id - 1) * MusterApart;
+		for (int tried = 0; tried < MusterTries; tried++)
+		{
+			Vector2 spot = seat + MusterGround.Rotated(turn + (tried * Mathf.Tau / MusterTries));
+			if (_world.PlotAt(army.Home, spot) < 0)
+			{
+				return spot;
+			}
+		}
+
+		return seat + MusterGround.Rotated(turn);
 	}
+
+	/// <summary>How many spots round the town are looked at for fresh men before one in a field is taken.</summary>
+	private const int MusterTries = 8;
 
 	/// <summary>Whether halting here means a fight: the lord's own men, standing on the seat of a
 	/// county that is not his — its castle if it has walls, its town if it has none — and everything

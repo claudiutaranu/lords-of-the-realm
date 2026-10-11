@@ -5,9 +5,22 @@ using Godot;
 /// scouts' word on it, and the pins kept on the ground every frame.</summary>
 public partial class CampaignMapPage
 {
+	/// <summary>How far the pointer may move between pressing a button and letting it go for it
+	/// still to be a click. Further, it was a drag of the map, and the release asks about nothing.</summary>
+	private const float ClickSlack = 6f;
+
+	private Vector2 _pressedAt;
+
 	private void OnMapGuiInput(InputEvent @event)
 	{
 		_world.HandleInput(@event); // pan and zoom; selection is the left button, below
+		if (@event is InputEventMouseButton { Pressed: true } press)
+		{
+			_pressedAt = press.Position;
+		}
+
+		bool isDrag = @event is InputEventMouseButton { Pressed: false } release
+			&& release.Position.DistanceTo(_pressedAt) > ClickSlack;
 		if (_rivalsMarching)
 		{
 			return; // the other lords are moving: look, but give no orders until they have
@@ -34,7 +47,7 @@ public partial class CampaignMapPage
 		// the pointer is opened and told in full, whoever it belongs to; with none there, the walls of
 		// the seat under it.
 		if (@event is InputEventMouseButton { ButtonIndex: MouseButton.Right, Pressed: false } asked
-			&& !_marching && _world.TryMapPixel(asked.Position, out Vector2 under))
+			&& !isDrag && !_marching && _world.TryMapPixel(asked.Position, out Vector2 under))
 		{
 			FieldArmy company = _turnManager.ArmyOf(_world.ArmyAt(under));
 			if (company is { Strength: > 0 })
