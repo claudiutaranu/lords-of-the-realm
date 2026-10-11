@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Godot;
 
 /// <summary>Where things stand on the map: a county's seat, where a company's banner is drawn, what
@@ -16,6 +17,13 @@ public partial class CampaignMapPage
 	/// one army, in map pixels. A field, not a county: men who cannot see each other are not
 	/// standing together.</summary>
 	private const float JoinReach = 70f;
+
+	/// <summary>How near another lord's company a road comes before it is stopped by it: inside the
+	/// reach a halt is a meeting (Foe), so the men stop where they can fight it.</summary>
+	private const float BlockReach = 60f;
+
+	/// <summary>How much nearer a company standing beside an enemy may come to him before it is held.</summary>
+	private const float StepNearer = 4f;
 
 	private Vector2 SeatOf(string county)
 	{
@@ -154,6 +162,47 @@ public partial class CampaignMapPage
 		}
 
 		return nearest;
+	}
+
+	/// <summary>The step of a road where another lord's company stands in the way, or -1: the men halt
+	/// there, beside it, and fight it or turn back (Foe opens the battle) — nobody walks through an
+	/// army, as in Lords of the Realm. Men already standing beside one may walk away from it, but not
+	/// a pace nearer, so a lord who would not fight it cannot go round it either. One standing where the
+	/// road ends is not in the way but what it is marched on: a company gone for, or the men before a
+	/// gate, whose castle is gone for as it is (Contested).
+	/// ponytail: only the player's marches are stopped; the rivals' roads (LordsCampaign.Go) walk
+	/// through his banners until they are cut the same way.</summary>
+	private int Blocked(FieldArmy army, List<(Vector2 At, float Spent)> road)
+	{
+		if (road.Count == 0)
+		{
+			return -1;
+		}
+
+		Vector2 from = ArmyPixel(army);
+		var inTheWay = new List<(Vector2 At, float Reach)>();
+		foreach (FieldArmy other in _turnManager.Armies())
+		{
+			string realm = _turnManager.RealmOf(other);
+			Vector2 at = ArmyPixel(other);
+			if (other.Strength > 0 && realm != _playerRealm && realm.Length > 0 && at.DistanceTo(road[^1].At) > JoinReach)
+			{
+				inTheWay.Add((at, Mathf.Min(BlockReach, at.DistanceTo(from) - StepNearer)));
+			}
+		}
+
+		for (int step = 1; step < road.Count; step++)
+		{
+			foreach ((Vector2 at, float reach) in inTheWay)
+			{
+				if (road[step].At.DistanceTo(at) <= reach)
+				{
+					return step;
+				}
+			}
+		}
+
+		return -1;
 	}
 
 	private string CountyNameAt(Vector2 pixel)

@@ -119,6 +119,11 @@ public partial class CampaignMapPage
 
 		_marchAsked = asked;
 		List<(Vector2 At, float Spent)> road = _ground.Way(ArmyPixel(army), ground, Beyond(army));
+		if (Blocked(army, road) is int stopped and > 0)
+		{
+			road = road.GetRange(0, stopped + 1);
+		}
+
 		if (road.Count == 0)
 		{
 			_marchLabel.Text = "No ground for an army";
@@ -208,6 +213,12 @@ public partial class CampaignMapPage
 	{
 		ground = Gate(ground);
 		List<(Vector2 At, float Spent)> road = _ground.Way(ArmyPixel(army), ground, Beyond(army));
+		// Nor past another lord's company standing on the road: they halt beside it.
+		if (Blocked(army, road) is int stopped and > 0)
+		{
+			road = road.GetRange(0, stopped + 1);
+		}
+
 		int halt = Halting(road, army.MarchLeft);
 		if (road.Count == 0)
 		{

@@ -147,6 +147,10 @@ The men live in **companies** (`FieldArmy`), not in one roster per county:
   any company (the user's call), the army panel saying how many of a company are hired. Splitting is `SplitPanel`. Disbanding
   returns the men to `Population` — they were taken out of it when they were raised.
 - A company is marched from its own banner on the map (or its army panel's Move); the sidebar has no March.
+- Nobody walks through an army (as in Lords): a march halts beside the first of another lord's
+  companies on its road (`CampaignMapPage.Blocked`), and the halt is the battle panel against it —
+  fight it or retreat; men already beside one may walk away but not nearer. One standing where the
+  road ends is what it was marched on, not in the way. The rivals' roads are not cut yet.
 
 ## Battles
 
